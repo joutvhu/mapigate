@@ -10,12 +10,23 @@ import { LogRepository } from "../../storage/repositories/logRepo.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 
+const MAX_PROXY_DISPATCHERS = 50;
 const proxyDispatchers = new Map<string, ProxyAgent>();
 
 function getProxyDispatcher(proxyUrl: string): ProxyAgent {
   let dispatcher = proxyDispatchers.get(proxyUrl);
   if (!dispatcher) {
+    if (proxyDispatchers.size >= MAX_PROXY_DISPATCHERS) {
+      const oldestKey = proxyDispatchers.keys().next().value;
+      if (oldestKey) {
+        proxyDispatchers.delete(oldestKey);
+      }
+    }
     dispatcher = new ProxyAgent(proxyUrl);
+    proxyDispatchers.set(proxyUrl, dispatcher);
+  } else {
+    // Refresh LRU order
+    proxyDispatchers.delete(proxyUrl);
     proxyDispatchers.set(proxyUrl, dispatcher);
   }
   return dispatcher;
@@ -72,7 +83,10 @@ export async function handleProxyRequest(
 
   // 2. Select account
   const account = LoadBalancer.pickAccount(provider.id);
-  if (!account || !account.rawApiKey) {
+  const hasCustomHeaders = Boolean(
+    provider.customHeaders && Object.keys(provider.customHeaders).length > 0
+  );
+  if ((!account || !account.rawApiKey) && !hasCustomHeaders) {
     res.status(503).json({
       error: {
         message: `No active API key account found for provider '${provider.name}'.`,
@@ -98,7 +112,7 @@ export async function handleProxyRequest(
   try {
     const outgoingHeaders: Record<string, string> = {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${account.rawApiKey}`,
+      ...(account?.rawApiKey ? { Authorization: `Bearer ${account.rawApiKey}` } : {}),
       ...(provider.customHeaders || {}),
     };
 
@@ -116,7 +130,7 @@ export async function handleProxyRequest(
     const upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
 
     if (!upstreamRes.ok) {
-      if (upstreamRes.status === 429) {
+      if (upstreamRes.status === 429 && account) {
         LoadBalancer.markRateLimited(account.id);
       }
       const errText = await upstreamRes.text();

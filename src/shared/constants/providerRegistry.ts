@@ -5,12 +5,22 @@ export interface RegistryModel {
   isDefault?: boolean;
 }
 
+export interface ProviderNotice {
+  apiKeyUrl?: string;
+  signupUrl?: string;
+  text?: string;
+}
+
 export interface ProviderRegistryItem {
   id: string;
   name: string;
   alias?: string;
   color?: string;
   image?: string;
+  website?: string;
+  notice?: ProviderNotice;
+  deprecated?: boolean;
+  deprecationNotice?: string;
   category: "oauth" | "freeTier" | "apikey" | "custom";
   baseUrl: string;
   baseUrls?: string[];
@@ -29,6 +39,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "alicode-intl",
     "color": "#FF6A00",
     "image": "/providers/alicode-intl.png",
+    "website": "https://www.alibabacloud.com/product/coding",
+    "notice": {
+      "apiKeyUrl": "https://www.alibabacloud.com/product/coding"
+    },
     "category": "apikey",
     "baseUrl": "https://coding-intl.dashscope.aliyuncs.com/v1/chat/completions",
     "baseUrls": [
@@ -82,6 +96,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "alicode",
     "color": "#FF6A00",
     "image": "/providers/alicode.png",
+    "website": "https://bailian.console.aliyun.com",
+    "notice": {
+      "apiKeyUrl": "https://bailian.console.aliyun.com/?apiKey=1"
+    },
     "category": "apikey",
     "baseUrl": "https://coding.dashscope.aliyuncs.com/v1/chat/completions",
     "baseUrls": [
@@ -140,6 +158,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "anthropic",
     "color": "#D97757",
     "image": "/providers/anthropic.png",
+    "website": "https://console.anthropic.com",
+    "notice": {
+      "apiKeyUrl": "https://console.anthropic.com/settings/keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.anthropic.com/v1/messages",
     "baseUrls": [
@@ -176,6 +198,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "ag",
     "color": "#F59E0B",
     "image": "/providers/antigravity.png",
+    "website": "https://antigravity.google",
+    "notice": {
+      "signupUrl": "https://antigravity.google"
+    },
+    "deprecated": true,
+    "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
     "category": "oauth",
     "baseUrl": "https://daily-cloudcode-pa.googleapis.com",
     "baseUrls": [
@@ -342,6 +370,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "assemblyai",
     "color": "#0062FF",
     "image": "/providers/assemblyai.png",
+    "website": "https://assemblyai.com",
+    "notice": {
+      "apiKeyUrl": "https://www.assemblyai.com/app/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.assemblyai.com/v1/audio/transcriptions",
     "baseUrls": [
@@ -380,6 +412,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "polly",
     "color": "#FF9900",
     "image": "/providers/aws-polly.png",
+    "website": "https://aws.amazon.com/polly/",
+    "notice": {
+      "text": "Use AWS Secret Access Key as API key; set providerSpecificData.accessKeyId and optional region.",
+      "apiKeyUrl": "https://console.aws.amazon.com/iam/home#/security_credentials"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -395,6 +432,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "azure",
     "color": "#0078D4",
     "image": "/providers/azure.png",
+    "website": "https://azure.microsoft.com/en-us/products/ai-services/openai-service",
+    "notice": {
+      "apiKeyUrl": "https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/OpenAI"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -410,6 +451,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "black-forest-labs",
     "color": "#111827",
     "image": "/providers/black-forest-labs.png",
+    "website": "https://blackforestlabs.ai",
+    "notice": {
+      "apiKeyUrl": "https://api.bfl.ai"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -456,6 +501,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "blackbox",
     "color": "#5B5FEF",
     "image": "/providers/blackbox.png",
+    "website": "https://blackbox.ai",
+    "notice": {
+      "apiKeyUrl": "https://www.blackbox.ai/api-management"
+    },
     "category": "apikey",
     "baseUrl": "https://api.blackbox.ai/v1/chat/completions",
     "baseUrls": [
@@ -542,6 +591,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "brave",
     "color": "#FB542B",
     "image": "/providers/brave-search.png",
+    "website": "https://brave.com/search/api",
+    "notice": {
+      "apiKeyUrl": "https://api-dashboard.search.brave.com/app/keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -557,6 +610,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "byteplus",
     "color": "#2563EB",
     "image": "/providers/byteplus.png",
+    "website": "https://console.byteplus.com/ark",
+    "notice": {
+      "text": "Free credits for new accounts. Access to Seed 2.0, Kimi K2 Thinking, GLM 4.7, GPT-OSS-120B models.",
+      "apiKeyUrl": "https://console.byteplus.com/ark/region:ark+ap-southeast-1/apiKey"
+    },
     "category": "freeTier",
     "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding/v3/chat/completions",
     "baseUrls": [
@@ -610,6 +668,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cartesia",
     "color": "#FF4F8B",
     "image": "/providers/cartesia.png",
+    "website": "https://cartesia.ai",
+    "notice": {
+      "apiKeyUrl": "https://play.cartesia.ai/keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -625,6 +687,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cerebras",
     "color": "#FF4F00",
     "image": "/providers/cerebras.png",
+    "website": "https://www.cerebras.ai",
+    "notice": {
+      "apiKeyUrl": "https://cloud.cerebras.ai/platform"
+    },
     "category": "apikey",
     "baseUrl": "https://api.cerebras.ai/v1/chat/completions",
     "baseUrls": [
@@ -673,6 +739,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "chutes",
     "color": "#ffffffff",
     "image": "/providers/chutes.png",
+    "website": "https://chutes.ai",
+    "notice": {
+      "apiKeyUrl": "https://chutes.ai/app/api"
+    },
     "category": "apikey",
     "baseUrl": "https://llm.chutes.ai/v1/chat/completions",
     "baseUrls": [
@@ -690,6 +760,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cc",
     "color": "#D97757",
     "image": "/providers/claude.png",
+    "website": "https://claude.ai",
+    "notice": {
+      "signupUrl": "https://claude.ai"
+    },
+    "deprecated": true,
+    "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
     "category": "oauth",
     "baseUrl": "https://api.anthropic.com/v1/messages",
     "baseUrls": [
@@ -758,6 +834,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cl",
     "color": "#5B9BD5",
     "image": "/providers/cline.png",
+    "website": "https://cline.bot",
+    "notice": {
+      "signupUrl": "https://cline.bot"
+    },
     "category": "oauth",
     "baseUrl": "https://api.cline.bot/api/v1/chat/completions",
     "baseUrls": [
@@ -819,6 +899,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "clinepass",
     "color": "#5B9BD5",
     "image": "/providers/clinepass.png",
+    "website": "https://cline.bot",
+    "notice": {
+      "signupUrl": "https://app.cline.bot"
+    },
     "category": "oauth",
     "baseUrl": "https://api.cline.bot/api/v1/chat/completions",
     "baseUrls": [
@@ -895,6 +979,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cloudflare-ai",
     "color": "#F38020",
     "image": "/providers/cloudflare-ai.png",
+    "website": "https://developers.cloudflare.com/workers-ai/",
+    "notice": {
+      "text": "Workers AI free tier. Requires a Cloudflare API token and Account ID.",
+      "apiKeyUrl": "https://dash.cloudflare.com/profile/api-tokens"
+    },
     "category": "freeTier",
     "baseUrl": "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1/chat/completions",
     "baseUrls": [
@@ -1039,6 +1128,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cbcn",
     "color": "#006EFF",
     "image": "/providers/codebuddy-cn.png",
+    "website": "https://copilot.tencent.com",
+    "notice": {
+      "signupUrl": "https://copilot.tencent.com"
+    },
     "category": "oauth",
     "baseUrl": "https://copilot.tencent.com/v2/chat/completions",
     "baseUrls": [
@@ -1119,6 +1212,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cx",
     "color": "#3B82F6",
     "image": "/providers/codex.png",
+    "website": "https://chatgpt.com/codex",
+    "notice": {
+      "signupUrl": "https://chatgpt.com/codex"
+    },
+    "deprecated": true,
+    "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
     "category": "oauth",
     "baseUrl": "https://chatgpt.com/backend-api/codex/responses",
     "baseUrls": [
@@ -1314,6 +1413,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cohere",
     "color": "#39594D",
     "image": "/providers/cohere.png",
+    "website": "https://cohere.com",
+    "notice": {
+      "apiKeyUrl": "https://dashboard.cohere.com/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.cohere.ai/v1/chat/completions",
     "baseUrls": [
@@ -1347,6 +1450,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "comfyui",
     "color": "#4CAF50",
     "image": "/providers/comfyui.png",
+    "website": "https://github.com/comfyanonymous/ComfyUI",
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -1373,6 +1477,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "commandcode",
     "color": "#000000",
     "image": "/providers/commandcode.png",
+    "website": "https://commandcode.ai",
+    "notice": {
+      "text": "Use your CommandCode CLI API key (starts with user_...) from ~/.commandcode/auth.json or commandcode.ai/studio.",
+      "apiKeyUrl": "https://commandcode.ai/studio"
+    },
     "category": "apikey",
     "baseUrl": "https://api.commandcode.ai/alpha/generate",
     "baseUrls": [
@@ -1504,6 +1613,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "coqui",
     "color": "#10B981",
     "image": "/providers/coqui.png",
+    "website": "https://github.com/coqui-ai/TTS",
     "category": "freeTier",
     "baseUrl": "",
     "baseUrls": [],
@@ -1519,6 +1629,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cu",
     "color": "#00D4AA",
     "image": "/providers/cursor.png",
+    "website": "https://cursor.com",
+    "notice": {
+      "signupUrl": "https://cursor.com"
+    },
     "category": "oauth",
     "baseUrl": "https://api2.cursor.sh",
     "baseUrls": [
@@ -1612,6 +1726,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "deepgram",
     "color": "#13EF93",
     "image": "/providers/deepgram.png",
+    "website": "https://deepgram.com",
+    "notice": {
+      "text": "$200 free credit on signup (no card required). Aura-1: $0.015/1k chars, Aura-2: $0.030/1k chars (Pay-As-You-Go).",
+      "apiKeyUrl": "https://console.deepgram.com/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.deepgram.com/v1/listen",
     "baseUrls": [
@@ -1650,6 +1769,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "deepseek",
     "color": "#4D6BFE",
     "image": "/providers/deepseek.png",
+    "website": "https://deepseek.com",
+    "notice": {
+      "apiKeyUrl": "https://platform.deepseek.com/api_keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.deepseek.com/chat/completions",
     "baseUrls": [
@@ -1725,6 +1848,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "el",
     "color": "#6C47FF",
     "image": "/providers/elevenlabs.png",
+    "website": "https://elevenlabs.io",
+    "notice": {
+      "apiKeyUrl": "https://elevenlabs.io/app/settings/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -1751,6 +1878,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "exa",
     "color": "#2563EB",
     "image": "/providers/exa.png",
+    "website": "https://exa.ai",
+    "notice": {
+      "apiKeyUrl": "https://dashboard.exa.ai/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -1766,6 +1897,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "fal-ai",
     "color": "#2563EB",
     "image": "/providers/fal-ai.png",
+    "website": "https://fal.ai",
+    "notice": {
+      "apiKeyUrl": "https://fal.ai/dashboard/keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -1817,6 +1952,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "featherless",
     "color": "#111827",
     "image": "/providers/featherless.png",
+    "website": "https://featherless.ai",
+    "notice": {
+      "apiKeyUrl": "https://featherless.ai/account/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.featherless.ai/v1/chat/completions",
     "baseUrls": [
@@ -1870,6 +2009,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "firecrawl",
     "color": "#F59E0B",
     "image": "/providers/firecrawl.png",
+    "website": "https://firecrawl.dev",
+    "notice": {
+      "apiKeyUrl": "https://www.firecrawl.dev/app/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -1885,6 +2028,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "fireworks",
     "color": "#7B2EF2",
     "image": "/providers/fireworks.png",
+    "website": "https://fireworks.ai",
+    "notice": {
+      "apiKeyUrl": "https://fireworks.ai/account/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.fireworks.ai/inference/v1/chat/completions",
     "baseUrls": [
@@ -1923,6 +2070,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "gc",
     "color": "#4285F4",
     "image": "/providers/gemini-cli.png",
+    "website": "https://github.com/google-gemini/gemini-cli",
+    "notice": {
+      "signupUrl": "https://github.com/google-gemini/gemini-cli"
+    },
+    "deprecated": true,
+    "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
     "category": "freeTier",
     "baseUrl": "https://cloudcode-pa.googleapis.com/v1internal",
     "baseUrls": [
@@ -1976,6 +2129,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "gemini",
     "color": "#4285F4",
     "image": "/providers/gemini.png",
+    "website": "https://ai.google.dev",
+    "notice": {
+      "apiKeyUrl": "https://aistudio.google.com/app/apikey"
+    },
     "category": "freeTier",
     "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models",
     "baseUrls": [
@@ -2129,6 +2286,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "gh",
     "color": "#333333",
     "image": "/providers/github.png",
+    "website": "https://github.com/features/copilot",
+    "notice": {
+      "signupUrl": "https://github.com/features/copilot"
+    },
+    "deprecated": true,
+    "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
     "category": "oauth",
     "baseUrl": "https://api.githubcopilot.com/chat/completions",
     "baseUrls": [
@@ -2252,6 +2415,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "name": "GitLab Duo",
     "color": "#FC6D26",
     "image": "/providers/gitlab.png",
+    "website": "https://gitlab.com",
+    "notice": {
+      "signupUrl": "https://gitlab.com"
+    },
     "category": "oauth",
     "baseUrl": "https://gitlab.com/api/v4/chat/completions",
     "baseUrls": [
@@ -2269,6 +2436,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "glm-cn",
     "color": "#DC2626",
     "image": "/providers/glm-cn.png",
+    "website": "https://open.bigmodel.cn",
+    "notice": {
+      "apiKeyUrl": "https://open.bigmodel.cn/usercenter/apikeys"
+    },
     "category": "apikey",
     "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions",
     "baseUrls": [
@@ -2337,6 +2508,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "glm",
     "color": "#2563EB",
     "image": "/providers/glm.png",
+    "website": "https://open.bigmodel.cn",
+    "notice": {
+      "apiKeyUrl": "https://open.bigmodel.cn/usercenter/apikeys",
+      "signupUrl": "https://chat.z.ai"
+    },
     "category": "oauth",
     "baseUrl": "https://api.z.ai/api/anthropic/v1/messages",
     "baseUrls": [
@@ -2398,6 +2574,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "gpse",
     "color": "#4285F4",
     "image": "/providers/google-pse.png",
+    "website": "https://programmablesearchengine.google.com",
+    "notice": {
+      "apiKeyUrl": "https://programmablesearchengine.google.com/controlpanel/create"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -2428,6 +2608,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "gcli",
     "color": "#1DA1F2",
     "image": "/providers/grok-cli.png",
+    "website": "https://x.ai",
+    "notice": {
+      "text": "Sign in with your xAI / Grok account via device code. Uses Grok Build subscription credits (cli-chat-proxy.grok.com).",
+      "signupUrl": "https://grok.com/supergrok"
+    },
     "category": "oauth",
     "baseUrl": "https://cli-chat-proxy.grok.com/v1/responses",
     "baseUrls": [
@@ -2484,6 +2669,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "grok-web",
     "color": "#1DA1F2",
     "image": "/providers/grok-web.png",
+    "website": "https://grok.com",
     "category": "oauth",
     "baseUrl": "https://grok.com/rest/app-chat/conversations/new",
     "baseUrls": [
@@ -2562,6 +2748,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "groq",
     "color": "#F55036",
     "image": "/providers/groq.png",
+    "website": "https://groq.com",
+    "notice": {
+      "apiKeyUrl": "https://console.groq.com/keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.groq.com/openai/v1/chat/completions",
     "baseUrls": [
@@ -2615,6 +2805,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "huggingface",
     "color": "#FFD21E",
     "image": "/providers/huggingface.png",
+    "website": "https://huggingface.co",
+    "notice": {
+      "apiKeyUrl": "https://huggingface.co/settings/tokens",
+      "text": "Runs through the Inference Providers router. Image and speech models are billed by the provider selected per model."
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -2756,6 +2951,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "hyperbolic",
     "color": "#00D4FF",
     "image": "/providers/hyperbolic.png",
+    "website": "https://hyperbolic.xyz",
+    "notice": {
+      "apiKeyUrl": "https://app.hyperbolic.xyz/settings"
+    },
     "category": "apikey",
     "baseUrl": "https://api.hyperbolic.xyz/v1/chat/completions",
     "baseUrls": [
@@ -2814,6 +3013,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "if",
     "color": "#6366F1",
     "image": "/providers/iflow.png",
+    "website": "https://iflow.cn",
+    "notice": {
+      "signupUrl": "https://iflow.cn"
+    },
     "category": "oauth",
     "baseUrl": "https://apis.iflow.cn/v1/chat/completions",
     "baseUrls": [
@@ -2909,6 +3112,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "inworld",
     "color": "#FF6B6B",
     "image": "/providers/inworld.png",
+    "website": "https://inworld.ai",
+    "notice": {
+      "text": "Free tier: 40 minutes/month TTS. Paid: TTS-1.5 Mini $0.01/min ($15/1M chars), TTS-1.5 Max $0.025/min ($30/1M chars). 270+ voices, 15 languages.",
+      "apiKeyUrl": "https://platform.inworld.ai/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -2924,6 +3132,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "jina",
     "color": "#2563EB",
     "image": "/providers/jina-ai.png",
+    "website": "https://jina.ai",
+    "notice": {
+      "text": "10M free tokens on signup (non-commercial), no credit card required.",
+      "apiKeyUrl": "https://jina.ai/?sui=apikey"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -2939,6 +3152,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "jina-reader",
     "color": "#000000",
     "image": "/providers/jina-reader.png",
+    "website": "https://jina.ai/reader",
+    "notice": {
+      "apiKeyUrl": "https://jina.ai/?sui=apikey"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -2954,6 +3171,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "kc",
     "color": "#FF6B35",
     "image": "/providers/kilocode.png",
+    "website": "https://kilocode.ai",
+    "notice": {
+      "signupUrl": "https://kilocode.ai"
+    },
     "category": "oauth",
     "baseUrl": "https://api.kilo.ai/api/openrouter/chat/completions",
     "baseUrls": [
@@ -3012,6 +3233,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "kimchi",
     "color": "#FF521D",
     "image": "/providers/kimchi.png",
+    "website": "https://kimchi.dev",
+    "notice": {
+      "signupUrl": "https://app.kimchi.dev"
+    },
     "category": "freeTier",
     "baseUrl": "https://llm.kimchi.dev/openai/v1/chat/completions",
     "baseUrls": [
@@ -3072,6 +3297,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "kimi",
     "color": "#1E3A8A",
     "image": "/providers/kimi.png",
+    "website": "https://kimi.moonshot.cn",
+    "notice": {
+      "apiKeyUrl": "https://platform.moonshot.ai/console/api-keys",
+      "signupUrl": "https://www.kimi.com/code"
+    },
     "category": "oauth",
     "baseUrl": "https://api.kimi.com/coding/v1/messages",
     "baseUrls": [
@@ -3143,6 +3373,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "kr",
     "color": "#FF6B35",
     "image": "/providers/kiro.png",
+    "website": "https://kiro.dev",
+    "notice": {
+      "signupUrl": "https://kiro.dev"
+    },
+    "deprecated": true,
+    "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
     "category": "freeTier",
     "baseUrl": "https://runtime.us-east-1.kiro.dev/generateAssistantResponse",
     "baseUrls": [
@@ -3420,6 +3656,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "linkup",
     "color": "#0EA5E9",
     "image": "/providers/linkup.png",
+    "website": "https://linkup.so",
+    "notice": {
+      "apiKeyUrl": "https://app.linkup.so/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -3473,6 +3713,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "minimax-cn",
     "color": "#DC2626",
     "image": "/providers/minimax-cn.png",
+    "website": "https://www.minimaxi.com",
+    "notice": {
+      "apiKeyUrl": "https://platform.minimaxi.com/user-center/basic-information/interface-key"
+    },
     "category": "apikey",
     "baseUrl": "https://api.minimaxi.com/anthropic/v1/messages",
     "baseUrls": [
@@ -3554,6 +3798,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "minimax",
     "color": "#7C3AED",
     "image": "/providers/minimax.png",
+    "website": "https://www.minimaxi.com",
+    "notice": {
+      "apiKeyUrl": "https://platform.minimaxi.com/user-center/basic-information/interface-key"
+    },
     "category": "apikey",
     "baseUrl": "https://api.minimax.io/anthropic/v1/messages",
     "baseUrls": [
@@ -3640,6 +3888,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "mistral",
     "color": "#FF7000",
     "image": "/providers/mistral.png",
+    "website": "https://mistral.ai",
+    "notice": {
+      "apiKeyUrl": "https://console.mistral.ai/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.mistral.ai/v1/chat/completions",
     "baseUrls": [
@@ -3700,6 +3952,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "nanobanana",
     "color": "#FFD700",
     "image": "/providers/nanobanana.png",
+    "website": "https://nanobananaapi.ai",
+    "notice": {
+      "text": "3rd-party proxy for Google Nano Banana (Gemini 2.5/3 Flash Image). For official, use Gemini provider.",
+      "apiKeyUrl": "https://nanobananaapi.ai/dashboard"
+    },
     "category": "apikey",
     "baseUrl": "https://api.nanobananaapi.ai/v1/chat/completions",
     "baseUrls": [
@@ -3728,6 +3985,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "nebius",
     "color": "#6C5CE7",
     "image": "/providers/nebius.png",
+    "website": "https://nebius.com",
+    "notice": {
+      "apiKeyUrl": "https://studio.nebius.com/settings/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.studio.nebius.ai/v1/chat/completions",
     "baseUrls": [
@@ -3756,6 +4017,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "nvidia",
     "color": "#76B900",
     "image": "/providers/nvidia.png",
+    "website": "https://developer.nvidia.com/nim",
+    "notice": {
+      "text": "Free access for NVIDIA Developer Program members (prototyping & testing).",
+      "apiKeyUrl": "https://build.nvidia.com/settings/api-keys"
+    },
     "category": "freeTier",
     "baseUrl": "https://integrate.api.nvidia.com/v1/chat/completions",
     "baseUrls": [
@@ -3829,6 +4095,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "ollama-local",
     "color": "#ffffffff",
     "image": "/providers/ollama-local.png",
+    "website": "https://ollama.com",
     "category": "apikey",
     "baseUrl": "http://localhost:11434/api/chat",
     "baseUrls": [
@@ -3846,6 +4113,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "ollama",
     "color": "#ffffffff",
     "image": "/providers/ollama.png",
+    "website": "https://ollama.com",
+    "notice": {
+      "text": "Free tier: light usage, 1 cloud model at a time (limits reset every 5h & 7d). Pro $20/mo · Max $100/mo.",
+      "apiKeyUrl": "https://ollama.com/settings/keys"
+    },
     "category": "freeTier",
     "baseUrl": "https://ollama.com/api/chat",
     "baseUrls": [
@@ -3904,6 +4176,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "ollama-search",
     "color": "#ffffff",
     "image": "/providers/ollama.png",
+    "website": "https://ollama.com",
+    "notice": {
+      "text": "Web search via Ollama Cloud subscription. Reuses the API key from the Ollama (chat) provider.",
+      "apiKeyUrl": "https://ollama.com/settings/keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -3919,6 +4196,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "qdcn",
     "color": "#EC4899",
     "image": "/providers/qoder-cn.png",
+    "website": "https://qoder.com.cn",
+    "notice": {
+      "signupUrl": "https://qoder.com.cn"
+    },
     "category": "oauth",
     "baseUrl": "https://gateway.qoder.com.cn/algo/api/v2/service/pro/sse/agent_chat_generation",
     "baseUrls": [
@@ -4017,6 +4298,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "openai",
     "color": "#10A37F",
     "image": "/providers/openai.png",
+    "website": "https://platform.openai.com",
+    "notice": {
+      "apiKeyUrl": "https://platform.openai.com/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.openai.com/v1/chat/completions",
     "baseUrls": [
@@ -4222,6 +4507,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "opencode-go",
     "color": "#E87040",
     "image": "/providers/opencode-go.png",
+    "website": "https://opencode.ai/auth",
+    "notice": {
+      "text": "OpenCode Go subscription: $5/mo (then 10/mo). Access to Kimi, GLM, Qwen, MiMo, MiniMax models.",
+      "apiKeyUrl": "https://opencode.ai/auth"
+    },
     "category": "apikey",
     "baseUrl": "https://opencode.ai/zen/go/v1/chat/completions",
     "baseUrls": [
@@ -4450,6 +4740,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "ocz",
     "color": "#E87040",
     "image": "/providers/opencode.png",
+    "website": "https://opencode.ai/auth",
+    "notice": {
+      "text": "OpenCode Zen PAYG: pay-as-you-go, key from https://opencode.ai/auth. Same models as Zen: paid + free tiers on the fast lane.",
+      "apiKeyUrl": "https://opencode.ai/auth"
+    },
     "category": "apikey",
     "baseUrl": "https://opencode.ai/zen/v1/chat/completions",
     "baseUrls": [
@@ -4878,6 +5173,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "openrouter",
     "color": "#F97316",
     "image": "/providers/openrouter.png",
+    "website": "https://openrouter.ai",
+    "notice": {
+      "text": "Free tier: 27+ free models, no credit card needed, 200 req/day. After  0 credit: 1,000 req/day.",
+      "apiKeyUrl": "https://openrouter.ai/settings/keys"
+    },
     "category": "freeTier",
     "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
     "baseUrls": [
@@ -4989,6 +5289,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "perplexity-web",
     "color": "#20808D",
     "image": "/providers/perplexity-web.png",
+    "website": "https://www.perplexity.ai",
     "category": "oauth",
     "baseUrl": "https://www.perplexity.ai/rest/sse/perplexity_ask",
     "baseUrls": [
@@ -5042,6 +5343,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "perplexity",
     "color": "#20808D",
     "image": "/providers/perplexity.png",
+    "website": "https://www.perplexity.ai",
+    "notice": {
+      "apiKeyUrl": "https://www.perplexity.ai/settings/api"
+    },
     "category": "apikey",
     "baseUrl": "https://api.perplexity.ai/chat/completions",
     "baseUrls": [
@@ -5070,6 +5375,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "perplexity-agent",
     "color": "#20808D",
     "image": "/providers/perplexity-agent.png",
+    "website": "https://www.perplexity.ai",
+    "notice": {
+      "text": "Perplexity Agent API exposes GPT, Claude, Gemini, Grok, GLM, Kimi, and Sonar models through one OpenAI-compatible Responses API.",
+      "apiKeyUrl": "https://www.perplexity.ai/settings/api"
+    },
     "category": "apikey",
     "baseUrl": "https://api.perplexity.ai/v1/responses",
     "baseUrls": [
@@ -5143,6 +5453,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "playht",
     "color": "#00B4D8",
     "image": "/providers/playht.png",
+    "website": "https://play.ht",
+    "notice": {
+      "apiKeyUrl": "https://play.ht/studio/api-access"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5158,6 +5472,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "qd",
     "color": "#EC4899",
     "image": "/providers/qoder.png",
+    "website": "https://qoder.com",
+    "notice": {
+      "signupUrl": "https://qoder.com"
+    },
     "category": "oauth",
     "baseUrl": "https://api3.qoder.sh/algo/api/v2/service/pro/sse/agent_chat_generation",
     "baseUrls": [
@@ -5256,6 +5574,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "recraft",
     "color": "#EC4899",
     "image": "/providers/recraft.png",
+    "website": "https://recraft.ai",
+    "notice": {
+      "apiKeyUrl": "https://www.recraft.ai/profile/api"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5282,6 +5604,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "runwayml",
     "color": "#000000",
     "image": "/providers/runwayml.png",
+    "website": "https://runwayml.com",
+    "notice": {
+      "apiKeyUrl": "https://dev.runwayml.com"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5318,6 +5644,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "sdwebui",
     "color": "#FF7043",
     "image": "/providers/sdwebui.png",
+    "website": "https://github.com/AUTOMATIC1111/stable-diffusion-webui",
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5344,6 +5671,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "searchapi",
     "color": "#0EA5A4",
     "image": "/providers/searchapi.png",
+    "website": "https://www.searchapi.io",
+    "notice": {
+      "apiKeyUrl": "https://www.searchapi.io/dashboard"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5359,6 +5690,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "searxng",
     "color": "#3B82F6",
     "image": "/providers/searxng.png",
+    "website": "https://docs.searxng.org",
     "category": "freeTier",
     "baseUrl": "",
     "baseUrls": [],
@@ -5374,6 +5706,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "serper",
     "color": "#4F46E5",
     "image": "/providers/serper.png",
+    "website": "https://serper.dev",
+    "notice": {
+      "apiKeyUrl": "https://serper.dev/api-key"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5389,6 +5725,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "siliconflow",
     "color": "#5B6EF5",
     "image": "/providers/siliconflow.png",
+    "website": "https://cloud.siliconflow.com",
+    "notice": {
+      "apiKeyUrl": "https://cloud.siliconflow.com/account/ak"
+    },
     "category": "apikey",
     "baseUrl": "https://api.siliconflow.com/v1/chat/completions",
     "baseUrls": [
@@ -5487,6 +5827,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "stability-ai",
     "color": "#8B5CF6",
     "image": "/providers/stability-ai.png",
+    "website": "https://stability.ai",
+    "notice": {
+      "apiKeyUrl": "https://platform.stability.ai/account/keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5528,6 +5872,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "tavily",
     "color": "#5B21B6",
     "image": "/providers/tavily.png",
+    "website": "https://tavily.com",
+    "notice": {
+      "apiKeyUrl": "https://app.tavily.com/home"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5543,6 +5891,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "together",
     "color": "#0F6FFF",
     "image": "/providers/together.png",
+    "website": "https://www.together.ai",
+    "notice": {
+      "apiKeyUrl": "https://api.together.xyz/settings/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "https://api.together.xyz/v1/chat/completions",
     "baseUrls": [
@@ -5591,6 +5943,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "topaz",
     "color": "#059669",
     "image": "/providers/topaz.png",
+    "website": "https://topazlabs.com",
+    "notice": {
+      "apiKeyUrl": "https://topazlabs.com/account"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5606,6 +5962,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "tortoise",
     "color": "#7C3AED",
     "image": "/providers/tortoise.png",
+    "website": "https://github.com/neonbjb/tortoise-tts",
     "category": "freeTier",
     "baseUrl": "",
     "baseUrls": [],
@@ -5621,6 +5978,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "venice",
     "color": "#DC2626",
     "image": "/providers/venice.png",
+    "website": "https://venice.ai",
+    "notice": {
+      "text": "OpenAI-compatible. Private inference + uncensored models (Venice Uncensored, GLM, Qwen, DeepSeek, Llama).",
+      "apiKeyUrl": "https://venice.ai/settings/api"
+    },
     "category": "apikey",
     "baseUrl": "https://api.venice.ai/api/v1/chat/completions",
     "baseUrls": [
@@ -5714,6 +6076,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "vercel-ai-gateway",
     "color": "#111827",
     "image": "/providers/vercel-ai-gateway.png",
+    "website": "https://vercel.com/ai-gateway",
+    "notice": {
+      "text": "Unified OpenAI-compatible endpoint from Vercel. Use your AI Gateway API key, then pick models with provider/model IDs like anthropic/claude-sonnet-4.6 or openai/gpt-5.4.",
+      "apiKeyUrl": "https://vercel.com/dashboard/~/ai-gateway"
+    },
     "category": "apikey",
     "baseUrl": "https://ai-gateway.vercel.sh/v1/chat/completions",
     "baseUrls": [
@@ -5731,6 +6098,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "vertex-partner",
     "color": "#34A853",
     "image": "/providers/vertex-partner.png",
+    "website": "https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-partner-models",
+    "notice": {
+      "apiKeyUrl": "https://console.cloud.google.com/iam-admin/serviceaccounts"
+    },
     "category": "apikey",
     "baseUrl": "https://aiplatform.googleapis.com",
     "baseUrls": [
@@ -5769,6 +6140,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "vertex",
     "color": "#4285F4",
     "image": "/providers/vertex.png",
+    "website": "https://cloud.google.com/vertex-ai",
+    "notice": {
+      "text": "New Google Cloud accounts get $300 free credits. Requires GCP project + Service Account with Vertex AI API enabled.",
+      "apiKeyUrl": "https://console.cloud.google.com/iam-admin/serviceaccounts"
+    },
     "category": "freeTier",
     "baseUrl": "https://aiplatform.googleapis.com",
     "baseUrls": [
@@ -5827,6 +6203,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "volcengine-ark",
     "color": "#1677FF",
     "image": "/providers/volcengine-ark.png",
+    "website": "https://ark.cn-beijing.volces.com",
+    "notice": {
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey"
+    },
     "category": "apikey",
     "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
     "baseUrls": [
@@ -5890,6 +6270,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "voyage-ai",
     "color": "#0EA5E9",
     "image": "/providers/voyage-ai.png",
+    "website": "https://www.voyageai.com",
+    "notice": {
+      "apiKeyUrl": "https://dash.voyageai.com/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -5941,6 +6325,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "xai",
     "color": "#1DA1F2",
     "image": "/providers/xai.png",
+    "website": "https://x.ai",
+    "notice": {
+      "apiKeyUrl": "https://console.x.ai"
+    },
     "category": "oauth",
     "baseUrl": "https://api.x.ai/v1/chat/completions",
     "baseUrls": [
@@ -5999,6 +6387,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "xiaomi-mimo",
     "color": "#FF6900",
     "image": "/providers/xiaomi-mimo.png",
+    "website": "https://xiaomimimo.com",
+    "notice": {
+      "apiKeyUrl": "https://platform.xiaomimimo.com/console/api-keys",
+      "signupUrl": "https://mimo.xiaomimimo.com/desktop/invite/"
+    },
     "category": "oauth",
     "baseUrl": "https://api.xiaomimimo.com/v1/chat/completions",
     "baseUrls": [
@@ -6060,6 +6453,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "xiaomi-tokenplan",
     "color": "#FF6700",
     "image": "/providers/xiaomi-tokenplan.png",
+    "website": "https://mimo.xiaomi.com",
+    "notice": {
+      "text": "Xiaomi MiMo Token Plan subscription (API key starts with tp-). Token Plan keys are cluster-specific — select the region matching your subscription.",
+      "apiKeyUrl": "https://mimo.xiaomi.com"
+    },
     "category": "apikey",
     "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
     "baseUrls": [
@@ -6134,6 +6532,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "youcom",
     "color": "#7C3AED",
     "image": "/providers/youcom.png",
+    "website": "https://you.com",
+    "notice": {
+      "apiKeyUrl": "https://api.you.com"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -6149,6 +6551,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "alims-intl",
     "color": "#FF6A00",
     "image": "/providers/alims-intl.png",
+    "website": "https://modelstudio.console.alibabacloud.com",
+    "notice": {
+      "apiKeyUrl": "https://modelstudio.console.alibabacloud.com/?apiKey=1"
+    },
     "category": "apikey",
     "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
     "baseUrls": [
@@ -6202,6 +6608,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "cbai",
     "color": "#006EFF",
     "image": "/providers/codebuddy-intl.png",
+    "website": "https://www.codebuddy.ai",
+    "notice": {
+      "signupUrl": "https://www.codebuddy.ai"
+    },
     "category": "oauth",
     "baseUrl": "https://www.codebuddy.ai/v2/chat/completions",
     "baseUrls": [
@@ -6302,6 +6712,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "zd",
     "color": "#A855F7",
     "image": "/providers/zed.png",
+    "website": "https://zed.dev",
+    "notice": {
+      "signupUrl": "https://zed.dev/native_app_signin"
+    },
     "category": "oauth",
     "baseUrl": "https://cloud.zed.dev/completions",
     "baseUrls": [
@@ -6321,6 +6735,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "af",
     "color": "#0EA5E9",
     "image": "/providers/api-airforce.png",
+    "website": "https://api.airforce",
+    "notice": {
+      "apiKeyUrl": "https://api.airforce"
+    },
     "category": "freeTier",
     "baseUrl": "https://api.airforce/v1/chat/completions",
     "baseUrls": [
@@ -6357,6 +6775,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "qianfan",
     "color": "#2932E1",
     "image": "/providers/baidu.png",
+    "website": "https://cloud.baidu.com/product/qianfan.html",
+    "notice": {
+      "apiKeyUrl": "https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application"
+    },
     "category": "apikey",
     "baseUrl": "https://qianfan.baidubce.com/v2/chat/completions",
     "baseUrls": [
@@ -6410,6 +6832,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "bzl",
     "color": "#DC2626",
     "image": "/providers/bazaarlink.png",
+    "website": "https://bazaarlink.ai",
+    "notice": {
+      "apiKeyUrl": "https://bazaarlink.ai"
+    },
     "category": "freeTier",
     "baseUrl": "https://bazaarlink.ai/api/v1/chat/completions",
     "baseUrls": [
@@ -6548,6 +6974,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "bm",
     "color": "#2563EB",
     "image": "/providers/bluesminds.png",
+    "website": "https://bluesminds.com",
+    "notice": {
+      "apiKeyUrl": "https://bluesminds.com"
+    },
     "category": "apikey",
     "baseUrl": "https://api.bluesminds.com/v1/chat/completions",
     "baseUrls": [
@@ -6636,6 +7066,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "kgw",
     "color": "#8B5CF6",
     "image": "/providers/kilo-gateway.png",
+    "website": "https://kilo.ai",
+    "notice": {
+      "apiKeyUrl": "https://kilo.ai/dashboard?tab=apiKeys"
+    },
     "category": "freeTier",
     "baseUrl": "https://api.kilo.ai/api/gateway/chat/completions",
     "baseUrls": [
@@ -6684,6 +7118,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "llm7",
     "color": "#7C3AED",
     "image": "/providers/llm7.png",
+    "website": "https://llm7.io",
+    "notice": {
+      "apiKeyUrl": "https://llm7.io"
+    },
     "category": "apikey",
     "baseUrl": "https://api.llm7.io/v1/chat/completions",
     "baseUrls": [
@@ -6727,6 +7165,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "samba",
     "color": "#F97316",
     "image": "/providers/sambanova.png",
+    "website": "https://sambanova.ai",
+    "notice": {
+      "apiKeyUrl": "https://cloud.sambanova.ai/apis"
+    },
     "category": "apikey",
     "baseUrl": "https://api.sambanova.ai/v1/chat/completions",
     "baseUrls": [
@@ -6750,6 +7192,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "hunyuan",
     "color": "#0052D9",
     "image": "/providers/tencent.png",
+    "website": "https://cloud.tencent.com/product/hunyuan",
+    "notice": {
+      "apiKeyUrl": "https://console.cloud.tencent.com/hunyuan/api-key"
+    },
     "category": "apikey",
     "baseUrl": "https://api.hunyuan.cloud.tencent.com/v1/chat/completions",
     "baseUrls": [
@@ -6778,6 +7224,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "morph",
     "color": "#14B8A6",
     "image": "/providers/morph.png",
+    "website": "https://morphllm.com",
+    "notice": {
+      "apiKeyUrl": "https://morphllm.com"
+    },
     "category": "apikey",
     "baseUrl": "https://api.morphllm.com/v1/chat/completions",
     "baseUrls": [
@@ -6826,6 +7276,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "poolside",
     "color": "#0EA5E9",
     "image": "/providers/poolside.png",
+    "website": "https://poolside.ai",
+    "notice": {
+      "apiKeyUrl": "https://platform.poolside.ai/api-keys"
+    },
     "category": "freeTier",
     "baseUrl": "https://inference.poolside.ai/v1/chat/completions",
     "baseUrls": [
@@ -6854,6 +7308,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "tokenrouter",
     "color": "#0EA5E9",
     "image": "/providers/tokenrouter.png",
+    "website": "https://www.tokenrouter.com",
+    "notice": {
+      "text": "OpenAI-compatible gateway. 300+ models (OpenAI, Claude, Gemini, Qwen, DeepSeek, Kimi, GLM, dsb).",
+      "apiKeyUrl": "https://www.tokenrouter.com"
+    },
     "category": "apikey",
     "baseUrl": "https://api.tokenrouter.com/v1/chat/completions",
     "baseUrls": [
@@ -6989,6 +7448,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "selfhosted-stt",
     "color": "#ffffffff",
     "image": "/providers/selfhosted-stt.png",
+    "website": "https://github.com/ggml-org/whisper.cpp",
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7010,6 +7470,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "selfhosted-tts",
     "color": "#ffffffff",
     "image": "/providers/selfhosted-tts.png",
+    "website": "https://github.com/remsky/Kokoro-FastAPI",
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7031,6 +7492,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "selfhosted-embedding",
     "color": "#ffffffff",
     "image": "/providers/selfhosted-embedding.png",
+    "website": "https://github.com/ggml-org/llama.cpp",
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7052,6 +7514,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "fish",
     "color": "#1E9BF0",
     "image": "/providers/fish-audio.png",
+    "website": "https://fish.audio",
+    "notice": {
+      "apiKeyUrl": "https://fish.audio/app/api-keys/"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7067,6 +7533,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "alitp-intl",
     "color": "#FF6A00",
     "image": "/providers/alitp-intl.png",
+    "website": "https://www.alibabacloud.com/campaign/ai-landing-page-token",
+    "notice": {
+      "apiKeyUrl": "https://modelstudio.console.alibabacloud.com/?apiKey=1"
+    },
     "category": "apikey",
     "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
     "baseUrls": [
@@ -7115,6 +7585,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "xquik",
     "color": "#5C3327",
     "image": "/providers/xquik.png",
+    "website": "https://docs.xquik.com/api-reference/x/search-tweets",
+    "notice": {
+      "apiKeyUrl": "https://xquik.com",
+      "text": "Searches public X posts. Billing uses 1 Xquik credit per returned post."
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7130,6 +7605,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "tokenharbor",
     "color": "#0F766E",
     "image": "/providers/tokenharbor.png",
+    "website": "https://tokenharbor.ai",
+    "notice": {
+      "text": "OpenAI-compatible aggregator. One API key reaches every model, billed per-token from a prepaid wallet. Model ids are bare (e.g. claude-opus-5.5, gpt-6-astra, deepseek-v4.1-flash:free) and are fetched live from the provider.",
+      "apiKeyUrl": "https://tokenharbor.ai/dashboard"
+    },
     "category": "apikey",
     "baseUrl": "https://tokenharbor.ai/v1/chat/completions",
     "baseUrls": [
@@ -7178,6 +7658,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "dahl",
     "color": "#1E40AF",
     "image": "/providers/dahl.png",
+    "website": "https://dahl.global",
+    "notice": {
+      "text": "OpenAI-compatible Gonka inference node. Small, fixed catalogue (GLM-5.3-Flash, DeepSeek-V4-Flash, MiniMax-M2.7) at a flat per-token rate.",
+      "apiKeyUrl": "https://dahl.global/dashboard"
+    },
     "category": "apikey",
     "baseUrl": "https://inference.dahl.global/v1/chat/completions",
     "baseUrls": [
@@ -7211,6 +7696,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "atria",
     "color": "#C2410C",
     "image": "/providers/atria.png",
+    "website": "https://atria-asi.ai",
+    "notice": {
+      "text": "OpenAI-compatible endpoint from Atria Dawn (AtomInnoLab). Currently a research preview offering a single text model, Atria-Dawn-Preview.",
+      "apiKeyUrl": "https://api.atria-asi.ai/dashboard"
+    },
     "category": "apikey",
     "baseUrl": "https://api.atria-asi.ai/v1/chat/completions",
     "baseUrls": [
@@ -7234,6 +7724,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "agnes",
     "color": "#7C3AED",
     "image": "/providers/agnes.png",
+    "website": "https://agnes-ai.com",
+    "notice": {
+      "text": "OpenAI-compatible gateway from Agnes AI, offering free API credits on sign-up. Accepts a bearer token or an x-api-key header.",
+      "apiKeyUrl": "https://platform.agnes-ai.com"
+    },
     "category": "freeTier",
     "baseUrl": "https://apihub.agnes-ai.com/v1/chat/completions",
     "baseUrls": [
@@ -7272,6 +7767,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "bai",
     "color": "#0369A1",
     "image": "/providers/bai.png",
+    "website": "https://b.ai",
+    "notice": {
+      "text": "OpenAI-compatible gateway with one of the larger catalogues here. Accepts a bearer token or an x-api-key header. Model ids are fetched live from the provider.",
+      "apiKeyUrl": "https://b.ai"
+    },
     "category": "apikey",
     "baseUrl": "https://api.b.ai/v1/chat/completions",
     "baseUrls": [
@@ -7289,6 +7789,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "tinyfish",
     "color": "#FF6700",
     "image": "/providers/tinyfish.png",
+    "website": "https://www.tinyfish.ai/",
+    "notice": {
+      "apiKeyUrl": "https://agent.tinyfish.ai/api-keys"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7304,6 +7808,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "v1m",
     "color": "#6366F1",
     "image": "/providers/v1m.png",
+    "website": "https://v1m.ir",
+    "notice": {
+      "text": "v1m System One calibrated decision engine. Fast probabilistic evaluations over state and questions.",
+      "apiKeyUrl": "https://v1m.ir"
+    },
     "category": "apikey",
     "baseUrl": "",
     "baseUrls": [],
@@ -7330,6 +7839,12 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "muse",
     "color": "#0866FF",
     "image": "/providers/muse.png",
+    "website": "https://muse.ai",
+    "notice": {
+      "text": "Sign in with your Meta account (Muse Code subscription) or paste a Model API key from dev.meta.ai. Subscription keys are minted per account; Meta may train on contributor-tier data.",
+      "apiKeyUrl": "https://dev.meta.ai",
+      "signupUrl": "https://muse.ai"
+    },
     "category": "oauth",
     "baseUrl": "https://api.meta.ai/v1/chat/completions",
     "baseUrls": [
@@ -7373,6 +7888,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "mm",
     "color": "#FF4D4F",
     "image": "/providers/minimax.png",
+    "website": "https://agent.minimax.cn",
     "category": "oauth",
     "baseUrl": "https://agent.minimax.cn/mavis/api/v1/llm/v1/messages",
     "baseUrls": [
@@ -7414,6 +7930,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "mmg",
     "color": "#FF4D4F",
     "image": "/providers/minimax.png",
+    "website": "https://agent.minimax.io",
     "category": "oauth",
     "baseUrl": "https://agent.minimax.io/mavis/api/v1/llm/v1/messages",
     "baseUrls": [
@@ -7455,6 +7972,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "br",
     "color": "#FF9900",
     "image": "/providers/bedrock.png",
+    "website": "https://aws.amazon.com/bedrock/",
+    "notice": {
+      "text": "Two ways to authenticate, both entered in the AWS Bedrock Credentials section below. SSO / profile (recommended): fill in Profile and Region, leave the API key empty, then run `aws sso login --profile <name>` — credentials refresh automatically. Static keys: put the AWS secret access key in the API Key field and the key id in Access Key ID, adding Session Token if they are temporary (ASIA…) keys. A profile, if set, takes precedence over static keys.",
+      "apiKeyUrl": "https://console.aws.amazon.com/iam/home#/security_credentials"
+    },
     "category": "apikey",
     "baseUrl": "https://bedrock-runtime.{region}.amazonaws.com",
     "baseUrls": [
@@ -7528,6 +8050,11 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "alias": "brx",
     "color": "#FF9900",
     "image": "/providers/bedrock-xai.png",
+    "website": "https://aws.amazon.com/bedrock/",
+    "notice": {
+      "text": "xAI Grok models hosted on AWS Bedrock. Authenticate exactly like the AWS Bedrock provider: fill in Profile and Region and leave the API key empty, then run `aws sso login --profile <name>`; or use static keys with the AWS secret access key as the API key. Note Grok is a reasoning model and spends output budget thinking before it answers — a small max_tokens returns finish_reason \"length\" with empty content, so allow a few thousand tokens.",
+      "apiKeyUrl": "https://console.aws.amazon.com/iam/home#/security_credentials"
+    },
     "category": "apikey",
     "baseUrl": "https://bedrock-runtime.{region}.amazonaws.com",
     "baseUrls": [

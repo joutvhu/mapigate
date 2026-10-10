@@ -47,6 +47,15 @@ providerRouter.put("/:id/accounts/:accountId/toggle", (req, res) => {
   res.json({ success: true });
 });
 
+// PUT strategy and sticky limit
+providerRouter.put("/:id/strategy", (req, res) => {
+  const { strategy, stickyLimit } = req.body;
+  const strat = strategy || null;
+  const sticky = stickyLimit != null ? Number(stickyLimit) : null;
+  ProviderRepository.updateProviderStrategy(req.params.id, strat, sticky);
+  res.json({ success: true, strategy: strat, stickyLimit: sticky });
+});
+
 // PUT reorder accounts
 providerRouter.put("/:id/accounts/reorder", (req, res) => {
   const { accountIds } = req.body;

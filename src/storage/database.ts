@@ -107,6 +107,8 @@ function initSchema(db: DatabaseDriver) {
       custom_headers TEXT NOT NULL DEFAULT '{}',
       proxy_url TEXT,
       thinking_mode TEXT NOT NULL DEFAULT 'auto',
+      strategy TEXT,
+      sticky_limit INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -179,4 +181,6 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE providers ADD COLUMN custom_headers TEXT NOT NULL DEFAULT '{}';"); } catch {}
   try { db.exec("ALTER TABLE providers ADD COLUMN proxy_url TEXT;"); } catch {}
   try { db.exec("ALTER TABLE providers ADD COLUMN thinking_mode TEXT NOT NULL DEFAULT 'auto';"); } catch {}
+  try { db.exec("ALTER TABLE providers ADD COLUMN strategy TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER;"); } catch {}
 }

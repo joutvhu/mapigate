@@ -18,6 +18,8 @@ export class ProviderRepository {
       customHeaders: JSON.parse(r.custom_headers || "{}"),
       proxyUrl: r.proxy_url || undefined,
       thinkingMode: r.thinking_mode || "auto",
+      strategy: r.strategy || null,
+      stickyLimit: r.sticky_limit != null ? Number(r.sticky_limit) : 1,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -38,6 +40,8 @@ export class ProviderRepository {
       customHeaders: JSON.parse(r.custom_headers || "{}"),
       proxyUrl: r.proxy_url || undefined,
       thinkingMode: r.thinking_mode || "auto",
+      strategy: r.strategy || null,
+      stickyLimit: r.sticky_limit != null ? Number(r.sticky_limit) : 1,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     };
@@ -63,6 +67,8 @@ export class ProviderRepository {
       customHeaders: { ...reg!.defaultHeaders },
       proxyUrl: undefined,
       thinkingMode: reg!.thinkingMode || "auto",
+      strategy: null,
+      stickyLimit: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -90,8 +96,8 @@ export class ProviderRepository {
   public static saveProvider(provider: ProviderConfig): void {
     const db = getDatabase();
     db.run(
-      `INSERT INTO providers (id, name, base_url, format, is_active, priority, models, custom_headers, proxy_url, thinking_mode, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO providers (id, name, base_url, format, is_active, priority, models, custom_headers, proxy_url, thinking_mode, strategy, sticky_limit, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          base_url = excluded.base_url,
@@ -102,6 +108,8 @@ export class ProviderRepository {
          custom_headers = excluded.custom_headers,
          proxy_url = excluded.proxy_url,
          thinking_mode = excluded.thinking_mode,
+         strategy = excluded.strategy,
+         sticky_limit = excluded.sticky_limit,
          updated_at = excluded.updated_at`,
       provider.id,
       provider.name,
@@ -113,9 +121,43 @@ export class ProviderRepository {
       JSON.stringify(provider.customHeaders || {}),
       provider.proxyUrl || null,
       provider.thinkingMode || "auto",
+      provider.strategy || null,
+      provider.stickyLimit != null ? provider.stickyLimit : 1,
       provider.createdAt,
       provider.updatedAt
     );
+  }
+
+  public static updateProviderStrategy(id: string, strategy: string | null, stickyLimit: number | null): void {
+    const db = getDatabase();
+    const existing = this.getProviderById(id);
+    if (existing) {
+      db.run(
+        `UPDATE providers SET strategy = ?, sticky_limit = ?, updated_at = ? WHERE id = ?`,
+        strategy,
+        stickyLimit,
+        Date.now(),
+        id
+      );
+    } else {
+      const reg = getRegistryProvider(id);
+      const now = Date.now();
+      db.run(
+        `INSERT INTO providers (id, name, base_url, format, is_active, priority, models, custom_headers, proxy_url, thinking_mode, strategy, sticky_limit, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 1, 10, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+        id,
+        reg?.name || id,
+        reg?.baseUrl || "https://api.openai.com",
+        reg?.format || "openai",
+        JSON.stringify(reg?.models.map((m) => m.id) || []),
+        JSON.stringify(reg?.defaultHeaders || {}),
+        reg?.thinkingMode || "auto",
+        strategy,
+        stickyLimit,
+        now,
+        now
+      );
+    }
   }
 
   public static deleteProvider(id: string): void {

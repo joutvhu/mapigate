@@ -11,6 +11,8 @@ export interface ProviderConfig {
   customHeaders?: Record<string, string>;
   proxyUrl?: string;
   thinkingMode?: string;
+  strategy?: string | null;
+  stickyLimit?: number | null;
   createdAt: number;
   updatedAt: number;
 }

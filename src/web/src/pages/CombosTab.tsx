@@ -1,44 +1,5 @@
 import React, { useState, useEffect } from "react";
-
-interface ComboItem {
-  id: string;
-  name: string;
-  models: string[];
-  strategy: "round-robin" | "fallback" | "fusion";
-}
-
-const DEFAULT_SEED_COMBOS: ComboItem[] = [
-  {
-    id: "combo-pro",
-    name: "combo-pro",
-    models: ["ag/mimo-v2.5-pro", "ag/gemini-pro-agent", "ki/claude-sonnet-4.5-thinking-agent", "+1 more"],
-    strategy: "round-robin",
-  },
-  {
-    id: "combo-high",
-    name: "combo-high",
-    models: ["ag/mimo-v2.5", "ag/gemini-3.1-flash-agent"],
-    strategy: "round-robin",
-  },
-  {
-    id: "combo-low",
-    name: "combo-low",
-    models: ["ag/mimo-v2-mini", "ag/gemini-2.5-pro", "ag/gemini-3.1-pro-low", "+1 more"],
-    strategy: "round-robin",
-  },
-  {
-    id: "combo-medium",
-    name: "combo-medium",
-    models: ["ag/gemini-3.1-flash-low", "ag/mimo-v2-pro", "gc/gemini-3.1-flash-preview", "+2 more"],
-    strategy: "round-robin",
-  },
-  {
-    id: "combo-auto",
-    name: "combo-auto",
-    models: ["ag/claude-sonnet-4-6", "ag/claude-opus-4-6-thinking", "ag/gemini-pro-agent", "+17 more"],
-    strategy: "round-robin",
-  },
-];
+import { DEFAULT_SEED_COMBOS, type ComboItem } from "../constants/mockData";
 
 export const CombosTab: React.FC = () => {
   const [combos, setCombos] = useState<ComboItem[]>(DEFAULT_SEED_COMBOS);

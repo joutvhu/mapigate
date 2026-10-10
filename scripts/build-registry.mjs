@@ -6,6 +6,8 @@ async function main() {
   const imgDir = 'F:/Documents/Library/AI/routen/src/web/public/providers';
   const existingImages = new Set(fs.readdirSync(imgDir));
 
+  const RISK_NOTICE = "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.";
+
   function getImage(id, alias) {
     if (existingImages.has(id + '.png')) return '/providers/' + id + '.png';
     if (existingImages.has(id + '.svg')) return '/providers/' + id + '.svg';
@@ -39,12 +41,24 @@ async function main() {
       isDefault: Boolean(mod.isDefault || mod.mandatory)
     }));
 
+    const website = p.display?.website || undefined;
+    const notice = p.display?.notice || undefined;
+    const deprecated = Boolean(p.display?.deprecated) || undefined;
+    let deprecationNotice = p.display?.deprecationNotice || undefined;
+    if (deprecationNotice === "RISK_NOTICE") {
+      deprecationNotice = RISK_NOTICE;
+    }
+
     entries[p.id] = {
       id: p.id,
       name: p.display?.name || p.id,
       alias: p.alias || undefined,
       color: p.display?.color || undefined,
       image: getImage(p.id, p.alias),
+      website,
+      notice,
+      deprecated,
+      deprecationNotice,
       category: getCategory(p.category),
       baseUrl,
       baseUrls,
@@ -64,12 +78,22 @@ async function main() {
   isDefault?: boolean;
 }
 
+export interface ProviderNotice {
+  apiKeyUrl?: string;
+  signupUrl?: string;
+  text?: string;
+}
+
 export interface ProviderRegistryItem {
   id: string;
   name: string;
   alias?: string;
   color?: string;
   image?: string;
+  website?: string;
+  notice?: ProviderNotice;
+  deprecated?: boolean;
+  deprecationNotice?: string;
   category: "oauth" | "freeTier" | "apikey" | "custom";
   baseUrl: string;
   baseUrls?: string[];

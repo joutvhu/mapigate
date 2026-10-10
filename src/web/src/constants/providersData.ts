@@ -29,7 +29,19 @@ const DEFAULT_CONNECTED_MAP: Record<string, number> = {
   "api-airforce": 1,
 };
 
-const registryList = Object.values(PROVIDER_REGISTRY);
+const MEDIA_ONLY_PROVIDERS = new Set([
+  "assemblyai", "aws-polly", "black-forest-labs", "brave-search", "cartesia",
+  "comfyui", "coqui", "deepgram", "edge-tts", "elevenlabs", "exa", "fal-ai",
+  "firecrawl", "fish-audio", "google-pse", "google-tts", "inworld", "jina-ai",
+  "jina-reader", "linkup", "local-device", "nanobanana", "playht", "recraft",
+  "runwayml", "sdwebui", "searchapi", "searxng", "selfhosted-embedding",
+  "selfhosted-stt", "selfhosted-tts", "serper", "stability-ai", "tavily", "topaz",
+  "tortoise"
+]);
+
+const registryList = Object.values(PROVIDER_REGISTRY).filter(
+  (p) => !MEDIA_ONLY_PROVIDERS.has(p.id)
+);
 
 export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
   .filter((p) => p.category === "oauth")

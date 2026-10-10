@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import type { ProviderItem } from "../constants/providersData";
 import { getRegistryProvider, type RegistryModel } from "../../../shared/constants/providerRegistry";
+import { DEFAULT_ACCOUNTS_MAP } from "../constants/mockData";
+import { OAuthModal } from "../components/OAuthModal";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -14,28 +16,14 @@ interface ConnectionItem {
   order: number;
 }
 
-const DEFAULT_ACCOUNTS_MAP: Record<string, string[]> = {
-  antigravity: [
-    "loveme05ye@gmail.com",
-    "joutvhu@gmail.com",
-    "hovangiao16@gmail.com",
-    "cssdbcy561@gmail.com",
-    "hothixa53@gmail.com",
-    "anhoang0907@gmail.com",
-    "izxenet.kytog@gmail.com",
-  ],
-  github: ["Joutvhu", "joutvhu-work"],
-  claude: ["Personal Pro Account"],
-  openai: ["Main Team Key"],
-};
-
 export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider, onBack }) => {
   const registryItem = getRegistryProvider(provider.id);
 
   const [connections, setConnections] = useState<ConnectionItem[]>([]);
   const [models, setModels] = useState<string[]>([]);
   const [catalogModels, setCatalogModels] = useState<RegistryModel[]>(registryItem?.models || []);
-  const [roundRobin, setRoundRobin] = useState(true);
+  const [providerStrategy, setProviderStrategy] = useState<string | null>(null);
+  const [providerStickyLimit, setProviderStickyLimit] = useState<string>("1");
   const [thinkingMode, setThinkingMode] = useState(registryItem?.thinkingMode || "auto");
   const [thinkingOptions, setThinkingOptions] = useState<string[]>(
     registryItem?.thinkingOptions || ["auto", "none", "low", "medium", "high"]
@@ -43,8 +31,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [baseUrlOverride, setBaseUrlOverride] = useState(registryItem?.baseUrl || provider.baseUrl || "");
   const [proxyUrl, setProxyUrl] = useState("");
   const [customHeaders, setCustomHeaders] = useState<{ key: string; value: string }[]>([]);
-  const [showHeadersSection, setShowHeadersSection] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showOAuthModal, setShowOAuthModal] = useState(false);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
   const [newModelInput, setNewModelInput] = useState("");
   const [newAccountName, setNewAccountName] = useState("");
@@ -53,8 +41,11 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [newHeaderKey, setNewHeaderKey] = useState("");
   const [newHeaderVal, setNewHeaderVal] = useState("");
   const [headersSavedMsg, setHeadersSavedMsg] = useState<string | null>(null);
+  const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const isOAuth = provider.category === "oauth" || registryItem?.category === "oauth" || provider.id === "antigravity";
+
+  const loadProviderDetails = useCallback(() => {
     const regHeaders = registryItem?.defaultHeaders || {};
     const defaultHeadersArray = Object.entries(regHeaders).map(([k, v]) => ({
       key: k,
@@ -63,7 +54,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
     const regModels = (registryItem?.models || []).map((m) => m.id);
 
-    // Fetch real details from backend if exists
     fetch(`/api/providers/${provider.id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -73,8 +63,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         if (Array.isArray(data.thinkingOptions) && data.thinkingOptions.length > 0) {
           setThinkingOptions(data.thinkingOptions);
         }
+        if (data.strategy !== undefined) {
+          setProviderStrategy(data.strategy || null);
+        }
+        if (data.stickyLimit != null) {
+          setProviderStickyLimit(String(data.stickyLimit));
+        }
 
-        // Custom Headers: initialize with backend saved headers if non-empty, otherwise registry defaults
+        // Custom Headers
         if (data.customHeaders && Object.keys(data.customHeaders).length > 0) {
           setCustomHeaders(
             Object.entries(data.customHeaders).map(([k, v]) => ({ key: k, value: String(v) }))
@@ -116,7 +112,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         }
       })
       .catch(() => {
-        // Fallback to exact registry defaults
         setCustomHeaders(defaultHeadersArray);
         setModels(regModels);
         const seed = DEFAULT_ACCOUNTS_MAP[provider.id] || [`Primary Account (${provider.name})`];
@@ -129,7 +124,26 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           }))
         );
       });
-  }, [provider.id, provider.name]);
+  }, [provider.id, provider.name, registryItem]);
+
+  useEffect(() => {
+    loadProviderDetails();
+  }, [loadProviderDetails]);
+
+  const saveProviderStrategy = async (strategy: string | null, stickyLimit: string) => {
+    try {
+      await fetch(`/api/providers/${provider.id}/strategy`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          strategy: strategy || null,
+          stickyLimit: strategy === "round-robin" ? Number(stickyLimit) || 1 : null,
+        }),
+      });
+    } catch (err) {
+      console.warn("Failed to save provider strategy:", err);
+    }
+  };
 
   const toggleConnection = async (id: string) => {
     const updated = connections.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c));
@@ -219,14 +233,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     setNewHeaderVal("");
   };
 
+  const handleRemoveHeader = (index: number) => {
+    setCustomHeaders(customHeaders.filter((_, i) => i !== index));
+  };
+
   const handleUpdateHeader = (index: number, key: string, value: string) => {
     const updated = [...customHeaders];
     updated[index] = { key, value };
     setCustomHeaders(updated);
-  };
-
-  const handleRemoveHeader = (index: number) => {
-    setCustomHeaders(customHeaders.filter((_, i) => i !== index));
   };
 
   const handleResetHeaders = () => {
@@ -254,6 +268,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     setModels(models.filter((m) => m !== modelId));
   };
 
+  const handleCopyModel = (modelId: string) => {
+    navigator.clipboard.writeText(modelId);
+    setCopiedModelId(modelId);
+    setTimeout(() => {
+      setCopiedModelId((curr) => (curr === modelId ? null : curr));
+    }, 2000);
+  };
+
   const handleSaveProviderConfig = async () => {
     const headersObj: Record<string, string> = {};
     customHeaders.forEach((h) => {
@@ -274,6 +296,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           customHeaders: headersObj,
           proxyUrl: proxyUrl.trim() || undefined,
           thinkingMode,
+          strategy: providerStrategy,
+          stickyLimit: providerStrategy === "round-robin" ? Number(providerStickyLimit) || 1 : null,
           models,
         }),
       });
@@ -283,6 +307,16 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       //
     }
   };
+
+  // Header link resolving (matches 9router logic)
+  const headerLinkUrl =
+    registryItem?.notice?.apiKeyUrl ||
+    registryItem?.notice?.signupUrl ||
+    registryItem?.website;
+
+  const headerLinkLabel = registryItem?.notice?.apiKeyUrl
+    ? "Get API Key"
+    : "Sign up / Learn more";
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
@@ -302,14 +336,25 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               <img src={provider.image} alt={provider.name} className="size-full object-contain" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-xl font-bold text-white tracking-tight">{provider.name}</h2>
                 <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-[#1E293B] text-slate-300">
                   {registryItem?.format || provider.format || "openai"}
                 </span>
+                {headerLinkUrl && (
+                  <a
+                    href={headerLinkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-400 hover:text-blue-300 hover:underline inline-flex items-center gap-1 font-medium transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                    {headerLinkLabel}
+                  </a>
+                )}
               </div>
               <span className="text-xs text-slate-400 font-mono">
-                {connections.length} connections • {models.length} available models
+                {connections.length} connection{connections.length === 1 ? "" : "s"} • {models.length} available models
               </span>
             </div>
           </div>
@@ -321,13 +366,31 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       </div>
 
-      {/* Risk Notice Banner */}
-      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
-        <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>
-        <p>
-          ⚠️ <strong>Active Proxy Routing:</strong> Requests matching this provider are dynamically load-balanced across active keys. Keys are decrypted in memory only when sending requests upstream.
-        </p>
-      </div>
+      {/* Deprecation Warning Banner (matches 9router) */}
+      {registryItem?.deprecated && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 leading-relaxed animate-rt-scale-in">
+          <span className="material-symbols-outlined text-[18px] text-amber-400 mt-0.5 shrink-0">warning</span>
+          <p>{registryItem.deprecationNotice || "This provider uses an undocumented or risk-prone connection session. Use at your own risk."}</p>
+        </div>
+      )}
+
+      {/* Informational Notice Banner (matches 9router) */}
+      {registryItem?.notice?.text && !registryItem?.deprecated && (
+        <div className="flex flex-col gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 sm:flex-row sm:items-center text-xs animate-rt-scale-in">
+          <span className="material-symbols-outlined text-[18px] text-blue-400 shrink-0">info</span>
+          <p className="min-w-0 flex-1 text-blue-300 leading-relaxed">{registryItem.notice.text}</p>
+          {registryItem.notice.apiKeyUrl && (
+            <a
+              href={registryItem.notice.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex justify-center rounded bg-blue-500 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 shrink-0"
+            >
+              Get API Key →
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Multi-Account Connections Box */}
       <div className="rt-card p-5 space-y-4">
@@ -337,7 +400,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             <span className="text-xs text-slate-500">({connections.filter((c) => c.isActive).length} active)</span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3 text-xs">
             <button
               onClick={testOneByOne}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:text-white transition-colors cursor-pointer"
@@ -348,17 +411,45 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               Test Connection One-by-One
             </button>
 
-            <div className="flex items-center gap-2 pl-2 border-l border-[#1E293B]">
-              <span className="text-slate-400">Round Robin</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={roundRobin}
-                  onChange={(e) => setRoundRobin(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-8 h-4.5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-              </label>
+            {/* Routing Strategy selector (matches 9router) */}
+            <div className="flex flex-wrap items-center gap-2 pl-2 border-l border-[#1E293B]">
+              <span className="text-xs text-slate-400 font-medium">Strategy:</span>
+              <select
+                value={providerStrategy || ""}
+                onChange={(e) => {
+                  const strategy = e.target.value || null;
+                  setProviderStrategy(strategy);
+                  const sticky = strategy === "round-robin" ? (providerStickyLimit || "1") : providerStickyLimit;
+                  if (strategy === "round-robin" && !providerStickyLimit) {
+                    setProviderStickyLimit("1");
+                  }
+                  saveProviderStrategy(strategy, sticky);
+                }}
+                className="px-2.5 py-1 text-xs border border-[#1E293B] rounded-lg bg-[#0A0D14] text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
+              >
+                <option value="">Default (Global)</option>
+                <option value="fill-first">Fill First</option>
+                <option value="round-robin">Round Robin</option>
+                <option value="earliest-reset">Earliest Reset</option>
+              </select>
+
+              {providerStrategy === "round-robin" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-slate-400">Sticky:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={providerStickyLimit}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setProviderStickyLimit(val);
+                      saveProviderStrategy("round-robin", val);
+                    }}
+                    placeholder="1"
+                    className="w-14 px-2 py-1 text-xs border border-[#1E293B] rounded-lg bg-[#0A0D14] text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -388,7 +479,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                     ▼
                   </button>
                 </div>
-                <span className="material-symbols-outlined text-[16px] text-slate-500">lock</span>
+                <span className="material-symbols-outlined text-[16px] text-slate-500">
+                  {isOAuth ? "lock" : "key"}
+                </span>
                 <span className="font-mono text-slate-200 truncate font-medium">{conn.name}</span>
                 <span className={`rt-badge ${conn.isActive ? "rt-badge--success" : "rt-badge--muted"}`}>
                   {conn.isActive ? "● active" : "disabled"} • #{idx + 1}
@@ -421,11 +514,17 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
 
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            if (isOAuth) {
+              setShowOAuthModal(true);
+            } else {
+              setShowAddModal(true);
+            }
+          }}
           className="rt-btn rt-btn--primary"
         >
-          <span className="material-symbols-outlined text-[16px]">add</span>
-          Add Account
+          <span className="material-symbols-outlined text-[16px]">{isOAuth ? "lock" : "add"}</span>
+          {isOAuth ? `Connect ${provider.name}` : "Add Account"}
         </button>
       </div>
 
@@ -568,30 +667,24 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAddModelModal(true)}
-              className="rt-btn rt-btn--secondary text-xs"
-            >
-              <span className="material-symbols-outlined text-[15px]">add</span>
-              Add Custom Model
-            </button>
-            <button
-              onClick={() => setModels([])}
-              className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-[#0A0D14] border border-[#1E293B] cursor-pointer"
-            >
-              Disable All
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddModelModal(true)}
+            className="rt-btn rt-btn--secondary text-xs"
+          >
+            <span className="material-symbols-outlined text-[15px]">add</span>
+            Add Custom Model
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {models.map((modelId, idx) => {
+        {/* Models Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {models.map((modelId) => {
             const catModel = catalogModels.find((m) => m.id === modelId);
+            const isCopied = copiedModelId === modelId;
             return (
               <div
-                key={idx}
-                className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex items-center justify-between gap-2 text-xs hover:border-blue-500/30 transition-all"
+                key={modelId}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 text-xs transition-colors"
               >
                 <div className="flex items-center gap-2 truncate">
                   <span className="material-symbols-outlined text-[16px] text-blue-400 shrink-0">smart_toy</span>
@@ -604,11 +697,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
-                    onClick={() => navigator.clipboard.writeText(modelId)}
-                    title="Copy model ID"
-                    className="p-1 text-slate-500 hover:text-white cursor-pointer"
+                    onClick={() => handleCopyModel(modelId)}
+                    title={isCopied ? "Copied!" : "Copy model ID"}
+                    className="p-1 text-slate-500 hover:text-white cursor-pointer transition-colors"
                   >
-                    <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                    <span className={`material-symbols-outlined text-[14px] ${isCopied ? "text-emerald-400 font-bold" : ""}`}>
+                      {isCopied ? "check" : "content_copy"}
+                    </span>
                   </button>
                   <button
                     onClick={() => handleRemoveModel(modelId)}
@@ -624,7 +719,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       </div>
 
-      {/* Add Account Modal */}
+      {/* Standard API Key Add Account Modal */}
       {showAddModal && (
         <div className="rt-modal-backdrop">
           <div className="rt-modal-content space-y-4">
@@ -670,6 +765,15 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           </div>
         </div>
       )}
+
+      {/* OAuth Connection Modal */}
+      <OAuthModal
+        isOpen={showOAuthModal}
+        providerId={provider.id}
+        providerName={provider.name}
+        onSuccess={loadProviderDetails}
+        onClose={() => setShowOAuthModal(false)}
+      />
 
       {/* Add Custom Model Modal */}
       {showAddModelModal && (

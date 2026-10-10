@@ -7,32 +7,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-
-const HOURLY_METRICS_DATA = [
-  { time: "00:00", tokens: 28.5, requests: 45, cost: 0.12 },
-  { time: "02:00", tokens: 4.2, requests: 8, cost: 0.02 },
-  { time: "04:00", tokens: 1.5, requests: 3, cost: 0.01 },
-  { time: "06:00", tokens: 2.8, requests: 5, cost: 0.01 },
-  { time: "08:00", tokens: 8.2, requests: 22, cost: 0.08 },
-  { time: "10:00", tokens: 24.4, requests: 76, cost: 0.32 },
-  { time: "12:00", tokens: 18.1, requests: 54, cost: 0.21 },
-  { time: "14:00", tokens: 32.8, requests: 92, cost: 0.45 },
-  { time: "16:00", tokens: 26.3, requests: 81, cost: 0.36 },
-  { time: "18:00", tokens: 19.6, requests: 62, cost: 0.25 },
-  { time: "20:00", tokens: 28.4, requests: 85, cost: 0.38 },
-  { time: "22:00", tokens: 12.5, requests: 35, cost: 0.16 },
-];
-
-const SEED_REQUESTS = [
-  { model: "gemini-1.5-flash", inTok: "154,589", outTok: "4,464", when: "Just now", ok: true },
-  { model: "claude-3-7-sonnet", inTok: "48,210", outTok: "2,190", when: "2m ago", ok: true },
-  { model: "deepseek-r1", inTok: "62,400", outTok: "3,810", when: "5m ago", ok: true },
-  { model: "gpt-4o", inTok: "31,800", outTok: "1,240", when: "9m ago", ok: true },
-  { model: "gemini-1.5-flash", inTok: "153,305", outTok: "1,105", when: "14m ago", ok: true },
-  { model: "claude-3-5-haiku", inTok: "12,400", outTok: "680", when: "18m ago", ok: true },
-  { model: "gemini-1.5-flash", inTok: "152,793", outTok: "344", when: "23m ago", ok: true },
-  { model: "deepseek-chat", inTok: "25,100", outTok: "890", when: "29m ago", ok: true },
-];
+import { SEED_HOURLY_USAGE as HOURLY_METRICS_DATA, SEED_REQUESTS } from "../constants/mockData";
 
 const TOPOLOGY_NODES = [
   { id: "antigravity", name: "Antigravity", x: 130, y: 70, color: "#3B82F6" },
