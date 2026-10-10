@@ -9846,10 +9846,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "uiAlias": "xmtp",
     "color": "#FF6700",
     "image": "/providers/xiaomi-tokenplan.png",
-    "website": "https://mimo.xiaomi.com",
+    "website": "https://platform.xiaomimimo.com/console/plan-manage",
     "notice": {
       "text": "Xiaomi MiMo Token Plan subscription (API key starts with tp-). Token Plan keys are cluster-specific — select the region matching your subscription.",
-      "apiKeyUrl": "https://mimo.xiaomi.com"
+      "apiKeyUrl": "https://platform.xiaomimimo.com/console/plan-manage"
     },
     "category": "apikey",
     "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
@@ -10010,7 +10010,15 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
 };
 
 export function getRegistryProvider(id: string): ProviderRegistryItem | undefined {
-  return PROVIDER_REGISTRY[id];
+  if (PROVIDER_REGISTRY[id]) return PROVIDER_REGISTRY[id];
+  const lower = id.toLowerCase();
+  for (const item of Object.values(PROVIDER_REGISTRY)) {
+    if (item.id.toLowerCase() === lower) return item;
+    if (item.alias?.toLowerCase() === lower) return item;
+    if (item.uiAlias?.toLowerCase() === lower) return item;
+    if (item.aliases?.some((a) => a.toLowerCase() === lower)) return item;
+  }
+  return undefined;
 }
 
 export function getAllRegistryProviders(): ProviderRegistryItem[] {

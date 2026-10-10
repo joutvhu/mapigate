@@ -17,6 +17,7 @@ interface AddAccountModalProps {
   existingNames?: string[];
   onClose: () => void;
   onSuccess: () => void;
+  onOpenOAuth?: () => void;
 }
 
 export const AddAccountModal: React.FC<AddAccountModalProps> = ({
@@ -25,6 +26,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   existingNames = [],
   onClose,
   onSuccess,
+  onOpenOAuth,
 }) => {
   const pId = provider.id.toLowerCase();
   const isOllamaLocal = pId === "ollama-local" || pId.includes("ollama");
@@ -281,6 +283,23 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
+
+        {/* OAuth option banner if supported */}
+        {onOpenOAuth && (
+          <div className="flex items-center justify-between p-3 rounded-xl border border-blue-500/20 bg-blue-500/10 text-xs">
+            <div className="flex items-center gap-2 text-blue-300">
+              <span className="material-symbols-outlined text-[18px] text-blue-400">lock</span>
+              <span>This provider also supports OAuth authorization.</span>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenOAuth}
+              className="rt-btn rt-btn--primary text-xs py-1 px-3 cursor-pointer shrink-0"
+            >
+              Connect with OAuth
+            </button>
+          </div>
+        )}
 
         {/* Mode Selector for Standard Providers */}
         {!isBedrock && !isOllamaLocal && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import type { ProviderItem } from "../constants/providersData";
+import { isOAuthProvider, type ProviderItem } from "../constants/providersData";
 import { getRegistryProvider, type RegistryModel } from "../../../shared/constants/providerRegistry";
 import { DEFAULT_ACCOUNTS_MAP } from "../constants/mockData";
 import { OAuthModal } from "../components/OAuthModal";
@@ -38,6 +38,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [customHeaders, setCustomHeaders] = useState<{ key: string; value: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showOAuthModal, setShowOAuthModal] = useState(false);
+  const [preOpenedPopup, setPreOpenedPopup] = useState<Window | null>(null);
   const [showCopilotModal, setShowCopilotModal] = useState(false);
   const [showCursorModal, setShowCursorModal] = useState(false);
   const [showKiroModal, setShowKiroModal] = useState(false);
@@ -51,7 +52,35 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [headersSavedMsg, setHeadersSavedMsg] = useState<string | null>(null);
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
 
-  const isOAuth = provider.category === "oauth" || registryItem?.category === "oauth" || provider.id === "antigravity";
+  const isOAuth = isOAuthProvider(registryItem) || isOAuthProvider(provider);
+  const supportsApiKey = Boolean(
+    registryItem?.authModes?.includes("apikey") ||
+    registryItem?.category === "apikey" ||
+    registryItem?.notice?.apiKeyUrl ||
+    (provider.category === "apikey" && !["antigravity", "cursor", "github", "kiro"].includes(provider.id))
+  );
+
+  const handleConnectOAuth = () => {
+    if (provider.id === "github") {
+      setShowCopilotModal(true);
+      return;
+    }
+    if (provider.id === "cursor") {
+      setShowCursorModal(true);
+      return;
+    }
+    if (provider.id === "kiro") {
+      setShowKiroModal(true);
+      return;
+    }
+    // Synchronously open blank popup window in direct user click gesture to prevent browser popup blocker
+    let popup: Window | null = null;
+    try {
+      popup = window.open("about:blank", "oauth_popup", "width=600,height=700");
+    } catch {}
+    setPreOpenedPopup(popup);
+    setShowOAuthModal(true);
+  };
 
   const loadProviderDetails = useCallback(() => {
     const regHeaders = registryItem?.defaultHeaders || {};
@@ -521,29 +550,42 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           ))}
         </div>
 
-        <button
-          onClick={() => {
-            if (provider.id === "github") {
-              setShowCopilotModal(true);
-            } else if (provider.id === "cursor") {
-              setShowCursorModal(true);
-            } else if (provider.id === "kiro") {
-              setShowKiroModal(true);
-            } else if (provider.id === "antigravity" || isOAuth) {
-              setShowOAuthModal(true);
-            } else {
-              setShowAddModal(true);
-            }
-          }}
-          className="rt-btn rt-btn--primary"
-        >
-          <span className="material-symbols-outlined text-[16px]">
-            {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro" ? "lock" : "add"}
-          </span>
-          {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro"
-            ? `Connect ${provider.name}`
-            : "Add Account"}
-        </button>
+        {isOAuth && supportsApiKey ? (
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleConnectOAuth}
+              className="rt-btn rt-btn--primary"
+            >
+              <span className="material-symbols-outlined text-[16px]">lock</span>
+              Connect with OAuth
+            </button>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="rt-btn rt-btn--secondary"
+            >
+              <span className="material-symbols-outlined text-[16px]">key</span>
+              Add API Key
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              if (isOAuth || ["github", "cursor", "kiro", "antigravity"].includes(provider.id)) {
+                handleConnectOAuth();
+              } else {
+                setShowAddModal(true);
+              }
+            }}
+            className="rt-btn rt-btn--primary"
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro" ? "lock" : "add"}
+            </span>
+            {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro"
+              ? `Connect ${provider.name}`
+              : "Add Account"}
+          </button>
+        )}
       </div>
 
       {/* Custom Headers UI Section */}
@@ -753,6 +795,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         existingNames={connections.map((c) => c.name)}
         onClose={() => setShowAddModal(false)}
         onSuccess={loadProviderDetails}
+        onOpenOAuth={
+          isOAuth
+            ? () => {
+                setShowAddModal(false);
+                handleConnectOAuth();
+              }
+            : undefined
+        }
       />
 
       <CopilotAuthModal
@@ -773,13 +823,17 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         onSuccess={loadProviderDetails}
       />
 
-      {/* OAuth Connection Modal (Antigravity & Google OAuth) */}
+      {/* OAuth Connection Modal */}
       <OAuthModal
         isOpen={showOAuthModal}
         providerId={provider.id}
         providerName={provider.name}
+        preOpenedPopup={preOpenedPopup}
         onSuccess={loadProviderDetails}
-        onClose={() => setShowOAuthModal(false)}
+        onClose={() => {
+          setShowOAuthModal(false);
+          setPreOpenedPopup(null);
+        }}
       />
 
       {/* Add Custom Model Modal */}

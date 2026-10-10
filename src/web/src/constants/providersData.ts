@@ -43,10 +43,34 @@ const registryList = Object.values(PROVIDER_REGISTRY).filter(
   (p) => !MEDIA_ONLY_PROVIDERS.has(p.id)
 );
 
+export function isOAuthProvider(p?: {
+  id?: string;
+  category?: string;
+  authType?: string;
+  authModes?: string[];
+  oauth?: any;
+}): boolean {
+  if (!p) return false;
+  const pId = p.id?.toLowerCase() || "";
+  if (
+    pId === "antigravity" ||
+    pId === "github" ||
+    pId === "cursor" ||
+    pId === "kiro"
+  ) {
+    return true;
+  }
+  if (p.oauth != null) return true;
+  if (p.category === "oauth" || p.category === "webCookie") return true;
+  if (p.authType === "oauth") return true;
+  if (Array.isArray(p.authModes) && p.authModes.includes("oauth")) return true;
+  return false;
+}
+
 export const CODING_PROVIDERS_LIST = registryList;
 
 export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => p.category === "oauth" || p.category === "webCookie")
+  .filter((p) => isOAuthProvider(p))
   .map((p) => ({
     id: p.id,
     name: p.name,

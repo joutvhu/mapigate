@@ -5,8 +5,48 @@ import path from "node:path";
 import os from "node:os";
 import { DatabaseSync } from "node:sqlite";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 
 export const oauthRouter = Router();
+
+// ==========================================
+// PKCE & OAuth Helper Utilities
+// ==========================================
+
+export function generateCodeVerifier(bytes = 32): string {
+  return crypto.randomBytes(bytes).toString("base64url");
+}
+
+export function generateCodeChallenge(verifier: string): string {
+  return crypto.createHash("sha256").update(verifier).digest("base64url");
+}
+
+export function generateState(): string {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+export function generatePKCE(bytes = 32) {
+  const codeVerifier = generateCodeVerifier(bytes);
+  const codeChallenge = generateCodeChallenge(codeVerifier);
+  const state = generateState();
+  return { codeVerifier, codeChallenge, state };
+}
+
+function parseJwtPayload(token: string): any {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const json = Buffer.from(base64, "base64").toString("utf8");
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+// ==========================================
+// Provider Constants
+// ==========================================
 
 export const ANTIGRAVITY_CLIENT_ID = "REDACTED_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
 export const ANTIGRAVITY_CLIENT_SECRET = "REDACTED_GOOGLE_CLIENT_SECRET";
@@ -18,8 +58,32 @@ export const ANTIGRAVITY_SCOPES = [
   "https://www.googleapis.com/auth/experimentsandconfigs",
 ];
 
+export const GOOGLE_OAUTH_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
+export const GOOGLE_OAUTH_CLIENT_SECRET = "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";
+export const GOOGLE_OAUTH_SCOPES = [
+  "https://www.googleapis.com/auth/cloud-platform",
+  "https://www.googleapis.com/auth/userinfo.email",
+];
+
+export const CLAUDE_CLIENT_ID = "REDACTED_CLAUDE_CLIENT_ID";
+export const CLAUDE_AUTHORIZE_URL = "https://claude.ai/oauth/authorize";
+export const CLAUDE_TOKEN_URL = "https://api.anthropic.com/v1/oauth/token";
+export const CLAUDE_SCOPES = ["openid", "email", "profile", "offline_access"];
+
+export const CODEX_CLIENT_ID = "REDACTED_CODEX_CLIENT_ID";
+export const CODEX_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
+export const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
+export const CODEX_SCOPE = "openid profile email offline_access";
+
+export const KIMI_CLIENT_ID = "REDACTED_KIMI_CLIENT_ID";
+export const KIMI_DEVICE_CODE_URL = "https://auth.kimi.com/api/oauth/device_authorization";
+export const KIMI_TOKEN_URL = "https://auth.kimi.com/api/oauth/token";
+export const KIMI_AUTHORIZE_DEVICE_URL = "https://www.kimi.com/code/authorize_device";
+
 export async function refreshGoogleOAuthToken(
-  refreshToken: string
+  refreshToken: string,
+  clientId = ANTIGRAVITY_CLIENT_ID,
+  clientSecret = ANTIGRAVITY_CLIENT_SECRET
 ): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number } | null> {
   if (!refreshToken) return null;
   try {
@@ -32,8 +96,8 @@ export async function refreshGoogleOAuthToken(
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
-        client_id: ANTIGRAVITY_CLIENT_ID,
-        client_secret: ANTIGRAVITY_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
       }),
     });
     if (!res.ok) {
@@ -52,28 +116,168 @@ export async function refreshGoogleOAuthToken(
   }
 }
 
-function buildAntigravityAuthUrl(redirectUri: string): string {
-  const params = new URLSearchParams({
-    client_id: ANTIGRAVITY_CLIENT_ID,
-    response_type: "code",
-    redirect_uri: redirectUri,
-    scope: ANTIGRAVITY_SCOPES.join(" "),
-    access_type: "offline",
-    prompt: "consent",
-  });
-  return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-}
+// ==========================================
+// Dynamic OAuth Authorization Endpoints
+// ==========================================
 
-// GET /api/oauth/:provider/authorize - Get authorization URL
-oauthRouter.get("/:provider/authorize", (req, res) => {
+// GET /api/oauth/:provider/authorize - Get authorization URL & PKCE metadata
+oauthRouter.get("/:provider/authorize", async (req, res) => {
   const { provider } = req.params;
-  const redirectUri = (req.query.redirect_uri as string) || "http://localhost:20127/callback";
+  const pId = provider.toLowerCase();
+  const appPort = req.headers.host?.split(":")[1] || "20127";
+  const defaultRedirectUri = `http://localhost:${appPort}/callback`;
+  const redirectUri = (req.query.redirect_uri as string) || defaultRedirectUri;
 
-  if (provider === "antigravity") {
-    const authUrl = buildAntigravityAuthUrl(redirectUri);
+  const { codeVerifier, codeChallenge, state } = generatePKCE(32);
+
+  // 1. Antigravity Google OAuth
+  if (pId === "antigravity") {
+    const params = new URLSearchParams({
+      client_id: ANTIGRAVITY_CLIENT_ID,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: ANTIGRAVITY_SCOPES.join(" "),
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      state,
+      access_type: "offline",
+      prompt: "consent",
+    });
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
     res.json({
       authUrl,
       redirectUri,
+      state,
+      codeVerifier,
+      codeChallenge,
+      flowType: "authorization_code",
+    });
+    return;
+  }
+
+  // 2. Gemini / Gemini CLI Google OAuth
+  if (pId === "gemini-cli" || pId === "gemini") {
+    const params = new URLSearchParams({
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: GOOGLE_OAUTH_SCOPES.join(" "),
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      state,
+      access_type: "offline",
+      prompt: "consent",
+    });
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    res.json({
+      authUrl,
+      redirectUri,
+      state,
+      codeVerifier,
+      codeChallenge,
+      flowType: "authorization_code",
+    });
+    return;
+  }
+
+  // 3. Claude (Anthropic) PKCE flow
+  if (pId === "claude") {
+    const params = new URLSearchParams({
+      code: "true",
+      client_id: CLAUDE_CLIENT_ID,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: CLAUDE_SCOPES.join(" "),
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      state,
+    });
+    const authUrl = `${CLAUDE_AUTHORIZE_URL}?${params.toString()}`;
+    res.json({
+      authUrl,
+      redirectUri,
+      state,
+      codeVerifier,
+      codeChallenge,
+      flowType: "authorization_code_pkce",
+    });
+    return;
+  }
+
+  // 4. Codex (OpenAI) PKCE flow
+  if (pId === "codex") {
+    const codexRedirect = (req.query.redirect_uri as string) || "http://localhost:1455/auth/callback";
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: CODEX_CLIENT_ID,
+      redirect_uri: codexRedirect,
+      scope: CODEX_SCOPE,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+      codex_cli_simplified_flow: "true",
+      prompt: "login",
+      id_token_signing_alg: "RS256",
+      state,
+    });
+    const authUrl = `${CODEX_AUTHORIZE_URL}?${params.toString()}`;
+    res.json({
+      authUrl,
+      redirectUri: codexRedirect,
+      state,
+      codeVerifier,
+      codeChallenge,
+      flowType: "authorization_code_pkce",
+    });
+    return;
+  }
+
+  // 5. Device Code Flow Providers
+  const deviceCodeProviders = [
+    "kimi",
+    "kimi-coding",
+    "glm",
+    "minimax-code",
+    "minimax-code-global",
+    "qoder",
+    "qoder-cn",
+    "grok-cli",
+    "kilocode",
+  ];
+  if (deviceCodeProviders.includes(pId)) {
+    res.json({
+      authUrl: null,
+      flowType: "device_code",
+      redirectUri,
+      state,
+      codeVerifier,
+    });
+    return;
+  }
+
+  // 6. Generic registry provider with OAuth authorize URL
+  const reg = getRegistryProvider(provider);
+  if (reg?.oauth?.authorizeUrl) {
+    const scopes = Array.isArray(reg.oauth.scopes)
+      ? reg.oauth.scopes.join(" ")
+      : (reg.oauth.scope || "");
+    const params = new URLSearchParams({
+      client_id: reg.oauth.clientId || "",
+      response_type: "code",
+      redirect_uri: redirectUri,
+      state,
+    });
+    if (scopes) params.set("scope", scopes);
+    if (reg.oauth.codeChallengeMethod || codeChallenge) {
+      params.set("code_challenge", codeChallenge);
+      params.set("code_challenge_method", reg.oauth.codeChallengeMethod || "S256");
+    }
+    const authUrl = `${reg.oauth.authorizeUrl}?${params.toString()}`;
+    res.json({
+      authUrl,
+      redirectUri,
+      state,
+      codeVerifier,
+      codeChallenge,
       flowType: "authorization_code",
     });
     return;
@@ -82,17 +286,244 @@ oauthRouter.get("/:provider/authorize", (req, res) => {
   res.status(400).json({ error: `Provider '${provider}' does not support OAuth authorize endpoint` });
 });
 
+// GET /api/oauth/:provider/device-code - Request device code for device flow providers
+oauthRouter.get("/:provider/device-code", async (req, res) => {
+  const { provider } = req.params;
+  const pId = provider.toLowerCase();
+
+  try {
+    if (pId === "kimi" || pId === "kimi-coding") {
+      const resp = await fetch(KIMI_DEVICE_CODE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          "User-Agent": "KimiCLI/1.0",
+        },
+        body: new URLSearchParams({ client_id: KIMI_CLIENT_ID }),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        res.status(resp.status).json({ error: `Kimi device authorization failed: ${errText}` });
+        return;
+      }
+      const data: any = await resp.json();
+      res.json({
+        device_code: data.device_code,
+        user_code: data.user_code,
+        verification_uri: data.verification_uri || KIMI_AUTHORIZE_DEVICE_URL,
+        verification_uri_complete:
+          data.verification_uri_complete || `${KIMI_AUTHORIZE_DEVICE_URL}?user_code=${data.user_code}`,
+        expires_in: data.expires_in || 300,
+        interval: data.interval || 5,
+      });
+      return;
+    }
+
+    if (pId === "glm") {
+      const pollToken = crypto.randomBytes(32).toString("hex");
+      const resp = await fetch("https://zcode.z.ai/api/v1/oauth/cli/init", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${pollToken}`,
+        },
+        body: JSON.stringify({ provider: "zai" }),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        res.status(resp.status).json({ error: `ZCode OAuth init failed: ${errText}` });
+        return;
+      }
+      const payload: any = await resp.json();
+      const data = payload.data || {};
+      res.json({
+        device_code: data.flow_id,
+        user_code: data.flow_id,
+        verification_uri: data.authorize_url,
+        verification_uri_complete: data.authorize_url,
+        expires_in: 300,
+        interval: data.poll_interval_sec || 3,
+        _zcodePollToken: pollToken,
+      });
+      return;
+    }
+
+    if (pId === "minimax-code" || pId === "minimax-code-global") {
+      const url =
+        pId === "minimax-code"
+          ? "https://account.minimax.io/oauth2/device/code"
+          : "https://account.minimax.cn/oauth2/device/code";
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({ client_id: "mcode-public" }),
+      });
+      if (resp.ok) {
+        const data: any = await resp.json();
+        res.json({
+          device_code: data.device_code,
+          user_code: data.user_code,
+          verification_uri: data.verification_uri,
+          verification_uri_complete: data.verification_uri_complete || data.verification_uri,
+          expires_in: data.expires_in || 300,
+          interval: data.interval || 5,
+        });
+        return;
+      }
+    }
+
+    const reg = getRegistryProvider(provider);
+    if (reg?.oauth?.deviceCodeUrl) {
+      const resp = await fetch(reg.oauth.deviceCodeUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({ client_id: reg.oauth.clientId || "" }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        res.json(data);
+        return;
+      }
+    }
+
+    res.status(400).json({ error: `Provider '${provider}' does not support device code endpoint` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to initiate device code" });
+  }
+});
+
+// POST /api/oauth/:provider/poll - Poll for tokens in device code flow
+oauthRouter.post("/:provider/poll", async (req, res) => {
+  const { provider } = req.params;
+  const pId = provider.toLowerCase();
+  const { device_code, extraData } = req.body;
+
+  if (!device_code) {
+    res.status(400).json({ error: "Missing device_code" });
+    return;
+  }
+
+  try {
+    if (pId === "kimi" || pId === "kimi-coding") {
+      const resp = await fetch(KIMI_TOKEN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          client_id: KIMI_CLIENT_ID,
+          device_code,
+        }),
+      });
+
+      const data: any = await resp.json().catch(() => ({}));
+      if (data.error === "authorization_pending" || data.error === "slow_down") {
+        res.json({ ok: false, error: "authorization_pending" });
+        return;
+      }
+      if (data.error) {
+        res.json({ ok: false, error: data.error, error_description: data.error_description });
+        return;
+      }
+      if (data.access_token) {
+        const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+        const accountName = "Kimi Account";
+        const storedToken = JSON.stringify({
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          expiresAt: Date.now() + (Number(data.expires_in) || 2592000) * 1000,
+        });
+
+        const existingProvider = ProviderRepository.getProviderById("kimi");
+        if (!existingProvider) {
+          const defaults = ProviderRepository.getProviderWithDefaults("kimi");
+          if (defaults) ProviderRepository.saveProvider(defaults);
+        }
+
+        ProviderRepository.addAccount({
+          id: accountId,
+          providerId: "kimi",
+          name: accountName,
+          rawApiKey: storedToken,
+          providerSpecificData: {
+            authMethod: "device_code",
+            refreshToken: data.refresh_token,
+          },
+        });
+
+        res.json({ ok: true, success: true, account: { id: accountId, name: accountName, providerId: "kimi" } });
+        return;
+      }
+      res.json({ ok: false, error: "authorization_pending" });
+      return;
+    }
+
+    if (pId === "glm") {
+      const pollToken = extraData?._zcodePollToken;
+      if (!pollToken) {
+        res.json({ ok: false, error: "access_denied", error_description: "Missing poll token" });
+        return;
+      }
+      const resp = await fetch(`https://zcode.z.ai/api/v1/oauth/cli/poll/${encodeURIComponent(device_code)}`, {
+        headers: { Authorization: `Bearer ${pollToken}` },
+      });
+      const data: any = await resp.json().catch(() => ({}));
+      if (data.status === "ready" && (data.accessToken || data.token)) {
+        const token = data.accessToken || data.token;
+        const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+        const accountName = data.user?.email || data.user?.name || "Z.AI GLM Account";
+
+        const existingProvider = ProviderRepository.getProviderById("glm");
+        if (!existingProvider) {
+          const defaults = ProviderRepository.getProviderWithDefaults("glm");
+          if (defaults) ProviderRepository.saveProvider(defaults);
+        }
+
+        ProviderRepository.addAccount({
+          id: accountId,
+          providerId: "glm",
+          name: accountName,
+          rawApiKey: token,
+          providerSpecificData: {
+            authMethod: "oauth",
+            user: data.user,
+          },
+        });
+
+        res.json({ ok: true, success: true, account: { id: accountId, name: accountName, providerId: "glm" } });
+        return;
+      }
+      res.json({ ok: false, error: "authorization_pending" });
+      return;
+    }
+
+    res.status(400).json({ error: `Poll not supported for provider '${provider}'` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to poll token" });
+  }
+});
+
 // POST /api/oauth/:provider/exchange - Exchange authorization code for tokens and save account
 oauthRouter.post("/:provider/exchange", async (req, res) => {
   const { provider } = req.params;
-  const { code, redirectUri } = req.body;
+  const pId = provider.toLowerCase();
+  const { code, redirectUri, codeVerifier, state } = req.body;
 
   if (!code || typeof code !== "string") {
     res.status(400).json({ error: "Missing authorization code or callback URL" });
     return;
   }
 
-  // Extract clean code if full callback URL was pasted
+  // 1. Extract clean code if full callback URL was pasted
   let rawCode = code.trim();
   if (rawCode.includes("code=")) {
     try {
@@ -104,9 +535,48 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
     }
   }
 
-  const effectiveRedirectUri = redirectUri || "http://localhost:20127/callback";
+  // Strip state suffix if present (e.g. code#state)
+  if (rawCode.includes("#")) {
+    rawCode = rawCode.split("#")[0];
+  }
 
-  if (provider === "antigravity") {
+  // 2. Direct raw JWT token paste (e.g. eyJ...)
+  if (rawCode.startsWith("eyJ") && rawCode.includes(".")) {
+    const payload = parseJwtPayload(rawCode);
+    const accountName = payload?.email || payload?.name || `${provider} Account`;
+    const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+
+    const existingProvider = ProviderRepository.getProviderById(pId);
+    if (!existingProvider) {
+      const defaults = ProviderRepository.getProviderWithDefaults(pId);
+      if (defaults) ProviderRepository.saveProvider(defaults);
+    }
+
+    ProviderRepository.addAccount({
+      id: accountId,
+      providerId: pId,
+      name: accountName,
+      rawApiKey: rawCode,
+      providerSpecificData: {
+        email: accountName,
+        authMethod: "access_token",
+      },
+    });
+
+    res.json({
+      success: true,
+      account: { id: accountId, name: accountName, providerId: pId },
+    });
+    return;
+  }
+
+  const appPort = req.headers.host?.split(":")[1] || "20127";
+  const defaultRedirect =
+    pId === "codex" ? "http://localhost:1455/auth/callback" : `http://localhost:${appPort}/callback`;
+  const effectiveRedirectUri = redirectUri || defaultRedirect;
+
+  // 3. Antigravity Google OAuth exchange
+  if (pId === "antigravity") {
     try {
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
@@ -139,15 +609,11 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       let accountName = "Antigravity Google Account";
       try {
         const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (userRes.ok) {
           const userData: any = await userRes.json();
-          if (userData.email) {
-            accountName = userData.email;
-          }
+          if (userData.email) accountName = userData.email;
         }
       } catch (err) {
         console.warn("Failed to fetch Google userinfo:", err);
@@ -156,9 +622,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       const existingProvider = ProviderRepository.getProviderById("antigravity");
       if (!existingProvider) {
         const defaults = ProviderRepository.getProviderWithDefaults("antigravity");
-        if (defaults) {
-          ProviderRepository.saveProvider(defaults);
-        }
+        if (defaults) ProviderRepository.saveProvider(defaults);
       }
 
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
@@ -186,15 +650,344 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
 
       res.json({
         success: true,
-        account: {
-          id: accountId,
-          name: accountName,
-          providerId: "antigravity",
-        },
+        account: { id: accountId, name: accountName, providerId: "antigravity" },
       });
       return;
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to exchange OAuth token" });
+      return;
+    }
+  }
+
+  // 4. Gemini / Gemini CLI Google OAuth exchange
+  if (pId === "gemini-cli" || pId === "gemini") {
+    try {
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: GOOGLE_OAUTH_CLIENT_ID,
+          client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+          code: rawCode,
+          redirect_uri: effectiveRedirectUri,
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        res.status(400).json({ error: `Gemini OAuth exchange failed: ${errText}` });
+        return;
+      }
+
+      const tokenData: any = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+      if (!accessToken) {
+        res.status(400).json({ error: "No access token received from Google" });
+        return;
+      }
+
+      let accountName = "Gemini Google Account";
+      try {
+        const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (userRes.ok) {
+          const userData: any = await userRes.json();
+          if (userData.email) accountName = userData.email;
+        }
+      } catch {}
+
+      const existingProvider = ProviderRepository.getProviderById(pId);
+      if (!existingProvider) {
+        const defaults = ProviderRepository.getProviderWithDefaults(pId);
+        if (defaults) ProviderRepository.saveProvider(defaults);
+      }
+
+      const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+      const refreshToken = tokenData.refresh_token || undefined;
+      const expiresIn = Number(tokenData.expires_in) || 3600;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      const storedToken = JSON.stringify({
+        accessToken,
+        refreshToken,
+        expiresAt,
+      });
+
+      ProviderRepository.addAccount({
+        id: accountId,
+        providerId: pId,
+        name: accountName,
+        rawApiKey: storedToken,
+        providerSpecificData: {
+          email: accountName,
+          refreshToken,
+          expiresAt,
+        },
+      });
+
+      res.json({
+        success: true,
+        account: { id: accountId, name: accountName, providerId: pId },
+      });
+      return;
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to exchange Gemini token" });
+      return;
+    }
+  }
+
+  // 5. Claude (Anthropic) PKCE exchange
+  if (pId === "claude") {
+    try {
+      const tokenRes = await fetch(CLAUDE_TOKEN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          code: rawCode,
+          state: state || undefined,
+          grant_type: "authorization_code",
+          client_id: CLAUDE_CLIENT_ID,
+          redirect_uri: effectiveRedirectUri,
+          code_verifier: codeVerifier,
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        res.status(400).json({ error: `Claude OAuth exchange failed: ${errText}` });
+        return;
+      }
+
+      const tokenData: any = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+      if (!accessToken) {
+        res.status(400).json({ error: "No access token received from Claude" });
+        return;
+      }
+
+      let accountName = "Claude Account";
+      if (tokenData.id_token) {
+        const payload = parseJwtPayload(tokenData.id_token);
+        if (payload?.email) accountName = payload.email;
+      }
+
+      const existingProvider = ProviderRepository.getProviderById("claude");
+      if (!existingProvider) {
+        const defaults = ProviderRepository.getProviderWithDefaults("claude");
+        if (defaults) ProviderRepository.saveProvider(defaults);
+      }
+
+      const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+      const refreshToken = tokenData.refresh_token || undefined;
+      const expiresIn = Number(tokenData.expires_in) || 3600;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      const storedToken = JSON.stringify({
+        accessToken,
+        refreshToken,
+        expiresAt,
+        scope: tokenData.scope,
+      });
+
+      ProviderRepository.addAccount({
+        id: accountId,
+        providerId: "claude",
+        name: accountName,
+        rawApiKey: storedToken,
+        providerSpecificData: {
+          email: accountName,
+          refreshToken,
+          expiresAt,
+        },
+      });
+
+      res.json({
+        success: true,
+        account: { id: accountId, name: accountName, providerId: "claude" },
+      });
+      return;
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to exchange Claude token" });
+      return;
+    }
+  }
+
+  // 6. Codex (OpenAI) PKCE exchange
+  if (pId === "codex") {
+    try {
+      const tokenRes = await fetch(CODEX_TOKEN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: CODEX_CLIENT_ID,
+          code: rawCode,
+          redirect_uri: effectiveRedirectUri,
+          code_verifier: codeVerifier || "",
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        res.status(400).json({ error: `Codex OAuth exchange failed: ${errText}` });
+        return;
+      }
+
+      const tokenData: any = await tokenRes.json();
+      const accessToken = tokenData.access_token;
+      if (!accessToken) {
+        res.status(400).json({ error: "No access token received from Codex" });
+        return;
+      }
+
+      let accountName = "Codex Account";
+      if (tokenData.id_token) {
+        const payload = parseJwtPayload(tokenData.id_token);
+        const email = payload?.email || payload?.["https://api.openai.com/profile"]?.email;
+        if (email) accountName = email;
+      }
+
+      const existingProvider = ProviderRepository.getProviderById("codex");
+      if (!existingProvider) {
+        const defaults = ProviderRepository.getProviderWithDefaults("codex");
+        if (defaults) ProviderRepository.saveProvider(defaults);
+      }
+
+      const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+      const refreshToken = tokenData.refresh_token || undefined;
+      const expiresIn = Number(tokenData.expires_in) || 3600;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      const storedToken = JSON.stringify({
+        accessToken,
+        refreshToken,
+        idToken: tokenData.id_token,
+        expiresAt,
+      });
+
+      ProviderRepository.addAccount({
+        id: accountId,
+        providerId: "codex",
+        name: accountName,
+        rawApiKey: storedToken,
+        providerSpecificData: {
+          email: accountName,
+          refreshToken,
+          expiresAt,
+        },
+      });
+
+      res.json({
+        success: true,
+        account: { id: accountId, name: accountName, providerId: "codex" },
+      });
+      return;
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to exchange Codex token" });
+      return;
+    }
+  }
+
+  // 7. Generic registry provider fallback
+  const reg = getRegistryProvider(provider);
+  if (reg?.oauth?.tokenUrl) {
+    try {
+      const isJson = reg.oauth.tokenUrlFormat === "json";
+      let tokenRes: Response;
+      if (isJson) {
+        tokenRes = await fetch(reg.oauth.tokenUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            grant_type: "authorization_code",
+            client_id: reg.oauth.clientId,
+            client_secret: reg.oauth.clientSecret,
+            code: rawCode,
+            redirect_uri: effectiveRedirectUri,
+            code_verifier: codeVerifier,
+          }),
+        });
+      } else {
+        tokenRes = await fetch(reg.oauth.tokenUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+          },
+          body: new URLSearchParams({
+            grant_type: "authorization_code",
+            client_id: reg.oauth.clientId || "",
+            ...(reg.oauth.clientSecret ? { client_secret: reg.oauth.clientSecret } : {}),
+            code: rawCode,
+            redirect_uri: effectiveRedirectUri,
+            ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
+          }),
+        });
+      }
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        res.status(400).json({ error: `OAuth exchange failed: ${errText}` });
+        return;
+      }
+
+      const tokenData: any = await tokenRes.json();
+      const accessToken = tokenData.access_token || tokenData.token;
+      if (!accessToken) {
+        res.status(400).json({ error: "No access token received from provider" });
+        return;
+      }
+
+      const accountName = `${reg.name} Account`;
+      const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+      const refreshToken = tokenData.refresh_token || undefined;
+      const expiresIn = Number(tokenData.expires_in) || 3600;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      const storedToken = JSON.stringify({
+        accessToken,
+        refreshToken,
+        expiresAt,
+      });
+
+      const existingProvider = ProviderRepository.getProviderById(pId);
+      if (!existingProvider) {
+        const defaults = ProviderRepository.getProviderWithDefaults(pId);
+        if (defaults) ProviderRepository.saveProvider(defaults);
+      }
+
+      ProviderRepository.addAccount({
+        id: accountId,
+        providerId: pId,
+        name: accountName,
+        rawApiKey: storedToken,
+        providerSpecificData: {
+          refreshToken,
+          expiresAt,
+        },
+      });
+
+      res.json({
+        success: true,
+        account: { id: accountId, name: accountName, providerId: pId },
+      });
+      return;
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to exchange token" });
       return;
     }
   }
