@@ -1,0 +1,87 @@
+@use "variables" as vars;
+
+// Keyframes
+@keyframes rtFadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rtScaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes rtPulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.45);
+  }
+}
+
+@keyframes rtFlowLine {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes rtBeaconPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+// Utility animation classes
+.animate-rt-fade-in {
+  animation: rtFadeInUp 300ms vars.$ease-out-quint forwards;
+}
+
+.animate-rt-scale-in {
+  animation: rtScaleIn 250ms vars.$ease-out-quint forwards;
+}
+
+.animate-rt-pulse-glow {
+  animation: rtPulseGlow 3s infinite ease-in-out;
+}
+
+.rt-beacon {
+  display: inline-block;
+  border-radius: 50%;
+  animation: rtBeaconPulse 2s infinite;
+}
+
+// Stagger reveals for grids
+.stagger-item {
+  animation: rtFadeInUp 350ms vars.$ease-out-quint backwards;
+
+  @for $i from 1 through 24 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 35}ms;
+    }
+  }
+}

@@ -1,0 +1,70 @@
+@use "variables" as vars;
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin glassmorphism {
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid vars.$color-border;
+}
+
+@mixin card-interactive {
+  background: vars.$color-bg-card;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-lg;
+  transition: all vars.$transition-base;
+  
+  &:hover {
+    background: vars.$color-bg-card-hover;
+    border-color: rgba(59, 130, 246, 0.45);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), vars.$shadow-glow;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+@mixin button-interactive {
+  transition: all vars.$transition-fast;
+  user-select: none;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+@mixin scrollbar-custom {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: vars.$color-border;
+    border-radius: vars.$radius-full;
+
+    &:hover {
+      background: vars.$color-brand-600;
+    }
+  }
+}

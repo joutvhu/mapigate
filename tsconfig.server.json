@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "noEmit": false
+  },
+  "include": [
+    "src/core/**/*",
+    "src/storage/**/*",
+    "src/server/**/*",
+    "src/cli/**/*",
+    "src/mitm/**/*",
+    "src/shared/**/*"
+  ],
+  "exclude": ["src/web/**/*"]
+}
