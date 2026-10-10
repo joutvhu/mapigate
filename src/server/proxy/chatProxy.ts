@@ -8,6 +8,18 @@ import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { LogRepository } from "../../storage/repositories/logRepo.js";
 import crypto from "node:crypto";
+import { fetch as undiciFetch, ProxyAgent } from "undici";
+
+const proxyDispatchers = new Map<string, ProxyAgent>();
+
+function getProxyDispatcher(proxyUrl: string): ProxyAgent {
+  let dispatcher = proxyDispatchers.get(proxyUrl);
+  if (!dispatcher) {
+    dispatcher = new ProxyAgent(proxyUrl);
+    proxyDispatchers.set(proxyUrl, dispatcher);
+  }
+  return dispatcher;
+}
 
 export async function handleProxyRequest(
   req: Request,
@@ -42,7 +54,9 @@ export async function handleProxyRequest(
     return;
   }
 
-  const provider = ProviderRepository.getProviderById(providerId);
+  const provider =
+    ProviderRepository.getProviderWithDefaults(providerId) ||
+    ProviderRepository.getProviderById(providerId);
   if (!provider) {
     res.status(502).json({
       error: {
@@ -82,14 +96,24 @@ export async function handleProxyRequest(
   const upstreamUrl = `${provider.baseUrl.replace(/\/+$/, "")}${upstreamPath}`;
 
   try {
-    const upstreamRes = await fetch(upstreamUrl, {
+    const outgoingHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${account.rawApiKey}`,
+      ...(provider.customHeaders || {}),
+    };
+
+    const hasProxy = Boolean(provider.proxyUrl && provider.proxyUrl.trim());
+    const fetchFn = hasProxy ? undiciFetch : globalThis.fetch;
+    const fetchOptions: any = {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${account.rawApiKey}`,
-      },
+      headers: outgoingHeaders,
       body: JSON.stringify(upstreamBody),
-    });
+    };
+    if (hasProxy) {
+      fetchOptions.dispatcher = getProxyDispatcher(provider.proxyUrl!.trim());
+    }
+
+    const upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
 
     if (!upstreamRes.ok) {
       if (upstreamRes.status === 429) {

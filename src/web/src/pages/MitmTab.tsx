@@ -265,7 +265,7 @@ export const MitmTab: React.FC = () => {
       [toolId]: (prev[toolId] || []).filter((m) => m.sourceModel !== sourceModel),
     }));
 
-    fetch(`/api/mitm/mappings/${toolId}/${encodeURIComponent(sourceModel)}`, {
+    fetch(`/api/mitm/mappings/${toolId}?sourceModel=${encodeURIComponent(sourceModel)}`, {
       method: "DELETE",
     }).catch(() => {});
   };

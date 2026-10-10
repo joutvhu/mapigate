@@ -3,34 +3,28 @@ import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
 
 export const mitmRouter = Router();
 
-// Internal state for MITM status & per-tool DNS
-let isMitmRunning = true;
-const toolDnsStatus: Record<string, boolean> = {
-  antigravity: false,
-  kiro: true,
-  copilot: false,
-};
-
 // GET MITM status
 mitmRouter.get("/status", (_req, res) => {
   res.json({
-    running: isMitmRunning,
+    running: MitmRepository.getMitmServerRunning(),
     certExists: true,
     certTrusted: true,
     serverOk: true,
-    dnsStatus: toolDnsStatus,
+    dnsStatus: MitmRepository.getAllToolDnsStatus(),
     routerBaseUrl: "http://localhost:20127",
   });
 });
 
 // POST toggle MITM server
 mitmRouter.post("/toggle-server", (req, res) => {
+  let isRunning: boolean;
   if (req.body.running !== undefined) {
-    isMitmRunning = Boolean(req.body.running);
+    isRunning = Boolean(req.body.running);
   } else {
-    isMitmRunning = !isMitmRunning;
+    isRunning = !MitmRepository.getMitmServerRunning();
   }
-  res.json({ running: isMitmRunning });
+  MitmRepository.setMitmServerRunning(isRunning);
+  res.json({ running: isRunning });
 });
 
 // POST toggle DNS redirection for an IDE / tool
@@ -41,19 +35,17 @@ mitmRouter.post("/toggle-dns", (req, res) => {
     return;
   }
   const toolKey = tool.toLowerCase();
-  if (!(toolKey in toolDnsStatus)) {
-    toolDnsStatus[toolKey] = false;
-  }
-  if (req.body.active !== undefined) {
-    toolDnsStatus[toolKey] = Boolean(req.body.active);
-  } else {
-    toolDnsStatus[toolKey] = !toolDnsStatus[toolKey];
-  }
+  const currentStatus = MitmRepository.getToolDnsStatus(toolKey);
+  const newStatus = req.body.active !== undefined ? Boolean(req.body.active) : !currentStatus;
+
+  MitmRepository.setToolDnsStatus(toolKey, newStatus);
+  const allDnsStatus = MitmRepository.getAllToolDnsStatus();
+
   res.json({
     tool: toolKey,
     ide: toolKey,
-    active: toolDnsStatus[toolKey],
-    dnsStatus: toolDnsStatus,
+    active: newStatus,
+    dnsStatus: allDnsStatus,
   });
 });
 
@@ -122,8 +114,25 @@ mitmRouter.post("/mappings/reset", (req, res) => {
   res.json({ success: true, ide, mappings });
 });
 
-// DELETE mapping
-mitmRouter.delete("/mappings/:ide/:sourceModel", (req, res) => {
-  MitmRepository.deleteMapping(req.params.ide, req.params.sourceModel);
+// DELETE mapping: supports query parameter (?sourceModel=...), request body ({ sourceModel }), and path parameter
+mitmRouter.delete("/mappings/:ide", (req, res) => {
+  const ide = req.params.ide;
+  const sourceModel = (req.query.sourceModel as string) || req.body?.sourceModel;
+  if (!sourceModel) {
+    res.status(400).json({ error: "Missing sourceModel parameter" });
+    return;
+  }
+  MitmRepository.deleteMapping(ide, sourceModel);
+  res.json({ success: true });
+});
+
+mitmRouter.delete("/mappings/:ide/*", (req, res) => {
+  const ide = req.params.ide;
+  const sourceModel = (req.params as any)[0] || (req.params as any).sourceModel;
+  if (!sourceModel) {
+    res.status(400).json({ error: "Missing sourceModel parameter" });
+    return;
+  }
+  MitmRepository.deleteMapping(ide, sourceModel);
   res.json({ success: true });
 });

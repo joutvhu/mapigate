@@ -49,6 +49,52 @@ export function getDefaultMappings(tool: string): MitmMapping[] {
 }
 
 export class MitmRepository {
+  public static getToolDnsStatus(tool: string): boolean {
+    const db = getDatabase();
+    const key = `mitm_dns_${tool.toLowerCase()}`;
+    const row = db.get<any>("SELECT value FROM settings WHERE key = ?", key);
+    if (!row) {
+      return tool.toLowerCase() === "kiro";
+    }
+    return row.value === "true" || row.value === "1";
+  }
+
+  public static getAllToolDnsStatus(): Record<string, boolean> {
+    const tools = ["antigravity", "kiro", "copilot"];
+    const result: Record<string, boolean> = {};
+    for (const tool of tools) {
+      result[tool] = this.getToolDnsStatus(tool);
+    }
+    return result;
+  }
+
+  public static setToolDnsStatus(tool: string, active: boolean): void {
+    const db = getDatabase();
+    const key = `mitm_dns_${tool.toLowerCase()}`;
+    db.run(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      key,
+      active ? "true" : "false"
+    );
+  }
+
+  public static getMitmServerRunning(): boolean {
+    const db = getDatabase();
+    const row = db.get<any>("SELECT value FROM settings WHERE key = 'mitm_server_running'");
+    if (!row) return true;
+    return row.value === "true" || row.value === "1";
+  }
+
+  public static setMitmServerRunning(running: boolean): void {
+    const db = getDatabase();
+    db.run(
+      `INSERT INTO settings (key, value) VALUES ('mitm_server_running', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      running ? "true" : "false"
+    );
+  }
+
   public static getToolHosts(tool: string): string {
     const db = getDatabase();
     const row = db.get<any>("SELECT value FROM settings WHERE key = ?", `mitm_hosts_${tool}`);
