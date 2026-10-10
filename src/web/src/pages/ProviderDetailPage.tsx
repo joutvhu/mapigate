@@ -7,6 +7,7 @@ import { AddAccountModal } from "../components/AddAccountModal";
 import { CopilotAuthModal } from "../components/CopilotAuthModal";
 import { CursorAuthModal } from "../components/CursorAuthModal";
 import { KiroAuthModal } from "../components/KiroAuthModal";
+import { PortalModal } from "../components/PortalModal";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -745,7 +746,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           image: provider.image,
           format: registryItem?.format || provider.format,
           website: registryItem?.website,
-          apiKeyUrl: registryItem?.apiKeyUrl,
+          apiKeyUrl: registryItem?.notice?.apiKeyUrl,
+          regions: registryItem?.regions,
+          defaultRegion: registryItem?.defaultRegion,
         }}
         existingNames={connections.map((c) => c.name)}
         onClose={() => setShowAddModal(false)}
@@ -780,31 +783,33 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       />
 
       {/* Add Custom Model Modal */}
-      {showAddModelModal && (
-        <div className="rt-modal-backdrop">
-          <div className="rt-modal-content space-y-4">
-            <h4 className="text-sm font-bold text-white">Add Custom Model</h4>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Model Identifier</label>
-              <input
-                type="text"
-                placeholder="e.g. custom-gpt-oss or claude-3-7-sonnet"
-                value={newModelInput}
-                onChange={(e) => setNewModelInput(e.target.value)}
-                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#1E293B]">
-              <button onClick={() => setShowAddModelModal(false)} className="px-4 py-2 text-xs text-slate-400 cursor-pointer">
-                Cancel
-              </button>
-              <button onClick={handleAddCustomModel} className="rt-btn rt-btn--primary">
-                Add Model
-              </button>
-            </div>
+      <PortalModal
+        isOpen={showAddModelModal}
+        onClose={() => setShowAddModelModal(false)}
+        maxWidthClass="max-w-md"
+      >
+        <div className="space-y-4">
+          <h4 className="text-sm font-bold text-white">Add Custom Model</h4>
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">Model Identifier</label>
+            <input
+              type="text"
+              placeholder="e.g. custom-gpt-oss or claude-3-7-sonnet"
+              value={newModelInput}
+              onChange={(e) => setNewModelInput(e.target.value)}
+              className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t border-[#1E293B]">
+            <button onClick={() => setShowAddModelModal(false)} className="px-4 py-2 text-xs text-slate-400 cursor-pointer">
+              Cancel
+            </button>
+            <button onClick={handleAddCustomModel} className="rt-btn rt-btn--primary">
+              Add Model
+            </button>
           </div>
         </div>
-      )}
+      </PortalModal>
     </div>
   );
 };

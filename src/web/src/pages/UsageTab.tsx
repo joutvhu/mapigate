@@ -7,22 +7,11 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { SEED_HOURLY_USAGE as HOURLY_METRICS_DATA, SEED_REQUESTS } from "../constants/mockData";
-
-const TOPOLOGY_NODES = [
-  { id: "antigravity", name: "Antigravity", x: 130, y: 70, color: "#3B82F6" },
-  { id: "gemini", name: "Gemini", x: 240, y: 50, color: "#38BDF8" },
-  { id: "openai", name: "OpenAI", x: 350, y: 50, color: "#10B981" },
-  { id: "github", name: "GitHub Copilot", x: 430, y: 90, color: "#60A5FA" },
-  { id: "deepseek", name: "DeepSeek", x: 450, y: 155, color: "#6366F1" },
-  { id: "openrouter", name: "OpenRouter", x: 440, y: 220, color: "#818CF8" },
-  { id: "nvidia", name: "NVIDIA NIM", x: 430, y: 280, color: "#10B981" },
-  { id: "poolside", name: "Poolside", x: 370, y: 320, color: "#38BDF8" },
-  { id: "cloudflare", name: "Cloudflare", x: 270, y: 330, color: "#F59E0B" },
-  { id: "claude", name: "Anthropic", x: 180, y: 320, color: "#F97316" },
-  { id: "agnes", name: "Agnes AI", x: 120, y: 275, color: "#A855F7" },
-  { id: "kilo", name: "Kiro AI", x: 100, y: 190, color: "#06B6D4" },
-];
+import {
+  SEED_HOURLY_USAGE as HOURLY_METRICS_DATA,
+  SEED_REQUESTS,
+  TOPOLOGY_NODES,
+} from "../constants/mockData";
 
 export const UsageTab: React.FC = () => {
   const [chartMetric, setChartMetric] = useState<"tokens" | "requests" | "cost">("tokens");

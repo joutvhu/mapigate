@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { PortalModal } from "./PortalModal";
 
 interface OAuthModalProps {
   isOpen: boolean;
@@ -170,8 +171,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   };
 
   return (
-    <div className="rt-modal-backdrop">
-      <div className="rt-modal-content max-w-lg space-y-4">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-lg">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-2">
@@ -295,6 +296,6 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </PortalModal>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PortalModal } from "../components/PortalModal";
 
 interface MitmMappingRow {
   sourceModel: string;
@@ -562,9 +563,13 @@ export const MitmTab: React.FC = () => {
       </div>
 
       {/* Add New Mapping Modal */}
-      {modalTool && (
-        <div className="rt-modal-backdrop">
-          <div className="rt-modal-content space-y-4">
+      <PortalModal
+        isOpen={Boolean(modalTool)}
+        onClose={() => setModalTool(null)}
+        maxWidthClass="max-w-md"
+      >
+        {modalTool && (
+          <div className="space-y-4">
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <span className="material-symbols-outlined text-blue-400 text-[18px]">add_circle</span>
               Add Model Mapping ({modalTool.toUpperCase()})
@@ -609,8 +614,8 @@ export const MitmTab: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

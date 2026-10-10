@@ -43,8 +43,10 @@ const registryList = Object.values(PROVIDER_REGISTRY).filter(
   (p) => !MEDIA_ONLY_PROVIDERS.has(p.id)
 );
 
+export const CODING_PROVIDERS_LIST = registryList;
+
 export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => p.category === "oauth")
+  .filter((p) => p.category === "oauth" || p.category === "webCookie")
   .map((p) => ({
     id: p.id,
     name: p.name,
@@ -60,7 +62,7 @@ export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
   }));
 
 export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => p.category === "freeTier")
+  .filter((p) => p.category === "freeTier" || p.category === "free")
   .map((p) => ({
     id: p.id,
     name: p.name,

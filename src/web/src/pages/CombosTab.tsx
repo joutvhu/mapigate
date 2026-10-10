@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DEFAULT_SEED_COMBOS, type ComboItem } from "../constants/mockData";
+import { PortalModal } from "../components/PortalModal";
 
 export const CombosTab: React.FC = () => {
   const [combos, setCombos] = useState<ComboItem[]>(DEFAULT_SEED_COMBOS);
@@ -252,79 +253,81 @@ export const CombosTab: React.FC = () => {
       </div>
 
       {/* Create Modal */}
-      {showCreateModal && (
-        <div className="rt-modal-backdrop">
-          <div className="rt-modal-content space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="material-symbols-outlined text-blue-400 text-[18px]">add_circle</span>
-                Create Smart Model Combo
-              </h4>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+      <PortalModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        maxWidthClass="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-blue-400 text-[18px]">add_circle</span>
+              Create Smart Model Combo
+            </h4>
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+
+          <div className="space-y-3 pt-1">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Combo Name / Alias
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. combo-fast-coding"
+                value={newComboName}
+                onChange={(e) => setNewComboName(e.target.value)}
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+              />
             </div>
 
-            <div className="space-y-3 pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Combo Name / Alias
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. combo-fast-coding"
-                  value={newComboName}
-                  onChange={(e) => setNewComboName(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Models (comma-separated list)
-                </label>
-                <input
-                  type="text"
-                  placeholder="deepseek-chat, gpt-4o-mini, claude-3-5-haiku"
-                  value={newModelsText}
-                  onChange={(e) => setNewModelsText(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Routing Strategy
-                </label>
-                <select
-                  value={strategyChoice}
-                  onChange={(e) => setStrategyChoice(e.target.value as any)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
-                >
-                  <option value="round-robin">Round Robin — Rotate across accounts</option>
-                  <option value="fallback">Fallback — Sequential priority order</option>
-                  <option value="fusion">Fusion — Parallel query panel</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Models (comma-separated list)
+              </label>
+              <input
+                type="text"
+                placeholder="deepseek-chat, gpt-4o-mini, claude-3-5-haiku"
+                value={newModelsText}
+                onChange={(e) => setNewModelsText(e.target.value)}
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+              />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-[#1E293B]">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Routing Strategy
+              </label>
+              <select
+                value={strategyChoice}
+                onChange={(e) => setStrategyChoice(e.target.value as any)}
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
               >
-                Cancel
-              </button>
-              <button onClick={handleCreate} className="rt-btn rt-btn--primary">
-                Save Combo
-              </button>
+                <option value="round-robin">Round Robin — Rotate across accounts</option>
+                <option value="fallback">Fallback — Sequential priority order</option>
+                <option value="fusion">Fusion — Parallel query panel</option>
+              </select>
             </div>
           </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-[#1E293B]">
+            <button
+              onClick={() => setShowCreateModal(false)}
+              className="px-4 py-2 text-xs text-slate-400 hover:text-white"
+            >
+              Cancel
+            </button>
+            <button onClick={handleCreate} className="rt-btn rt-btn--primary">
+              Save Combo
+            </button>
+          </div>
         </div>
-      )}
+      </PortalModal>
     </div>
   );
 };

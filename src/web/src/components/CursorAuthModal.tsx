@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PortalModal } from "./PortalModal";
 
 interface CursorAuthModalProps {
   isOpen: boolean;
@@ -79,8 +80,8 @@ export const CursorAuthModal: React.FC<CursorAuthModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="rt-modal-backdrop">
-      <div className="rt-modal-content max-w-lg space-y-4">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-lg">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
@@ -173,6 +174,6 @@ export const CursorAuthModal: React.FC<CursorAuthModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </PortalModal>
   );
 };

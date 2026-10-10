@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { planBulkAdd } from "../utils/bulkAdd";
+import { PortalModal } from "./PortalModal";
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -10,6 +11,8 @@ interface AddAccountModalProps {
     format?: string;
     website?: string;
     apiKeyUrl?: string;
+    regions?: { id: string; label: string }[];
+    defaultRegion?: string;
   };
   existingNames?: string[];
   onClose: () => void;
@@ -29,6 +32,19 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const isCloudflareAi = pId === "cloudflare-ai";
   const isBedrock = pId === "bedrock" || pId.includes("bedrock");
   const isCookie = pId === "grok-web" || pId === "iflow";
+  const isXiaomiTokenPlan = pId === "xiaomi-tokenplan";
+
+  const availableRegions: { id: string; label: string }[] = isXiaomiTokenPlan
+    ? [
+        { id: "sgp", label: "Singapore (新加坡)" },
+        { id: "cn", label: "China (中国大陆)" },
+        { id: "ams", label: "Amsterdam (阿姆斯特丹)" },
+      ]
+    : provider.regions || [];
+
+  const [selectedRegion, setSelectedRegion] = useState<string>(
+    provider.defaultRegion || (availableRegions.length > 0 ? availableRegions[0].id : "sgp")
+  );
 
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [accountName, setAccountName] = useState("");
@@ -60,12 +76,11 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
   const getPlaceholder = () => {
     if (isCookie) {
       return pId === "grok-web" ? "sso=xxxx... or raw cookie" : "eyJhbGciOi...";
     }
+    if (isXiaomiTokenPlan) return "tp-...";
     if (pId.startsWith("deepseek")) return "sk-...";
     if (pId.startsWith("xai")) return "xai-...";
     if (pId.startsWith("groq")) return "gsk_...";
@@ -102,6 +117,9 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         sessionToken: bedrockSessionToken.trim() || undefined,
       };
     }
+    if (isXiaomiTokenPlan || availableRegions.length > 0) {
+      return { region: selectedRegion };
+    }
     return undefined;
   };
 
@@ -111,6 +129,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     if (isBedrock && bedrockMode === "static") return Boolean(apiKey.trim() && bedrockAccessKeyId.trim());
     if (isAzure) return Boolean(apiKey.trim() && azureEndpoint.trim() && azureDeployment.trim());
     if (isCloudflareAi) return Boolean(apiKey.trim() && cfAccountId.trim());
+    if (isXiaomiTokenPlan) return Boolean(apiKey.trim() && selectedRegion);
     return Boolean(apiKey.trim());
   };
 
@@ -154,6 +173,8 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       ? "Ollama Local"
       : isBedrock && bedrockMode === "profile"
       ? `Bedrock (${bedrockProfile})`
+      : isXiaomiTokenPlan
+      ? `Xiaomi MiMo (${selectedRegion.toUpperCase()})`
       : `${provider.name} Account`;
 
     const name = accountName.trim() || defaultName;
@@ -225,8 +246,8 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   };
 
   return (
-    <div className="rt-modal-backdrop">
-      <div className="rt-modal-content max-w-xl space-y-4">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-xl">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
@@ -250,11 +271,13 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   ? "Configure Azure OpenAI deployment & endpoint"
                   : isOllamaLocal
                   ? "Connect local self-hosted model service"
+                  : isXiaomiTokenPlan
+                  ? "Select cluster region & paste Token Plan API key"
                   : "API key is hardware-encrypted (AES-256-GCM)"}
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
@@ -264,7 +287,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
           <div className="flex bg-[#0A0D14] p-1 rounded-xl border border-[#1E293B] text-xs">
             <button
               onClick={() => { setMode("single"); setBulkResult(null); }}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
+              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
                 mode === "single" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
@@ -272,7 +295,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
             </button>
             <button
               onClick={() => { setMode("bulk"); setBulkResult(null); }}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
+              className={`flex-1 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
                 mode === "bulk" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
@@ -330,6 +353,31 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
+
+            {/* Region Selector for Xiaomi Token Plan or Regional Providers */}
+            {(isXiaomiTokenPlan || availableRegions.length > 0) && (
+              <div className="space-y-1.5 p-3.5 bg-[#0A0D14] border border-[#1E293B] rounded-xl">
+                <label className="block text-slate-300 font-medium mb-1">
+                  Cluster Region <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={selectedRegion}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className="w-full bg-[#0F1420] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-xs cursor-pointer"
+                >
+                  {availableRegions.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label} ({r.id})
+                    </option>
+                  ))}
+                </select>
+                {isXiaomiTokenPlan && (
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Token Plan keys are cluster-specific — select the region matching your subscription.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Ollama Local Specific Form */}
             {isOllamaLocal && (
@@ -441,7 +489,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setBedrockMode("profile")}
-                    className={`flex-1 py-1 rounded-lg font-medium transition-colors ${
+                    className={`flex-1 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
                       bedrockMode === "profile" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
                     }`}
                   >
@@ -450,7 +498,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setBedrockMode("static")}
-                    className={`flex-1 py-1 rounded-lg font-medium transition-colors ${
+                    className={`flex-1 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
                       bedrockMode === "static" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
                     }`}
                   >
@@ -536,6 +584,8 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                     ? "Secret Access Key"
                     : isCloudflareAi
                     ? "Cloudflare API Token"
+                    : isXiaomiTokenPlan
+                    ? "Token Plan Key (tp-...)"
                     : "API Key"}
                 </label>
                 <div className="flex gap-2">
@@ -597,6 +647,6 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </PortalModal>
   );
 };

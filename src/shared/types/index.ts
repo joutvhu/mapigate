@@ -1,4 +1,4 @@
-export type AIFormat = "openai" | "anthropic" | "gemini";
+export type AIFormat = "openai" | "anthropic" | "gemini" | "claude" | string;
 
 export interface ProviderConfig {
   id: string;
@@ -13,6 +13,7 @@ export interface ProviderConfig {
   thinkingMode?: string;
   strategy?: string | null;
   stickyLimit?: number | null;
+  credentialForm?: string;
   createdAt: number;
   updatedAt: number;
 }

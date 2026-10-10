@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { PortalModal } from "../components/PortalModal";
 import { CLI_TOOLS_LIST, MITM_TOOLS_LIST, type CliToolItem } from "../constants/providersData";
 
 export const CliToolsTab: React.FC = () => {
@@ -120,9 +121,13 @@ export const CliToolsTab: React.FC = () => {
       </div>
 
       {/* Interactive Modal */}
-      {activeModalTool && (
-        <div className="rt-modal-backdrop">
-          <div className="rt-modal-content space-y-5">
+      <PortalModal
+        isOpen={Boolean(activeModalTool)}
+        onClose={() => setActiveModalTool(null)}
+        maxWidthClass="max-w-md"
+      >
+        {activeModalTool && (
+          <div className="space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
               <div className="flex items-center gap-3">
                 <img src={activeModalTool.image} alt={activeModalTool.name} className="size-8 object-contain" />
@@ -202,8 +207,8 @@ export const CliToolsTab: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };

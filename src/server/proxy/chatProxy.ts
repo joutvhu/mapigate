@@ -4,6 +4,8 @@ import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { RtkCompressor } from "../../core/rtk/compressor.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
+import { signAwsSigv4Request } from "../../core/auth/awsSigv4.js";
+import { decodeEventStreamChunk } from "../../core/adapters/awsEventStream.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { LogRepository } from "../../storage/repositories/logRepo.js";
@@ -87,7 +89,12 @@ export async function handleProxyRequest(
   const hasCustomHeaders = Boolean(
     provider.customHeaders && Object.keys(provider.customHeaders).length > 0
   );
-  if ((!account || !account.rawApiKey) && !hasCustomHeaders) {
+  const isNoAuthOrProfile =
+    provider.id.startsWith("bedrock") ||
+    provider.id === "ollama-local" ||
+    provider.id === "devin-cli";
+
+  if ((!account || !account.rawApiKey) && !hasCustomHeaders && !isNoAuthOrProfile) {
     res.status(503).json({
       error: {
         message: `No active API key account found for provider '${provider.name}'.`,
@@ -97,24 +104,48 @@ export async function handleProxyRequest(
     return;
   }
 
-  // 3. Prepare payload for upstream
-  let upstreamBody: any;
-  let upstreamPath = "/v1/chat/completions";
+  const targetFormat = provider.format || "openai";
+  const isBedrock = provider.id.startsWith("bedrock") || provider.credentialForm === "aws";
 
-  if (clientFormat === "anthropic" && provider.format === "openai") {
+  // 3. Bidirectional request payload conversion
+  let upstreamBody: any;
+  if (clientFormat === "anthropic" && targetFormat === "openai") {
     upstreamBody = AnthropicAdapter.anthropicToOpenAi(body);
     upstreamBody.model = targetModel;
+  } else if (clientFormat === "openai" && (targetFormat === "claude" || isBedrock)) {
+    upstreamBody = AnthropicAdapter.openAiToAnthropic(body);
+    upstreamBody.model = targetModel;
+  } else if (clientFormat === "anthropic") {
+    upstreamBody = { ...body, model: targetModel };
   } else {
     upstreamBody = OpenAiAdapter.normalizeRequest(body, targetModel);
   }
 
-  let upstreamUrl = `${provider.baseUrl.replace(/\/+$/, "")}${upstreamPath}`;
+  // 4. Upstream BaseUrl Deduplication
+  let upstreamUrl: string;
+  const rawBase = (provider.baseUrl || "").trim();
+  const hasTerminalPath =
+    rawBase.includes("/chat/completions") ||
+    rawBase.includes("/messages") ||
+    rawBase.includes("/responses") ||
+    rawBase.includes("/generateAssistantResponse");
+
+  if (hasTerminalPath) {
+    upstreamUrl = rawBase;
+  } else {
+    const cleanBase = rawBase.replace(/\/+$/, "");
+    if (targetFormat === "claude") {
+      upstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/messages` : `${cleanBase}/v1/messages`;
+    } else {
+      upstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/chat/completions` : `${cleanBase}/v1/chat/completions`;
+    }
+  }
 
   try {
     let bearerToken = account?.rawApiKey || "";
     const psd = account?.providerSpecificData || {};
 
-    // 3a. Handle Google OAuth token parsing & auto-refresh before upstream call
+    // 4a. Handle Google OAuth token parsing & auto-refresh before upstream call
     let oauthJson: any = null;
     if (bearerToken.startsWith("{") && bearerToken.includes("accessToken")) {
       try {
@@ -165,8 +196,11 @@ export async function handleProxyRequest(
       ...(provider.customHeaders || {}),
     };
 
-    // 3b. Provider-specific URL & headers transformations
-    if (provider.id === "azure" || provider.baseUrl.includes("azure.com")) {
+    // 4b. Dynamic URL rewrites & Specialized Schemas
+    if (provider.id === "xiaomi-tokenplan") {
+      const region = psd.region || "sgp";
+      upstreamUrl = `https://token-plan-${region}.xiaomimimo.com/v1/chat/completions`;
+    } else if (provider.id === "azure" || provider.baseUrl.includes("azure.com")) {
       const endpoint = (psd.azureEndpoint || provider.baseUrl).replace(/\/+$/, "");
       const deployment = psd.deployment || targetModel || "gpt-4";
       const apiVersion = psd.apiVersion || "2024-10-01-preview";
@@ -186,6 +220,42 @@ export async function handleProxyRequest(
       upstreamUrl = `${host}/v1/chat/completions`;
       if (!bearerToken) {
         delete outgoingHeaders["Authorization"];
+      }
+    } else if (
+      provider.format === "grok-web" ||
+      provider.id === "grok-web" ||
+      provider.id === "iflow" ||
+      provider.id === "perplexity-web" ||
+      (provider as any).category === "webCookie"
+    ) {
+      delete outgoingHeaders["Authorization"];
+      outgoingHeaders["Cookie"] = bearerToken;
+    } else if (isBedrock) {
+      const isStreaming = upstreamBody.stream !== false;
+      const bedrockAction = isStreaming ? "invoke-with-response-stream" : "invoke";
+      const region = psd.region || "us-east-1";
+      upstreamUrl = `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(targetModel)}/${bedrockAction}`;
+      delete outgoingHeaders["Authorization"];
+
+      // Bedrock Anthropic body transformations
+      delete upstreamBody.model;
+      delete upstreamBody.stream;
+      upstreamBody.anthropic_version = "bedrock-2023-05-31";
+
+      const signedHeaders = signAwsSigv4Request({
+        method: "POST",
+        url: upstreamUrl,
+        region,
+        service: "bedrock",
+        accessKeyId: psd.accessKeyId || "",
+        secretAccessKey: bearerToken,
+        sessionToken: psd.sessionToken,
+        headers: outgoingHeaders,
+        body: JSON.stringify(upstreamBody),
+      });
+      Object.assign(outgoingHeaders, signedHeaders);
+      if (isStreaming) {
+        outgoingHeaders["Accept"] = "application/vnd.amazon.eventstream";
       }
     } else if (provider.id === "github") {
       if (psd.copilotToken) {
@@ -209,7 +279,7 @@ export async function handleProxyRequest(
 
     let upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
 
-    // On 401, attempt Google OAuth token refresh retry if refresh token is available
+    // On 401, retry Google OAuth token refresh
     if (!upstreamRes.ok && upstreamRes.status === 401 && oauthJson?.refreshToken) {
       try {
         const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
@@ -264,8 +334,54 @@ export async function handleProxyRequest(
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    if (clientFormat === "anthropic") {
-      // Send initial Anthropic frame
+    // 5. Bidirectional Stream Translation & Dispatch
+    const reader = upstreamRes.body?.getReader();
+    if (!reader) {
+      res.end();
+      return;
+    }
+
+    // Branch A: Bedrock binary EventStream
+    if (isBedrock && upstreamRes.headers.get("content-type")?.includes("eventstream")) {
+      let residualBuffer: any = new Uint8Array(0);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+
+        const { frames, remainder } = decodeEventStreamChunk(value, residualBuffer);
+        residualBuffer = remainder;
+
+        for (const frame of frames) {
+          if (!frame.payload?.bytes) continue;
+          try {
+            const rawEventString = Buffer.from(frame.payload.bytes, "base64").toString("utf8");
+            const eventObj = JSON.parse(rawEventString);
+
+            if (clientFormat === "anthropic") {
+              res.write(`event: ${eventObj.type || "content_block_delta"}\ndata: ${rawEventString}\n\n`);
+            } else {
+              const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(eventObj, requestId);
+              for (const ch of openAiChunks) {
+                res.write(ch);
+              }
+            }
+          } catch {
+            // Ignored payload parse error
+          }
+        }
+      }
+
+      if (clientFormat === "openai") {
+        res.write("data: [DONE]\n\n");
+      }
+      res.end();
+      return;
+    }
+
+    // Branch B: Standard SSE text streams
+    if (clientFormat === "anthropic" && targetFormat === "openai") {
       res.write(
         `event: message_start\ndata: ${JSON.stringify({
           type: "message_start",
@@ -280,14 +396,9 @@ export async function handleProxyRequest(
       );
     }
 
-    const reader = upstreamRes.body?.getReader();
-    if (!reader) {
-      res.end();
-      return;
-    }
-
     const decoder = new TextDecoder();
     let buffer = "";
+    let currentEventName = "";
 
     while (true) {
       const { done, value } = await reader.read();
@@ -297,9 +408,21 @@ export async function handleProxyRequest(
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 
-      for (const line of lines) {
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        if (line.startsWith("event:")) {
+          currentEventName = line.slice(6).trim();
+          if (clientFormat === "anthropic" && targetFormat === "claude") {
+            res.write(rawLine + "\n");
+          }
+          continue;
+        }
+
         if (!line.startsWith("data:")) continue;
         const dataStr = line.slice(5).trim();
+
         if (dataStr === "[DONE]") {
           if (clientFormat === "openai") {
             res.write("data: [DONE]\n\n");
@@ -309,17 +432,31 @@ export async function handleProxyRequest(
 
         try {
           const jsonChunk = JSON.parse(dataStr);
-          if (clientFormat === "anthropic") {
+
+          if (clientFormat === "anthropic" && targetFormat === "openai") {
             const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(jsonChunk, requestId);
             for (const ev of anthropicEvents) {
               res.write(ev);
             }
+          } else if (clientFormat === "openai" && targetFormat === "claude") {
+            const eventPayload = {
+              type: currentEventName || jsonChunk.type,
+              ...jsonChunk,
+            };
+            const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(eventPayload, requestId);
+            for (const ch of openAiChunks) {
+              res.write(ch);
+            }
           } else {
-            res.write(line + "\n\n");
+            // Same format pass-through
+            if (currentEventName && clientFormat === "anthropic") {
+              res.write(`event: ${currentEventName}\n`);
+            }
+            res.write(rawLine + "\n\n");
           }
         } catch {
           // Pass-through raw line if parsing fails
-          res.write(line + "\n\n");
+          res.write(rawLine + "\n\n");
         }
       }
     }

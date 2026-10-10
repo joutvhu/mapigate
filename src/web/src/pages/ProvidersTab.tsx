@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { PortalModal } from "../components/PortalModal";
 import {
   OAUTH_PROVIDERS_LIST,
   FREE_TIER_PROVIDERS_LIST,
@@ -332,9 +333,13 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       </div>
 
       {/* Modal Configure Provider */}
-      {selectedProvider && (
-        <div className="rt-modal-backdrop">
-          <div className="rt-modal-content space-y-4">
+      <PortalModal
+        isOpen={Boolean(selectedProvider)}
+        onClose={() => setSelectedProvider(null)}
+        maxWidthClass="max-w-md"
+      >
+        {selectedProvider && (
+          <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
               <div className="flex items-center gap-3">
                 <img
@@ -422,8 +427,8 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </PortalModal>
     </div>
   );
 };
