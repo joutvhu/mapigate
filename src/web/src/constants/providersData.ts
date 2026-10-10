@@ -123,7 +123,6 @@ export interface CliToolItem {
   image: string;
   status: "Connected" | "Guide" | "Not configured" | "Not installed";
   badgeColor?: string;
-  isMitm?: boolean;
   desc?: string;
 }
 
@@ -131,14 +130,14 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
   { id: "claude", name: "Claude Code", image: "/providers/claude.png", status: "Connected", badgeColor: "#10B981" },
   { id: "openclaw", name: "Open Claw", image: "/providers/openclaw.png", status: "Not installed" },
   { id: "codex", name: "OpenAI Codex CLI / App", image: "/providers/codex.png", status: "Not configured" },
-  { id: "github", name: "GitHub Copilot", image: "/providers/github.png", status: "Guide" },
+  { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", status: "Guide" },
   { id: "opencode", name: "OpenCode", image: "/providers/opencode.png", status: "Not configured" },
-  { id: "claude-cowork", name: "Claude Cowork", image: "/providers/claude.png", status: "Not configured" },
+  { id: "cowork", name: "Claude Cowork", image: "/providers/claude.png", status: "Not configured" },
   { id: "hermes", name: "Hermes Agent", image: "/providers/hermes.png", status: "Not installed" },
   { id: "droid", name: "Factory Droid", image: "/providers/droid.png", status: "Not installed" },
   { id: "cursor", name: "Cursor", image: "/providers/cursor.png", status: "Guide" },
   { id: "cline", name: "Cline", image: "/providers/cline.png", status: "Not configured" },
-  { id: "kilocode", name: "Kiro Code", image: "/providers/kilocode.png", status: "Guide" },
+  { id: "kilo", name: "Kiro Code", image: "/providers/kilocode.png", status: "Guide" },
   { id: "roo", name: "Roo", image: "/providers/roo.png", status: "Guide" },
   { id: "continue", name: "Continue", image: "/providers/continue.png", status: "Guide" },
   { id: "amp", name: "Amp CLI", image: "/providers/amp.png", status: "Guide" },
@@ -146,7 +145,7 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
   { id: "deepseek-tui", name: "DeepSeek TUI", image: "/providers/deepseek-tui.png", status: "Not installed" },
   { id: "jcode", name: "Jcode", image: "/providers/jcode.png", status: "Not installed" },
   { id: "grok-build", name: "Grok Build", image: "/providers/grok-cli.png", status: "Not installed" },
-  { id: "devin-cli", name: "Devin CLI", image: "/providers/devin-cli.png", status: "Guide" },
+  { id: "devin", name: "Devin CLI", image: "/providers/devin-cli.png", status: "Guide" },
   { id: "opendesign", name: "OpenDesign", image: "/providers/opendesign.png", status: "Guide" },
   { id: "pi", name: "Pi (pi-coding-agent)", image: "/providers/pi.svg", status: "Not installed" },
   { id: "omp", name: "Oh My Pi", image: "/providers/omp.png", status: "Not installed" },
@@ -157,7 +156,7 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
 ];
 
 export const MITM_TOOLS_LIST: CliToolItem[] = [
-  { id: "antigravity", name: "Antigravity", image: "/providers/antigravity.png", status: "Connected", desc: "Google Antigravity IDE with MITM", isMitm: true },
-  { id: "kiro", name: "Kiro", image: "/providers/kiro.png", status: "Connected", desc: "Kiro IDE with MITM", isMitm: true },
-  { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", status: "Connected", desc: "GitHub Copilot in VS Code via MITM", isMitm: true },
+  { id: "antigravity", name: "Antigravity", image: "/providers/antigravity.png", status: "Connected", desc: "Google Antigravity IDE with MITM" },
+  { id: "kiro", name: "Kiro", image: "/providers/kiro.png", status: "Connected", desc: "Kiro IDE with MITM" },
+  { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", status: "Connected", desc: "GitHub Copilot in VS Code via MITM" },
 ];
