@@ -20,6 +20,184 @@ providerRouter.get("/registry/:id", (req, res) => {
   res.json(item);
 });
 
+// POST validate provider credentials
+providerRouter.post("/validate", async (req, res) => {
+  const { provider: providerId, apiKey, providerSpecificData } = req.body;
+  const pId = String(providerId || "").toLowerCase();
+
+  if (!pId) {
+    res.status(400).json({ valid: false, error: "Provider is required" });
+    return;
+  }
+
+  // Ollama local check
+  if (pId === "ollama-local" || pId.includes("ollama")) {
+    const host = (providerSpecificData?.baseUrl || "http://127.0.0.1:11434").replace(/\/+$/, "");
+    try {
+      const probeRes = await fetch(`${host}/api/tags`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      res.json({ valid: probeRes.ok || probeRes.status === 200 });
+      return;
+    } catch (err: any) {
+      res.json({ valid: false, error: `Could not connect to Ollama at ${host}: ${err.message}` });
+      return;
+    }
+  }
+
+  // Cloudflare AI check
+  if (pId === "cloudflare-ai") {
+    const accountId = providerSpecificData?.accountId;
+    if (!accountId) {
+      res.json({ valid: false, error: "Cloudflare Account ID is required" });
+      return;
+    }
+    if (!apiKey) {
+      res.json({ valid: false, error: "API Token is required" });
+      return;
+    }
+    try {
+      const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
+      const cfRes = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "@cf/meta/llama-3.1-8b-instruct",
+          messages: [{ role: "user", content: "test" }],
+          max_tokens: 1,
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      const isValid = cfRes.status !== 401 && cfRes.status !== 403;
+      res.json({ valid: isValid, error: isValid ? undefined : "Invalid Cloudflare token or Account ID" });
+      return;
+    } catch (err: any) {
+      res.json({ valid: false, error: err.message });
+      return;
+    }
+  }
+
+  // Azure OpenAI check
+  if (pId === "azure") {
+    const endpoint = (providerSpecificData?.azureEndpoint || "").replace(/\/+$/, "");
+    const deployment = providerSpecificData?.deployment || "gpt-4";
+    const apiVersion = providerSpecificData?.apiVersion || "2024-10-01-preview";
+    const organization = providerSpecificData?.organization;
+
+    if (!endpoint || !deployment) {
+      res.json({ valid: false, error: "Endpoint and Deployment name are required for Azure" });
+      return;
+    }
+
+    try {
+      const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+      const headers: Record<string, string> = {
+        "api-key": apiKey || "",
+        "Content-Type": "application/json",
+      };
+      if (organization) headers["OpenAI-Organization"] = organization;
+
+      const azureRes = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          messages: [{ role: "user", content: "test" }],
+          max_tokens: 1,
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+
+      const isValid = azureRes.status !== 401 && azureRes.status !== 403;
+      res.json({ valid: isValid, error: isValid ? undefined : "Invalid Azure credentials" });
+      return;
+    } catch (err: any) {
+      res.json({ valid: false, error: err.message });
+      return;
+    }
+  }
+
+  // AWS Bedrock check
+  if (pId === "bedrock" || pId.includes("bedrock")) {
+    if (providerSpecificData?.profile) {
+      res.json({ valid: true });
+      return;
+    }
+    if (apiKey && providerSpecificData?.accessKeyId) {
+      res.json({ valid: true });
+      return;
+    }
+    res.json({ valid: false, error: "AWS Profile or Access Key ID + Secret Key required" });
+    return;
+  }
+
+  // Standard API key validation
+  if (!apiKey && !providerSpecificData?.profile) {
+    res.json({ valid: false, error: "API key is required" });
+    return;
+  }
+
+  const reg = getRegistryProvider(pId);
+  const dbProv = ProviderRepository.getProviderById(pId);
+  const baseUrl = (dbProv?.baseUrl || reg?.baseUrl || "https://api.openai.com").replace(/\/+$/, "");
+  const format = dbProv?.format || reg?.format || "openai";
+
+  try {
+    if (format === "anthropic") {
+      const messagesUrl = `${baseUrl}/v1/messages`;
+      const probeRes = await fetch(messagesUrl, {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: reg?.models?.[0]?.id || "claude-3-haiku-20240307",
+          max_tokens: 1,
+          messages: [{ role: "user", content: "test" }],
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      const isValid = probeRes.status !== 401 && probeRes.status !== 403;
+      res.json({ valid: isValid, error: isValid ? undefined : "Invalid Anthropic API key" });
+      return;
+    }
+
+    // Default OpenAI format probe: /models
+    const probeUrl = `${baseUrl}/models`;
+    const probeRes = await fetch(probeUrl, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+
+    if (probeRes.ok || probeRes.status === 200) {
+      res.json({ valid: true });
+      return;
+    }
+
+    if (probeRes.status === 401 || probeRes.status === 403) {
+      res.json({ valid: false, error: "Invalid API key" });
+      return;
+    }
+
+    // Secondary fallback: /v1/models
+    const v1Res = await fetch(`${baseUrl}/v1/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    const isValid = v1Res.ok || (v1Res.status !== 401 && v1Res.status !== 403);
+    res.json({ valid: isValid, error: isValid ? undefined : "Authentication failed" });
+  } catch (err: any) {
+    res.json({ valid: false, error: err.message || "Connection timeout or unreachable" });
+  }
+});
+
 // GET single provider details
 providerRouter.get("/:id", (req, res) => {
   const provider = ProviderRepository.getProviderWithDefaults(req.params.id);
@@ -27,7 +205,7 @@ providerRouter.get("/:id", (req, res) => {
     res.status(404).json({ error: "Provider not found" });
     return;
   }
-  const accounts = ProviderRepository.getAccountsByProvider(provider.id);
+  const accounts = ProviderRepository.getAllAccountsByProvider(provider.id);
   res.json({
     ...provider,
     accountsCount: accounts.length,
@@ -37,6 +215,7 @@ providerRouter.get("/:id", (req, res) => {
       isActive: a.isActive,
       rateLimitHits: a.rateLimitHits,
       lastUsedAt: a.lastUsedAt,
+      providerSpecificData: a.providerSpecificData,
     })),
   });
 });
@@ -44,6 +223,12 @@ providerRouter.get("/:id", (req, res) => {
 // PUT toggle account active status
 providerRouter.put("/:id/accounts/:accountId/toggle", (req, res) => {
   ProviderRepository.toggleAccount(req.params.accountId, req.body.isActive);
+  res.json({ success: true });
+});
+
+// DELETE single account
+providerRouter.delete("/:id/accounts/:accountId", (req, res) => {
+  ProviderRepository.deleteAccount(req.params.accountId);
   res.json({ success: true });
 });
 
@@ -69,7 +254,7 @@ providerRouter.put("/:id/accounts/reorder", (req, res) => {
 providerRouter.get("/", (_req, res) => {
   const providers = ProviderRepository.getAllProviders();
   const result = providers.map((p) => {
-    const accounts = ProviderRepository.getAccountsByProvider(p.id);
+    const accounts = ProviderRepository.getAllAccountsByProvider(p.id);
     return {
       ...p,
       accountsCount: accounts.length,
@@ -79,6 +264,7 @@ providerRouter.get("/", (_req, res) => {
         isActive: a.isActive,
         rateLimitHits: a.rateLimitHits,
         lastUsedAt: a.lastUsedAt,
+        providerSpecificData: a.providerSpecificData,
       })),
     };
   });
@@ -123,21 +309,54 @@ providerRouter.delete("/:id", (req, res) => {
 
 // POST add account to provider
 providerRouter.post("/:id/accounts", (req, res) => {
-  const { name, apiKey } = req.body;
-  if (!name || !apiKey) {
-    res.status(400).json({ error: "Account name and apiKey are required." });
+  const { name, apiKey, providerSpecificData } = req.body;
+  const providerId = req.params.id;
+
+  const isOllamaLocal = providerId === "ollama-local";
+  const hasProfile = Boolean(providerSpecificData?.profile);
+
+  if (!name && !isOllamaLocal) {
+    res.status(400).json({ error: "Account name is required." });
+    return;
+  }
+
+  if (!apiKey && !isOllamaLocal && !hasProfile) {
+    res.status(400).json({ error: "API key or credential profile is required." });
     return;
   }
 
   const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
   ProviderRepository.addAccount({
     id: accountId,
-    providerId: req.params.id,
-    name,
-    rawApiKey: apiKey,
+    providerId,
+    name: name || (isOllamaLocal ? "Ollama Local" : "Account"),
+    rawApiKey: apiKey || "",
+    providerSpecificData,
   });
 
   res.json({ id: accountId, success: true });
+});
+
+// POST bulk add accounts
+providerRouter.post("/:id/accounts/bulk", (req, res) => {
+  const { accounts } = req.body;
+  const providerId = req.params.id;
+
+  if (!Array.isArray(accounts) || accounts.length === 0) {
+    res.status(400).json({ error: "Accounts array is required." });
+    return;
+  }
+
+  const planned = accounts.map((item) => ({
+    id: `acc_${crypto.randomUUID().slice(0, 8)}`,
+    providerId,
+    name: item.name || "Account",
+    rawApiKey: item.apiKey || "",
+    providerSpecificData: item.providerSpecificData,
+  }));
+
+  ProviderRepository.bulkAddAccounts(planned);
+  res.json({ success: true, count: planned.length });
 });
 
 // POST test provider connection

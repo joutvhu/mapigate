@@ -7,6 +7,7 @@ import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { LogRepository } from "../../storage/repositories/logRepo.js";
+import { refreshGoogleOAuthToken } from "../routes/apiOAuth.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 
@@ -107,14 +108,93 @@ export async function handleProxyRequest(
     upstreamBody = OpenAiAdapter.normalizeRequest(body, targetModel);
   }
 
-  const upstreamUrl = `${provider.baseUrl.replace(/\/+$/, "")}${upstreamPath}`;
+  let upstreamUrl = `${provider.baseUrl.replace(/\/+$/, "")}${upstreamPath}`;
 
   try {
+    let bearerToken = account?.rawApiKey || "";
+    const psd = account?.providerSpecificData || {};
+
+    // 3a. Handle Google OAuth token parsing & auto-refresh before upstream call
+    let oauthJson: any = null;
+    if (bearerToken.startsWith("{") && bearerToken.includes("accessToken")) {
+      try {
+        oauthJson = JSON.parse(bearerToken);
+        bearerToken = oauthJson.accessToken || bearerToken;
+      } catch {}
+    } else if (psd.refreshToken) {
+      oauthJson = {
+        accessToken: bearerToken,
+        refreshToken: psd.refreshToken,
+        expiresAt: psd.expiresAt,
+      };
+    }
+
+    if (oauthJson?.refreshToken && (provider.id === "antigravity" || oauthJson.expiresAt)) {
+      const now = Date.now();
+      const isExpiring = !oauthJson.expiresAt || oauthJson.expiresAt < now + 60_000;
+      if (isExpiring) {
+        try {
+          const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
+          if (refreshed?.accessToken) {
+            bearerToken = refreshed.accessToken;
+            oauthJson.accessToken = refreshed.accessToken;
+            if (refreshed.refreshToken) oauthJson.refreshToken = refreshed.refreshToken;
+            oauthJson.expiresAt = now + (refreshed.expiresIn || 3600) * 1000;
+            if (account) {
+              ProviderRepository.updateAccount(account.id, {
+                rawApiKey: JSON.stringify(oauthJson),
+                providerSpecificData: {
+                  ...psd,
+                  refreshToken: oauthJson.refreshToken,
+                  expiresAt: oauthJson.expiresAt,
+                },
+              });
+            }
+          }
+        } catch (refreshErr) {
+          console.warn("Failed automatic token refresh:", refreshErr);
+        }
+      } else {
+        bearerToken = oauthJson.accessToken || bearerToken;
+      }
+    }
+
     const outgoingHeaders: Record<string, string> = {
       "Content-Type": "application/json",
-      ...(account?.rawApiKey ? { Authorization: `Bearer ${account.rawApiKey}` } : {}),
+      ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
       ...(provider.customHeaders || {}),
     };
+
+    // 3b. Provider-specific URL & headers transformations
+    if (provider.id === "azure" || provider.baseUrl.includes("azure.com")) {
+      const endpoint = (psd.azureEndpoint || provider.baseUrl).replace(/\/+$/, "");
+      const deployment = psd.deployment || targetModel || "gpt-4";
+      const apiVersion = psd.apiVersion || "2024-10-01-preview";
+      upstreamUrl = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+      outgoingHeaders["api-key"] = bearerToken;
+      delete outgoingHeaders["Authorization"];
+      if (psd.organization) {
+        outgoingHeaders["OpenAI-Organization"] = psd.organization;
+      }
+    } else if (provider.id === "cloudflare-ai") {
+      const accountId = psd.accountId || "";
+      if (accountId) {
+        upstreamUrl = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`;
+      }
+    } else if (provider.id === "ollama-local" || provider.id.includes("ollama")) {
+      const host = (psd.baseUrl || provider.baseUrl || "http://127.0.0.1:11434").replace(/\/+$/, "");
+      upstreamUrl = `${host}/v1/chat/completions`;
+      if (!bearerToken) {
+        delete outgoingHeaders["Authorization"];
+      }
+    } else if (provider.id === "github") {
+      if (psd.copilotToken) {
+        bearerToken = psd.copilotToken;
+        outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
+      }
+      outgoingHeaders["Editor-Version"] = "vscode/1.100.0";
+      outgoingHeaders["Editor-Plugin-Version"] = "copilot-chat/0.26.7";
+    }
 
     const hasProxy = Boolean(provider.proxyUrl && provider.proxyUrl.trim());
     const fetchFn = hasProxy ? undiciFetch : globalThis.fetch;
@@ -127,7 +207,33 @@ export async function handleProxyRequest(
       fetchOptions.dispatcher = getProxyDispatcher(provider.proxyUrl!.trim());
     }
 
-    const upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
+    let upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
+
+    // On 401, attempt Google OAuth token refresh retry if refresh token is available
+    if (!upstreamRes.ok && upstreamRes.status === 401 && oauthJson?.refreshToken) {
+      try {
+        const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
+        if (refreshed?.accessToken) {
+          bearerToken = refreshed.accessToken;
+          outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
+          fetchOptions.headers = outgoingHeaders;
+          oauthJson.accessToken = refreshed.accessToken;
+          if (refreshed.refreshToken) oauthJson.refreshToken = refreshed.refreshToken;
+          oauthJson.expiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
+          if (account) {
+            ProviderRepository.updateAccount(account.id, {
+              rawApiKey: JSON.stringify(oauthJson),
+              providerSpecificData: {
+                ...psd,
+                refreshToken: oauthJson.refreshToken,
+                expiresAt: oauthJson.expiresAt,
+              },
+            });
+          }
+          upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
+        }
+      } catch {}
+    }
 
     if (!upstreamRes.ok) {
       if (upstreamRes.status === 429 && account) {

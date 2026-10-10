@@ -177,7 +177,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Top Filter & Metrics Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#0F1420]/70 border border-[#1E293B]">
         <div className="flex items-center gap-3 text-xs">
@@ -284,7 +284,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {OAUTH_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -305,7 +305,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {FREE_TIER_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -326,7 +326,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
           {API_KEY_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>

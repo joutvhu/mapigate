@@ -31,7 +31,7 @@ export const CliToolsTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Overview Banner */}
       <div className="p-4.5 rounded-2xl bg-[#0F1420]/70 border border-[#1E293B] flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -52,7 +52,7 @@ export const CliToolsTab: React.FC = () => {
       </div>
 
       {/* SECTION 1: Regular CLI Tools */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         {CLI_TOOLS_LIST.map((tool, idx) => (
           <div
             key={tool.id}

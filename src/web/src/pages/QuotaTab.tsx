@@ -34,7 +34,7 @@ export const QuotaTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Top Controls Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs p-4 rounded-2xl bg-[#0F1420]/70 border border-[#1E293B]">
         <div className="flex flex-wrap items-center gap-2">
@@ -91,7 +91,7 @@ export const QuotaTab: React.FC = () => {
       </div>
 
       {/* Grid of Quota Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
         {accounts.map((card, idx) => (
           <div
             key={card.id}

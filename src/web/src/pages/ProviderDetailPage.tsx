@@ -3,6 +3,10 @@ import type { ProviderItem } from "../constants/providersData";
 import { getRegistryProvider, type RegistryModel } from "../../../shared/constants/providerRegistry";
 import { DEFAULT_ACCOUNTS_MAP } from "../constants/mockData";
 import { OAuthModal } from "../components/OAuthModal";
+import { AddAccountModal } from "../components/AddAccountModal";
+import { CopilotAuthModal } from "../components/CopilotAuthModal";
+import { CursorAuthModal } from "../components/CursorAuthModal";
+import { KiroAuthModal } from "../components/KiroAuthModal";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -33,6 +37,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [customHeaders, setCustomHeaders] = useState<{ key: string; value: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showOAuthModal, setShowOAuthModal] = useState(false);
+  const [showCopilotModal, setShowCopilotModal] = useState(false);
+  const [showCursorModal, setShowCursorModal] = useState(false);
+  const [showKiroModal, setShowKiroModal] = useState(false);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
   const [newModelInput, setNewModelInput] = useState("");
   const [newAccountName, setNewAccountName] = useState("");
@@ -319,7 +326,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     : "Sign up / Learn more";
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Top Breadcrumb & Provider Header */}
       <div className="space-y-3">
         <button
@@ -515,7 +522,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
         <button
           onClick={() => {
-            if (isOAuth) {
+            if (provider.id === "github") {
+              setShowCopilotModal(true);
+            } else if (provider.id === "cursor") {
+              setShowCursorModal(true);
+            } else if (provider.id === "kiro") {
+              setShowKiroModal(true);
+            } else if (provider.id === "antigravity" || isOAuth) {
               setShowOAuthModal(true);
             } else {
               setShowAddModal(true);
@@ -523,8 +536,12 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           }}
           className="rt-btn rt-btn--primary"
         >
-          <span className="material-symbols-outlined text-[16px]">{isOAuth ? "lock" : "add"}</span>
-          {isOAuth ? `Connect ${provider.name}` : "Add Account"}
+          <span className="material-symbols-outlined text-[16px]">
+            {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro" ? "lock" : "add"}
+          </span>
+          {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro"
+            ? `Connect ${provider.name}`
+            : "Add Account"}
         </button>
       </div>
 
@@ -719,54 +736,41 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       </div>
 
-      {/* Standard API Key Add Account Modal */}
-      {showAddModal && (
-        <div className="rt-modal-backdrop">
-          <div className="rt-modal-content space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
-              <h4 className="text-sm font-bold text-white">Add Account for {provider.name}</h4>
-              <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+      {/* Specialized Provider Connection Modals */}
+      <AddAccountModal
+        isOpen={showAddModal}
+        provider={{
+          id: provider.id,
+          name: provider.name,
+          image: provider.image,
+          format: registryItem?.format || provider.format,
+          website: registryItem?.website,
+          apiKeyUrl: registryItem?.apiKeyUrl,
+        }}
+        existingNames={connections.map((c) => c.name)}
+        onClose={() => setShowAddModal(false)}
+        onSuccess={loadProviderDetails}
+      />
 
-            <div className="space-y-3 pt-1">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Account Label</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Work Key #3"
-                  value={newAccountName}
-                  onChange={(e) => setNewAccountName(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
+      <CopilotAuthModal
+        isOpen={showCopilotModal}
+        onClose={() => setShowCopilotModal(false)}
+        onSuccess={loadProviderDetails}
+      />
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">API Key / Token</label>
-                <input
-                  type="password"
-                  placeholder="sk-..."
-                  value={newApiKey}
-                  onChange={(e) => setNewApiKey(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
+      <CursorAuthModal
+        isOpen={showCursorModal}
+        onClose={() => setShowCursorModal(false)}
+        onSuccess={loadProviderDetails}
+      />
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#1E293B]">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs text-slate-400 cursor-pointer">
-                Cancel
-              </button>
-              <button onClick={handleAddAccount} className="rt-btn rt-btn--primary">
-                Save Account
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <KiroAuthModal
+        isOpen={showKiroModal}
+        onClose={() => setShowKiroModal(false)}
+        onSuccess={loadProviderDetails}
+      />
 
-      {/* OAuth Connection Modal */}
+      {/* OAuth Connection Modal (Antigravity & Google OAuth) */}
       <OAuthModal
         isOpen={showOAuthModal}
         providerId={provider.id}

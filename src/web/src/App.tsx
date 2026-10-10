@@ -37,7 +37,7 @@ export default function App() {
         />
 
         {/* Tab Pages Scrollable Container */}
-        <main className="flex-1 overflow-y-auto px-8 py-6">
+        <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full">
           {currentTab === "endpoint" && <EndpointTab />}
 
           {currentTab === "providers" &&
@@ -61,7 +61,7 @@ export default function App() {
           {currentTab === "mitm" && <MitmTab />}
 
           {currentTab === "settings" && (
-            <div className="max-w-3xl mx-auto rt-card p-6 space-y-6 animate-rt-fade-in">
+            <div className="w-full px-2 sm:px-4 rt-card p-6 space-y-6 animate-rt-fade-in">
               <div className="flex items-center gap-3 pb-3 border-b border-[#1E293B]">
                 <span className="material-symbols-outlined text-blue-400 text-[22px]">tune</span>
                 <div>

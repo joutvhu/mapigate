@@ -75,7 +75,7 @@ export const CombosTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Header Description & Create Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 rounded-2xl bg-[#0F1420]/70 border border-[#1E293B]">
         <div className="text-xs text-slate-400 max-w-2xl leading-relaxed space-y-1">

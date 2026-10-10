@@ -25,6 +25,7 @@ export interface ProviderAccount {
   isActive: boolean;
   rateLimitHits: number;
   lastUsedAt?: number;
+  providerSpecificData?: Record<string, any>;
 }
 
 export interface ModelMappingRule {

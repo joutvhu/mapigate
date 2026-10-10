@@ -271,7 +271,7 @@ export const MitmTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Warning Notice Banner */}
       <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
         <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>

@@ -122,6 +122,7 @@ function initSchema(db: DatabaseDriver) {
       rate_limit_hits INTEGER NOT NULL DEFAULT 0,
       last_used_at INTEGER,
       created_at INTEGER NOT NULL,
+      provider_specific_data TEXT,
       FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
     );
 
@@ -183,4 +184,5 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE providers ADD COLUMN thinking_mode TEXT NOT NULL DEFAULT 'auto';"); } catch {}
   try { db.exec("ALTER TABLE providers ADD COLUMN strategy TEXT;"); } catch {}
   try { db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER;"); } catch {}
+  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN provider_specific_data TEXT;"); } catch {}
 }

@@ -56,7 +56,7 @@ export const UsageTab: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Top Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="bg-[#0E1320] p-1 rounded-xl border border-[#1E293B] flex items-center">

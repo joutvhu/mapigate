@@ -165,6 +165,26 @@ export class ProviderRepository {
     db.run("DELETE FROM providers WHERE id = ?", id);
   }
 
+  public static getAllAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
+    const db = getDatabase();
+    const rows = db.all<any>(
+      "SELECT * FROM provider_accounts WHERE provider_id = ? ORDER BY rate_limit_hits ASC, last_used_at ASC",
+      providerId
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      providerId: r.provider_id,
+      name: r.name,
+      apiKeyEncrypted: r.api_key_encrypted,
+      rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
+      isActive: Boolean(r.is_active),
+      rateLimitHits: r.rate_limit_hits,
+      lastUsedAt: r.last_used_at,
+      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+    }));
+  }
+
   public static getAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
     const db = getDatabase();
     const rows = db.all<any>(
@@ -181,27 +201,109 @@ export class ProviderRepository {
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
+      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
     }));
+  }
+
+  public static getAccountById(id: string): (ProviderAccount & { rawApiKey: string }) | undefined {
+    const db = getDatabase();
+    const r = db.get<any>("SELECT * FROM provider_accounts WHERE id = ?", id);
+    if (!r) return undefined;
+    return {
+      id: r.id,
+      providerId: r.provider_id,
+      name: r.name,
+      apiKeyEncrypted: r.api_key_encrypted,
+      rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
+      isActive: Boolean(r.is_active),
+      rateLimitHits: r.rate_limit_hits,
+      lastUsedAt: r.last_used_at,
+      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+    };
   }
 
   public static addAccount(account: {
     id: string;
     providerId: string;
     name: string;
-    rawApiKey: string;
+    rawApiKey?: string;
+    providerSpecificData?: Record<string, any>;
   }): void {
     const db = getDatabase();
-    const encryptedKey = CryptoVault.encrypt(account.rawApiKey);
+    const rawKey = account.rawApiKey || "";
+    const encryptedKey = CryptoVault.encrypt(rawKey);
     const now = Date.now();
+    const psdJson = account.providerSpecificData ? JSON.stringify(account.providerSpecificData) : null;
 
     db.run(
-      `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at)
-       VALUES (?, ?, ?, ?, 1, 0, ?)`,
+      `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at, provider_specific_data)
+       VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
       account.id,
       account.providerId,
       account.name,
       encryptedKey,
-      now
+      now,
+      psdJson
+    );
+  }
+
+  public static bulkAddAccounts(
+    accounts: Array<{
+      id: string;
+      providerId: string;
+      name: string;
+      rawApiKey?: string;
+      providerSpecificData?: Record<string, any>;
+    }>
+  ): void {
+    const db = getDatabase();
+    const now = Date.now();
+    for (const acc of accounts) {
+      const rawKey = acc.rawApiKey || "";
+      const encryptedKey = CryptoVault.encrypt(rawKey);
+      const psdJson = acc.providerSpecificData ? JSON.stringify(acc.providerSpecificData) : null;
+      db.run(
+        `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at, provider_specific_data)
+         VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
+        acc.id,
+        acc.providerId,
+        acc.name,
+        encryptedKey,
+        now,
+        psdJson
+      );
+    }
+  }
+
+  public static updateAccount(
+    id: string,
+    updates: {
+      name?: string;
+      rawApiKey?: string;
+      isActive?: boolean;
+      providerSpecificData?: Record<string, any>;
+    }
+  ): void {
+    const db = getDatabase();
+    const existing = db.get<any>("SELECT * FROM provider_accounts WHERE id = ?", id);
+    if (!existing) return;
+
+    const newEncryptedKey = updates.rawApiKey !== undefined ? CryptoVault.encrypt(updates.rawApiKey) : existing.api_key_encrypted;
+    const newName = updates.name !== undefined ? updates.name : existing.name;
+    const newIsActive = updates.isActive !== undefined ? (updates.isActive ? 1 : 0) : existing.is_active;
+    const newPsd = updates.providerSpecificData !== undefined
+      ? JSON.stringify(updates.providerSpecificData)
+      : existing.provider_specific_data;
+
+    db.run(
+      `UPDATE provider_accounts
+       SET name = ?, api_key_encrypted = ?, is_active = ?, provider_specific_data = ?
+       WHERE id = ?`,
+      newName,
+      newEncryptedKey,
+      newIsActive,
+      newPsd,
+      id
     );
   }
 

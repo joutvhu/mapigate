@@ -26,7 +26,7 @@ export const EndpointTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       <div className="rt-card p-6 space-y-6">
         <div>
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
