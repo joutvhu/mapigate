@@ -243,10 +243,10 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 }) => {
   const [focusedProvider, setFocusedProvider] = useState<string | null>(null);
 
-  // Fallback default list if no providers recorded
+  // Return empty list if no providers recorded
   const displayProviders = useMemo(() => {
     if (providers.length > 0) return Array.from(new Set(providers));
-    return ["antigravity", "claude", "openai", "github", "gemini", "deepseek"];
+    return [];
   }, [providers]);
 
   const activeProviderSet = useMemo(() => {
@@ -262,6 +262,9 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 
   const { nodes, edges } = useMemo(() => {
     const count = displayProviders.length;
+    if (count === 0) {
+      return { nodes: [], edges: [] };
+    }
     const rx = Math.max(260, (180 * count) / (2 * Math.PI));
     const ry = Math.max(160, rx * 0.55);
 
@@ -358,21 +361,28 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
         </div>
       </div>
 
-      <div className="h-72 sm:h-80 w-full rounded-lg overflow-hidden bg-[#070A11] border border-[#162032]">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.25 }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          panOnDrag={false}
-          zoomOnScroll={false}
-          preventScrolling={false}
-        />
+      <div className="h-72 sm:h-80 w-full rounded-lg overflow-hidden bg-[#070A11] border border-[#162032] flex items-center justify-center">
+        {displayProviders.length === 0 ? (
+          <div className="text-center p-6 text-slate-500 text-xs sm:text-sm">
+            <Network className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-60" />
+            <p>No upstream provider traffic recorded yet</p>
+          </div>
+        ) : (
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.25 }}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            panOnDrag={false}
+            zoomOnScroll={false}
+            preventScrolling={false}
+          />
+        )}
       </div>
     </div>
   );

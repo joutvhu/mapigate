@@ -21,12 +21,12 @@ export interface CapacityAdapterSettings {
 
 const DEFAULT_CAPACITY_ADAPTER: CapacityAdapterSettings = {
   vision: {
-    enabled: true,
+    enabled: false,
     roundRobin: false,
     models: [],
   },
   audioInput: {
-    enabled: true,
+    enabled: false,
     roundRobin: false,
     models: [],
   },
@@ -81,14 +81,14 @@ export const CombosTab: React.FC = () => {
         if (data && typeof data === "object") {
           setCapacityAdapter({
             vision: data.vision || {
-              enabled: true,
+              enabled: false,
               roundRobin: false,
-              models: ["oc/mimo-v2.6-flash-free"],
+              models: [],
             },
             audioInput: data.audioInput || {
-              enabled: true,
+              enabled: false,
               roundRobin: false,
-              models: ["oc/mimo-v2.6-flash-free"],
+              models: [],
             },
             pdf: data.pdf,
             videoInput: data.videoInput,

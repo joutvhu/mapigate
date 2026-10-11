@@ -14,21 +14,6 @@ export interface ProviderItem {
   thinkingMode?: string;
 }
 
-const DEFAULT_CONNECTED_MAP: Record<string, number> = {
-  antigravity: 1,
-  github: 1,
-  openrouter: 1,
-  nvidia: 1,
-  gemini: 2,
-  opencode: 1,
-  "cloudflare-ai": 1,
-  poolside: 1,
-  byteplus: 1,
-  kimchi: 1,
-  agnes: 1,
-  "api-airforce": 1,
-};
-
 const MEDIA_ONLY_PROVIDERS = new Set([
   "assemblyai", "aws-polly", "black-forest-labs", "brave-search", "cartesia",
   "comfyui", "coqui", "deepgram", "edge-tts", "elevenlabs", "exa", "fal-ai",
@@ -77,7 +62,7 @@ export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
     image: p.image || `/providers/${p.id}.png`,
     color: p.color || "#4285F4",
     category: "oauth" as const,
-    defaultConnected: DEFAULT_CONNECTED_MAP[p.id] || 0,
+    defaultConnected: 0,
     baseUrl: p.baseUrl,
     format: p.format,
     defaultHeaders: p.defaultHeaders,
@@ -93,7 +78,7 @@ export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
     image: p.image || `/providers/${p.id}.png`,
     color: p.color || "#10B981",
     category: "freeTier" as const,
-    defaultConnected: DEFAULT_CONNECTED_MAP[p.id] || 0,
+    defaultConnected: 0,
     baseUrl: p.baseUrl,
     format: p.format,
     defaultHeaders: p.defaultHeaders,
@@ -109,7 +94,7 @@ export const API_KEY_PROVIDERS_LIST: ProviderItem[] = registryList
     image: p.image || `/providers/${p.id}.png`,
     color: p.color || "#6366F1",
     category: "apikey" as const,
-    defaultConnected: DEFAULT_CONNECTED_MAP[p.id] || 0,
+    defaultConnected: 0,
     baseUrl: p.baseUrl,
     format: p.format,
     defaultHeaders: p.defaultHeaders,
@@ -127,7 +112,7 @@ export interface CliToolItem {
 }
 
 export const CLI_TOOLS_LIST: CliToolItem[] = [
-  { id: "claude", name: "Claude Code", image: "/providers/claude.png", status: "Connected", badgeColor: "#10B981" },
+  { id: "claude", name: "Claude Code", image: "/providers/claude.png", status: "Not configured" },
   { id: "openclaw", name: "Open Claw", image: "/providers/openclaw.png", status: "Not installed" },
   { id: "codex", name: "OpenAI Codex CLI / App", image: "/providers/codex.png", status: "Not configured" },
   { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", status: "Guide" },

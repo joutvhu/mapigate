@@ -40,11 +40,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
 
   const getAccountCount = (providerId: string) => {
     const found = backendProviders.find((p) => p.id === providerId);
-    if (found) return found.accountsCount || 0;
-    // Default fallback
-    if (providerId === "antigravity") return 7;
-    if (providerId === "github" || providerId === "openrouter" || providerId === "gemini") return 1;
-    return 0;
+    return found?.accountsCount ?? 0;
   };
 
   const filterItem = (item: ProviderItem) => {
@@ -214,7 +210,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
           <span>Active Accounts:</span>
           <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold">
-            {backendProviders.reduce((acc, p) => acc + (p.accountsCount || 0), 0) || 12}
+            {backendProviders.reduce((acc, p) => acc + (p.accountsCount || 0), 0)}
           </span>
         </div>
       </div>
