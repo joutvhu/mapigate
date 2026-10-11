@@ -129,9 +129,6 @@ export function getCapacityAdapterConfig(
 ): CapacityAdapterEntry {
   const s = settings || SettingsRepository.getCapacityAdapterSettings();
   const entry = s[cap];
-  if (entry && entry.enabled && (!entry.models || entry.models.length === 0)) {
-    return { ...entry, models: [DEFAULT_FALLBACK_MODEL] };
-  }
   if (entry) return entry;
   return { enabled: false, roundRobin: false, models: [] };
 }

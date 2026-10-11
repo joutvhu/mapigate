@@ -19,14 +19,14 @@ export const DEFAULT_FALLBACK_MODEL = "oc/mimo-v2.6-flash-free";
 
 export const DEFAULT_CAPACITY_ADAPTER_SETTINGS: CapacityAdapterSettings = {
   vision: {
-    enabled: true,
+    enabled: false,
     roundRobin: false,
-    models: [DEFAULT_FALLBACK_MODEL],
+    models: [],
   },
   audioInput: {
-    enabled: true,
+    enabled: false,
     roundRobin: false,
-    models: [DEFAULT_FALLBACK_MODEL],
+    models: [],
   },
   pdf: {
     enabled: false,
@@ -72,14 +72,14 @@ function upgradeLegacyModel(m: string): string {
 function normalizeCapEntry(entry: any, defaultEntry: CapacityAdapterEntry): CapacityAdapterEntry {
   if (Array.isArray(entry)) {
     return {
-      enabled: true,
+      enabled: defaultEntry.enabled,
       roundRobin: false,
       models: entry.map((e) => upgradeLegacyModel(typeof e === "string" ? e : e?.model || "")).filter(Boolean),
     };
   }
   if (entry && typeof entry === "object") {
     return {
-      enabled: entry.enabled !== false,
+      enabled: entry.enabled !== undefined ? Boolean(entry.enabled) : defaultEntry.enabled,
       roundRobin: Boolean(entry.roundRobin),
       models: Array.isArray(entry.models)
         ? entry.models.map((m: any) => upgradeLegacyModel(typeof m === "string" ? m : m?.model || "")).filter(Boolean)

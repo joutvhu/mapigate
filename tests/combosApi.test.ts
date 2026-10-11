@@ -19,12 +19,12 @@ test("Unit - SettingsRepository key-value and capacityAdapter persistence", () =
 
   // 2. Capacity adapter defaults
   const defaults = SettingsRepository.getCapacityAdapterSettings();
-  assert.equal(defaults.vision.enabled, true);
+  assert.equal(defaults.vision.enabled, false);
   assert.equal(defaults.vision.roundRobin, false);
-  assert.ok(defaults.vision.models.includes(DEFAULT_FALLBACK_MODEL));
-  assert.equal(defaults.audioInput.enabled, true);
+  assert.deepEqual(defaults.vision.models, []);
+  assert.equal(defaults.audioInput.enabled, false);
   assert.equal(defaults.audioInput.roundRobin, false);
-  assert.ok(defaults.audioInput.models.includes(DEFAULT_FALLBACK_MODEL));
+  assert.deepEqual(defaults.audioInput.models, []);
 
   // 3. Set partial capacity adapter
   const updated = SettingsRepository.setCapacityAdapterSettings({
@@ -38,7 +38,7 @@ test("Unit - SettingsRepository key-value and capacityAdapter persistence", () =
   assert.equal(updated.vision.roundRobin, true);
   assert.deepEqual(updated.vision.models, ["test-provider/vision-model-1"]);
   // audioInput should remain untouched
-  assert.equal(updated.audioInput.enabled, true);
+  assert.equal(updated.audioInput.enabled, false);
 
   // 4. Reload from DB confirms persistence
   const reloaded = SettingsRepository.getCapacityAdapterSettings();
@@ -46,10 +46,8 @@ test("Unit - SettingsRepository key-value and capacityAdapter persistence", () =
   assert.equal(reloaded.vision.roundRobin, true);
   assert.deepEqual(reloaded.vision.models, ["test-provider/vision-model-1"]);
 
-  // Reset back to enabled for subsequent tests
-  SettingsRepository.setCapacityAdapterSettings({
-    vision: { enabled: true, roundRobin: false, models: [DEFAULT_FALLBACK_MODEL] },
-  });
+  // Reset back to defaults for subsequent tests
+  SettingsRepository.setSetting("capacityAdapter", DEFAULT_CAPACITY_ADAPTER_SETTINGS);
 });
 
 test("Unit - ComboPresets generation", () => {
@@ -307,8 +305,8 @@ test("Integration - Combos & Settings REST Endpoints", async () => {
     const capRes = await fetch(`${baseUrl}/api/settings/capacity-adapter`);
     assert.equal(capRes.status, 200);
     const capData = (await capRes.json()) as any;
-    assert.equal(capData.vision.enabled, true);
-    assert.ok(Array.isArray(capData.vision.models));
+    assert.equal(capData.vision.enabled, false);
+    assert.deepEqual(capData.vision.models, []);
 
     // 12. PUT /api/settings/capacity-adapter
     const capPutRes = await fetch(`${baseUrl}/api/settings/capacity-adapter`, {
