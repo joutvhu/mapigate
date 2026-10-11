@@ -34,6 +34,21 @@ modelRouter.get("/available", (req, res) => {
       dbProviders.map((p) => [p.id, p])
     );
 
+    const hasDbConfiguredModels = (pId: string, regItem?: any): boolean => {
+      const candidates = new Set<string>([pId]);
+      if (regItem?.alias) candidates.add(regItem.alias);
+      if (Array.isArray(regItem?.aliases)) {
+        for (const a of regItem.aliases) candidates.add(a);
+      }
+      for (const id of candidates) {
+        const db = dbProviderMap.get(id);
+        if (db && Array.isArray(db.models) && db.models.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     const getProviderAccountsCount = (pId: string): number => {
       let count = activeCounts.get(pId) || 0;
       const reg = PROVIDER_REGISTRY[pId] || getRegistryProvider(pId);
@@ -166,7 +181,7 @@ modelRouter.get("/available", (req, res) => {
       for (const m of pModels) {
         const modelId = typeof m === "string" ? m : (m as any).id;
         const modelName = typeof m === "string" ? m : ((m as any).name || (m as any).id);
-        const val = `${p.id}/${modelId}`;
+        const val = modelId.startsWith(`${p.id}/`) ? modelId : `${p.id}/${modelId}`;
         if (seenValues.has(val)) continue;
         seenValues.add(val);
 
@@ -192,8 +207,7 @@ modelRouter.get("/available", (req, res) => {
     // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models
     for (const provider of Object.values(PROVIDER_REGISTRY)) {
       if (!provider || !provider.models) continue;
-      const dbEntry = dbProviderMap.get(provider.id);
-      if (dbEntry && Array.isArray(dbEntry.models) && dbEntry.models.length > 0) {
+      if (hasDbConfiguredModels(provider.id, provider)) {
         continue;
       }
 
@@ -205,7 +219,7 @@ modelRouter.get("/available", (req, res) => {
       }
 
       for (const model of provider.models) {
-        const val = `${provider.id}/${model.id}`;
+        const val = model.id.startsWith(`${provider.id}/`) ? model.id : `${provider.id}/${model.id}`;
         if (seenValues.has(val)) continue;
         seenValues.add(val);
 
@@ -306,12 +320,27 @@ export function handleOpenAiModelsList(_req: any, res: any) {
       dbProviders.map((p) => [p.id, p])
     );
 
+    const hasDbConfiguredModels = (pId: string, regItem?: any): boolean => {
+      const candidates = new Set<string>([pId]);
+      if (regItem?.alias) candidates.add(regItem.alias);
+      if (Array.isArray(regItem?.aliases)) {
+        for (const a of regItem.aliases) candidates.add(a);
+      }
+      for (const id of candidates) {
+        const db = dbProviderMap.get(id);
+        if (db && Array.isArray(db.models) && db.models.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     // 1. Prioritize models configured in SQLite (dbProviders)
     for (const p of dbProviders) {
       const pModels = Array.isArray(p.models) ? p.models : [];
       for (const m of pModels) {
         const mId = typeof m === "string" ? m : (m as any).id;
-        const id = `${p.id}/${mId}`;
+        const id = mId.startsWith(`${p.id}/`) ? mId : `${p.id}/${mId}`;
         if (!seen.has(id)) {
           seen.add(id);
           list.push({
@@ -327,12 +356,11 @@ export function handleOpenAiModelsList(_req: any, res: any) {
     // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models
     for (const p of Object.values(PROVIDER_REGISTRY)) {
       if (!p || !p.models) continue;
-      const dbEntry = dbProviderMap.get(p.id);
-      if (dbEntry && Array.isArray(dbEntry.models) && dbEntry.models.length > 0) {
+      if (hasDbConfiguredModels(p.id, p)) {
         continue;
       }
       for (const m of p.models) {
-        const id = `${p.id}/${m.id}`;
+        const id = m.id.startsWith(`${p.id}/`) ? m.id : `${p.id}/${m.id}`;
         if (!seen.has(id)) {
           seen.add(id);
           list.push({

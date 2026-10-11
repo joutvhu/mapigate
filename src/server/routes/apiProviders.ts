@@ -377,6 +377,8 @@ providerRouter.post("/", (req, res) => {
     customHeaders: body.customHeaders || {},
     proxyUrl: body.proxyUrl || undefined,
     thinkingMode: body.thinkingMode || "auto",
+    strategy: body.strategy || null,
+    stickyLimit: body.stickyLimit != null ? Number(body.stickyLimit) : 1,
     createdAt: body.createdAt || now,
     updatedAt: now,
   };

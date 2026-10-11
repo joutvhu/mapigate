@@ -35,10 +35,25 @@ export interface ModelAutocompleteInputProps {
 
 let cachedModelsPromise: Promise<AvailableModelItem[]> | null = null;
 let cachedModelsData: AvailableModelItem[] | null = null;
+const cacheInvalidateListeners = new Set<() => void>();
+
+export function onAvailableModelsCacheInvalidated(listener: () => void): () => void {
+  cacheInvalidateListeners.add(listener);
+  return () => {
+    cacheInvalidateListeners.delete(listener);
+  };
+}
 
 export function invalidateAvailableModelsCache(): void {
   cachedModelsPromise = null;
   cachedModelsData = null;
+  for (const listener of cacheInvalidateListeners) {
+    try {
+      listener();
+    } catch (err) {
+      console.error("Error in model cache invalidation listener:", err);
+    }
+  }
 }
 
 export function getAvailableModelsCached(): Promise<AvailableModelItem[]> {
@@ -83,15 +98,27 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    getAvailableModelsCached()
-      .then((data) => {
-        if (isMounted) setModels(data);
-      })
-      .catch(() => {
-        // Fail-open: if fetching fails, free-form input remains fully functional
-      });
+    const fetchModels = () => {
+      getAvailableModelsCached()
+        .then((data) => {
+          if (isMounted) setModels(data);
+        })
+        .catch(() => {
+          // Fail-open: if fetching fails, free-form input remains fully functional
+        });
+    };
+
+    fetchModels();
+
+    const unsubscribe = onAvailableModelsCacheInvalidated(() => {
+      if (isMounted) {
+        fetchModels();
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
@@ -250,6 +277,11 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
           setHighlightIndex(-1);
         }}
         onFocus={() => {
+          if (models.length === 0 || !cachedModelsData) {
+            getAvailableModelsCached()
+              .then((data) => setModels(data))
+              .catch(() => {});
+          }
           setIsOpen(true);
         }}
         onKeyDown={handleKeyDown}

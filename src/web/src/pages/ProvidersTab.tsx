@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ScanModelsModal } from "../components/ScanModelsModal";
 import { saveProviderModels } from "../services/providerService";
+import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import {
   OAUTH_PROVIDERS_LIST,
@@ -95,6 +96,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       }
 
       await loadBackendProviders();
+      invalidateAvailableModelsCache();
     } catch (err) {
       console.error(err);
     } finally {
@@ -502,6 +504,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                 });
               }
               await loadBackendProviders();
+              invalidateAvailableModelsCache();
             } catch (err) {
               console.error("Failed to save scanned models:", err);
             }

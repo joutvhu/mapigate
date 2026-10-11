@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { planBulkAdd } from "../utils/bulkAdd";
 import { PortalModal } from "./PortalModal";
 import { Select } from "./Select";
+import { invalidateAvailableModelsCache } from "./ModelAutocompleteInput.js";
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -203,6 +204,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         throw new Error(d.error || `Server returned ${res.status}`);
       }
 
+      invalidateAvailableModelsCache();
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -240,6 +242,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       }
 
       const data = await res.json();
+      invalidateAvailableModelsCache();
       setBulkResult({ success: data.count || plan.length, failed: 0 });
       setTimeout(() => {
         onSuccess();

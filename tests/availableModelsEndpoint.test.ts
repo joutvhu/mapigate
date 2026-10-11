@@ -109,3 +109,65 @@ test("Integration - GET /api/models/available with connected accounts filter", a
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+test("Integration - Configured provider models take precedence over static presets in available models and v1/models", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const customProvId = "groq";
+  const customModels = ["llama-3.3-70b-versatile-custom", "groq/mixtral-8x7b-custom"];
+
+  try {
+    // Save provider with custom models (simulating post-scan or custom configuration)
+    ProviderRepository.saveProvider({
+      id: customProvId,
+      name: "Groq Cloud Custom",
+      baseUrl: "https://api.groq.com/openai/v1",
+      format: "openai",
+      models: customModels,
+      isActive: true,
+    });
+
+    // 1. GET /api/models/available
+    const res = await fetch(`${baseUrl}/api/models/available`);
+    assert.equal(res.status, 200);
+    const allModels = (await res.json()) as any[];
+
+    const groqModels = allModels.filter((m) => m.providerId === customProvId);
+    assert.equal(groqModels.length, 2, "Should only have the 2 configured custom models for groq");
+
+    // Check values avoid double-prefix
+    const values = groqModels.map((m) => m.value);
+    assert.ok(values.includes("groq/llama-3.3-70b-versatile-custom"));
+    assert.ok(values.includes("groq/mixtral-8x7b-custom"), "Model with existing groq/ prefix should not become groq/groq/...");
+    assert.ok(!values.some((v) => v.includes("groq/groq/")), "Must never produce double provider prefix");
+
+    // Check static default models are suppressed
+    assert.ok(
+      !groqModels.some((m) => m.id === "llama-3.3-70b-versatile"),
+      "Static registry default model should be suppressed when provider has configured models"
+    );
+
+    // 2. GET /v1/models (OpenAI compatibility endpoint)
+    const resV1 = await fetch(`${baseUrl}/v1/models`);
+    assert.equal(resV1.status, 200);
+    const v1Data = (await resV1.json()) as any;
+    const v1List = v1Data.data || [];
+
+    const groqV1Models = v1List.filter((m: any) => m.owned_by === customProvId);
+    assert.equal(groqV1Models.length, 2, "OpenAI list should only include the 2 configured custom models for groq");
+    const v1Ids = groqV1Models.map((m: any) => m.id);
+    assert.ok(v1Ids.includes("groq/llama-3.3-70b-versatile-custom"));
+    assert.ok(v1Ids.includes("groq/mixtral-8x7b-custom"));
+    assert.ok(!v1Ids.some((id: string) => id.includes("groq/groq/")));
+  } finally {
+    try {
+      ProviderRepository.deleteProvider(customProvId);
+    } catch {
+      // Ignore cleanup error
+    }
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});

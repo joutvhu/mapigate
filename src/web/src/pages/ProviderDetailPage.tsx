@@ -9,6 +9,7 @@ import { KiroAuthModal } from "../components/KiroAuthModal";
 import { PortalModal } from "../components/PortalModal";
 import { Select } from "../components/Select";
 import { ScanModelsModal } from "../components/ScanModelsModal";
+import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -132,6 +133,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         } else {
           setConnections([]);
         }
+        invalidateAvailableModelsCache();
       })
       .catch(() => {
         setCustomHeaders(defaultHeadersArray);
@@ -164,6 +166,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     setConnections(updated);
     try {
       await fetch(`/api/providers/${provider.id}/accounts/${id}/toggle`, { method: "PUT" });
+      invalidateAvailableModelsCache();
     } catch {
       //
     }
@@ -188,7 +191,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
   const handleDeleteAccount = (id: string) => {
     setConnections(connections.filter((c) => c.id !== id));
-    fetch(`/api/providers/${provider.id}/accounts/${id}`, { method: "DELETE" }).catch(() => {});
+    fetch(`/api/providers/${provider.id}/accounts/${id}`, { method: "DELETE" })
+      .then(() => invalidateAvailableModelsCache())
+      .catch(() => {});
   };
 
   const testOneByOne = async () => {
@@ -280,6 +285,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         }),
       });
       setHeadersSavedMsg(`Saved ${nextModels.length} models for ${provider.name}.`);
+      invalidateAvailableModelsCache();
       setTimeout(() => setHeadersSavedMsg(null), 3000);
     } catch {
       // Fail-open
@@ -320,6 +326,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         }),
       });
       setHeadersSavedMsg("Configuration saved successfully.");
+      invalidateAvailableModelsCache();
       setTimeout(() => setHeadersSavedMsg(null), 3000);
     } catch {
       //

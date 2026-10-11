@@ -451,7 +451,8 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         }
       }
 
-      for (const url of orderedUrls) {
+      for (let candidateIdx = 0; candidateIdx < orderedUrls.length; candidateIdx++) {
+        const url = orderedUrls[candidateIdx];
         try {
           const headersForUrl = { ...reqHeaders };
           if (
@@ -463,10 +464,13 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
             headersForUrl["x-goog-api-key"] = token;
           }
 
+          // Capped timeout for secondary regional fallbacks to prevent cumulative latency on unreachable networks
+          const candidateTimeout = candidateIdx === 0 ? timeoutMs : Math.min(timeoutMs, 3500);
+
           const response = await fetch(url, {
             method: "GET",
             headers: headersForUrl,
-            signal: AbortSignal.timeout(timeoutMs),
+            signal: AbortSignal.timeout(candidateTimeout),
           });
 
           if (response.ok || response.status === 200) {

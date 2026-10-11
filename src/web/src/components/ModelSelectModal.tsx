@@ -25,7 +25,11 @@ import {
   aggregateComboCapabilities,
   type ModelCapabilities,
 } from "../../../core/capabilities/index.js";
-import { getAvailableModelsCached, type AvailableModelItem } from "./ModelAutocompleteInput.js";
+import {
+  getAvailableModelsCached,
+  onAvailableModelsCacheInvalidated,
+  type AvailableModelItem,
+} from "./ModelAutocompleteInput.js";
 
 export interface ModelOption {
   id: string;
@@ -261,23 +265,34 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     };
   }, [isOpen]);
 
-  // Fetch available models with connected status
+  // Fetch available models with connected status & subscribe to cache invalidations
   useEffect(() => {
     if (!isOpen) return;
     let isCancelled = false;
 
-    getAvailableModelsCached()
-      .then((data) => {
-        if (!isCancelled) {
-          setAvailableModels(data);
-          const hasConnected = data.some((m) => m.hasConnectedAccount);
-          setConnectedOnly(hasConnected);
-        }
-      })
-      .catch(() => {});
+    const fetchAvailable = () => {
+      getAvailableModelsCached()
+        .then((data) => {
+          if (!isCancelled) {
+            setAvailableModels(data);
+            const hasConnected = data.some((m) => m.hasConnectedAccount);
+            setConnectedOnly(hasConnected);
+          }
+        })
+        .catch(() => {});
+    };
+
+    fetchAvailable();
+
+    const unsubscribe = onAvailableModelsCacheInvalidated(() => {
+      if (!isCancelled) {
+        fetchAvailable();
+      }
+    });
 
     return () => {
       isCancelled = true;
+      unsubscribe();
     };
   }, [isOpen]);
 
@@ -295,14 +310,52 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     return connectedProviderIds.size > 0;
   }, [connectedProviderIds]);
 
-  // Build model catalog from PROVIDER_REGISTRY
+  // Build model catalog prioritizing configured provider models from availableModels
   const allModels: ModelOption[] = useMemo(() => {
     const list: ModelOption[] = [];
     const seen = new Set<string>();
+    const providersWithConfiguredModels = new Set<string>();
 
+    // 1. Build models from availableModels (which contains provider's configured & scanned models from DB)
+    for (const m of availableModels) {
+      if (m.isCombo) continue;
+      if (seen.has(m.value)) continue;
+      seen.add(m.value);
+      providersWithConfiguredModels.add(m.providerId);
+
+      const caps = getCapabilitiesForModel(m.providerId, m.id);
+      list.push({
+        id: m.id,
+        value: m.value,
+        name: m.name || m.id,
+        providerId: m.providerId,
+        providerName: m.providerName || m.providerId,
+        caps: {
+          ...caps,
+          vision: Boolean(m.caps?.vision ?? caps.vision),
+          reasoning: Boolean(m.caps?.reasoning ?? caps.reasoning),
+          audioInput: Boolean(m.caps?.audio ?? caps.audioInput),
+          audioOutput: Boolean(m.caps?.audio ?? caps.audioOutput),
+        },
+        contextLength: m.contextLength || caps.contextWindow,
+        kind: "llm",
+        isCustom: false,
+      });
+    }
+
+    // 2. For providers that have NO configured models in availableModels (i.e. zero DB models),
+    // fall back to static PROVIDER_REGISTRY presets so unconfigured providers can still be browsed
     for (const [providerId, provider] of Object.entries(PROVIDER_REGISTRY)) {
       if (!provider || !provider.models) continue;
       const alias = provider.alias || provider.id || providerId;
+
+      if (
+        providersWithConfiguredModels.has(providerId) ||
+        providersWithConfiguredModels.has(alias) ||
+        (provider.aliases && provider.aliases.some((a) => providersWithConfiguredModels.has(a)))
+      ) {
+        continue;
+      }
 
       for (const m of provider.models) {
         const val = m.id.includes("/") ? m.id : `${alias}/${m.id}`;
@@ -322,32 +375,31 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
           isCustom: false,
         });
       }
+    }
 
-      // Add alias-mapped models
-      for (const [aliasKey, fullVal] of Object.entries(modelAliases)) {
-        if (
-          (fullVal.startsWith(`${alias}/`) || fullVal.startsWith(`${providerId}/`)) &&
-          !seen.has(fullVal)
-        ) {
-          seen.add(fullVal);
-          const slash = fullVal.indexOf("/");
-          const modelId = slash === -1 ? fullVal : fullVal.slice(slash + 1);
-          const caps = getCapabilitiesForModel(providerId, modelId);
-          list.push({
-            id: modelId,
-            value: fullVal,
-            name: aliasKey,
-            providerId,
-            providerName: provider.name || providerId,
-            caps,
-            isCustom: true,
-          });
-        }
+    // 3. Add alias-mapped models (from modelAliases prop)
+    for (const [aliasKey, fullVal] of Object.entries(modelAliases)) {
+      if (!seen.has(fullVal)) {
+        seen.add(fullVal);
+        const slash = fullVal.indexOf("/");
+        const providerId = slash === -1 ? "custom" : fullVal.slice(0, slash);
+        const modelId = slash === -1 ? fullVal : fullVal.slice(slash + 1);
+        const reg = PROVIDER_REGISTRY[providerId];
+        const caps = getCapabilitiesForModel(providerId, modelId);
+        list.push({
+          id: modelId,
+          value: fullVal,
+          name: aliasKey,
+          providerId,
+          providerName: reg?.name || providerId,
+          caps,
+          isCustom: true,
+        });
       }
     }
 
     return list;
-  }, [modelAliases]);
+  }, [availableModels, modelAliases]);
 
   const excludeSet = useMemo(() => {
     return new Set((excludeModelIds || []).map((x) => x.toLowerCase()));

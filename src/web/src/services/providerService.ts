@@ -1,4 +1,5 @@
 import type { ScanModelsResult } from "../../../shared/types";
+import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 
 export interface ScanProviderModelsParams {
   providerId?: string;
@@ -45,6 +46,9 @@ export async function saveProviderModels(providerId: string, models: string[]): 
         models,
       }),
     });
+    if (updateRes.ok) {
+      invalidateAvailableModelsCache();
+    }
     return updateRes.ok;
   } catch {
     return false;
