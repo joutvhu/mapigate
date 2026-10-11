@@ -15,6 +15,7 @@ import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { RequestDetailsRepository } from "../../storage/repositories/requestDetailsRepo.js";
 import { calculateCostFromTokens } from "../../core/usage/pricing.js";
 import { refreshGoogleOAuthToken } from "../routes/apiOAuth.js";
+import { ensureFreshCopilotCredentials } from "../../core/auth/copilotToken.js";
 import { getCapabilitiesForModel } from "../../core/capabilities/index.js";
 import {
   detectRequiredCapabilities,
@@ -379,8 +380,21 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         outgoingHeaders["Accept"] = "application/vnd.amazon.eventstream";
       }
     } else if (provider.id === "github") {
-      if (psd.copilotToken) {
+      if (account) {
+        try {
+          const fresh = await ensureFreshCopilotCredentials(account);
+          if (fresh?.copilotToken) {
+            bearerToken = fresh.copilotToken;
+            psd.copilotToken = fresh.copilotToken;
+            psd.copilotTokenExpiresAt = fresh.copilotTokenExpiresAt;
+          }
+        } catch (err) {
+          console.warn("[chatProxy] Failed to ensure fresh Copilot credentials:", err);
+        }
+      } else if (psd.copilotToken) {
         bearerToken = psd.copilotToken;
+      }
+      if (bearerToken) {
         outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
       }
       outgoingHeaders["Editor-Version"] = "vscode/1.100.0";
@@ -413,29 +427,41 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
 
     let upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
 
-    if (!upstreamRes.ok && upstreamRes.status === 401 && oauthJson?.refreshToken) {
-      try {
-        const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
-        if (refreshed?.accessToken) {
-          bearerToken = refreshed.accessToken;
-          outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
-          fetchOptions.headers = outgoingHeaders;
-          oauthJson.accessToken = refreshed.accessToken;
-          if (refreshed.refreshToken) oauthJson.refreshToken = refreshed.refreshToken;
-          oauthJson.expiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
-          if (account) {
-            ProviderRepository.updateAccount(account.id, {
-              rawApiKey: JSON.stringify(oauthJson),
-              providerSpecificData: {
-                ...psd,
-                refreshToken: oauthJson.refreshToken,
-                expiresAt: oauthJson.expiresAt,
-              },
-            });
+    if (!upstreamRes.ok && upstreamRes.status === 401) {
+      if (oauthJson?.refreshToken) {
+        try {
+          const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
+          if (refreshed?.accessToken) {
+            bearerToken = refreshed.accessToken;
+            outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
+            fetchOptions.headers = outgoingHeaders;
+            oauthJson.accessToken = refreshed.accessToken;
+            if (refreshed.refreshToken) oauthJson.refreshToken = refreshed.refreshToken;
+            oauthJson.expiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
+            if (account) {
+              ProviderRepository.updateAccount(account.id, {
+                rawApiKey: JSON.stringify(oauthJson),
+                providerSpecificData: {
+                  ...psd,
+                  refreshToken: oauthJson.refreshToken,
+                  expiresAt: oauthJson.expiresAt,
+                },
+              });
+            }
+            upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
           }
-          upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
-        }
-      } catch {}
+        } catch {}
+      } else if (provider.id === "github" && account) {
+        try {
+          const fresh = await ensureFreshCopilotCredentials(account, { force: true });
+          if (fresh?.copilotToken) {
+            bearerToken = fresh.copilotToken;
+            outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
+            fetchOptions.headers = outgoingHeaders;
+            upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
+          }
+        } catch {}
+      }
     }
 
     if (!upstreamRes.ok) {

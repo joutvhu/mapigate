@@ -8,6 +8,10 @@ import {
   CODEX_CLIENT_ID,
   CODEX_TOKEN_URL,
 } from "../../server/routes/apiOAuth.js";
+import {
+  refreshCopilotToken,
+  normalizeExpiryMs,
+} from "../auth/copilotToken.js";
 
 export interface ResolvedCredentials {
   accessToken: string;
@@ -59,12 +63,21 @@ export function extractCredentials(
     apiKey = trimmedKey;
   }
 
-  // Fallback to PSD if token wasn't in rawApiKey
-  if (!accessToken && psd.accessToken) {
-    accessToken = psd.accessToken;
+  // If specific copilotToken exists in PSD, use it as active accessToken / apiKey
+  if (psd.copilotToken) {
+    accessToken = psd.copilotToken;
+    apiKey = psd.copilotToken;
+  } else {
+    // Fallback to PSD if token wasn't in rawApiKey
+    if (!accessToken && psd.accessToken) {
+      accessToken = psd.accessToken;
+    }
+    if (!apiKey && psd.apiKey) {
+      apiKey = psd.apiKey;
+    }
   }
-  if (!apiKey && psd.apiKey) {
-    apiKey = psd.apiKey;
+  if (expiresAt === undefined && typeof psd.copilotTokenExpiresAt === "number") {
+    expiresAt = normalizeExpiryMs(psd.copilotTokenExpiresAt) || undefined;
   }
 
   return {
@@ -78,11 +91,13 @@ export function extractCredentials(
 }
 
 /**
- * Checks if a token is expired with a 60-second safety window
+ * Checks if a token is expired with a 60-second safety window.
+ * Normalizes seconds timestamp (< 1e12) if needed.
  */
 export function isTokenExpired(expiresAt?: number): boolean {
   if (!expiresAt || !Number.isFinite(expiresAt)) return false;
-  return Date.now() > expiresAt - 60_000;
+  const expiresAtMs = expiresAt < 1e12 ? expiresAt * 1000 : expiresAt;
+  return Date.now() > expiresAtMs - 60_000;
 }
 
 /**
@@ -97,8 +112,47 @@ export async function ensureFreshCredentials(
   const creds = extractCredentials(rawApiKey, providerSpecificData);
   const pId = providerId.toLowerCase();
 
-  // If not expired or no refresh token, return as is
+  // If not expired and access token is present, return as is
   if (!isTokenExpired(creds.expiresAt) && creds.accessToken) {
+    return creds;
+  }
+
+  // 0. GitHub Copilot (uses githubAccessToken or rawApiKey to mint Copilot token)
+  if (pId === "github") {
+    try {
+      const refreshed = await refreshCopilotToken({
+        githubAccessToken: creds.providerSpecificData.githubAccessToken,
+        rawApiKey,
+        refreshToken: creds.refreshToken,
+        copilotToken: creds.providerSpecificData.copilotToken,
+        copilotTokenExpiresAt: creds.providerSpecificData.copilotTokenExpiresAt,
+      });
+
+      if (refreshed) {
+        const updatedPsd = {
+          ...creds.providerSpecificData,
+          copilotToken: refreshed.copilotToken,
+          copilotTokenExpiresAt: refreshed.copilotTokenExpiresAt,
+          ...(refreshed.githubAccessToken ? { githubAccessToken: refreshed.githubAccessToken } : {}),
+          ...(refreshed.refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
+        };
+
+        ProviderRepository.updateAccount(accountId, {
+          providerSpecificData: updatedPsd,
+        });
+
+        const newExpiresAt = normalizeExpiryMs(refreshed.copilotTokenExpiresAt) || undefined;
+        return {
+          ...creds,
+          accessToken: refreshed.copilotToken,
+          apiKey: refreshed.copilotToken,
+          expiresAt: newExpiresAt,
+          providerSpecificData: updatedPsd,
+        };
+      }
+    } catch (err) {
+      console.warn(`[QuotaService] Failed to auto-refresh Copilot token for account ${accountId}:`, err);
+    }
     return creds;
   }
 

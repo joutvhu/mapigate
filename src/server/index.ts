@@ -21,6 +21,7 @@ import { quotaRouter } from "./routes/apiQuota.js";
 import { usageRouter } from "./routes/apiUsage.js";
 import { settingsRouter } from "./routes/apiSettings.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
+import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 
 const app = express();
 const port = Number(process.env.PORT) || DEFAULT_PORT;
@@ -185,6 +186,9 @@ const isTest =
 
 let server: any = null;
 if (!isTest) {
+  // Start background token refresh scheduler
+  tokenScheduler.start();
+
   server = app.listen(port, host, () => {
     console.log(`🚀 [${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
     try {
@@ -196,12 +200,15 @@ if (!isTest) {
   });
 
   process.on("SIGINT", () => {
+    tokenScheduler.stop();
     server?.close(() => process.exit(0));
   });
 
   process.on("SIGTERM", () => {
+    tokenScheduler.stop();
     server?.close(() => process.exit(0));
   });
 }
 
+export { app, tokenScheduler };
 export default app;
