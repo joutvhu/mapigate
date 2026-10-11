@@ -21,6 +21,7 @@ import { CapacityBadges } from "./CapacityBadges.js";
 import { Select } from "./Select.js";
 import { PROVIDER_REGISTRY } from "../../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel, type ModelCapabilities } from "../../../core/capabilities/index.js";
+import { getAvailableModelsCached, type AvailableModelItem } from "./ModelAutocompleteInput.js";
 
 export interface ModelOption {
   id: string;
@@ -196,6 +197,8 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   );
   const [customModelInput, setCustomModelInput] = useState("");
   const [combos, setCombos] = useState<ComboSummary[]>([]);
+  const [availableModels, setAvailableModels] = useState<AvailableModelItem[]>([]);
+  const [connectedOnly, setConnectedOnly] = useState<boolean>(true);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -247,6 +250,40 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       isCancelled = true;
     };
   }, [isOpen]);
+
+  // Fetch available models with connected status
+  useEffect(() => {
+    if (!isOpen) return;
+    let isCancelled = false;
+
+    getAvailableModelsCached()
+      .then((data) => {
+        if (!isCancelled) {
+          setAvailableModels(data);
+          const hasConnected = data.some((m) => m.hasConnectedAccount);
+          setConnectedOnly(hasConnected);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen]);
+
+  const connectedProviderIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of availableModels) {
+      if (m.hasConnectedAccount) {
+        set.add(m.providerId);
+      }
+    }
+    return set;
+  }, [availableModels]);
+
+  const hasConnectedAccounts = useMemo(() => {
+    return connectedProviderIds.size > 0;
+  }, [connectedProviderIds]);
 
   // Build model catalog from PROVIDER_REGISTRY
   const allModels: ModelOption[] = useMemo(() => {
@@ -306,12 +343,15 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   const providerOptions = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of allModels) {
+      if (connectedOnly && hasConnectedAccounts && !connectedProviderIds.has(m.providerId)) {
+        continue;
+      }
       if (!map.has(m.providerId)) {
         map.set(m.providerId, m.providerName);
       }
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [allModels]);
+  }, [allModels, connectedOnly, hasConnectedAccounts, connectedProviderIds]);
 
   // Filter combos by search query (hidden if modality filter active)
   const filteredCombos = useMemo(() => {
@@ -328,6 +368,13 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   // Filtered available models
   const filteredModels = useMemo(() => {
     return allModels.filter((item) => {
+      // Connected only filter
+      if (connectedOnly && hasConnectedAccounts) {
+        if (!connectedProviderIds.has(item.providerId)) {
+          return false;
+        }
+      }
+
       // Kind filter
       if (kindFilter && item.kind && item.kind !== kindFilter) return false;
 
@@ -364,7 +411,16 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
 
       return true;
     });
-  }, [allModels, selectedProvider, activeModalityFilter, kindFilter, searchQuery]);
+  }, [
+    allModels,
+    selectedProvider,
+    activeModalityFilter,
+    kindFilter,
+    searchQuery,
+    connectedOnly,
+    hasConnectedAccounts,
+    connectedProviderIds,
+  ]);
 
   const handleToggleModel = (item: ModelOption) => {
     const val = item.value;
@@ -548,6 +604,32 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                 className="shrink-0 min-w-[150px]"
               />
 
+              {/* Connected Only Filter Button */}
+              <button
+                type="button"
+                onClick={() => setConnectedOnly(!connectedOnly)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  connectedOnly
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                    : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-white"
+                }`}
+                title={
+                  connectedOnly
+                    ? "Showing only models from connected accounts. Click to show all models."
+                    : "Showing all catalog models. Click to filter by connected accounts."
+                }
+              >
+                <span className="material-symbols-outlined text-[13px]">
+                  {connectedOnly ? "check_circle" : "tune"}
+                </span>
+                Connected Only
+                {hasConnectedAccounts && (
+                  <span className="text-[9.5px] px-1 rounded bg-emerald-500/30 text-emerald-300 font-mono">
+                    {connectedProviderIds.size}
+                  </span>
+                )}
+              </button>
+
               {/* Modality Chips */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <button
@@ -638,8 +720,26 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
               )}
 
               {filteredModels.length === 0 ? (
-                <div className="py-12 text-center text-slate-500 text-xs">
-                  No models matched your filter. Try clearing filters or enter a custom model below.
+                <div className="py-10 text-center text-slate-500 text-xs space-y-2">
+                  <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
+                    search_off
+                  </span>
+                  <p className="max-w-xs mx-auto">
+                    {connectedOnly && !hasConnectedAccounts
+                      ? "No accounts connected yet. All models are currently hidden by 'Connected Only'."
+                      : connectedOnly
+                      ? "No models found from connected accounts matching your search/filters."
+                      : "No models matched your filter. Try clearing filters or enter a custom model below."}
+                  </p>
+                  {connectedOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setConnectedOnly(false)}
+                      className="px-3 py-1 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium cursor-pointer transition-colors"
+                    >
+                      Show All Registry Models
+                    </button>
+                  )}
                 </div>
               ) : (
                 filteredModels.map((item) => {

@@ -20,6 +20,7 @@ import { PortalModal } from "./PortalModal.js";
 import { CapacityBadges } from "./CapacityBadges.js";
 import { ModelSelectModal } from "./ModelSelectModal.js";
 import { Select } from "./Select.js";
+import { ModelAutocompleteInput } from "./ModelAutocompleteInput.js";
 
 export interface ComboItem {
   id: string;
@@ -134,15 +135,37 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
         </span>
 
         {editing ? (
-          <input
-            autoFocus
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={commit}
-            onKeyDown={handleKeyDown}
-            className="min-w-0 flex-1 rounded border border-blue-500/60 bg-[#141B2D] px-2 py-0.5 font-mono text-xs text-white outline-none focus:border-blue-400"
-          />
+          <div className="min-w-0 flex-1 flex items-center gap-1.5">
+            <div className="flex-1 min-w-0">
+              <ModelAutocompleteInput
+                autoFocus
+                value={draft}
+                onChange={(val) => setDraft(val)}
+                onEnter={commit}
+                placeholder="e.g. anthropic/claude-3-7-sonnet"
+                className="w-full rounded border border-blue-500/60 bg-[#141B2D] px-2 py-0.5 font-mono text-xs text-white outline-none focus:border-blue-400"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={commit}
+              className="p-1 text-emerald-400 hover:text-emerald-300 cursor-pointer"
+              title="Save changes"
+            >
+              <span className="material-symbols-outlined text-[15px]">check</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(model);
+                setEditing(false);
+              }}
+              className="p-1 text-slate-400 hover:text-white cursor-pointer"
+              title="Cancel"
+            >
+              <span className="material-symbols-outlined text-[15px]">close</span>
+            </button>
+          </div>
         ) : (
           <div
             className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-white hover:bg-white/5 flex items-center gap-2"
@@ -307,8 +330,8 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     }
   };
 
-  const handleAddQuickModel = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAddQuickModel = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const val = quickInputModel.trim();
     if (!val) return;
     if (!models.includes(val)) {
@@ -497,26 +520,22 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                 </p>
               )}
 
-              {/* Quick Input Form for manual additions */}
-              <div className="flex gap-2 pt-1">
-                <input
-                  type="text"
-                  placeholder="Or type custom model ID (e.g. anthropic/claude-3-7-sonnet)..."
-                  value={quickInputModel}
-                  onChange={(e) => setQuickInputModel(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddQuickModel(e);
-                    }
-                  }}
-                  className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
+              {/* Quick Input Form for manual additions with Autocomplete */}
+              <div className="flex gap-2 pt-1 items-start">
+                <div className="flex-1 min-w-0">
+                  <ModelAutocompleteInput
+                    placeholder="Or search/type model ID (e.g. anthropic/claude-3-7-sonnet)..."
+                    value={quickInputModel}
+                    onChange={setQuickInputModel}
+                    onEnter={() => handleAddQuickModel()}
+                    className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={handleAddQuickModel}
+                  onClick={() => handleAddQuickModel()}
                   disabled={!quickInputModel.trim()}
-                  className="px-3 py-1.5 rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-blue-500/50 hover:bg-blue-600/10 text-xs text-slate-300 hover:text-white disabled:opacity-40 cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-blue-500/50 hover:bg-blue-600/10 text-xs text-slate-300 hover:text-white disabled:opacity-40 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   Add
                 </button>
