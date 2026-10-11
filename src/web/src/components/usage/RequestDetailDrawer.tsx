@@ -245,6 +245,16 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
                     </pre>
                   </div>
                 )}
+                {(detail.response?.headers || detail.providerResponse?.headers) && (
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Response Headers:
+                    </span>
+                    <pre className="font-mono text-[11px] p-2.5 rounded bg-[#070A11] border border-slate-800/80 overflow-x-auto text-slate-300">
+                      {JSON.stringify(detail.response?.headers || detail.providerResponse?.headers, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -492,71 +492,139 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     const isStreaming = upstreamBody.stream !== false;
 
     if (!isStreaming) {
-      try {
-        const json = await upstreamRes.json();
-        res.status(200).json(json);
-
-        const durationMs = Date.now() - startTime;
-        LogRepository.saveLog({
-          id: requestId,
-          timestamp: startTime,
-          clientTool,
-          requestedModel: rawModel,
-          actualModel: targetModel,
-          providerId: provider.id,
-          promptTokens: (json as any)?.usage?.prompt_tokens || promptTokens,
-          completionTokens: (json as any)?.usage?.completion_tokens || 0,
-          tokensSavedByRtk: rtkStats.tokensSaved,
-          cachedTokens: 0,
-          cacheCreationTokens: 0,
-          cost: 0,
-          accountId: account?.id,
-          accountName: account?.name,
-          durationMs,
-          status: "success",
+      const durationMs = Date.now() - startTime;
+      const upstreamResponseHeaders: Record<string, string> = {};
+      if (upstreamRes.headers) {
+        upstreamRes.headers.forEach((val, key) => {
+          upstreamResponseHeaders[key] = val;
         });
-
-        RequestDetailsRepository.saveRequestDetail({
-          id: requestId,
-          timestamp: new Date(startTime).toISOString(),
-          provider: provider.id,
-          model: targetModel,
-          connectionId: account?.id,
-          accountName: account?.name,
-          clientTool,
-          status: 200,
-          is1mContext,
-          latency: { totalMs: durationMs },
-          tokens: {
-            promptTokens: (json as any)?.usage?.prompt_tokens || promptTokens,
-            completionTokens: (json as any)?.usage?.completion_tokens || 0,
-            cachedTokens: 0,
-            cacheCreationTokens: 0,
-            tokensSavedByRtk: rtkStats.tokensSaved,
-          },
-          cost: 0,
-          request: { headers: req.headers as Record<string, string>, body },
-          providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
-          response: {
-            status: 200,
-            body: json,
-          },
-        });
-
-        UsageRepository.endPendingRequest(requestId, false);
-        return { ok: true, status: 200, json, modelUsed: targetModel };
-      } catch (err: any) {
-        const text = await upstreamRes.text();
-        res.status(200).send(text);
-        UsageRepository.endPendingRequest(requestId, false);
-        return { ok: true, status: 200, text, modelUsed: targetModel };
       }
+
+      let responseBody: any;
+      let isJson = false;
+      try {
+        const rawText = await upstreamRes.text();
+        try {
+          responseBody = JSON.parse(rawText);
+          isJson = true;
+        } catch {
+          responseBody = rawText;
+        }
+      } catch (readErr: any) {
+        responseBody = { error: readErr.message || "Failed to read response body" };
+      }
+
+      const clientResponseHeaders: Record<string, string> = {
+        "content-type": isJson ? "application/json" : "text/plain",
+      };
+
+      if (isJson) {
+        res.status(200).json(responseBody);
+      } else {
+        res.status(200).send(responseBody);
+      }
+
+      const usage = responseBody?.usage || {};
+      const finalPromptTokens =
+        usage.prompt_tokens ??
+        usage.input_tokens ??
+        usage.prompt_eval_count ??
+        promptTokens;
+      const finalCompletionTokens =
+        usage.completion_tokens ??
+        usage.output_tokens ??
+        usage.eval_count ??
+        0;
+      const finalCachedTokens =
+        usage.prompt_tokens_details?.cached_tokens ??
+        usage.cache_read_input_tokens ??
+        0;
+      const finalCacheCreationTokens =
+        usage.cache_creation_input_tokens ??
+        0;
+      const finalReasoningTokens =
+        usage.completion_tokens_details?.reasoning_tokens ??
+        0;
+
+      const calculatedCost = calculateCostFromTokens(
+        {
+          promptTokens: finalPromptTokens,
+          completionTokens: finalCompletionTokens,
+          cachedTokens: finalCachedTokens,
+          cacheCreationTokens: finalCacheCreationTokens,
+          reasoningTokens: finalReasoningTokens,
+        },
+        targetModel,
+        provider.id
+      );
+
+      LogRepository.saveLog({
+        id: requestId,
+        timestamp: startTime,
+        clientTool,
+        requestedModel: rawModel,
+        actualModel: targetModel,
+        providerId: provider.id,
+        promptTokens: finalPromptTokens,
+        completionTokens: finalCompletionTokens,
+        tokensSavedByRtk: rtkStats.tokensSaved,
+        cachedTokens: finalCachedTokens,
+        cacheCreationTokens: finalCacheCreationTokens,
+        cost: calculatedCost,
+        accountId: account?.id,
+        accountName: account?.name,
+        durationMs,
+        status: "success",
+      });
+
+      RequestDetailsRepository.saveRequestDetail({
+        id: requestId,
+        timestamp: new Date(startTime).toISOString(),
+        provider: provider.id,
+        model: targetModel,
+        connectionId: account?.id,
+        accountName: account?.name,
+        clientTool,
+        status: 200,
+        is1mContext,
+        latency: { totalMs: durationMs, ttftMs: durationMs },
+        tokens: {
+          promptTokens: finalPromptTokens,
+          completionTokens: finalCompletionTokens,
+          cachedTokens: finalCachedTokens,
+          cacheCreationTokens: finalCacheCreationTokens,
+          tokensSavedByRtk: rtkStats.tokensSaved,
+        },
+        cost: calculatedCost,
+        request: { headers: req.headers as Record<string, string>, body },
+        providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
+        providerResponse: {
+          status: upstreamRes.status,
+          headers: upstreamResponseHeaders,
+          body: responseBody,
+        },
+        response: {
+          status: 200,
+          headers: clientResponseHeaders,
+          body: responseBody,
+        },
+      });
+
+      UsageRepository.endPendingRequest(requestId, false);
+      return { ok: true, status: 200, json: isJson ? responseBody : undefined, text: !isJson ? responseBody : undefined, modelUsed: targetModel };
     }
 
     // Streaming response dispatch
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+
+    const upstreamResponseHeaders: Record<string, string> = {};
+    if (upstreamRes.headers) {
+      upstreamRes.headers.forEach((val, key) => {
+        upstreamResponseHeaders[key] = val;
+      });
+    }
 
     const reader = upstreamRes.body?.getReader();
     if (!reader) {
@@ -675,8 +743,13 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         cost: calculatedCost,
         request: { headers: req.headers as Record<string, string>, body },
         providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
+        providerResponse: {
+          status: upstreamRes.status,
+          headers: upstreamResponseHeaders,
+        },
         response: {
           status: 200,
+          headers: { "content-type": "text/event-stream" },
           body: { text: capturedResponseText ? capturedResponseText.slice(0, 2000) : "Stream completed" },
         },
       });
@@ -866,8 +939,13 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       cost: calculatedCost,
       request: { headers: req.headers as Record<string, string>, body },
       providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
+      providerResponse: {
+        status: upstreamRes.status,
+        headers: upstreamResponseHeaders,
+      },
       response: {
         status: 200,
+        headers: { "content-type": "text/event-stream" },
         body: { text: capturedResponseText ? capturedResponseText.slice(0, 2000) : "Stream completed" },
       },
     });

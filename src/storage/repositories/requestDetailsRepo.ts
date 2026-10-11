@@ -84,12 +84,14 @@ export function flushRequestDetailsBuffer(): void {
         providerResponse: item.providerResponse
           ? {
               ...item.providerResponse,
+              headers: sanitizeHeaders(item.providerResponse.headers),
               body: truncatePayload(item.providerResponse.body),
             }
           : undefined,
         response: item.response
           ? {
               ...item.response,
+              headers: sanitizeHeaders(item.response.headers),
               body: truncatePayload(item.response.body),
             }
           : undefined,

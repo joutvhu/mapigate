@@ -116,15 +116,15 @@ export class ProviderRepository {
       provider.baseUrl,
       provider.format,
       provider.isActive ? 1 : 0,
-      provider.priority,
+      provider.priority ?? 0,
       JSON.stringify(provider.models || []),
       JSON.stringify(provider.customHeaders || {}),
       provider.proxyUrl || null,
       provider.thinkingMode || "auto",
       provider.strategy || null,
       provider.stickyLimit != null ? provider.stickyLimit : 1,
-      provider.createdAt,
-      provider.updatedAt
+      provider.createdAt ?? Date.now(),
+      provider.updatedAt ?? Date.now()
     );
   }
 

@@ -172,12 +172,14 @@ export interface RequestDetail {
   };
   providerResponse?: {
     status?: number;
+    headers?: Record<string, string>;
     body?: any;
     _truncated?: boolean;
     _originalSize?: number;
   };
   response?: {
     status?: number;
+    headers?: Record<string, string>;
     body?: any;
     _truncated?: boolean;
     _originalSize?: number;
