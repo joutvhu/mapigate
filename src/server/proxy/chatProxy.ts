@@ -8,11 +8,25 @@ import { signAwsSigv4Request } from "../../core/auth/awsSigv4.js";
 import { decodeEventStreamChunk } from "../../core/adapters/awsEventStream.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
+import { ComboRepository } from "../../storage/repositories/comboRepo.js";
+import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { LogRepository } from "../../storage/repositories/logRepo.js";
 import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { RequestDetailsRepository } from "../../storage/repositories/requestDetailsRepo.js";
 import { calculateCostFromTokens } from "../../core/usage/pricing.js";
 import { refreshGoogleOAuthToken } from "../routes/apiOAuth.js";
+import { getCapabilitiesForModel } from "../../core/capabilities/index.js";
+import {
+  detectRequiredCapabilities,
+  augmentModelsWithCapacityAdapter,
+  stripHistoryForContext,
+} from "../../core/router/capacityAdapter.js";
+import {
+  handleFallbackChat,
+  handleFusionChat,
+  type ModelCallResult,
+  type SingleModelHandler,
+} from "../../core/router/comboEngine.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 
@@ -38,24 +52,50 @@ function getProxyDispatcher(proxyUrl: string): ProxyAgent {
   return dispatcher;
 }
 
-export async function handleProxyRequest(
-  req: Request,
-  res: Response,
-  clientFormat: "openai" | "anthropic"
-): Promise<void> {
-  const startTime = Date.now();
-  const requestId = crypto.randomUUID();
-  const body = req.body || {};
-  const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "unknown";
+interface ExecuteSingleModelOptions {
+  req: Request;
+  res: Response;
+  body: any;
+  modelStr: string;
+  clientFormat: "openai" | "anthropic";
+  isPanel: boolean;
+  requestId: string;
+  startTime: number;
+  clientTool: string;
+  rawModel: string;
+  rtkStats: { compressedTokens: number; tokensSaved: number };
+}
 
-  const rawModel = body.model || "default";
-  const rules = ModelRepository.getAllRules();
-  const ruleEngine = new RuleEngine(rules);
+async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<ModelCallResult> {
+  const {
+    req,
+    res,
+    body,
+    modelStr,
+    clientFormat,
+    isPanel,
+    requestId,
+    startTime,
+    clientTool,
+    rawModel,
+    rtkStats,
+  } = options;
 
-  const { model: targetModel, rule } = ruleEngine.resolveModel(rawModel);
+  let targetModel = modelStr;
+  let providerId: string | undefined;
 
-  // Determine provider
-  let providerId = rule?.targetProviderId;
+  if (modelStr.includes("/")) {
+    const slash = modelStr.indexOf("/");
+    providerId = modelStr.slice(0, slash);
+    targetModel = modelStr.slice(slash + 1);
+  } else {
+    const rules = ModelRepository.getAllRules();
+    const ruleEngine = new RuleEngine(rules);
+    const resolved = ruleEngine.resolveModel(modelStr);
+    targetModel = resolved.model;
+    providerId = resolved.rule?.targetProviderId;
+  }
+
   if (!providerId) {
     const allProviders = ProviderRepository.getAllProviders();
     const activeProvider = allProviders.find((p) => p.isActive);
@@ -63,32 +103,26 @@ export async function handleProxyRequest(
   }
 
   if (!providerId) {
-    res.status(503).json({
-      error: {
-        message: "No active provider configured in Routen. Please add a provider in dashboard.",
-        type: "service_unavailable",
-      },
-    });
-    return;
+    return {
+      ok: false,
+      status: 503,
+      error: `No active provider configured for model '${modelStr}'.`,
+    };
   }
 
   const provider =
     ProviderRepository.getProviderWithDefaults(providerId) ||
     ProviderRepository.getProviderById(providerId);
+
   if (!provider) {
-    res.status(502).json({
-      error: {
-        message: `Provider '${providerId}' not found.`,
-        type: "bad_gateway",
-      },
-    });
-    return;
+    return {
+      ok: false,
+      status: 502,
+      error: `Provider '${providerId}' not found.`,
+    };
   }
 
-  // 1. In-place RTK compression
-  const rtkStats = RtkCompressor.compressPayloadInPlace(body);
-
-  // 2. Select account
+  // Account resolution
   const account = LoadBalancer.pickAccount(provider.id);
   const hasCustomHeaders = Boolean(
     provider.customHeaders && Object.keys(provider.customHeaders).length > 0
@@ -99,22 +133,16 @@ export async function handleProxyRequest(
     provider.id === "devin-cli";
 
   if ((!account || !account.rawApiKey) && !hasCustomHeaders && !isNoAuthOrProfile) {
-    res.status(503).json({
-      error: {
-        message: `No active API key account found for provider '${provider.name}'.`,
-        type: "service_unavailable",
-      },
-    });
-    return;
+    return {
+      ok: false,
+      status: 503,
+      error: `No active API key account found for provider '${provider.name}'.`,
+    };
   }
 
-  // Register in-flight request for real-time telemetry
-  UsageRepository.startPendingRequest({
-    id: requestId,
-    model: targetModel,
-    provider: provider.id,
-    account: account?.name,
-  });
+  // Capability context window guard
+  const { contextWindow } = getCapabilitiesForModel(provider.id, targetModel);
+  const adjustedBody = stripHistoryForContext(body, contextWindow);
 
   let promptTokens = rtkStats.compressedTokens || 0;
   let completionTokens = 0;
@@ -127,28 +155,34 @@ export async function handleProxyRequest(
   const targetFormat = provider.format || "openai";
   const isBedrock = provider.id.startsWith("bedrock") || provider.credentialForm === "aws";
 
-  // 3. Bidirectional request payload conversion
+  // Bidirectional request payload conversion
   let upstreamBody: any;
   if (clientFormat === "anthropic" && targetFormat === "openai") {
-    upstreamBody = AnthropicAdapter.anthropicToOpenAi(body);
+    upstreamBody = AnthropicAdapter.anthropicToOpenAi(adjustedBody);
     upstreamBody.model = targetModel;
   } else if (clientFormat === "openai" && (targetFormat === "claude" || isBedrock)) {
-    upstreamBody = AnthropicAdapter.openAiToAnthropic(body);
+    upstreamBody = AnthropicAdapter.openAiToAnthropic(adjustedBody);
     upstreamBody.model = targetModel;
   } else if (clientFormat === "anthropic") {
-    upstreamBody = { ...body, model: targetModel };
+    upstreamBody = { ...adjustedBody, model: targetModel };
   } else {
-    upstreamBody = OpenAiAdapter.normalizeRequest(body, targetModel);
+    upstreamBody = OpenAiAdapter.normalizeRequest(adjustedBody, targetModel);
   }
 
-  // Ensure OpenAI streaming endpoints emit the final token usage chunk
-  if (targetFormat === "openai" && upstreamBody && upstreamBody.stream) {
-    if (!upstreamBody.stream_options) {
-      upstreamBody.stream_options = { include_usage: true };
+  if (isPanel) {
+    upstreamBody.stream = false;
+    delete upstreamBody.tools;
+    delete upstreamBody.tool_choice;
+    delete upstreamBody.stream_options;
+  } else {
+    if (targetFormat === "openai" && upstreamBody && upstreamBody.stream) {
+      if (!upstreamBody.stream_options) {
+        upstreamBody.stream_options = { include_usage: true };
+      }
     }
   }
 
-  // 4. Upstream BaseUrl Deduplication
+  // Upstream BaseUrl Deduplication
   let upstreamUrl: string;
   const rawBase = (provider.baseUrl || "").trim();
   const hasTerminalPath =
@@ -172,7 +206,7 @@ export async function handleProxyRequest(
     let bearerToken = account?.rawApiKey || "";
     const psd = account?.providerSpecificData || {};
 
-    // 4a. Handle Google OAuth token parsing & auto-refresh before upstream call
+    // Google OAuth auto-refresh
     let oauthJson: any = null;
     if (bearerToken.startsWith("{") && bearerToken.includes("accessToken")) {
       try {
@@ -223,7 +257,6 @@ export async function handleProxyRequest(
       ...(provider.customHeaders || {}),
     };
 
-    // 4b. Dynamic URL rewrites & Specialized Schemas
     if (provider.id === "xiaomi-tokenplan") {
       const region = psd.region || "sgp";
       upstreamUrl = `https://token-plan-${region}.xiaomimimo.com/v1/chat/completions`;
@@ -258,13 +291,12 @@ export async function handleProxyRequest(
       delete outgoingHeaders["Authorization"];
       outgoingHeaders["Cookie"] = bearerToken;
     } else if (isBedrock) {
-      const isStreaming = upstreamBody.stream !== false;
+      const isStreaming = upstreamBody.stream !== false && !isPanel;
       const bedrockAction = isStreaming ? "invoke-with-response-stream" : "invoke";
       const region = psd.region || "us-east-1";
       upstreamUrl = `https://bedrock-runtime.${region}.amazonaws.com/model/${encodeURIComponent(targetModel)}/${bedrockAction}`;
       delete outgoingHeaders["Authorization"];
 
-      // Bedrock Anthropic body transformations
       delete upstreamBody.model;
       delete upstreamBody.stream;
       upstreamBody.anthropic_version = "bedrock-2023-05-31";
@@ -306,7 +338,6 @@ export async function handleProxyRequest(
 
     let upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
 
-    // On 401, retry Google OAuth token refresh
     if (!upstreamRes.ok && upstreamRes.status === 401 && oauthJson?.refreshToken) {
       try {
         const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
@@ -337,82 +368,76 @@ export async function handleProxyRequest(
         LoadBalancer.markRateLimited(account.id);
       }
       const errText = await upstreamRes.text();
-      res.status(upstreamRes.status).send(errText);
-
-      const durationMs = Date.now() - startTime;
-      const statusStr = upstreamRes.status === 429 ? "rate_limited" : "error";
-
-      UsageRepository.endPendingRequest(requestId, true, provider.id);
-
-      LogRepository.saveLog({
-        id: requestId,
-        timestamp: startTime,
-        clientTool,
-        requestedModel: rawModel,
-        actualModel: targetModel,
-        providerId: provider.id,
-        promptTokens: 0,
-        completionTokens: 0,
-        tokensSavedByRtk: rtkStats.tokensSaved,
-        cachedTokens: 0,
-        cacheCreationTokens: 0,
-        cost: 0,
-        accountId: account?.id,
-        accountName: account?.name,
-        durationMs,
-        status: statusStr,
-        errorMessage: errText.slice(0, 500),
-      });
-
-      RequestDetailsRepository.saveRequestDetail({
-        id: requestId,
-        timestamp: new Date(startTime).toISOString(),
-        provider: provider.id,
-        model: targetModel,
-        connectionId: account?.id,
-        accountName: account?.name,
-        clientTool,
+      return {
+        ok: false,
         status: upstreamRes.status,
-        latency: { totalMs: durationMs },
-        tokens: {
-          promptTokens: 0,
-          completionTokens: 0,
-          cachedTokens: 0,
-          tokensSavedByRtk: rtkStats.tokensSaved,
-        },
-        cost: 0,
-        request: {
-          headers: req.headers as Record<string, string>,
-          body,
-        },
-        providerRequest: {
-          url: upstreamUrl,
-          headers: outgoingHeaders,
-          body: upstreamBody,
-        },
-        providerResponse: {
-          status: upstreamRes.status,
-          body: errText.slice(0, 2000),
-        },
-        errorMessage: errText.slice(0, 500),
-      });
-      return;
+        text: errText,
+        error: errText,
+      };
     }
 
-    // Set SSE streaming headers
+    // Panel fan-out execution
+    if (isPanel) {
+      try {
+        const json = await upstreamRes.json();
+        return { ok: true, status: 200, json, modelUsed: targetModel };
+      } catch {
+        const text = await upstreamRes.text();
+        return { ok: true, status: 200, text, modelUsed: targetModel };
+      }
+    }
+
+    // Direct delivery to client
+    const isStreaming = upstreamBody.stream !== false;
+
+    if (!isStreaming) {
+      try {
+        const json = await upstreamRes.json();
+        res.status(200).json(json);
+
+        const durationMs = Date.now() - startTime;
+        LogRepository.saveLog({
+          id: requestId,
+          timestamp: startTime,
+          clientTool,
+          requestedModel: rawModel,
+          actualModel: targetModel,
+          providerId: provider.id,
+          promptTokens: (json as any)?.usage?.prompt_tokens || promptTokens,
+          completionTokens: (json as any)?.usage?.completion_tokens || 0,
+          tokensSavedByRtk: rtkStats.tokensSaved,
+          cachedTokens: 0,
+          cacheCreationTokens: 0,
+          cost: 0,
+          accountId: account?.id,
+          accountName: account?.name,
+          durationMs,
+          status: "success",
+        });
+
+        UsageRepository.endPendingRequest(requestId, false);
+        return { ok: true, status: 200, json, modelUsed: targetModel };
+      } catch (err: any) {
+        const text = await upstreamRes.text();
+        res.status(200).send(text);
+        UsageRepository.endPendingRequest(requestId, false);
+        return { ok: true, status: 200, text, modelUsed: targetModel };
+      }
+    }
+
+    // Streaming response dispatch
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
 
-    // 5. Bidirectional Stream Translation & Dispatch
     const reader = upstreamRes.body?.getReader();
     if (!reader) {
       UsageRepository.endPendingRequest(requestId, false);
       res.end();
-      return;
+      return { ok: true, status: 200, modelUsed: targetModel };
     }
 
-    // Branch A: Bedrock binary EventStream
+    // Bedrock EventStream
     if (isBedrock && upstreamRes.headers.get("content-type")?.includes("eventstream")) {
       let residualBuffer: any = new Uint8Array(0);
 
@@ -457,9 +482,7 @@ export async function handleProxyRequest(
                 res.write(ch);
               }
             }
-          } catch {
-            // Ignored payload parse error
-          }
+          } catch {}
         }
       }
 
@@ -525,10 +548,10 @@ export async function handleProxyRequest(
       });
 
       UsageRepository.endPendingRequest(requestId, false);
-      return;
+      return { ok: true, status: 200, modelUsed: targetModel };
     }
 
-    // Branch B: Standard SSE text streams
+    // Standard SSE text streams
     if (clientFormat === "anthropic" && targetFormat === "openai") {
       res.write(
         `event: message_start\ndata: ${JSON.stringify({
@@ -585,7 +608,6 @@ export async function handleProxyRequest(
         try {
           const jsonChunk = JSON.parse(dataStr);
 
-          // Track usage details
           if (jsonChunk.usage) {
             if (jsonChunk.usage.prompt_tokens) promptTokens = jsonChunk.usage.prompt_tokens;
             if (jsonChunk.usage.completion_tokens) completionTokens = jsonChunk.usage.completion_tokens;
@@ -628,14 +650,12 @@ export async function handleProxyRequest(
               res.write(ch);
             }
           } else {
-            // Same format pass-through
             if (currentEventName && clientFormat === "anthropic") {
               res.write(`event: ${currentEventName}\n`);
             }
             res.write(rawLine + "\n\n");
           }
         } catch {
-          // Pass-through raw line if parsing fails
           res.write(rawLine + "\n\n");
         }
       }
@@ -654,7 +674,6 @@ export async function handleProxyRequest(
     );
     const totalDuration = Date.now() - startTime;
 
-    // Record success log
     LogRepository.saveLog({
       id: requestId,
       timestamp: startTime,
@@ -701,51 +720,187 @@ export async function handleProxyRequest(
     });
 
     UsageRepository.endPendingRequest(requestId, false);
+    return { ok: true, status: 200, modelUsed: targetModel };
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: 500,
+      error: err.message || "Upstream request failed",
+    };
+  }
+}
+
+export async function handleProxyRequest(
+  req: Request,
+  res: Response,
+  clientFormat: "openai" | "anthropic"
+): Promise<void> {
+  const startTime = Date.now();
+  const requestId = crypto.randomUUID();
+  const body = req.body || {};
+  const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "unknown";
+
+  const rawModel = body.model || "default";
+
+  // 1. RTK compression
+  const rtkStats = RtkCompressor.compressPayloadInPlace(body);
+
+  // 2. Combo Detection
+  const allCombos = ComboRepository.getAllCombos();
+  const activeCombo = !rawModel.includes("/")
+    ? allCombos.find(
+        (c) =>
+          c.isActive &&
+          (c.name.toLowerCase() === rawModel.toLowerCase() || c.id.toLowerCase() === rawModel.toLowerCase())
+      )
+    : undefined;
+
+  let candidateModels: string[];
+  let comboStrategy: "round-robin" | "fallback" | "fusion" = "fallback";
+  let comboName = "";
+
+  if (activeCombo && activeCombo.models.length > 0) {
+    candidateModels = [...activeCombo.models];
+    comboStrategy = activeCombo.strategy;
+    comboName = activeCombo.name;
+  } else {
+    candidateModels = [rawModel];
+  }
+
+  // 3. Multimodal Capacity Adapter Augmentation
+  const requiredCaps = detectRequiredCapabilities(body);
+  if (requiredCaps.size > 0) {
+    const adapterSettings = SettingsRepository.getCapacityAdapterSettings();
+    candidateModels = augmentModelsWithCapacityAdapter(candidateModels, requiredCaps, adapterSettings);
+  }
+
+  // Track in-flight request
+  UsageRepository.startPendingRequest({
+    id: requestId,
+    model: rawModel,
+    provider: comboName ? "combo" : (candidateModels[0]?.split("/")[0] || "unknown"),
+  });
+
+  const handleSingleModel: SingleModelHandler = async (modelBody, modelStr, isPanel = false) => {
+    return executeSingleModel({
+      req,
+      res,
+      body: modelBody,
+      modelStr,
+      clientFormat,
+      isPanel,
+      requestId,
+      startTime,
+      clientTool,
+      rawModel,
+      rtkStats,
+    });
+  };
+
+  try {
+    let result: ModelCallResult;
+
+    if (comboStrategy === "fusion" && candidateModels.length > 1) {
+      result = await handleFusionChat({
+        body,
+        models: candidateModels,
+        handleSingleModel,
+        comboName,
+      });
+    } else if (comboStrategy === "round-robin") {
+      result = await handleFallbackChat({
+        body,
+        models: candidateModels,
+        handleSingleModel,
+        comboName,
+        comboStrategy: "round-robin",
+        comboStickyLimit: 1,
+      });
+    } else {
+      result = await handleFallbackChat({
+        body,
+        models: candidateModels,
+        handleSingleModel,
+        comboName,
+        comboStrategy: "fallback",
+      });
+    }
+
+    if (!result.ok && !res.headersSent) {
+      const durationMs = Date.now() - startTime;
+      const status = result.status || 503;
+      const errMsg = result.error || "All combo models failed";
+
+      UsageRepository.endPendingRequest(requestId, true);
+
+      LogRepository.saveLog({
+        id: requestId,
+        timestamp: startTime,
+        clientTool,
+        requestedModel: rawModel,
+        actualModel: candidateModels[0] || rawModel,
+        providerId: comboName ? "combo" : "unknown",
+        promptTokens: 0,
+        completionTokens: 0,
+        tokensSavedByRtk: rtkStats.tokensSaved,
+        cachedTokens: 0,
+        cacheCreationTokens: 0,
+        cost: 0,
+        durationMs,
+        status: status === 429 ? "rate_limited" : "error",
+        errorMessage: errMsg.slice(0, 500),
+      });
+
+      RequestDetailsRepository.saveRequestDetail({
+        id: requestId,
+        timestamp: new Date(startTime).toISOString(),
+        provider: comboName ? "combo" : null,
+        model: rawModel,
+        clientTool,
+        status,
+        latency: { totalMs: durationMs },
+        tokens: {
+          promptTokens: 0,
+          completionTokens: 0,
+          cachedTokens: 0,
+          tokensSavedByRtk: rtkStats.tokensSaved,
+        },
+        cost: 0,
+        request: { headers: req.headers as Record<string, string>, body },
+        errorMessage: errMsg.slice(0, 500),
+      });
+
+      res.status(status).json({
+        error: {
+          message: errMsg,
+          type: status === 429 ? "rate_limit_error" : "service_unavailable",
+        },
+      });
+    }
   } catch (err: any) {
     const totalDuration = Date.now() - startTime;
-    UsageRepository.endPendingRequest(requestId, true, provider?.id);
+    UsageRepository.endPendingRequest(requestId, true);
+
+    if (!res.headersSent) {
+      res.status(500).json({ error: { message: err.message || "Internal server error" } });
+    }
 
     LogRepository.saveLog({
       id: requestId,
       timestamp: startTime,
       clientTool,
       requestedModel: rawModel,
-      actualModel: targetModel,
-      providerId: provider?.id || "unknown",
+      actualModel: rawModel,
+      providerId: comboName || "unknown",
       promptTokens: 0,
       completionTokens: 0,
       tokensSavedByRtk: rtkStats.tokensSaved,
       cachedTokens: 0,
       cacheCreationTokens: 0,
       cost: 0,
-      accountId: account?.id,
-      accountName: account?.name,
       durationMs: totalDuration,
       status: "error",
       errorMessage: err.message?.slice(0, 500),
     });
-
-    RequestDetailsRepository.saveRequestDetail({
-      id: requestId,
-      timestamp: new Date(startTime).toISOString(),
-      provider: provider?.id || null,
-      model: targetModel,
-      connectionId: account?.id,
-      accountName: account?.name,
-      clientTool,
-      status: 500,
-      latency: { totalMs: totalDuration },
-      tokens: {
-        promptTokens: 0,
-        completionTokens: 0,
-        cachedTokens: 0,
-        tokensSavedByRtk: rtkStats.tokensSaved,
-      },
-      cost: 0,
-      request: { headers: req.headers as Record<string, string>, body },
-      errorMessage: err.message,
-    });
-
-    res.status(500).json({ error: { message: err.message || "Upstream request failed" } });
   }
 }
