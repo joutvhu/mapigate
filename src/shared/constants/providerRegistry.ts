@@ -10125,6 +10125,1058 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     },
     "models": [],
     "passthroughModels": true
+  },
+  "deepinfra": {
+    "id": "deepinfra",
+    "name": "DeepInfra",
+    "alias": "deepinfra",
+    "aliases": [
+      "deepinfra"
+    ],
+    "uiAlias": "deepinfra",
+    "color": "#2563EB",
+    "image": "/providers/deepinfra.svg",
+    "website": "https://deepinfra.com",
+    "notice": {
+      "apiKeyUrl": "https://deepinfra.com/dash/api_keys"
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.deepinfra.com/v1/openai/chat/completions",
+    "baseUrls": [
+      "https://api.deepinfra.com/v1/openai/chat/completions"
+    ],
+    "validateUrl": "https://api.deepinfra.com/v1/openai/models",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "deepseek-ai/DeepSeek-V3",
+        "name": "DeepSeek V3",
+        "isDefault": true,
+        "contextLength": 163840
+      },
+      {
+        "id": "deepseek-ai/DeepSeek-R1",
+        "name": "DeepSeek R1",
+        "isDefault": false,
+        "contextLength": 163840
+      },
+      {
+        "id": "deepseek-ai/DeepSeek-V4-Pro",
+        "name": "DeepSeek V4 Pro",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "deepseek-ai/DeepSeek-V4-Flash",
+        "name": "DeepSeek V4 Flash",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "Qwen/Qwen2.5-Coder-32B-Instruct",
+        "name": "Qwen 2.5 Coder 32B Instruct",
+        "isDefault": false,
+        "contextLength": 131072
+      },
+      {
+        "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+        "name": "Llama 3.3 70B Instruct Turbo",
+        "isDefault": false,
+        "contextLength": 131072
+      },
+      {
+        "id": "NousResearch/Hermes-3-Llama-3.1-405B",
+        "name": "Hermes 3 Llama 3.1 405B",
+        "isDefault": false,
+        "contextLength": 131072
+      }
+    ],
+    "passthroughModels": true
+  },
+  "novita": {
+    "id": "novita",
+    "name": "Novita AI",
+    "alias": "novita",
+    "aliases": [
+      "novita"
+    ],
+    "uiAlias": "novita",
+    "color": "#7C3AED",
+    "image": "/providers/novita.png",
+    "website": "https://novita.ai",
+    "notice": {
+      "apiKeyUrl": "https://novita.ai/settings/key-management"
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.novita.ai/openai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.novita.ai/openai/v1/chat/completions"
+    ],
+    "validateUrl": "https://api.novita.ai/openai/v1/models",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "deepseek/deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro",
+        "isDefault": true,
+        "contextLength": 1048576
+      },
+      {
+        "id": "deepseek/deepseek-v4-flash",
+        "name": "DeepSeek V4 Flash",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "deepseek/deepseek-v3.2",
+        "name": "DeepSeek V3.2",
+        "isDefault": false,
+        "contextLength": 163840
+      },
+      {
+        "id": "moonshotai/kimi-k3",
+        "name": "Kimi K3",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "moonshotai/kimi-k2.7-code",
+        "name": "Kimi K2.7 Code",
+        "isDefault": false,
+        "contextLength": 262144
+      },
+      {
+        "id": "moonshotai/kimi-k2.6",
+        "name": "Kimi K2.6",
+        "isDefault": false,
+        "contextLength": 262144
+      },
+      {
+        "id": "zai-org/glm-5.2",
+        "name": "GLM 5.2",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "zai-org/glm-5.1",
+        "name": "GLM 5.1",
+        "isDefault": false,
+        "contextLength": 204800
+      },
+      {
+        "id": "qwen/qwen-2.5-coder-32b",
+        "name": "Qwen 2.5 Coder 32B",
+        "isDefault": false,
+        "contextLength": 131072
+      }
+    ],
+    "passthroughModels": true
+  },
+  "nanogpt": {
+    "id": "nanogpt",
+    "name": "NanoGPT",
+    "alias": "nanogpt",
+    "aliases": [
+      "nanogpt"
+    ],
+    "uiAlias": "nanogpt",
+    "color": "#10B981",
+    "image": "/providers/nanogpt.png",
+    "website": "https://nano-gpt.com",
+    "notice": {
+      "apiKeyUrl": "https://nano-gpt.com/api"
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://nano-gpt.com/api/v1/chat/completions",
+    "baseUrls": [
+      "https://nano-gpt.com/api/v1/chat/completions"
+    ],
+    "validateUrl": "https://nano-gpt.com/api/v1/models",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "chatgpt-4o-latest",
+        "name": "ChatGPT 4o Latest",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude-3-7-sonnet",
+        "name": "Claude 3.7 Sonnet",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "gpt-4o-mini",
+        "name": "GPT-4o Mini",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-r1",
+        "name": "DeepSeek R1",
+        "isDefault": false,
+        "contextLength": 163840
+      },
+      {
+        "id": "qwen-2.5-coder-32b",
+        "name": "Qwen 2.5 Coder 32B",
+        "isDefault": false,
+        "contextLength": 131072
+      }
+    ],
+    "passthroughModels": true
+  },
+  "bailian-coding-plan": {
+    "id": "bailian-coding-plan",
+    "name": "Bailian Coding Plan",
+    "alias": "bcp",
+    "aliases": [
+      "bailian-coding-plan",
+      "bcp",
+      "alibaba-token-plan"
+    ],
+    "uiAlias": "bcp",
+    "color": "#FF6A00",
+    "image": "/providers/bailian.svg",
+    "website": "https://www.alibabacloud.com/help/en/model-studio/token-plan-overview",
+    "notice": {
+      "apiKeyUrl": "https://bailian.console.aliyun.com/",
+      "text": "Alibaba Cloud Model Studio Token Plan / Coding Plan. Native Anthropic Messages protocol support."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages",
+    "baseUrls": [
+      "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages"
+    ],
+    "validateUrl": "",
+    "format": "claude",
+    "defaultHeaders": {
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "qwen3.8-max-preview",
+        "name": "Qwen3.8 Max Preview",
+        "isDefault": true,
+        "contextLength": 1000000
+      },
+      {
+        "id": "qwen3.7-max",
+        "name": "Qwen3.7 Max",
+        "isDefault": false,
+        "contextLength": 1000000
+      },
+      {
+        "id": "qwen3.7-plus",
+        "name": "Qwen3.7 Plus",
+        "isDefault": false,
+        "contextLength": 1000000
+      },
+      {
+        "id": "qwen3.6-flash",
+        "name": "Qwen3.6 Flash",
+        "isDefault": false,
+        "contextLength": 1000000
+      },
+      {
+        "id": "glm-5.2",
+        "name": "GLM 5.2",
+        "isDefault": false,
+        "contextLength": 1000000
+      },
+      {
+        "id": "deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro",
+        "isDefault": false,
+        "contextLength": 163840
+      }
+    ],
+    "passthroughModels": true
+  },
+  "codestral": {
+    "id": "codestral",
+    "name": "Codestral",
+    "alias": "codestral",
+    "aliases": [
+      "codestral"
+    ],
+    "uiAlias": "codestral",
+    "color": "#F59E0B",
+    "image": "/providers/mistral.png",
+    "website": "https://mistral.ai",
+    "notice": {
+      "apiKeyUrl": "https://console.mistral.ai/api-keys/",
+      "text": "Mistral AI specialized endpoint for code generation and Fill-in-the-Middle (FIM)."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://codestral.mistral.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://codestral.mistral.ai/v1/chat/completions"
+    ],
+    "validateUrl": "https://codestral.mistral.ai/v1/models",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "codestral-latest",
+        "name": "Codestral Latest",
+        "isDefault": true,
+        "contextLength": 256000
+      },
+      {
+        "id": "codestral-2508",
+        "name": "Codestral 2508",
+        "isDefault": false,
+        "contextLength": 256000
+      },
+      {
+        "id": "codestral-2501",
+        "name": "Codestral 2501",
+        "isDefault": false,
+        "contextLength": 256000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "volcengine-coding-plan": {
+    "id": "volcengine-coding-plan",
+    "name": "Volcengine Coding Plan",
+    "alias": "vecp",
+    "aliases": [
+      "volcengine-coding-plan",
+      "vecp"
+    ],
+    "uiAlias": "vecp",
+    "color": "#3B82F6",
+    "image": "/providers/volcengine-ark.png",
+    "website": "https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan",
+    "notice": {
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:cn-beijing/apiKey",
+      "text": "ByteDance Volcano Ark dedicated Coding Plan subscription endpoint (/api/coding/v3)."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
+    "baseUrls": [
+      "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "doubao-seed-2-1-turbo",
+        "name": "Doubao Seed 2.1 Turbo (Coding Plan)",
+        "isDefault": true,
+        "contextLength": 262144
+      },
+      {
+        "id": "doubao-seed-2.0-lite",
+        "name": "Doubao Seed 2.0 Lite (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 262144
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "DeepSeek V4 Flash (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "glm-5.2",
+        "name": "GLM 5.2 (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "kimi-k2.7-code",
+        "name": "Kimi K2.7 Code (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "minimax-m3",
+        "name": "MiniMax M3 (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "deepseek-v4-pro",
+        "name": "DeepSeek V4 Pro (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "minimax-m2.7",
+        "name": "MiniMax M2.7 (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "kimi-k2.6",
+        "name": "Kimi K2.6 (Coding Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      }
+    ],
+    "passthroughModels": true
+  },
+  "volcengine-agent-plan": {
+    "id": "volcengine-agent-plan",
+    "name": "Volcengine Agent Plan",
+    "alias": "veap",
+    "aliases": [
+      "volcengine-agent-plan",
+      "veap"
+    ],
+    "uiAlias": "veap",
+    "color": "#2563EB",
+    "image": "/providers/volcengine-ark.png",
+    "website": "https://console.volcengine.com/ark/region:cn-beijing/subscription/agent-plan",
+    "notice": {
+      "apiKeyUrl": "https://console.volcengine.com/ark/region:cn-beijing/apiKey",
+      "text": "ByteDance Volcano Ark dedicated Agent Plan subscription endpoint (/api/plan/v3)."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+    "baseUrls": [
+      "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "doubao-seed-evolving",
+        "name": "Doubao Seed Evolving (Agent Plan)",
+        "isDefault": true,
+        "contextLength": 1048576
+      },
+      {
+        "id": "doubao-seed-2-1-turbo-260628",
+        "name": "Doubao Seed 2.1 Turbo (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 262144
+      },
+      {
+        "id": "doubao-seed-2-0-lite-260215",
+        "name": "Doubao Seed 2.0 Lite (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 262144
+      },
+      {
+        "id": "doubao-seed-2-0-mini-260215",
+        "name": "Doubao Seed 2.0 Mini (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 262144
+      },
+      {
+        "id": "deepseek-v4-flash-ga-260731",
+        "name": "DeepSeek V4 Flash GA (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "kimi-k3",
+        "name": "Kimi K3 (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "glm-5-2-260617",
+        "name": "GLM 5.2 (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "kimi-k2.7-code",
+        "name": "Kimi K2.7 Code (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "minimax-m3",
+        "name": "MiniMax M3 (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "deepseek-v4-pro-260425",
+        "name": "DeepSeek V4 Pro (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "minimax-m2.7",
+        "name": "MiniMax M2.7 (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "kimi-k2.6",
+        "name": "Kimi K2.6 (Agent Plan)",
+        "isDefault": false,
+        "contextLength": 1048576
+      }
+    ],
+    "passthroughModels": true
+  },
+  "v0-vercel": {
+    "id": "v0-vercel",
+    "name": "v0 (Vercel)",
+    "alias": "v0",
+    "aliases": [
+      "v0-vercel",
+      "v0"
+    ],
+    "uiAlias": "v0",
+    "color": "#000000",
+    "image": "/providers/v0.svg",
+    "website": "https://v0.dev",
+    "notice": {
+      "apiKeyUrl": "https://v0.dev/chat/api",
+      "text": "Vercel v0 generative UI and frontend code generation API."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.v0.dev/v1/chat/completions",
+    "baseUrls": [
+      "https://api.v0.dev/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "v0-1.5-md",
+        "name": "v0 1.5 Medium",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "v0-1.5-lg",
+        "name": "v0 1.5 Large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "v0-1.0-md",
+        "name": "v0 1.0 Medium",
+        "isDefault": false,
+        "contextLength": 64000
+      },
+      {
+        "id": "v0-code",
+        "name": "v0 Code",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "auggie": {
+    "id": "auggie",
+    "name": "Augment (Auggie CLI)",
+    "alias": "aug",
+    "aliases": [
+      "auggie",
+      "aug",
+      "augment"
+    ],
+    "uiAlias": "aug",
+    "color": "#8B5CF6",
+    "image": "/providers/auggie.svg",
+    "website": "https://augmentcode.com",
+    "notice": {
+      "text": "Augment (Auggie CLI) requires the auggie binary installed and authenticated locally (auggie login). Mapigate connects via stdio and never stores your credentials."
+    },
+    "category": "free",
+    "authType": "none",
+    "authModes": [
+      "none"
+    ],
+    "noAuth": true,
+    "baseUrl": "auggie://cli/stdio",
+    "baseUrls": [
+      "auggie://cli/stdio"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {},
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "sonnet4.6",
+        "name": "Sonnet 4.6",
+        "isDefault": true,
+        "contextLength": 200000
+      },
+      {
+        "id": "sonnet4.6-500k",
+        "name": "Sonnet 4.6 (500K)",
+        "isDefault": false,
+        "contextLength": 500000
+      },
+      {
+        "id": "sonnet4.5",
+        "name": "Sonnet 4.5",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "sonnet5-high",
+        "name": "Claude Sonnet 5",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "opus4.6",
+        "name": "Opus 4.6",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "opus4.6-500k",
+        "name": "Opus 4.6 (500K)",
+        "isDefault": false,
+        "contextLength": 500000
+      },
+      {
+        "id": "gemini-3.1-pro-preview",
+        "name": "Gemini 3.1 Pro",
+        "isDefault": false,
+        "contextLength": 1000000
+      },
+      {
+        "id": "gpt5",
+        "name": "GPT-5",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "gpt5.5",
+        "name": "GPT-5.5",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "glm-5.2",
+        "name": "GLM 5.2",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "kimi-k2.7",
+        "name": "Kimi K2.7 Code",
+        "isDefault": false,
+        "contextLength": 131000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "zcode": {
+    "id": "zcode",
+    "name": "ZCode (GLM Coding Plan)",
+    "alias": "zc",
+    "aliases": [
+      "zcode",
+      "zc"
+    ],
+    "uiAlias": "zc",
+    "color": "#3B82F6",
+    "image": "/providers/glm.png",
+    "website": "https://zcode.z.ai",
+    "notice": {
+      "text": "ZCode runs locally through its native app-server. Mapigate connects via stdio and never stores the Z.ai credential."
+    },
+    "category": "free",
+    "authType": "none",
+    "authModes": [
+      "none"
+    ],
+    "noAuth": true,
+    "baseUrl": "zcode://app-server/stdio",
+    "baseUrls": [
+      "zcode://app-server/stdio"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {},
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "glm-4-plus",
+        "name": "GLM-4 Plus",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-4-air",
+        "name": "GLM-4 Air",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "codegeex-4",
+        "name": "CodeGeeX 4",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-5.2",
+        "name": "GLM 5.2",
+        "isDefault": false,
+        "contextLength": 1048576
+      },
+      {
+        "id": "glm-5",
+        "name": "GLM 5",
+        "isDefault": false,
+        "contextLength": 204800
+      }
+    ],
+    "passthroughModels": true
+  },
+  "amazon-q": {
+    "id": "amazon-q",
+    "name": "Amazon Q Developer",
+    "alias": "aq",
+    "aliases": [
+      "amazon-q",
+      "aq"
+    ],
+    "uiAlias": "aq",
+    "color": "#FF9900",
+    "image": "/providers/kiro.png",
+    "website": "https://aws.amazon.com/q/developer/",
+    "notice": {
+      "signupUrl": "https://aws.amazon.com/q/developer/",
+      "text": "Amazon Q Developer using AWS Builder ID OAuth session."
+    },
+    "category": "oauth",
+    "authType": "oauth",
+    "baseUrl": "https://q.us-east-1.amazonaws.com/generateAssistantResponse",
+    "baseUrls": [
+      "https://q.us-east-1.amazonaws.com/generateAssistantResponse",
+      "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse"
+    ],
+    "validateUrl": "",
+    "format": "kiro",
+    "defaultHeaders": {
+      "Content-Type": "application/json",
+      "Accept": "application/vnd.amazon.eventstream",
+      "User-Agent": "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0",
+      "X-Amz-User-Agent": "aws-sdk-js/3.0.0 kiro-ide/1.0.0"
+    },
+    "thinkingMode": "auto",
+    "oauth": {
+      "ssoOidcEndpoint": "https://oidc.us-east-1.amazonaws.com",
+      "registerClientUrl": "https://oidc.us-east-1.amazonaws.com/client/register",
+      "deviceAuthUrl": "https://oidc.us-east-1.amazonaws.com/device_authorization",
+      "tokenUrl": "https://oidc.us-east-1.amazonaws.com/token",
+      "startUrl": "https://view.awsapps.com/start",
+      "clientName": "amazon-q-client",
+      "clientType": "public",
+      "scopes": [
+        "codewhisperer:completions",
+        "codewhisperer:analysis",
+        "codewhisperer:conversations"
+      ],
+      "grantTypes": [
+        "urn:ietf:params:oauth:grant-type:device_code",
+        "refresh_token"
+      ]
+    },
+    "models": [
+      {
+        "id": "amazon-q-developer",
+        "name": "Amazon Q Developer",
+        "isDefault": true,
+        "contextLength": 200000
+      },
+      {
+        "id": "claude-3-7-sonnet",
+        "name": "Claude 3.7 Sonnet (Amazon Q)",
+        "isDefault": false,
+        "contextLength": 200000
+      },
+      {
+        "id": "claude-3-5-sonnet",
+        "name": "Claude 3.5 Sonnet (Amazon Q)",
+        "isDefault": false,
+        "contextLength": 200000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "codex-app-server": {
+    "id": "codex-app-server",
+    "name": "OpenAI Codex (App-Server)",
+    "alias": "cxa",
+    "aliases": [
+      "codex-app-server",
+      "cxa"
+    ],
+    "uiAlias": "cxa",
+    "color": "#10A37F",
+    "image": "/providers/codex.png",
+    "website": "https://developers.openai.com/codex/cli",
+    "notice": {
+      "text": "OpenAI Codex CLI app-server transport over JSON-RPC / WebSocket."
+    },
+    "category": "oauth",
+    "authType": "oauth",
+    "baseUrl": "codex-app-server://cli/websocket",
+    "baseUrls": [
+      "codex-app-server://cli/websocket"
+    ],
+    "validateUrl": "",
+    "format": "openai-responses",
+    "defaultHeaders": {},
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "gpt-5.5-codex",
+        "name": "GPT 5.5 Codex",
+        "isDefault": true,
+        "contextLength": 400000
+      },
+      {
+        "id": "codex-pro",
+        "name": "Codex Pro",
+        "isDefault": false,
+        "contextLength": 400000
+      },
+      {
+        "id": "gpt-6-astra",
+        "name": "GPT 6.0 Astra",
+        "isDefault": false,
+        "contextLength": 872000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "devin-desktop": {
+    "id": "devin-desktop",
+    "name": "Devin Desktop",
+    "alias": "dvd",
+    "aliases": [
+      "devin-desktop",
+      "dvd"
+    ],
+    "uiAlias": "dvd",
+    "color": "#6366F1",
+    "image": "/providers/devin-cli.png",
+    "website": "https://devin.ai",
+    "notice": {
+      "text": "Devin Desktop bridge connecting to local agent session over ACP stdio."
+    },
+    "category": "free",
+    "authType": "none",
+    "authModes": [
+      "none"
+    ],
+    "noAuth": true,
+    "baseUrl": "devin://acp/stdio",
+    "baseUrls": [
+      "devin://acp/stdio"
+    ],
+    "validateUrl": "",
+    "format": "claude",
+    "defaultHeaders": {},
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "devin-code-v1",
+        "name": "Devin Code v1",
+        "isDefault": true,
+        "contextLength": 200000
+      },
+      {
+        "id": "swe-1.6",
+        "name": "SWE-1.6",
+        "isDefault": false,
+        "contextLength": 200000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "devin-cli-agentic": {
+    "id": "devin-cli-agentic",
+    "name": "Devin CLI Agentic",
+    "alias": "dva",
+    "aliases": [
+      "devin-cli-agentic",
+      "dva"
+    ],
+    "uiAlias": "dva",
+    "color": "#4F46E5",
+    "image": "/providers/devin-cli.png",
+    "website": "https://docs.devin.ai/work-with-devin/devin-cli",
+    "notice": {
+      "text": "Official Devin CLI agentic workflow bridge over local stdio."
+    },
+    "category": "free",
+    "authType": "none",
+    "authModes": [
+      "none"
+    ],
+    "noAuth": true,
+    "baseUrl": "devin://cli/stdio",
+    "baseUrls": [
+      "devin://cli/stdio"
+    ],
+    "validateUrl": "",
+    "format": "claude",
+    "defaultHeaders": {},
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "devin-agentic",
+        "name": "Devin Agentic",
+        "isDefault": true,
+        "contextLength": 200000
+      },
+      {
+        "id": "swe-1.6",
+        "name": "SWE-1.6",
+        "isDefault": false,
+        "contextLength": 200000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "watsonx": {
+    "id": "watsonx",
+    "name": "IBM watsonx.ai",
+    "alias": "watsonx",
+    "aliases": [
+      "watsonx",
+      "ibm-watsonx"
+    ],
+    "uiAlias": "watsonx",
+    "color": "#052FAD",
+    "image": "/providers/ibm.png",
+    "website": "https://www.ibm.com/products/watsonx-ai",
+    "notice": {
+      "apiKeyUrl": "https://cloud.ibm.com/iam/apikeys",
+      "text": "IBM watsonx.ai enterprise AI platform gateway endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://ca-tor.ml.cloud.ibm.com/ml/gateway/v1/chat/completions",
+    "baseUrls": [
+      "https://ca-tor.ml.cloud.ibm.com/ml/gateway/v1/chat/completions"
+    ],
+    "validateUrl": "https://ca-tor.ml.cloud.ibm.com/ml/gateway/v1/models",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "ibm/granite-34b-code-instruct",
+        "name": "Granite 34B Code Instruct",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "ibm/granite-20b-code-instruct",
+        "name": "Granite 20B Code Instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "meta-llama/llama-3-3-70b-instruct",
+        "name": "Llama 3.3 70B Instruct",
+        "isDefault": false,
+        "contextLength": 131072
+      }
+    ],
+    "passthroughModels": true
+  },
+  "databricks": {
+    "id": "databricks",
+    "name": "Databricks Mosaic AI",
+    "alias": "databricks",
+    "aliases": [
+      "databricks"
+    ],
+    "uiAlias": "databricks",
+    "color": "#FF3621",
+    "image": "/providers/databricks.png",
+    "website": "https://www.databricks.com",
+    "notice": {
+      "apiKeyUrl": "https://docs.databricks.com/en/dev-tools/auth/pat.html",
+      "text": "Databricks Mosaic AI serving endpoints (OpenAI-compatible)."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://adb-0000000000000000.0.azuredatabricks.net/serving-endpoints",
+    "baseUrls": [
+      "https://adb-0000000000000000.0.azuredatabricks.net/serving-endpoints"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "databricks-meta-llama-3-3-70b-instruct",
+        "name": "Databricks Llama 3.3 70B Instruct",
+        "isDefault": true,
+        "contextLength": 131072
+      },
+      {
+        "id": "databricks-dbrx-instruct",
+        "name": "Databricks DBRX Instruct",
+        "isDefault": false,
+        "contextLength": 32768
+      },
+      {
+        "id": "databricks-gpt-5",
+        "name": "Databricks GPT-5",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
   }
 };
 

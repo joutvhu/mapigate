@@ -41,7 +41,9 @@ export function isOAuthProvider(p?: {
     pId === "antigravity" ||
     pId === "github" ||
     pId === "cursor" ||
-    pId === "kiro"
+    pId === "kiro" ||
+    pId === "amazon-q" ||
+    pId === "codex-app-server"
   ) {
     return true;
   }

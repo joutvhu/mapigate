@@ -45,7 +45,7 @@ export function resolveCandidateUrls(
     )) ||
     lowerBase.includes("xiaomimimo.com");
 
-  if (isXiaomi) {
+  if (isXiaomi && lowerBase.includes("xiaomimimo.com")) {
     const urlRegionMatch = lowerBase.match(/token-plan-([a-z0-9_-]+)\.xiaomimimo\.com/);
     const targetRegion = (region || (urlRegionMatch ? urlRegionMatch[1] : "") || "sgp").toLowerCase().trim();
 
@@ -101,7 +101,9 @@ export function resolveCandidateUrls(
   // 4. Registry validateUrl fallback if it points to /models or /api/tags
   if (registryItem?.validateUrl) {
     const vUrl = registryItem.validateUrl.trim();
-    if (vUrl.toLowerCase().includes("/models") || vUrl.toLowerCase().includes("/api/tags")) {
+    const isExternalXiaomiBypass =
+      isXiaomi && !lowerBase.includes("xiaomimimo.com") && vUrl.toLowerCase().includes("xiaomimimo.com");
+    if (!isExternalXiaomiBypass && (vUrl.toLowerCase().includes("/models") || vUrl.toLowerCase().includes("/api/tags"))) {
       add(vUrl);
     }
   }
@@ -143,8 +145,26 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
       rawList = obj.items;
     } else if (Array.isArray(obj.list)) {
       rawList = obj.list;
-    } else if (obj.data && typeof obj.data === "object" && Array.isArray((obj.data as Record<string, unknown>).models)) {
-      rawList = (obj.data as Record<string, unknown>).models as unknown[];
+    } else if (obj.data && typeof obj.data === "object") {
+      const nested = obj.data as Record<string, unknown>;
+      if (Array.isArray(nested.models)) {
+        rawList = nested.models;
+      } else if (Array.isArray(nested.list)) {
+        rawList = nested.list;
+      } else if (Array.isArray(nested.items)) {
+        rawList = nested.items;
+      } else if (Array.isArray(nested.data)) {
+        rawList = nested.data;
+      }
+    } else if (obj.result && typeof obj.result === "object") {
+      const nested = obj.result as Record<string, unknown>;
+      if (Array.isArray(nested.models)) {
+        rawList = nested.models;
+      } else if (Array.isArray(nested.list)) {
+        rawList = nested.list;
+      } else if (Array.isArray(nested.items)) {
+        rawList = nested.items;
+      }
     }
   }
 
@@ -242,6 +262,9 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
     let registryItem: ProviderRegistryItem | undefined;
     if (providerId) {
       registryItem = getRegistryProvider(providerId);
+      if (!region && registryItem?.defaultRegion) {
+        region = registryItem.defaultRegion;
+      }
     }
 
     let accountsToScan: {
@@ -374,6 +397,8 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
 
     // Scan using all candidate accounts
     for (const account of accountsToScan) {
+      authError = null;
+      lastError = null;
       let token = account.apiKey.trim();
       const reqHeaders: Record<string, string> = {
         Accept: "application/json",
@@ -388,12 +413,24 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         reqHeaders["x-opencode-client"] = "desktop";
         reqHeaders["Authorization"] = "Bearer public";
       } else if (token) {
-        if (!reqHeaders["Authorization"] && !reqHeaders["authorization"]) {
-          reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+        const isAnthropic =
+          format === "anthropic" ||
+          registryItem?.format === "anthropic" ||
+          (providerId && (providerId.toLowerCase().includes("anthropic") || providerId.toLowerCase().includes("claude")));
+
+        if (isAnthropic) {
+          if (!reqHeaders["x-api-key"] && !reqHeaders["X-API-KEY"]) {
+            reqHeaders["x-api-key"] = token;
+          }
+          if (!reqHeaders["anthropic-version"] && !reqHeaders["Anthropic-Version"]) {
+            reqHeaders["anthropic-version"] = "2023-06-01";
+          }
+        } else {
+          if (!reqHeaders["Authorization"] && !reqHeaders["authorization"]) {
+            reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+          }
         }
-        if (!reqHeaders["x-api-key"] && !reqHeaders["X-API-KEY"]) {
-          reqHeaders["x-api-key"] = token;
-        }
+
         if (isGemini && !reqHeaders["x-goog-api-key"] && !reqHeaders["X-GOOG-API-KEY"]) {
           reqHeaders["x-goog-api-key"] = token;
         }
@@ -435,16 +472,26 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
           if (response.ok || response.status === 200) {
             const payload = await response.json();
             const models = extractModelsFromPayload(payload, providerId);
-            accountSucceeded = true;
-            if (!discoveredEndpointUrl) {
-              discoveredEndpointUrl = url;
-            }
-            for (const m of models) {
-              if (!modelsById.has(m.id)) {
-                modelsById.set(m.id, m);
+            if (models.length > 0) {
+              accountSucceeded = true;
+              if (!discoveredEndpointUrl) {
+                discoveredEndpointUrl = url;
               }
+              for (const m of models) {
+                if (!modelsById.has(m.id)) {
+                  modelsById.set(m.id, m);
+                }
+              }
+              break;
+            } else {
+              const errPayloadMsg = (payload && typeof payload === "object")
+                ? ((payload as any).message || (payload as any).msg || (payload as any).error?.message || (payload as any).error)
+                : undefined;
+              lastError = errPayloadMsg
+                ? `Endpoint ${url} returned error: ${typeof errPayloadMsg === "string" ? errPayloadMsg : JSON.stringify(errPayloadMsg)}`
+                : `Endpoint ${url} returned 0 models`;
+              continue;
             }
-            break;
           }
 
           if (response.status === 401 || response.status === 403) {
