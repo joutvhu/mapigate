@@ -12,13 +12,13 @@ export function getDefaultDataDir(): string {
   if (process.env.MAPIGATE_DATA_DIR) {
     return process.env.MAPIGATE_DATA_DIR;
   }
-  if (process.env.ROUTEN_DATA_DIR) {
-    return process.env.ROUTEN_DATA_DIR;
+  if (process.env.MAPIGATE_DATA_DIR) {
+    return process.env.MAPIGATE_DATA_DIR;
   }
   const mapigateDir = path.join(os.homedir(), ".mapigate");
-  const routenDir = path.join(os.homedir(), ".routen");
-  if (!fs.existsSync(mapigateDir) && fs.existsSync(routenDir)) {
-    return routenDir;
+  const mapigateDir = path.join(os.homedir(), ".mapigate");
+  if (!fs.existsSync(mapigateDir) && fs.existsSync(mapigateDir)) {
+    return mapigateDir;
   }
   return mapigateDir;
 }
@@ -28,9 +28,9 @@ export const MAPIGATE_DB_FILE = "mapigate.sqlite";
 export const MAPIGATE_LOG_FILE = "server.log";
 
 // Backward-compatible aliases
-export const ROUTEN_PID_FILE = MAPIGATE_PID_FILE;
-export const ROUTEN_DB_FILE = MAPIGATE_DB_FILE;
-export const ROUTEN_LOG_FILE = MAPIGATE_LOG_FILE;
+export const MAPIGATE_PID_FILE = MAPIGATE_PID_FILE;
+export const MAPIGATE_DB_FILE = MAPIGATE_DB_FILE;
+export const MAPIGATE_LOG_FILE = MAPIGATE_LOG_FILE;
 
 export const CONSOLE_LOG_CONFIG = {
   maxLines: 300,

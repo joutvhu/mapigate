@@ -28,11 +28,11 @@ export class PidFileManager {
       }
     }
 
-    // Check legacy routen.pid in data dir or ~/.routen
+    // Check legacy mapigate.pid in data dir or ~/.mapigate
     const dir = getDefaultDataDir();
     const legacyPaths = [
-      path.join(dir, "routen.pid"),
-      path.join(os.homedir(), ".routen", "routen.pid"),
+      path.join(dir, "mapigate.pid"),
+      path.join(os.homedir(), ".mapigate", "mapigate.pid"),
     ];
     for (const legacy of legacyPaths) {
       if (fs.existsSync(legacy)) {
@@ -59,11 +59,11 @@ export class PidFileManager {
       }
     }
 
-    // Also clean up any legacy routen.pid
+    // Also clean up any legacy mapigate.pid
     const dir = getDefaultDataDir();
     const legacyPaths = [
-      path.join(dir, "routen.pid"),
-      path.join(os.homedir(), ".routen", "routen.pid"),
+      path.join(dir, "mapigate.pid"),
+      path.join(os.homedir(), ".mapigate", "mapigate.pid"),
     ];
     for (const legacy of legacyPaths) {
       if (fs.existsSync(legacy)) {

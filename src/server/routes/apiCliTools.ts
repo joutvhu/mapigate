@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { CLI_TOOLS, MAPIGATE_BASE_URL, ROUTEN_BASE_URL } from "../../shared/constants/cliTools.js";
+import { CLI_TOOLS, MAPIGATE_BASE_URL, MAPIGATE_BASE_URL } from "../../shared/constants/cliTools.js";
 
 const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
@@ -18,7 +18,7 @@ export interface ToolStatusResponse {
   configPath?: string;
   settingsPath?: string;
   hasMapigate: boolean;
-  hasRouten: boolean;
+  hasMapigate: boolean;
 }
 
 function resolveUserPath(p?: string): string | null {
@@ -68,7 +68,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
       configured: false,
       status: "Not installed",
       hasMapigate: false,
-      hasRouten: false,
+      hasMapigate: false,
     };
   }
 
@@ -83,7 +83,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
   if (fileExists && resolvedConfigPath) {
     try {
       fileContent = await fs.readFile(resolvedConfigPath, "utf-8");
-      if (fileContent.includes("20127") || fileContent.includes("mapigate") || fileContent.includes("routen")) {
+      if (fileContent.includes("20127") || fileContent.includes("mapigate") || fileContent.includes("mapigate")) {
         hasMapigate = true;
       }
     } catch {
@@ -117,7 +117,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
     configPath: resolvedConfigPath || undefined,
     settingsPath: resolvedConfigPath || undefined,
     hasMapigate,
-    hasRouten: hasMapigate,
+    hasMapigate: hasMapigate,
   };
 }
 
@@ -161,7 +161,7 @@ cliToolsRouter.get("/:tool", async (req, res) => {
   }
 });
 
-// POST apply Routen config for a tool
+// POST apply Mapigate config for a tool
 cliToolsRouter.post("/:tool/apply", async (req, res) => {
   const { tool: toolId } = req.params;
   const tool = CLI_TOOLS[toolId];
@@ -206,7 +206,7 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
   }
 });
 
-// POST reset Routen config for a tool
+// POST reset Mapigate config for a tool
 cliToolsRouter.post("/:tool/reset", async (req, res) => {
   const { tool: toolId } = req.params;
   const tool = CLI_TOOLS[toolId];

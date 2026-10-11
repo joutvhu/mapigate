@@ -48,7 +48,7 @@ export async function checkCertInstalled(certPath: string = ROOT_CA_CERT_PATH): 
     try {
       return (
         fs.existsSync("/usr/local/share/ca-certificates/mapigate-rootCA.crt") ||
-        fs.existsSync("/usr/local/share/ca-certificates/routen-rootCA.crt")
+        fs.existsSync("/usr/local/share/ca-certificates/mapigate-rootCA.crt")
       );
     } catch {
       return false;

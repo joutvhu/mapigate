@@ -1,7 +1,7 @@
 /**
  * Build Cursor / Claude default combo presets.
  * Combo names match client-native model IDs (no provider prefix);
- * each is seeded with the matching prefixed Routen model so routing works.
+ * each is seeded with the matching prefixed Mapigate model so routing works.
  */
 
 import { CLI_TOOLS } from "../../shared/constants/cliTools.js";

@@ -10,7 +10,7 @@ export class CryptoVault {
   private static masterKey: Buffer | null = null;
   private static legacyMasterKey: Buffer | null = null;
   private static readonly SALT = "mapigate-vault-salt-v1";
-  private static readonly LEGACY_SALT = "routen-vault-salt-v1";
+  private static readonly LEGACY_SALT = "mapigate-vault-salt-v1";
 
   private static getMasterKey(): Buffer {
     if (!this.masterKey) {
@@ -31,7 +31,7 @@ export class CryptoVault {
       try {
         hwId = machineIdSync();
       } catch {
-        hwId = "fallback-hw-key-routen";
+        hwId = "fallback-hw-key-mapigate";
       }
       this.legacyMasterKey = crypto.scryptSync(hwId, this.LEGACY_SALT, 32);
     }
@@ -70,7 +70,7 @@ export class CryptoVault {
       decrypted += decipher.final("utf8");
       return decrypted;
     } catch {
-      // 2. Fallback to legacy Routen master key for existing encrypted data
+      // 2. Fallback to legacy Mapigate master key for existing encrypted data
       try {
         const legacyDecipher = crypto.createDecipheriv(
           "aes-256-gcm",

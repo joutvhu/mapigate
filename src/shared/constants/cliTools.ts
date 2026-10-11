@@ -66,8 +66,8 @@ export const MAPIGATE_BASE_URL = "http://127.0.0.1:20127";
 export const MAPIGATE_V1_URL = "http://127.0.0.1:20127/v1";
 
 // Backward-compatible exports
-export const ROUTEN_BASE_URL = MAPIGATE_BASE_URL;
-export const ROUTEN_V1_URL = MAPIGATE_V1_URL;
+export const MAPIGATE_BASE_URL = MAPIGATE_BASE_URL;
+export const MAPIGATE_V1_URL = MAPIGATE_V1_URL;
 
 export const CLI_TOOLS: Record<string, CliToolDefinition> = {
   claude: {

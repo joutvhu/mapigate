@@ -11,7 +11,7 @@ build/
 .env
 .env.local
 .mapigate-data/
-.routen-data/
+.mapigate-data/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

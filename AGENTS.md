@@ -64,7 +64,7 @@
 ```
 mapigate/
 ├── bin/
-│   └── mapigate.js              # CLI executable entry point (with mpg & routen aliases)
+│   └── mapigate.js              # CLI executable entry point (with mpg & mapigate aliases)
 ├── src/
 │   ├── cli/                     # Daemon lifecycle management (PID tracking, background spawns)
 │   ├── core/                    # Pure business logic (framework-agnostic)

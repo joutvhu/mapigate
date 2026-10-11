@@ -5,8 +5,7 @@
   "main": "dist/server/index.js",
   "bin": {
     "mapigate": "bin/mapigate.js",
-    "mpg": "bin/mapigate.js",
-    "routen": "bin/mapigate.js"
+    "mpg": "bin/mapigate.js"
   },
   "type": "module",
   "scripts": {

@@ -72,9 +72,9 @@ export function getDatabase(): DatabaseDriver {
 
   const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
   if (!fs.existsSync(dbPath)) {
-    // Check if legacy routen.sqlite exists in dataDir or ~/.routen
-    const legacyInDir = path.join(dataDir, "routen.sqlite");
-    const legacyInHome = path.join(os.homedir(), ".routen", "routen.sqlite");
+    // Check if legacy mapigate.sqlite exists in dataDir or ~/.mapigate
+    const legacyInDir = path.join(dataDir, "mapigate.sqlite");
+    const legacyInHome = path.join(os.homedir(), ".mapigate", "mapigate.sqlite");
     const legacyPath = fs.existsSync(legacyInDir) ? legacyInDir : (fs.existsSync(legacyInHome) ? legacyInHome : null);
     if (legacyPath) {
       try {

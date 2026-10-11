@@ -96,5 +96,5 @@ mapigate/
 │   ├── web/            # Vite + React SPA dark dashboard
 │   └── shared/         # Common TypeScript types and constants
 ├── dist/               # Compiled standalone server & web assets
-└── bin/mapigate.js     # CLI executable entry (with mpg & routen aliases)
+└── bin/mapigate.js     # CLI executable entry (with mpg & mapigate aliases)
 ```
