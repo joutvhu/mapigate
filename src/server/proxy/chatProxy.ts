@@ -1168,11 +1168,13 @@ export async function handleProxyRequest(
 
   // 2. Combo Detection
   const allCombos = ComboRepository.getAllCombos();
-  const activeCombo = !cleanModel.includes("/")
+  const comboLookup = cleanModel.startsWith("combo/") ? cleanModel.slice(6) : cleanModel;
+  const isComboCandidate = !cleanModel.includes("/") || cleanModel.startsWith("combo/");
+  const activeCombo = isComboCandidate
     ? allCombos.find(
         (c) =>
           c.isActive &&
-          (c.name.toLowerCase() === cleanModel.toLowerCase() || c.id.toLowerCase() === cleanModel.toLowerCase())
+          (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
       )
     : undefined;
 
@@ -1328,6 +1330,8 @@ export async function handleProxyRequest(
 
     if (!res.headersSent) {
       res.status(500).json({ error: { message: err.message || "Internal server error" } });
+    } else if (!res.writableEnded) {
+      res.end();
     }
 
     LogRepository.saveLog({
