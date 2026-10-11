@@ -3,7 +3,7 @@ import path from 'node:path';
 
 async function main() {
   const m = await import('file:///f:/Documents/Library/AI/9router/open-sse/providers/registry/index.js');
-  const imgDir = 'F:/Documents/Library/AI/routen/src/web/public/providers';
+  const imgDir = path.resolve(process.cwd(), 'src/web/public/providers');
   const existingImages = new Set(fs.readdirSync(imgDir));
 
   const RISK_NOTICE = "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.";
@@ -116,7 +116,7 @@ export function getAllRegistryProviders(): ProviderRegistryItem[] {
 }
 `;
 
-  fs.writeFileSync('F:/Documents/Library/AI/routen/src/shared/constants/providerRegistry.ts', code, 'utf8');
+  fs.writeFileSync(path.resolve(process.cwd(), 'src/shared/constants/providerRegistry.ts'), code, 'utf8');
   console.log('Successfully wrote providerRegistry.ts with', Object.keys(entries).length, 'providers.');
 }
 

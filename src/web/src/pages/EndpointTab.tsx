@@ -151,9 +151,14 @@ export const EndpointTab: React.FC = () => {
       }
 
       const updated = await res.json();
+      const socketChanged = updated.host !== settings.host || Number(updated.port) !== Number(settings.port);
       setSettings(updated);
-      setSaveFeedback("Settings saved successfully!");
-      setTimeout(() => setSaveFeedback(null), 3000);
+      if (socketChanged) {
+        setSaveFeedback("Settings saved! Note: Changes to Host/Port require restarting the Mapigate daemon (mpg stop && mpg start) to rebind the listening socket.");
+      } else {
+        setSaveFeedback("Settings saved successfully!");
+      }
+      setTimeout(() => setSaveFeedback(null), 5000);
     } catch (err: any) {
       setSaveError(err?.message || "Failed to save settings");
     } finally {
@@ -434,7 +439,7 @@ export const EndpointTab: React.FC = () => {
                   className="w-full"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Bind to 127.0.0.1 to isolate Routen to this machine, or 0.0.0.0 to expose on your local network.
+                  Bind to 127.0.0.1 to isolate Mapigate to this machine, or 0.0.0.0 to expose on your local network.
                 </p>
               </div>
 
@@ -457,7 +462,7 @@ export const EndpointTab: React.FC = () => {
                   className="w-full bg-[#0A0D14] border border-[#1E293B] focus:border-blue-500 rounded-xl px-3.5 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Default port is 20127. Change requires restarting Routen server.
+                  Default port is 20127. Change requires restarting Mapigate server.
                 </p>
               </div>
             </div>
@@ -613,7 +618,7 @@ export const EndpointTab: React.FC = () => {
               Client Gateway API Keys ({keys.length})
             </h3>
             <p className="text-xs text-slate-400 mt-1">
-              Authentication tokens used by Claude Code CLI, Cursor, and Cline to access Routen gateway securely.
+              Authentication tokens used by Claude Code CLI, Cursor, and Cline to access Mapigate gateway securely.
             </p>
           </div>
 

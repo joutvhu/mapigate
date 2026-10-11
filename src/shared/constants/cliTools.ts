@@ -62,8 +62,12 @@ export interface CliToolDefinition {
   configFileTemplate?: string;
 }
 
-export const ROUTEN_BASE_URL = "http://127.0.0.1:20127";
-export const ROUTEN_V1_URL = "http://127.0.0.1:20127/v1";
+export const MAPIGATE_BASE_URL = "http://127.0.0.1:20127";
+export const MAPIGATE_V1_URL = "http://127.0.0.1:20127/v1";
+
+// Backward-compatible exports
+export const ROUTEN_BASE_URL = MAPIGATE_BASE_URL;
+export const ROUTEN_V1_URL = MAPIGATE_V1_URL;
 
 export const CLI_TOOLS: Record<string, CliToolDefinition> = {
   claude: {
@@ -95,7 +99,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     configFileTemplate: `{\n  "env": {\n    "ANTHROPIC_BASE_URL": "http://127.0.0.1:20127",\n    "ANTHROPIC_MODEL": "claude-sonnet-4-6"\n  }\n}`,
     guideSteps: [
       { step: 1, title: "Install Claude Code", desc: "npm install -g @anthropic-ai/claude-code" },
-      { step: 2, title: "Set Base URL", desc: "Point ANTHROPIC_BASE_URL to Routen Port 20127", value: "http://127.0.0.1:20127", copyable: true },
+      { step: 2, title: "Set Base URL", desc: "Point ANTHROPIC_BASE_URL to Mapigate Port 20127", value: "http://127.0.0.1:20127", copyable: true },
       { step: 3, title: "Launch CLI", desc: "Run claude in your terminal" },
     ],
   },
@@ -113,9 +117,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       baseUrl: "OPENCLAW_BASE_URL",
       apiKey: "OPENCLAW_API_KEY",
     },
-    powershellTemplate: `$env:OPENCLAW_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENCLAW_API_KEY = "routen-local"\nopenclaw`,
-    bashTemplate: `export OPENCLAW_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENCLAW_API_KEY="routen-local"\nopenclaw`,
-    configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "routen-local"\n}`,
+    powershellTemplate: `$env:OPENCLAW_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENCLAW_API_KEY = "mapigate-local"\nopenclaw`,
+    bashTemplate: `export OPENCLAW_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENCLAW_API_KEY="mapigate-local"\nopenclaw`,
+    configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
   },
   codex: {
     id: "codex",
@@ -131,9 +135,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       baseUrl: "OPENAI_BASE_URL",
       apiKey: "OPENAI_API_KEY",
     },
-    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"\ncodex`,
-    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"\ncodex`,
-    configFileTemplate: `model_provider = "routen"\n\n[model_providers.routen]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "routen-local"`,
+    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\ncodex`,
+    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\ncodex`,
+    configFileTemplate: `model_provider = "mapigate"\n\n[model_providers.mapigate]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
   },
   copilot: {
     id: "copilot",
@@ -148,19 +152,19 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       {
         step: 1,
         title: "VS Code Copilot",
-        desc: "Use Routen MITM Proxy to transparently intercept api.githubcopilot.com, or use the Copilot configuration extension.",
+        desc: "Use Mapigate MITM Proxy to transparently intercept api.githubcopilot.com, or use the Copilot configuration extension.",
       },
       {
         step: 2,
         title: "Set Server URL",
-        desc: "Point endpoint to Routen server URL:",
+        desc: "Point endpoint to Mapigate server URL:",
         value: "http://127.0.0.1:20127",
         copyable: true,
       },
       {
         step: 3,
         title: "Select Model",
-        desc: "In Copilot Chat, pick any model routed through Routen.",
+        desc: "In Copilot Chat, pick any model routed through Mapigate.",
       },
     ],
   },
@@ -178,9 +182,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       baseUrl: "OPENCODE_BASE_URL",
       apiKey: "OPENCODE_API_KEY",
     },
-    powershellTemplate: `$env:OPENCODE_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENCODE_API_KEY = "routen-local"\nopencode`,
-    bashTemplate: `export OPENCODE_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENCODE_API_KEY="routen-local"\nopencode`,
-    configFileTemplate: `{\n  "provider": {\n    "routen": {\n      "options": {\n        "baseURL": "http://127.0.0.1:20127/v1",\n        "apiKey": "routen-local"\n      }\n    }\n  }\n}`,
+    powershellTemplate: `$env:OPENCODE_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENCODE_API_KEY = "mapigate-local"\nopencode`,
+    bashTemplate: `export OPENCODE_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENCODE_API_KEY="mapigate-local"\nopencode`,
+    configFileTemplate: `{\n  "provider": {\n    "mapigate": {\n      "options": {\n        "baseURL": "http://127.0.0.1:20127/v1",\n        "apiKey": "mapigate-local"\n      }\n    }\n  }\n}`,
   },
   cowork: {
     id: "cowork",
@@ -223,9 +227,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       { id: "profile_describer", label: "Profile Describer" },
       { id: "goal_judge", label: "Goal Judge" },
     ],
-    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"\nhermes`,
-    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"\nhermes`,
-    configFileTemplate: `model_provider: openai\nbase_url: http://127.0.0.1:20127/v1\napi_key: routen-local`,
+    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\nhermes`,
+    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\nhermes`,
+    configFileTemplate: `model_provider: openai\nbase_url: http://127.0.0.1:20127/v1\napi_key: mapigate-local`,
   },
   droid: {
     id: "droid",
@@ -237,9 +241,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "droid",
     configPath: "~/.factory/config.json",
     baseUrlPath: "/v1",
-    powershellTemplate: `$env:FACTORY_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:FACTORY_API_KEY = "routen-local"\ndroid`,
-    bashTemplate: `export FACTORY_BASE_URL="http://127.0.0.1:20127/v1"\nexport FACTORY_API_KEY="routen-local"\ndroid`,
-    configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "routen-local"\n}`,
+    powershellTemplate: `$env:FACTORY_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:FACTORY_API_KEY = "mapigate-local"\ndroid`,
+    bashTemplate: `export FACTORY_BASE_URL="http://127.0.0.1:20127/v1"\nexport FACTORY_API_KEY="mapigate-local"\ndroid`,
+    configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
   },
   cursor: {
     id: "cursor",
@@ -253,8 +257,8 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     guideSteps: [
       { step: 1, title: "Open Settings", desc: "In Cursor, go to Settings → Models" },
       { step: 2, title: "Enable OpenAI API", desc: "Toggle 'OpenAI API key' on" },
-      { step: 3, title: "Override Base URL", desc: "Enter Routen OpenAI-compatible endpoint:", value: "http://127.0.0.1:20127/v1", copyable: true },
-      { step: 4, title: "Set API Key", desc: "Enter any non-empty string, e.g. 'routen-local'", value: "routen-local", copyable: true },
+      { step: 3, title: "Override Base URL", desc: "Enter Mapigate OpenAI-compatible endpoint:", value: "http://127.0.0.1:20127/v1", copyable: true },
+      { step: 4, title: "Set API Key", desc: "Enter any non-empty string, e.g. 'mapigate-local'", value: "mapigate-local", copyable: true },
       { step: 5, title: "Add Custom Model", desc: "Click 'Add Custom Model' and enter your preferred model ID" },
     ],
   },
@@ -271,9 +275,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       { step: 1, title: "Open Cline Settings", desc: "Click the gear icon in the Cline panel" },
       { step: 2, title: "Select Provider", desc: "Choose 'OpenAI Compatible'" },
       { step: 3, title: "Base URL", value: "http://127.0.0.1:20127/v1", copyable: true },
-      { step: 4, title: "API Key", value: "routen-local", copyable: true },
+      { step: 4, title: "API Key", value: "mapigate-local", copyable: true },
     ],
-    configFileTemplate: `{\n  "apiProvider": "openai-compatible",\n  "openAiBaseUrl": "http://127.0.0.1:20127/v1",\n  "openAiApiKey": "routen-local"\n}`,
+    configFileTemplate: `{\n  "apiProvider": "openai-compatible",\n  "openAiBaseUrl": "http://127.0.0.1:20127/v1",\n  "openAiApiKey": "mapigate-local"\n}`,
   },
   kilo: {
     id: "kilo",
@@ -287,7 +291,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     baseUrlPath: "/v1",
     powershellTemplate: `$env:KILO_BASE_URL = "http://127.0.0.1:20127/v1"\nkilo`,
     bashTemplate: `export KILO_BASE_URL="http://127.0.0.1:20127/v1"\nkilo`,
-    configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "routen-local"\n}`,
+    configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
   },
   roo: {
     id: "roo",
@@ -302,9 +306,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       { step: 1, title: "Open Roo Settings", desc: "Open the Roo Settings panel in VS Code" },
       { step: 2, title: "Select Provider", desc: "Choose API Provider → OpenAI Compatible" },
       { step: 3, title: "Base URL", value: "http://127.0.0.1:20127/v1", copyable: true },
-      { step: 4, title: "API Key", value: "routen-local", copyable: true },
+      { step: 4, title: "API Key", value: "mapigate-local", copyable: true },
     ],
-    configFileTemplate: `{\n  "apiProvider": "openai-compatible",\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "routen-local"\n}`,
+    configFileTemplate: `{\n  "apiProvider": "openai-compatible",\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
   },
   continue: {
     id: "continue",
@@ -317,13 +321,13 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     baseUrlPath: "/v1",
     guideSteps: [
       { step: 1, title: "Open Continue Config", desc: "Open ~/.continue/config.json or config.yaml" },
-      { step: 2, title: "Add Model", desc: "Insert the OpenAI provider configuration pointing to Routen" },
+      { step: 2, title: "Add Model", desc: "Insert the OpenAI provider configuration pointing to Mapigate" },
     ],
     codeBlock: {
       language: "json",
-      code: `{\n  "models": [\n    {\n      "title": "Routen Model",\n      "provider": "openai",\n      "model": "claude-sonnet-4-6",\n      "apiBase": "http://127.0.0.1:20127/v1",\n      "apiKey": "routen-local"\n    }\n  ]\n}`,
+      code: `{\n  "models": [\n    {\n      "title": "Mapigate Model",\n      "provider": "openai",\n      "model": "claude-sonnet-4-6",\n      "apiBase": "http://127.0.0.1:20127/v1",\n      "apiKey": "mapigate-local"\n    }\n  ]\n}`,
     },
-    configFileTemplate: `{\n  "models": [\n    {\n      "title": "Routen Model",\n      "provider": "openai",\n      "model": "claude-sonnet-4-6",\n      "apiBase": "http://127.0.0.1:20127/v1",\n      "apiKey": "routen-local"\n    }\n  ]\n}`,
+    configFileTemplate: `{\n  "models": [\n    {\n      "title": "Mapigate Model",\n      "provider": "openai",\n      "model": "claude-sonnet-4-6",\n      "apiBase": "http://127.0.0.1:20127/v1",\n      "apiKey": "mapigate-local"\n    }\n  ]\n}`,
   },
   amp: {
     id: "amp",
@@ -338,8 +342,8 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
       baseUrl: "OPENAI_BASE_URL",
       apiKey: "OPENAI_API_KEY",
     },
-    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"\namp`,
-    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"\namp`,
+    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\namp`,
+    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\namp`,
     guideSteps: [
       { step: 1, title: "Install Amp", desc: "Install Amp CLI via official instructions" },
       { step: 2, title: "Configure Env", desc: "Set OPENAI_BASE_URL and OPENAI_API_KEY", value: "http://127.0.0.1:20127/v1", copyable: true },
@@ -362,9 +366,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     ],
     codeBlock: {
       language: "json",
-      code: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "routen-local",\n      "baseUrl": "http://127.0.0.1:20127/v1"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
+      code: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "mapigate-local",\n      "baseUrl": "http://127.0.0.1:20127/v1"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
     },
-    configFileTemplate: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "routen-local",\n      "baseUrl": "http://127.0.0.1:20127/v1"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
+    configFileTemplate: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "mapigate-local",\n      "baseUrl": "http://127.0.0.1:20127/v1"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
   },
   "deepseek-tui": {
     id: "deepseek-tui",
@@ -376,9 +380,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "deepseek",
     configPath: "~/.deepseek/config.toml",
     baseUrlPath: "/v1",
-    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"\ndeepseek`,
-    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"\ndeepseek`,
-    configFileTemplate: `[provider]\nname = "openai"\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "routen-local"\nmodel = "claude-sonnet-4-6"`,
+    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\ndeepseek`,
+    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\ndeepseek`,
+    configFileTemplate: `[provider]\nname = "openai"\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"\nmodel = "claude-sonnet-4-6"`,
   },
   jcode: {
     id: "jcode",
@@ -390,9 +394,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "jcode",
     configPath: "~/.jcode/config.toml",
     baseUrlPath: "/v1",
-    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"\njcode`,
-    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"\njcode`,
-    configFileTemplate: `[model_provider.openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "routen-local"`,
+    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\njcode`,
+    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\njcode`,
+    configFileTemplate: `[model_provider.openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
   },
   "grok-build": {
     id: "grok-build",
@@ -404,9 +408,9 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "grok",
     configPath: "~/.grok/config.toml",
     baseUrlPath: "/v1",
-    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"\ngrok`,
-    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"\ngrok`,
-    configFileTemplate: `[model.routen]\ntype = "openai"\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "routen-local"`,
+    powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\ngrok`,
+    bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\ngrok`,
+    configFileTemplate: `[model.mapigate]\ntype = "openai"\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
   },
   devin: {
     id: "devin",
@@ -420,7 +424,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     guideSteps: [
       { step: 1, title: "Install Devin CLI", desc: "Install via official installer at cli.devin.ai" },
       { step: 2, title: "Authenticate", desc: "Run devin auth login in terminal" },
-      { step: 3, title: "Ready", desc: "Devin CLI runs locally and connects with Routen" },
+      { step: 3, title: "Ready", desc: "Devin CLI runs locally and connects with Mapigate" },
     ],
   },
   opendesign: {
@@ -432,7 +436,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     configType: "guide",
     guideSteps: [
       { step: 1, title: "Install Plugin", desc: "Install into Claude Code, Cursor, or Codex CLI" },
-      { step: 2, title: "Automatic Routing", desc: "Inherits host agent model configuration pointing to Routen" },
+      { step: 2, title: "Automatic Routing", desc: "Inherits host agent model configuration pointing to Mapigate" },
       { step: 3, title: "Run", desc: "Invoke with /opendesign <prompt>" },
     ],
   },
@@ -446,7 +450,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "pi",
     configPath: "~/.pi/agent/models.json",
     baseUrlPath: "/v1",
-    configFileTemplate: `{\n  "providers": {\n    "routen": {\n      "type": "openai",\n      "baseUrl": "http://127.0.0.1:20127/v1",\n      "apiKey": "routen-local"\n    }\n  }\n}`,
+    configFileTemplate: `{\n  "providers": {\n    "mapigate": {\n      "type": "openai",\n      "baseUrl": "http://127.0.0.1:20127/v1",\n      "apiKey": "mapigate-local"\n    }\n  }\n}`,
   },
   omp: {
     id: "omp",
@@ -458,7 +462,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "omp",
     configPath: "~/.omp/agent/models.yml",
     baseUrlPath: "/v1",
-    configFileTemplate: `providers:\n  routen:\n    type: openai\n    base_url: http://127.0.0.1:20127/v1\n    api_key: routen-local`,
+    configFileTemplate: `providers:\n  mapigate:\n    type: openai\n    base_url: http://127.0.0.1:20127/v1\n    api_key: mapigate-local`,
   },
   crush: {
     id: "crush",
@@ -470,7 +474,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "crush",
     configPath: "~/.config/crush/crush.json",
     baseUrlPath: "/v1",
-    configFileTemplate: `{\n  "providers": {\n    "routen": {\n      "type": "openai",\n      "base_url": "http://127.0.0.1:20127/v1",\n      "api_key": "routen-local"\n    }\n  }\n}`,
+    configFileTemplate: `{\n  "providers": {\n    "mapigate": {\n      "type": "openai",\n      "base_url": "http://127.0.0.1:20127/v1",\n      "api_key": "mapigate-local"\n    }\n  }\n}`,
   },
   forge: {
     id: "forge",
@@ -482,7 +486,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "forge",
     configPath: "~/.forge/config.toml",
     baseUrlPath: "/v1",
-    configFileTemplate: `[openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "routen-local"`,
+    configFileTemplate: `[openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
   },
   smelt: {
     id: "smelt",
@@ -494,7 +498,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "smelt",
     configPath: "~/.smelt/config.json",
     baseUrlPath: "/v1",
-    configFileTemplate: `{\n  "provider": "openai",\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "routen-local"\n}`,
+    configFileTemplate: `{\n  "provider": "openai",\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
   },
   codewhale: {
     id: "codewhale",
@@ -506,7 +510,7 @@ export const CLI_TOOLS: Record<string, CliToolDefinition> = {
     binary: "codewhale",
     configPath: "~/.codewhale/config.toml",
     baseUrlPath: "/v1",
-    configFileTemplate: `[openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "routen-local"`,
+    configFileTemplate: `[openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
   },
 };
 

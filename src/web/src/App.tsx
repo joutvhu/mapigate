@@ -93,7 +93,7 @@ export default function App() {
                   Local Data Directory:
                 </span>
                 <code className="text-blue-400 block bg-[#0F1420] p-2.5 rounded-lg border border-[#1E293B]">
-                  ~/.routen/routen.sqlite
+                  ~/.mapigate/mapigate.sqlite
                 </code>
               </div>
             </div>

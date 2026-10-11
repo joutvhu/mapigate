@@ -1,6 +1,6 @@
-# Routen 🚀
+# Mapigate 🚀
 
-> **Ultra-lightweight, local-first AI Router & Token Optimizer for coding tools.**  
+> **AI Model API Gateway & Token Optimizer for coding tools.**  
 > Connect all your AI coding assistants (Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot) to multiple AI providers, save 20–40% tokens via RTK, and auto-fallback when rate-limited.
 
 ---
@@ -21,7 +21,6 @@
 ### 1. Install & Build
 
 ```bash
-cd F:\Documents\Library\AI\routen
 npm install
 npm run build
 ```
@@ -32,11 +31,11 @@ npm run build
 # Foreground mode (shows real-time console logs):
 npm start
 
-# Or using the Routen CLI:
-node bin/routen.js start
+# Or using the Mapigate CLI (mapigate or mpg alias):
+node bin/mapigate.js start
 
 # Background daemon mode:
-node bin/routen.js start -d
+node bin/mapigate.js start -d
 ```
 
 Open your browser at: **`http://127.0.0.1:20127`** to access the dashboard.
@@ -62,12 +61,12 @@ claude
 ### Cursor IDE
 1. Open **Cursor Settings** → **Models** → **OpenAI API Key**.
 2. Set **Override Base URL**: `http://127.0.0.1:20127/v1`
-3. Set **API Key**: any string (e.g. `routen-local`).
+3. Set **API Key**: any string (e.g. `mapigate-local`).
 
 ### Cline (VS Code Extension)
 1. Open **Cline Settings** → **API Provider**: `OpenAI Compatible`.
 2. Set **Base URL**: `http://127.0.0.1:20127/v1`
-3. Set **API Key**: any string (e.g. `routen-local`).
+3. Set **API Key**: any string (e.g. `mapigate-local`).
 
 ---
 
@@ -78,22 +77,24 @@ claude
 | `npm run dev` | Runs both Server (`tsx watch`) and Vite frontend concurrently with instant HMR |
 | `npm run build` | Compiles server TypeScript to `dist/server` and builds Vite SPA to `dist/web` |
 | `npm run typecheck` | Validates TypeScript types across the codebase |
-| `node bin/routen.js status` | Checks gateway status and token savings statistics |
-| `node bin/routen.js stop` | Stops the background daemon and cleans up PID |
+| `npm test` | Runs test suite using node test runner |
+| `node bin/mapigate.js status` | Checks gateway status and token savings statistics |
+| `node bin/mapigate.js stop` | Stops the background daemon and cleans up PID |
 
 ---
 
 ## 📂 Architecture Overview
 
 ```
-routen/
+mapigate/
 ├── src/
 │   ├── core/           # Routing rules, RTK token compressor, OpenAI ⇄ Claude adapters
 │   ├── storage/        # SQLite (WAL mode via node:sqlite), AES-256-GCM crypto vault
 │   ├── server/         # Express SSE proxy & REST management APIs
 │   ├── cli/            # Background daemon manager & terminal commands
+│   ├── mitm/           # Optional HTTPS interception & Root CA management
 │   ├── web/            # Vite + React SPA dark dashboard
 │   └── shared/         # Common TypeScript types and constants
 ├── dist/               # Compiled standalone server & web assets
-└── bin/routen.js       # CLI executable entry
+└── bin/mapigate.js     # CLI executable entry (with mpg & routen aliases)
 ```

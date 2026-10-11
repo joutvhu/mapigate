@@ -1,14 +1,14 @@
-# AGENTS.md — Routen
+# AGENTS.md — Mapigate
 
-> **Operational guidance, strategic roadmap, and development invariants for AI Coding Agents (Claude Code, Cursor, Kiro, Codex, Copilot) working in the `routen` repository.**
+> **Operational guidance, strategic roadmap, and development invariants for AI Coding Agents (Claude Code, Cursor, Kiro, Codex, Copilot) working in the `mapigate` repository.**
 
 ---
 
 ## 1. Mission & Overview
 
-**Routen** is an **ultra-lightweight, 100% local-first AI Router & Token Optimizer** built specifically and exclusively for **AI coding assistants**: Claude Code, Cursor, Cline, OpenCode, Codex, and GitHub Copilot.
+**Mapigate** (AI Model API Gateway) is an **ultra-lightweight, 100% local-first AI Router & Token Optimizer** built specifically and exclusively for **AI coding assistants**: Claude Code, Cursor, Cline, OpenCode, Codex, and GitHub Copilot.
 
-### Why Routen Exists (Evolution from 9router):
+### Why Mapigate Exists (Evolution from 9router):
 * **Eliminate Next.js SSR bloat:** Replaced the heavyweight Next.js full-stack setup with a lean **Vite + React (SPA)** frontend served by a pure **Node.js Express** gateway. Starts up in `< 300ms`, full production build in **1–3 seconds**.
 * **Zero non-coding bloat:** Stripped out image/video/audio generators, multi-language dictionaries (i18n), dynamic theme engines, LMS/learning modules (9English), remote management (9Remote), and enterprise SAML SSO.
 * **Flawless cross-platform DX (Windows & Linux):** No Linux-only shell script dependencies (`.sh`), no C++ native compiler requirements or install crashes on Windows PowerShell.
@@ -48,7 +48,7 @@
 1. **Ultra-low latency:** Minimize streaming SSE proxy overhead and translation latency.
 2. **Rock-solid stability for coding workflows:** Zero loss of tool schemas, arguments, or thinking tokens across adapter layers.
 3. **Transparent token metrics:** Real-time Dashboard and CLI insights into tokens consumed, tokens saved by RTK, error rates, and provider latencies.
-4. **Frictionless daemon operations:** Background lifecycle management via CLI (`routen start -d`, `routen stop`, `routen status`).
+4. **Frictionless daemon operations:** Background lifecycle management via CLI (`mapigate start -d`, `mapigate stop`, `mapigate status`, or `mpg` alias).
 
 ### ❌ NON-GOALS (Strict Boundaries):
 1. **NO Media Generation:** Do not add image (DALL-E, Flux, Midjourney), audio (TTS/STT), video, or music generation models.
@@ -62,9 +62,9 @@
 ## 4. Directory Map & Responsibilities
 
 ```
-routen/
+mapigate/
 ├── bin/
-│   └── routen.js                # CLI executable entry point
+│   └── mapigate.js              # CLI executable entry point (with mpg & routen aliases)
 ├── src/
 │   ├── cli/                     # Daemon lifecycle management (PID tracking, background spawns)
 │   ├── core/                    # Pure business logic (framework-agnostic)

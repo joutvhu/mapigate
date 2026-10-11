@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { CLI_TOOLS, ROUTEN_BASE_URL, ROUTEN_V1_URL } from "../../shared/constants/cliTools.js";
+import { CLI_TOOLS, MAPIGATE_BASE_URL, ROUTEN_BASE_URL } from "../../shared/constants/cliTools.js";
 
 const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
@@ -17,6 +17,7 @@ export interface ToolStatusResponse {
   status: "Connected" | "Guide" | "Not configured" | "Not installed";
   configPath?: string;
   settingsPath?: string;
+  hasMapigate: boolean;
   hasRouten: boolean;
 }
 
@@ -66,6 +67,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
       installed: false,
       configured: false,
       status: "Not installed",
+      hasMapigate: false,
       hasRouten: false,
     };
   }
@@ -75,14 +77,14 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
   const fileExists = await checkFileExists(resolvedConfigPath);
   const isInstalled = binaryInstalled || fileExists;
 
-  let hasRouten = false;
+  let hasMapigate = false;
   let fileContent = "";
 
   if (fileExists && resolvedConfigPath) {
     try {
       fileContent = await fs.readFile(resolvedConfigPath, "utf-8");
-      if (fileContent.includes("20127") || fileContent.includes("routen")) {
-        hasRouten = true;
+      if (fileContent.includes("20127") || fileContent.includes("mapigate") || fileContent.includes("routen")) {
+        hasMapigate = true;
       }
     } catch {
       // ignore read error
@@ -90,7 +92,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
   }
 
   let status: ToolStatusResponse["status"] = "Not installed";
-  if (hasRouten) {
+  if (hasMapigate) {
     status = "Connected";
   } else if (isInstalled) {
     if (tool.configType === "guide") {
@@ -110,11 +112,12 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
     id: tool.id,
     name: tool.name,
     installed: isInstalled,
-    configured: hasRouten,
+    configured: hasMapigate,
     status,
     configPath: resolvedConfigPath || undefined,
     settingsPath: resolvedConfigPath || undefined,
-    hasRouten,
+    hasMapigate,
+    hasRouten: hasMapigate,
   };
 }
 
@@ -186,7 +189,7 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
         // fresh
       }
       if (!currentSettings.env) currentSettings.env = {};
-      currentSettings.env.ANTHROPIC_BASE_URL = ROUTEN_BASE_URL;
+      currentSettings.env.ANTHROPIC_BASE_URL = MAPIGATE_BASE_URL;
       currentSettings.env.ANTHROPIC_MODEL = req.body?.model || "claude-sonnet-4-6";
       await fs.writeFile(targetPath, JSON.stringify(currentSettings, null, 2), "utf-8");
     } else if (tool.configFileTemplate) {

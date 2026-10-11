@@ -1,6 +1,7 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { getDefaultDataDir, ROUTEN_PID_FILE } from "../../shared/constants/index.js";
+import { getDefaultDataDir, MAPIGATE_PID_FILE } from "../../shared/constants/index.js";
 
 export class PidFileManager {
   private static getPidFilePath(): string {
@@ -8,7 +9,7 @@ export class PidFileManager {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    return path.join(dir, ROUTEN_PID_FILE);
+    return path.join(dir, MAPIGATE_PID_FILE);
   }
 
   public static writePid(pid: number): void {
@@ -17,14 +18,35 @@ export class PidFileManager {
 
   public static readPid(): number | null {
     const file = this.getPidFilePath();
-    if (!fs.existsSync(file)) return null;
-    try {
-      const content = fs.readFileSync(file, "utf8").trim();
-      const pid = parseInt(content, 10);
-      return isNaN(pid) ? null : pid;
-    } catch {
-      return null;
+    if (fs.existsSync(file)) {
+      try {
+        const content = fs.readFileSync(file, "utf8").trim();
+        const pid = parseInt(content, 10);
+        if (!isNaN(pid)) return pid;
+      } catch {
+        // Fall through
+      }
     }
+
+    // Check legacy routen.pid in data dir or ~/.routen
+    const dir = getDefaultDataDir();
+    const legacyPaths = [
+      path.join(dir, "routen.pid"),
+      path.join(os.homedir(), ".routen", "routen.pid"),
+    ];
+    for (const legacy of legacyPaths) {
+      if (fs.existsSync(legacy)) {
+        try {
+          const content = fs.readFileSync(legacy, "utf8").trim();
+          const pid = parseInt(content, 10);
+          if (!isNaN(pid)) return pid;
+        } catch {
+          // Continue
+        }
+      }
+    }
+
+    return null;
   }
 
   public static removePid(): void {
@@ -34,6 +56,22 @@ export class PidFileManager {
         fs.unlinkSync(file);
       } catch {
         // Ignored
+      }
+    }
+
+    // Also clean up any legacy routen.pid
+    const dir = getDefaultDataDir();
+    const legacyPaths = [
+      path.join(dir, "routen.pid"),
+      path.join(os.homedir(), ".routen", "routen.pid"),
+    ];
+    for (const legacy of legacyPaths) {
+      if (fs.existsSync(legacy)) {
+        try {
+          fs.unlinkSync(legacy);
+        } catch {
+          // Ignored
+        }
       }
     }
   }

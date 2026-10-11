@@ -8,13 +8,14 @@ import { PidFileManager } from "./daemon/pidFile.js";
 const program = new Command();
 
 program
-  .name("routen")
-  .description("Ultra-lightweight AI Router & Token Optimizer for coding tools")
+  .name("mapigate")
+  .alias("mpg")
+  .description("AI Model API Gateway & Token Optimizer for coding tools")
   .version(APP_VERSION);
 
 program
   .command("start")
-  .description("Start the Routen gateway server")
+  .description(`Start the ${APP_NAME} gateway server`)
   .option("-d, --daemon", "Run as a background daemon process")
   .option("-p, --port <number>", "Port to listen on", String(DEFAULT_PORT))
   .action(async (options) => {
@@ -38,7 +39,7 @@ program
 
 program
   .command("stop")
-  .description("Stop running Routen daemon")
+  .description(`Stop running ${APP_NAME} daemon`)
   .action(() => {
     const spinner = ora(`Stopping ${APP_NAME} daemon...`).start();
     const res = ProcessManager.stopDaemon();
@@ -51,7 +52,7 @@ program
 
 program
   .command("status")
-  .description("Check Routen server status and statistics")
+  .description(`Check ${APP_NAME} server status and statistics`)
   .action(async () => {
     const pid = PidFileManager.readPid();
     const isRunning = pid ? PidFileManager.isProcessRunning(pid) : false;
@@ -88,7 +89,7 @@ program
     const t = tool.toLowerCase();
     const endpoint = `http://${DEFAULT_HOST}:${DEFAULT_PORT}`;
 
-    console.log(`\n${chalk.bold(`Setup Routen for ${tool.toUpperCase()}:`)}`);
+    console.log(`\n${chalk.bold(`Setup ${APP_NAME} for ${tool.toUpperCase()}:`)}`);
     console.log(`──────────────────────────────────────────`);
 
     if (t === "claude" || t === "claude-code") {
@@ -101,11 +102,11 @@ program
     } else if (t === "cursor") {
       console.log(`1. Open Cursor Settings -> Models -> OpenAI API Key`);
       console.log(`2. Override Base URL: ${chalk.green(`${endpoint}/v1`)}`);
-      console.log(`3. API Key: any string (e.g. ${chalk.gray("routen-local")})`);
+      console.log(`3. API Key: any string (e.g. ${chalk.gray("mapigate-local")})`);
     } else if (t === "cline") {
       console.log(`1. Open Cline Settings -> API Provider: "OpenAI Compatible"`);
       console.log(`2. Base URL: ${chalk.green(`${endpoint}/v1`)}`);
-      console.log(`3. API Key: any string (e.g. ${chalk.gray("routen-local")})`);
+      console.log(`3. API Key: any string (e.g. ${chalk.gray("mapigate-local")})`);
     } else {
       console.log(`Compatible with any OpenAI-compatible client:`);
       console.log(`  Base URL: ${chalk.green(`${endpoint}/v1`)}`);

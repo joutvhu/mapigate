@@ -1,7 +1,8 @@
-import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { getDefaultDataDir, ROUTEN_DB_FILE } from "../shared/constants/index.js";
+import { getDefaultDataDir, MAPIGATE_DB_FILE } from "../shared/constants/index.js";
 
 export interface DatabaseDriver {
   exec(sql: string): void;
@@ -69,7 +70,26 @@ export function getDatabase(): DatabaseDriver {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  const dbPath = path.join(dataDir, ROUTEN_DB_FILE);
+  const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
+  if (!fs.existsSync(dbPath)) {
+    // Check if legacy routen.sqlite exists in dataDir or ~/.routen
+    const legacyInDir = path.join(dataDir, "routen.sqlite");
+    const legacyInHome = path.join(os.homedir(), ".routen", "routen.sqlite");
+    const legacyPath = fs.existsSync(legacyInDir) ? legacyInDir : (fs.existsSync(legacyInHome) ? legacyInHome : null);
+    if (legacyPath) {
+      try {
+        fs.copyFileSync(legacyPath, dbPath);
+        if (fs.existsSync(`${legacyPath}-wal`)) {
+          fs.copyFileSync(`${legacyPath}-wal`, `${dbPath}-wal`);
+        }
+        if (fs.existsSync(`${legacyPath}-shm`)) {
+          fs.copyFileSync(`${legacyPath}-shm`, `${dbPath}-shm`);
+        }
+      } catch {
+        // Fallback: proceed to create fresh db
+      }
+    }
+  }
   dbInstance = new NodeSqliteDriver(dbPath);
 
   // Hook cleanup on process exit

@@ -68,7 +68,7 @@ app.get("/callback", (_req, res) => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Routen OAuth Callback</title>
+  <title>Mapigate OAuth Callback</title>
   <style>
     body {
       background: #0A0D14;
@@ -103,7 +103,7 @@ app.get("/callback", (_req, res) => {
   <div class="box">
     <div class="spinner" id="icon"></div>
     <h1 id="title">Processing Authorization...</h1>
-    <p id="desc">Connecting your account to Routen. Please wait...</p>
+    <p id="desc">Connecting your account to Mapigate. Please wait...</p>
   </div>
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -154,7 +154,7 @@ app.get("/callback", (_req, res) => {
       desc.textContent = errorDescription || error;
     } else {
       title.textContent = "Copy Callback URL";
-      desc.textContent = "Please copy the full URL from your browser address bar and paste it in Routen.";
+      desc.textContent = "Please copy the full URL from your browser address bar and paste it in Mapigate.";
     }
   </script>
 </body>

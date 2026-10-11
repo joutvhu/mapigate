@@ -7,7 +7,7 @@ import type {
 } from "../../shared/types/index.js";
 
 export function getMaxRecords(): number {
-  const fromEnv = Number(process.env.ROUTEN_MAX_REQUEST_DETAILS);
+  const fromEnv = Number(process.env.MAPIGATE_MAX_REQUEST_DETAILS || process.env.ROUTEN_MAX_REQUEST_DETAILS);
   if (!isNaN(fromEnv) && fromEnv > 0) return fromEnv;
   try {
     const fromSettings = SettingsRepository.getSetting<number>("maxRequestDetails");

@@ -41,7 +41,7 @@ function getProviderMeta(providerId: string) {
   );
 }
 
-// Custom Routen Central Gateway Node
+// Custom Mapigate Central Gateway Node
 function RouterNode({ data }: { data: any }) {
   const activeCount = data?.activeCount || 0;
   const isPowering = activeCount > 0;
@@ -65,10 +65,10 @@ function RouterNode({ data }: { data: any }) {
             isPowering ? "bg-cyan-400 text-black shadow-[0_0_12px_#22d3ee]" : "bg-blue-600/30 text-blue-400"
           }`}
         >
-          RT
+          MPG
         </div>
         <div>
-          <div className="text-xs font-black tracking-wide text-white">ROUTEN</div>
+          <div className="text-xs font-black tracking-wide text-white">MAPIGATE</div>
           <div className="text-[9px] text-slate-400 font-mono">Gateway</div>
         </div>
         {activeCount > 0 && (

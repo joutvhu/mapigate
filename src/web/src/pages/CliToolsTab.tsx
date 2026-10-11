@@ -10,7 +10,8 @@ interface ToolStatusData {
   configured: boolean;
   status: "Connected" | "Guide" | "Not configured" | "Not installed";
   configPath?: string;
-  hasRouten: boolean;
+  hasMapigate?: boolean;
+  hasMapigate?: boolean;
 }
 
 export const CliToolsTab: React.FC = () => {
@@ -216,7 +217,7 @@ export const CliToolsTab: React.FC = () => {
                     {getStatusBadge(getEffectiveStatus(activeModalTool))}
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {selectedDef?.description || "Connect this tool directly to Routen Local Gateway."}
+                    {selectedDef?.description || "Connect this tool directly to Mapigate Local Gateway."}
                   </p>
                 </div>
               </div>
@@ -292,7 +293,7 @@ export const CliToolsTab: React.FC = () => {
                       onClick={() =>
                         copyText(
                           selectedDef?.powershellTemplate ||
-                            `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"; $env:OPENAI_API_KEY = "routen-local"`
+                            `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"; $env:OPENAI_API_KEY = "mapigate-local"`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
@@ -303,10 +304,10 @@ export const CliToolsTab: React.FC = () => {
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-3.5 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
                     {selectedDef?.powershellTemplate ||
-                      `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "routen-local"`}
+                      `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"`}
                   </pre>
                   <p className="text-[11px] text-slate-400">
-                    💡 Sets environment variables in your current PowerShell session pointing to Routen port 20127.
+                    💡 Sets environment variables in your current PowerShell session pointing to Mapigate port 20127.
                   </p>
                 </div>
               )}
@@ -320,7 +321,7 @@ export const CliToolsTab: React.FC = () => {
                       onClick={() =>
                         copyText(
                           selectedDef?.bashTemplate ||
-                            `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"`
+                            `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
@@ -331,7 +332,7 @@ export const CliToolsTab: React.FC = () => {
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-3.5 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
                     {selectedDef?.bashTemplate ||
-                      `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="routen-local"`}
+                      `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"`}
                   </pre>
                   <p className="text-[11px] text-slate-400">
                     💡 Exports the environment variables for your current terminal session.
@@ -366,7 +367,7 @@ export const CliToolsTab: React.FC = () => {
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-3.5 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
                     {selectedDef?.configFileTemplate ||
                       selectedDef?.codeBlock?.code ||
-                      `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "routen-local"\n}`}
+                      `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`}
                   </pre>
                   <div className="flex items-center gap-2 pt-1">
                     <button

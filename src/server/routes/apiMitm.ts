@@ -35,7 +35,7 @@ mitmRouter.get("/status", async (_req, res) => {
 // GET download Root CA certificate
 mitmRouter.get("/cert", (_req, res) => {
   if (fs.existsSync(ROOT_CA_CERT_PATH)) {
-    res.setHeader("Content-Disposition", 'attachment; filename="routen-rootCA.crt"');
+    res.setHeader("Content-Disposition", 'attachment; filename="mapigate-rootCA.crt"');
     res.setHeader("Content-Type", "application/x-x509-ca-cert");
     res.sendFile(ROOT_CA_CERT_PATH);
   } else {

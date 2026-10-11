@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import net from "node:net";
 import { PidFileManager } from "./pidFile.js";
-import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, getDefaultDataDir, ROUTEN_LOG_FILE } from "../../shared/constants/index.js";
+import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, getDefaultDataDir, MAPIGATE_LOG_FILE } from "../../shared/constants/index.js";
 
 import { fileURLToPath } from "node:url";
 
@@ -61,7 +61,7 @@ export class ProcessManager {
       args = ["tsx", devServer];
     }
 
-    const logPath = path.join(getDefaultDataDir(), ROUTEN_LOG_FILE);
+    const logPath = path.join(getDefaultDataDir(), MAPIGATE_LOG_FILE);
     const child = spawn(process.execPath, [distServer], {
       detached: true,
       stdio: "ignore",
@@ -94,12 +94,12 @@ export class ProcessManager {
   public static stopDaemon(): { success: boolean; message: string } {
     const pid = PidFileManager.readPid();
     if (!pid) {
-      return { success: false, message: "No active PID file found. Routen is not running." };
+      return { success: false, message: `No active PID file found. ${APP_NAME} is not running.` };
     }
 
     if (!PidFileManager.isProcessRunning(pid)) {
       PidFileManager.removePid();
-      return { success: true, message: `Cleaned up stale PID ${pid}. Routen was already stopped.` };
+      return { success: true, message: `Cleaned up stale PID ${pid}. ${APP_NAME} was already stopped.` };
     }
 
     try {

@@ -6,7 +6,7 @@ import { MITM_DIR, getMitmDir } from "../paths.js";
 
 export const ROOT_CA_KEY_PATH = path.join(MITM_DIR, "rootCA.key");
 export const ROOT_CA_CERT_PATH = path.join(MITM_DIR, "rootCA.crt");
-export const ROOT_CA_CN = "Routen MITM Root CA";
+export const ROOT_CA_CN = "Mapigate MITM Root CA";
 
 export interface RootCAFiles {
   key: string;
@@ -72,7 +72,7 @@ export function generateRootCA(): RootCAFiles {
 
   const attrs = [
     { name: "commonName", value: ROOT_CA_CN },
-    { name: "organizationName", value: "Routen" },
+    { name: "organizationName", value: "Mapigate" },
     { name: "countryName", value: "US" },
   ];
 

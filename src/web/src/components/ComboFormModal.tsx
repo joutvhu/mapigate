@@ -49,6 +49,7 @@ export const VALID_NAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
 
 interface SortableComboModelRowProps {
   id: string;
+  model: string;
   index: number;
   onEdit: (newModel: string) => void;
   onRemove: () => void;
@@ -60,6 +61,7 @@ interface SortableComboModelRowProps {
 
 const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
   id,
+  model,
   index,
   onEdit,
   onRemove,
@@ -69,18 +71,18 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
   isLast,
 }) => {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(id);
+  const [draft, setDraft] = useState(model);
 
   useEffect(() => {
-    setDraft(id);
-  }, [id]);
+    setDraft(model);
+  }, [model]);
 
   const commit = () => {
     const trimmed = draft.trim();
-    if (trimmed && trimmed !== id) {
+    if (trimmed && trimmed !== model) {
       onEdit(trimmed);
     } else {
-      setDraft(id);
+      setDraft(model);
     }
     setEditing(false);
   };
@@ -90,7 +92,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
       e.preventDefault();
       commit();
     } else if (e.key === "Escape") {
-      setDraft(id);
+      setDraft(model);
       setEditing(false);
     }
   };
@@ -294,8 +296,9 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     const { active, over } = event;
     if (over && active.id !== over.id) {
       setModels((items) => {
-        const oldIndex = items.indexOf(String(active.id));
-        const newIndex = items.indexOf(String(over.id));
+        const itemIds = items.map((m, idx) => `${m}-${idx}`);
+        const oldIndex = itemIds.indexOf(String(active.id));
+        const newIndex = itemIds.indexOf(String(over.id));
         if (oldIndex !== -1 && newIndex !== -1) {
           return arrayMove(items, oldIndex, newIndex);
         }
@@ -465,12 +468,13 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                   >
-                    <SortableContext items={models} strategy={verticalListSortingStrategy}>
+                    <SortableContext items={models.map((m, idx) => `${m}-${idx}`)} strategy={verticalListSortingStrategy}>
                       <div className="space-y-1.5">
                         {models.map((m, idx) => (
                           <SortableComboModelRow
                             key={`${m}-${idx}`}
-                            id={m}
+                            id={`${m}-${idx}`}
+                            model={m}
                             index={idx}
                             onEdit={(newVal) => handleEditModel(idx, newVal)}
                             onRemove={() => handleRemoveModel(idx)}

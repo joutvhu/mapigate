@@ -26,7 +26,7 @@ test("Unit - SettingsRepository endpoint settings and gateway API keys", () => {
     port: 20128,
     requireApiKey: true,
     proxyUrl: "http://127.0.0.1:7890",
-    customHeaders: { "X-Test-Env": "local-test", "X-Custom-Client": "routen-test" },
+    customHeaders: { "X-Test-Env": "local-test", "X-Custom-Client": "mapigate-test" },
   });
   assert.equal(updated.host, "0.0.0.0");
   assert.equal(updated.port, 20128);
@@ -40,7 +40,7 @@ test("Unit - SettingsRepository endpoint settings and gateway API keys", () => {
   assert.equal(reloaded.port, 20128);
   assert.equal(reloaded.requireApiKey, true);
   assert.equal(reloaded.proxyUrl, "http://127.0.0.1:7890");
-  assert.equal(reloaded.customHeaders?.["X-Custom-Client"], "routen-test");
+  assert.equal(reloaded.customHeaders?.["X-Custom-Client"], "mapigate-test");
 
   // 3. Reset back to defaults
   SettingsRepository.setEndpointSettings(DEFAULT_ENDPOINT_SETTINGS);

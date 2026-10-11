@@ -261,7 +261,7 @@ export const ConsoleLogTab: React.FC = () => {
             <span className="size-3 rounded-full bg-[#F59E0B]/80 inline-block" />
             <span className="size-3 rounded-full bg-[#10B981]/80 inline-block" />
             <span className="ml-2 text-[11px] font-mono text-slate-400">
-              routen-gateway &gt; stdout / stderr
+              mapigate-gateway &gt; stdout / stderr
             </span>
           </div>
 

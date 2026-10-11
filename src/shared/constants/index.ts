@@ -1,22 +1,36 @@
-import path from "node:path";
 import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 
-export const APP_NAME = "Routen";
+export const APP_NAME = "Mapigate";
 export const APP_VERSION = "0.1.0";
 
 export const DEFAULT_PORT = 20127;
 export const DEFAULT_HOST = "127.0.0.1";
 
 export function getDefaultDataDir(): string {
+  if (process.env.MAPIGATE_DATA_DIR) {
+    return process.env.MAPIGATE_DATA_DIR;
+  }
   if (process.env.ROUTEN_DATA_DIR) {
     return process.env.ROUTEN_DATA_DIR;
   }
-  return path.join(os.homedir(), ".routen");
+  const mapigateDir = path.join(os.homedir(), ".mapigate");
+  const routenDir = path.join(os.homedir(), ".routen");
+  if (!fs.existsSync(mapigateDir) && fs.existsSync(routenDir)) {
+    return routenDir;
+  }
+  return mapigateDir;
 }
 
-export const ROUTEN_PID_FILE = "routen.pid";
-export const ROUTEN_DB_FILE = "routen.sqlite";
-export const ROUTEN_LOG_FILE = "server.log";
+export const MAPIGATE_PID_FILE = "mapigate.pid";
+export const MAPIGATE_DB_FILE = "mapigate.sqlite";
+export const MAPIGATE_LOG_FILE = "server.log";
+
+// Backward-compatible aliases
+export const ROUTEN_PID_FILE = MAPIGATE_PID_FILE;
+export const ROUTEN_DB_FILE = MAPIGATE_DB_FILE;
+export const ROUTEN_LOG_FILE = MAPIGATE_LOG_FILE;
 
 export const CONSOLE_LOG_CONFIG = {
   maxLines: 300,

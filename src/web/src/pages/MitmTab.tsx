@@ -71,9 +71,9 @@ export const MitmTab: React.FC = () => {
   const [certPath, setCertPath] = useState("");
   const [fingerprint, setFingerprint] = useState("");
   const [installCommands, setInstallCommands] = useState<{ windows: string; mac: string; linux: string }>({
-    windows: 'certutil -addstore -user "Root" "%USERPROFILE%\\.routen\\mitm\\rootCA.crt"',
-    mac: 'sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.routen/mitm/rootCA.crt',
-    linux: 'sudo cp ~/.routen/mitm/rootCA.crt /usr/local/share/ca-certificates/routen-rootCA.crt && sudo update-ca-certificates',
+    windows: 'certutil -addstore -user "Root" "%USERPROFILE%\\.mapigate\\mitm\\rootCA.crt"',
+    mac: 'sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.mapigate/mitm/rootCA.crt',
+    linux: 'sudo cp ~/.mapigate/mitm/rootCA.crt /usr/local/share/ca-certificates/mapigate-rootCA.crt && sudo update-ca-certificates',
   });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [installingCert, setInstallingCert] = useState(false);
@@ -400,7 +400,7 @@ export const MitmTab: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1 text-xs">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-slate-300">Routen Local Endpoint:</span>
+            <span className="font-semibold text-slate-300">Mapigate Local Endpoint:</span>
             <code className="text-blue-400 font-mono bg-[#0A0D14] px-3 py-1.5 rounded-lg border border-[#1E293B]">
               http://127.0.0.1:20127
             </code>
@@ -444,7 +444,7 @@ export const MitmTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <a
               href="/api/mitm/cert"
-              download="routen-rootCA.crt"
+              download="mapigate-rootCA.crt"
               className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">download</span>
@@ -495,7 +495,7 @@ export const MitmTab: React.FC = () => {
               )}
             </div>
             <code className="text-slate-300 font-mono text-[11px] block truncate">
-              {certPath || "~/.routen/mitm/rootCA.crt"}
+              {certPath || "~/.mapigate/mitm/rootCA.crt"}
             </code>
           </div>
         </div>
@@ -669,7 +669,7 @@ export const MitmTab: React.FC = () => {
                           Model Redirection Mappings ({tool.name})
                         </span>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Map requested models to your chosen Routen providers and upstream model IDs (slashes / supported).
+                          Map requested models to your chosen Mapigate providers and upstream model IDs (slashes / supported).
                         </p>
                       </div>
 
@@ -817,7 +817,7 @@ export const MitmTab: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Target Upstream Model ID (Routen Provider Model)
+                  Target Upstream Model ID (Mapigate Provider Model)
                 </label>
                 <input
                   type="text"

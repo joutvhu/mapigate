@@ -351,7 +351,7 @@ export const CombosTab: React.FC = () => {
             </span>
           </div>
           <p className="text-slate-300">
-            Group multiple models and provider accounts under a single unified alias. Routen automatically manages fallbacks, load balances requests, or fuses multiple outputs together.
+            Group multiple models and provider accounts under a single unified alias. Mapigate automatically manages fallbacks, load balances requests, or fuses multiple outputs together.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1 text-[11px]">
@@ -639,7 +639,7 @@ export const CombosTab: React.FC = () => {
               Multimodal Capacity Adapter
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              When client coding tools send image or audio prompts to models lacking those modalities, Routen seamlessly elevates designated adapter models to priority #1.
+              When client coding tools send image or audio prompts to models lacking those modalities, Mapigate seamlessly elevates designated adapter models to priority #1.
             </p>
           </div>
           {savingAdapter && (

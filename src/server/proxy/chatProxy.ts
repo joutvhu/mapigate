@@ -326,7 +326,20 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       outgoingHeaders["Editor-Plugin-Version"] = "copilot-chat/0.26.7";
     }
 
-    const hasProxy = Boolean(provider.proxyUrl && provider.proxyUrl.trim());
+    const globalSettings = SettingsRepository.getEndpointSettings();
+    if (globalSettings.customHeaders) {
+      for (const [k, v] of Object.entries(globalSettings.customHeaders)) {
+        if (!outgoingHeaders[k]) {
+          outgoingHeaders[k] = v;
+        }
+      }
+    }
+
+    const effectiveProxy =
+      (provider.proxyUrl && provider.proxyUrl.trim()) ||
+      (globalSettings.proxyUrl && globalSettings.proxyUrl.trim()) ||
+      "";
+    const hasProxy = Boolean(effectiveProxy);
     const fetchFn = hasProxy ? undiciFetch : globalThis.fetch;
     const fetchOptions: any = {
       method: "POST",
@@ -334,7 +347,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       body: JSON.stringify(upstreamBody),
     };
     if (hasProxy) {
-      fetchOptions.dispatcher = getProxyDispatcher(provider.proxyUrl!.trim());
+      fetchOptions.dispatcher = getProxyDispatcher(effectiveProxy);
     }
 
     let upstreamRes = await (fetchFn as typeof fetch)(upstreamUrl, fetchOptions);
@@ -736,6 +749,35 @@ export async function handleProxyRequest(
   res: Response,
   clientFormat: "openai" | "anthropic"
 ): Promise<void> {
+  const endpointSettings = SettingsRepository.getEndpointSettings();
+  if (endpointSettings.requireApiKey) {
+    const activeKeys = SettingsRepository.getGatewayApiKeys().filter((k) => k.isActive);
+    if (activeKeys.length > 0) {
+      const authHeader = (req.headers["authorization"] as string) || "";
+      const apiKeyHeader = (req.headers["x-api-key"] as string) || "";
+      let providedKey = "";
+      if (authHeader.startsWith("Bearer ")) {
+        providedKey = authHeader.substring(7).trim();
+      } else if (authHeader) {
+        providedKey = authHeader.trim();
+      } else if (apiKeyHeader) {
+        providedKey = apiKeyHeader.trim();
+      }
+
+      const isValid = activeKeys.some((k) => k.key === providedKey);
+      if (!isValid) {
+        res.status(401).json({
+          error: {
+            message: "Unauthorized: Invalid or missing gateway API key.",
+            type: "authentication_error",
+            code: "invalid_api_key",
+          },
+        });
+        return;
+      }
+    }
+  }
+
   const startTime = Date.now();
   const requestId = crypto.randomUUID();
   const body = req.body || {};

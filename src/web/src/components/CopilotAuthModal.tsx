@@ -274,7 +274,7 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
                 className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
               />
               <p className="text-[11px] text-slate-400 mt-1.5">
-                Paste your GitHub token from VS Code extension or personal token. Routen encrypts it locally.
+                Paste your GitHub token from VS Code extension or personal token. Mapigate encrypts it locally.
               </p>
             </div>
 

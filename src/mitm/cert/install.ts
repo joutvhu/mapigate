@@ -9,7 +9,7 @@ export function getInstallCommand(certPath: string = ROOT_CA_CERT_PATH): { windo
   return {
     windows: `certutil -addstore -user "Root" "${certPath}"`,
     mac: `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${certPath}"`,
-    linux: `sudo cp "${certPath}" /usr/local/share/ca-certificates/routen-rootCA.crt && sudo update-ca-certificates`,
+    linux: `sudo cp "${certPath}" /usr/local/share/ca-certificates/mapigate-rootCA.crt && sudo update-ca-certificates`,
   };
 }
 
@@ -46,7 +46,10 @@ export async function checkCertInstalled(certPath: string = ROOT_CA_CERT_PATH): 
   } else {
     // Linux check
     try {
-      return fs.existsSync("/usr/local/share/ca-certificates/routen-rootCA.crt");
+      return (
+        fs.existsSync("/usr/local/share/ca-certificates/mapigate-rootCA.crt") ||
+        fs.existsSync("/usr/local/share/ca-certificates/routen-rootCA.crt")
+      );
     } catch {
       return false;
     }
@@ -69,7 +72,7 @@ export async function installCert(certPath: string = ROOT_CA_CERT_PATH): Promise
       await execAsync(cmd, { windowsHide: true });
       return { success: true, message: "Installed Root CA to macOS keychain" };
     } else {
-      await execAsync(`cp "${certPath}" /usr/local/share/ca-certificates/routen-rootCA.crt && update-ca-certificates`, { windowsHide: true });
+      await execAsync(`cp "${certPath}" /usr/local/share/ca-certificates/mapigate-rootCA.crt && update-ca-certificates`, { windowsHide: true });
       return { success: true, message: "Installed Root CA to Linux ca-certificates" };
     }
   } catch (error: any) {

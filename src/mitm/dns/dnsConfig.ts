@@ -18,8 +18,8 @@ export const HOSTS_FILE = IS_WIN
  * If anything fails mid-way, restore from `.bak`. Same-volume renames are atomic on NTFS.
  */
 function atomicWriteHostsWin(target: string, originalContent: string, newContent: string): void {
-  const tmpNew = `${target}.routen.new`;
-  const tmpBak = `${target}.routen.bak`;
+  const tmpNew = `${target}.mapigate.new`;
+  const tmpBak = `${target}.mapigate.bak`;
   try {
     fs.writeFileSync(tmpNew, newContent, "utf8");
     try {
@@ -64,7 +64,7 @@ async function writeHostsFileWin(target: string, currentContent: string, newCont
   }
 
   // Fallback: write to temp file and elevate copy via PowerShell
-  const tmpFile = path.join(os.tmpdir(), `routen-hosts-${Date.now()}.txt`);
+  const tmpFile = path.join(os.tmpdir(), `mapigate-hosts-${Date.now()}.txt`);
   fs.writeFileSync(tmpFile, newContent, "utf8");
   try {
     const psScript = `

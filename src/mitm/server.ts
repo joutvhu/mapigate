@@ -104,7 +104,7 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
 
     const bodyBuffer = await collectBody(req);
 
-    // Anti-loop: skip requests originated from Routen itself
+    // Anti-loop: skip requests originated from Mapigate itself
     if (req.headers["x-request-source"] === "local") {
       return passthroughHttps(req, res, bodyBuffer);
     }

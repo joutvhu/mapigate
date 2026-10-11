@@ -1,3 +1,3 @@
 #!/usr/bin/env node
-
-import "../dist/cli/index.js";
+// Backward compatibility wrapper forwarding to mapigate
+import "./mapigate.js";

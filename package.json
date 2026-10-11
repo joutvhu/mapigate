@@ -1,10 +1,12 @@
 {
-  "name": "routen",
+  "name": "mapigate",
   "version": "0.1.0",
-  "description": "Ultra-lightweight, local-first AI Router & Token Optimizer for coding tools",
+  "description": "AI Model API Gateway & Token Optimizer for coding tools",
   "main": "dist/server/index.js",
   "bin": {
-    "routen": "bin/routen.js"
+    "mapigate": "bin/mapigate.js",
+    "mpg": "bin/mapigate.js",
+    "routen": "bin/mapigate.js"
   },
   "type": "module",
   "scripts": {
@@ -15,7 +17,7 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build:web": "vite build src/web --outDir ../../dist/web",
     "start": "node dist/server/index.js",
-    "test": "tsx --test tests/**/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit"
   },
