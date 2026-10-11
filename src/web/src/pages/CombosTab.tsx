@@ -5,6 +5,7 @@ import { ConfirmModal } from "../components/ConfirmModal.js";
 import { CapacityBadges } from "../components/CapacityBadges.js";
 import { Select } from "../components/Select.js";
 import { aggregateComboCapabilities } from "../../../core/capabilities/index.js";
+import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 
 export interface CapacityAdapterEntry {
   enabled: boolean;
@@ -210,6 +211,7 @@ export const CombosTab: React.FC = () => {
       }
     }
     await loadCombos();
+    invalidateAvailableModelsCache();
     setShowComboModal(false);
     setEditingCombo(null);
   };
@@ -221,6 +223,7 @@ export const CombosTab: React.FC = () => {
       if (res.ok) {
         const updated = await res.json();
         setCombos((prev) => prev.map((c) => (c.id === combo.id ? updated : c)));
+        invalidateAvailableModelsCache();
       }
     } catch (err) {
       console.error("Error toggling combo status:", err);
@@ -241,6 +244,7 @@ export const CombosTab: React.FC = () => {
       if (res.ok) {
         const updated = await res.json();
         setCombos((prev) => prev.map((c) => (c.id === combo.id ? updated : c)));
+        invalidateAvailableModelsCache();
       }
     } catch (err) {
       console.error("Error updating strategy:", err);
@@ -259,6 +263,7 @@ export const CombosTab: React.FC = () => {
           const res = await fetch(`/api/combos/${combo.id}`, { method: "DELETE" });
           if (res.ok) {
             setCombos((prev) => prev.filter((c) => c.id !== combo.id));
+            invalidateAvailableModelsCache();
           }
         } catch (err) {
           console.error("Error deleting combo:", err);
