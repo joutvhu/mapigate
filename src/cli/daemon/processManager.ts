@@ -98,14 +98,21 @@ export class ProcessManager {
       fs.mkdirSync(dataDir, { recursive: true });
     }
     const logPath = path.join(dataDir, MAPIGATE_LOG_FILE);
+    const logFd = fs.openSync(logPath, "a");
 
     const child = spawn(cmd, args, {
       detached: true,
-      stdio: "ignore",
+      stdio: ["ignore", logFd, logFd],
       windowsHide: true,
       shell,
       env: { ...process.env, PORT: String(port) },
     });
+
+    try {
+      fs.closeSync(logFd);
+    } catch {
+      // ignore
+    }
 
     if (!child.pid) {
       return { success: false, message: "Failed to spawn child process." };

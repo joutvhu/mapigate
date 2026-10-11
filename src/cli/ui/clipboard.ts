@@ -19,9 +19,9 @@ export function copyToClipboard(text: string): boolean {
         execSync("clip", { input: text, windowsHide: true, timeout: 2000 });
         return true;
       } catch {
-        // Fallback to powershell Set-Clipboard
-        const escaped = text.replace(/'/g, "''");
-        execSync(`powershell.exe -NoProfile -Command "Set-Clipboard -Value '${escaped}'"`, {
+        // Fallback to powershell Set-Clipboard via stdin (avoids command interpolation)
+        execSync('powershell.exe -NoProfile -NonInteractive -Command "$input | Set-Clipboard"', {
+          input: text,
           windowsHide: true,
           timeout: 3000,
         });

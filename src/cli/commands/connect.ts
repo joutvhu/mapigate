@@ -1,6 +1,10 @@
 import chalk from "chalk";
 import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME } from "../../shared/constants/index.js";
-import { resolveToolHandlers, SUPPORTED_TOOL_IDS } from "./toolConfigs.js";
+import {
+  resolveToolHandlersWithValidation,
+  SUPPORTED_TOOL_IDS,
+  TOOL_ALIASES,
+} from "./toolConfigs.js";
 import { maskKey } from "../ui/display.js";
 
 export interface ConnectOptions {
@@ -21,10 +25,17 @@ export async function runConnect(target?: string, options: ConnectOptions = {}):
   if (target) {
     if (target.startsWith("http://") || target.startsWith("https://")) {
       serverUrl = target.replace(/\/+$/, "");
-    } else if (SUPPORTED_TOOL_IDS.includes(target.toLowerCase()) || target.toLowerCase() === "all" || target.toLowerCase() === "cursor") {
+    } else if (
+      SUPPORTED_TOOL_IDS.includes(target.toLowerCase()) ||
+      TOOL_ALIASES[target.toLowerCase()] ||
+      target.toLowerCase() === "all" ||
+      target.toLowerCase() === "cursor"
+    ) {
       specifiedTool = target.toLowerCase();
+    } else if (target.startsWith("localhost") || target.startsWith("127.0.0.1") || target.includes(":")) {
+      serverUrl = target.startsWith("http://") || target.startsWith("https://") ? target : `http://${target}`;
     } else {
-      serverUrl = target.startsWith("localhost") || target.startsWith("127.0.0.1") ? `http://${target}` : target;
+      specifiedTool = target;
     }
   }
 
@@ -58,7 +69,17 @@ export async function runConnect(target?: string, options: ConnectOptions = {}):
     toolListRaw.push("all");
   }
 
-  const handlers = resolveToolHandlers(toolListRaw);
+  const { handlers, unrecognized } = resolveToolHandlersWithValidation(toolListRaw);
+
+  if (unrecognized.length > 0) {
+    console.log(chalk.yellow(`\n⚠ Warning: Unrecognized tool(s): ${unrecognized.join(", ")}`));
+    console.log(chalk.gray(`  Supported tools: ${SUPPORTED_TOOL_IDS.join(", ")}, all\n`));
+  }
+
+  if (handlers.length === 0) {
+    console.log(chalk.red(`No valid tools found to configure. Exiting.\n`));
+    return;
+  }
 
   if (options.reset) {
     console.log(`\n${chalk.bold(`Resetting ${handlers.length} tool(s) to defaults...`)}`);

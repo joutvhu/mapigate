@@ -1,9 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import {
   ALL_TOOL_HANDLERS,
   SUPPORTED_TOOL_IDS,
   resolveToolHandlers,
+  resolveToolHandlersWithValidation,
+  pruneTomlSection,
 } from "../src/cli/commands/toolConfigs.js";
 import { inspectTool, printToolRecord } from "../src/cli/commands/show.js";
 import { PortHelper } from "../src/cli/daemon/portHelper.js";
@@ -33,6 +38,40 @@ test("toolConfigs - resolveToolHandlers resolves exact and alias names", () => {
 
   const empty = resolveToolHandlers([]);
   assert.equal(empty.length, ALL_TOOL_HANDLERS.length);
+});
+
+test("toolConfigs - resolveToolHandlersWithValidation detects unrecognized tools", () => {
+  const result = resolveToolHandlersWithValidation(["claude", "unknown_tool", "claudecode", "foo_bar"]);
+  assert.equal(result.handlers.length, 1); // claude + claudecode alias map to claude (deduped)
+  assert.equal(result.handlers[0].id, "claude");
+  assert.deepEqual(result.unrecognized, ["unknown_tool", "foo_bar"]);
+});
+
+test("toolConfigs - pruneTomlSection surgically removes targeted TOML section", () => {
+  const sampleToml = [
+    `# Global user config`,
+    `theme = "dark"`,
+    `model_provider = "mapigate"`,
+    ``,
+    `[editor]`,
+    `fontSize = 14`,
+    ``,
+    `[model_providers.mapigate]`,
+    `name = "Mapigate"`,
+    `base_url = "http://127.0.0.1:20127/v1"`,
+    ``,
+    `[model_providers.openai]`,
+    `name = "OpenAI"`,
+  ].join("\n");
+
+  const pruned = pruneTomlSection(sampleToml, "model_providers.mapigate");
+  assert.ok(!pruned.includes("[model_providers.mapigate]"));
+  assert.ok(!pruned.includes("base_url = \"http://127.0.0.1:20127/v1\""));
+  // Other sections and settings must remain intact
+  assert.ok(pruned.includes(`theme = "dark"`));
+  assert.ok(pruned.includes(`[editor]`));
+  assert.ok(pruned.includes(`fontSize = 14`));
+  assert.ok(pruned.includes(`[model_providers.openai]`));
 });
 
 test("show - inspectTool inspects tool handlers safely", async () => {

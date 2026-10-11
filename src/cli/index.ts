@@ -27,7 +27,8 @@ async function showLauncherMenu(port: number): Promise<string> {
     { label: "Terminal UI (Interactive CLI)", icon: "💻" },
     { label: "Status & RTK Metrics", icon: "📊" },
     { label: "Run in Background (Daemon)", icon: "🔔" },
-    { label: "Exit", icon: "🚪" },
+    { label: "Stop Server & Exit", icon: "🛑" },
+    { label: "Exit (Leave server running)", icon: "🚪" },
   ];
 
   const selected = await selectMenu(
@@ -46,6 +47,8 @@ async function showLauncherMenu(port: number): Promise<string> {
       return "status";
     case 3:
       return "daemon";
+    case 4:
+      return "stop";
     default:
       return "exit";
   }
@@ -83,8 +86,14 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
       console.log(`   Web Dashboard: ${webUrl}`);
       console.log(`   API Endpoint:  ${webUrl}/v1\n`);
       process.exit(0);
+    } else if (choice === "stop") {
+      clearScreen();
+      console.log(chalk.cyan(`\n🛑 Stopping ${APP_NAME} on port ${port}...`));
+      const res = ProcessManager.stopDaemon(port);
+      console.log(res.success ? chalk.green(`✓ ${res.message}\n`) : chalk.red(`✗ ${res.message}\n`));
+      process.exit(0);
     } else {
-      console.log("\nExiting...");
+      console.log(`\nExiting CLI (${APP_NAME} remains running in background on port ${port}).\n`);
       process.exit(0);
     }
   }

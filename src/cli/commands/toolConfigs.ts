@@ -30,7 +30,7 @@ function readJsonSafe(file: string): any {
   }
 }
 
-function writeJsonSafe(file: string, data: any): void {
+function ensureBackup(file: string): void {
   const dir = path.dirname(file);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -43,11 +43,43 @@ function writeJsonSafe(file: string, data: any): void {
       // ignore
     }
   }
+}
+
+function writeJsonSafe(file: string, data: any): void {
+  ensureBackup(file);
   fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
 }
 
 function rewriteFileSafe(file: string, content: string): void {
+  const dir = path.dirname(file);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.writeFileSync(file, content, "utf8");
+}
+
+export function pruneTomlSection(tomlText: string, sectionHeader: string): string {
+  const lines = tomlText.split(/\r?\n/);
+  const result: string[] = [];
+  let inSection = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      const header = trimmed.slice(1, -1).trim();
+      if (header === sectionHeader) {
+        inSection = true;
+        continue;
+      } else {
+        inSection = false;
+      }
+    }
+    if (!inSection) {
+      result.push(line);
+    }
+  }
+
+  return result.join("\n");
 }
 
 export interface ToolInspectionResult {
@@ -153,25 +185,74 @@ const codexHandler: ToolConfigHandler = {
   },
   async apply({ baseUrl, apiKey, model = "claude-sonnet-4-6" }) {
     const file = codexPath();
-    const content = [
-      `model_provider = "mapigate"`,
-      `model = "${model}"`,
-      ``,
+    ensureBackup(file);
+
+    let baseText = "";
+    if (fs.existsSync(file)) {
+      try {
+        baseText = fs.readFileSync(file, "utf8");
+      } catch {
+        baseText = "";
+      }
+    }
+
+    // Selectively prune old Mapigate / 9router sections and root keys
+    let cleaned = pruneTomlSection(baseText, "model_providers.mapigate");
+    cleaned = pruneTomlSection(cleaned, "model_providers.9router");
+    cleaned = cleaned.replace(/^[ \t]*model_provider\s*=\s*["'][^"']*["'][ \t]*\r?\n?/gm, "");
+    cleaned = cleaned.replace(/^[ \t]*model\s*=\s*["'][^"']*["'][ \t]*\r?\n?/gm, "");
+    cleaned = cleaned.trim();
+
+    const mapigateSection = [
       `[model_providers.mapigate]`,
       `name = "Mapigate"`,
       `base_url = "${v1(baseUrl)}"`,
       `wire_api = "responses"`,
       `http_headers = { Authorization = "Bearer ${apiKey}" }`,
     ].join("\n");
-    const dir = path.dirname(file);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    rewriteFileSafe(file, content);
+
+    const newContent = [
+      `model_provider = "mapigate"`,
+      `model = "${model}"`,
+      cleaned ? `\n${cleaned}\n` : "",
+      mapigateSection,
+      "",
+    ].filter(Boolean).join("\n");
+
+    rewriteFileSafe(file, newContent);
     return [file];
   },
   async reset() {
     const file = codexPath();
     if (!fs.existsSync(file)) return [];
-    rewriteFileSafe(file, "");
+    const backup = `${file}.bak-mapigate`;
+    let text = "";
+    try {
+      text = fs.readFileSync(file, "utf8");
+    } catch {
+      return [];
+    }
+
+    // Selectively prune Mapigate and 9router sections and settings
+    text = pruneTomlSection(text, "model_providers.mapigate");
+    text = pruneTomlSection(text, "model_providers.9router");
+    text = text.replace(/^[ \t]*model_provider\s*=\s*["'](?:mapigate|9router)["'][ \t]*\r?\n?/gm, "");
+    text = text.replace(/^[ \t]*default_subagent_model\s*=\s*["'][^"']*["'][ \t]*\r?\n?/gm, "");
+    text = pruneTomlSection(text, "agents.subagent");
+
+    text = text.replace(/(\r?\n){3,}/g, "\n\n").trim();
+
+    if (text.length > 0) {
+      rewriteFileSafe(file, text + "\n");
+    } else if (fs.existsSync(backup)) {
+      try {
+        fs.copyFileSync(backup, file);
+      } catch {
+        rewriteFileSafe(file, "");
+      }
+    } else {
+      rewriteFileSafe(file, "");
+    }
     return [file];
   },
 };
@@ -354,12 +435,31 @@ const openclawHandler: ToolConfigHandler = {
   },
   async reset() {
     const file = openclawPath();
-    if (fs.existsSync(file)) {
-      try {
-        fs.unlinkSync(file);
-      } catch {
-        // ignore
+    if (!fs.existsSync(file)) return [];
+    const backup = `${file}.bak-mapigate`;
+    const cfg = readJsonSafe(file);
+    if (!cfg) {
+      if (fs.existsSync(backup)) {
+        try {
+          fs.copyFileSync(backup, file);
+        } catch {
+          // ignore
+        }
       }
+      return [file];
+    }
+    delete cfg.baseUrl;
+    delete cfg.apiKey;
+    if (Object.keys(cfg).length > 0) {
+      rewriteFileSafe(file, JSON.stringify(cfg, null, 2) + "\n");
+    } else if (fs.existsSync(backup)) {
+      try {
+        fs.copyFileSync(backup, file);
+      } catch {
+        rewriteFileSafe(file, "{}\n");
+      }
+    } else {
+      rewriteFileSafe(file, "{}\n");
     }
     return [file];
   },
@@ -376,20 +476,49 @@ export const ALL_TOOL_HANDLERS: ToolConfigHandler[] = [
 
 export const SUPPORTED_TOOL_IDS = ALL_TOOL_HANDLERS.map((h) => h.id);
 
-export function resolveToolHandlers(toolNames: string[]): ToolConfigHandler[] {
-  if (!toolNames.length || toolNames.includes("all")) {
-    return ALL_TOOL_HANDLERS;
+export const TOOL_ALIASES: Record<string, string> = {
+  "claude-code": "claude",
+  "claudecode": "claude",
+  "codex-cli": "codex",
+  "open-code": "opencode",
+  "factory": "droid",
+  "factory-droid": "droid",
+  "cline-cli": "cline",
+  "open-claw": "openclaw",
+};
+
+export interface ResolveToolResult {
+  handlers: ToolConfigHandler[];
+  unrecognized: string[];
+}
+
+export function resolveToolHandlersWithValidation(toolNames: string[]): ResolveToolResult {
+  if (!toolNames.length || toolNames.map((t) => t.trim().toLowerCase()).includes("all")) {
+    return { handlers: ALL_TOOL_HANDLERS, unrecognized: [] };
   }
 
-  const result: ToolConfigHandler[] = [];
-  for (const name of toolNames) {
-    const clean = name.trim().toLowerCase();
+  const handlers: ToolConfigHandler[] = [];
+  const unrecognized: string[] = [];
+
+  for (const raw of toolNames) {
+    const clean = raw.trim().toLowerCase();
+    if (!clean) continue;
+    const resolved = TOOL_ALIASES[clean] || clean;
     const match = ALL_TOOL_HANDLERS.find(
-      (h) => h.id === clean || h.id.replace(/-/g, "") === clean.replace(/-/g, "")
+      (h) => h.id === resolved || h.id.replace(/-/g, "") === resolved.replace(/-/g, "")
     );
-    if (match && !result.includes(match)) {
-      result.push(match);
+    if (match) {
+      if (!handlers.includes(match)) {
+        handlers.push(match);
+      }
+    } else {
+      unrecognized.push(raw.trim());
     }
   }
-  return result;
+
+  return { handlers, unrecognized };
+}
+
+export function resolveToolHandlers(toolNames: string[]): ToolConfigHandler[] {
+  return resolveToolHandlersWithValidation(toolNames).handlers;
 }

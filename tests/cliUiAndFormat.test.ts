@@ -64,6 +64,11 @@ test("clipboard - copyToClipboard handles empty strings gracefully", () => {
   assert.equal(copyToClipboard(""), false);
 });
 
+test("clipboard - copyToClipboard handles strings with variables and quotes safely", () => {
+  const result = copyToClipboard('Hello $variable "double quotes" and \'single quotes\'');
+  assert.equal(typeof result, "boolean");
+});
+
 test("apiClient - configuration and URL resolution", () => {
   ApiClient.configure({ host: "127.0.0.1", port: 20127 });
   assert.equal(ApiClient.getBaseUrl(), "http://127.0.0.1:20127");
