@@ -517,7 +517,11 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                 type="text"
                 value={callbackUrl}
                 onChange={(e) => setCallbackUrl(e.target.value)}
-                placeholder="http://localhost:20127/callback?code=..."
+                placeholder={
+                  providerId === "codex"
+                    ? "http://localhost:1455/auth/callback?code=... or code"
+                    : `${window.location.origin}/callback?code=... or code`
+                }
                 className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
               />
             </div>

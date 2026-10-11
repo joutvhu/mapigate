@@ -1,4 +1,5 @@
 import { Router } from "express";
+import http from "node:http";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -41,6 +42,56 @@ function parseJwtPayload(token: string): any {
     return JSON.parse(json);
   } catch {
     return null;
+  }
+}
+
+// Background loopback listener for Codex fixed port 1455
+let codexProxyServer: http.Server | null = null;
+let codexProxyTimeout: NodeJS.Timeout | null = null;
+
+export function stopCodexProxy() {
+  if (codexProxyTimeout) {
+    clearTimeout(codexProxyTimeout);
+    codexProxyTimeout = null;
+  }
+  if (codexProxyServer) {
+    try {
+      codexProxyServer.close();
+    } catch {}
+    codexProxyServer = null;
+  }
+}
+
+export function startCodexProxy(appPort: number) {
+  if (codexProxyServer) return;
+
+  const server = http.createServer((req, res) => {
+    const url = new URL(req.url || "/", "http://localhost");
+
+    if (url.pathname !== "/callback" && url.pathname !== "/auth/callback") {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+
+    // 302 redirect to app /callback so browser sends postMessage / storage event
+    const redirectUrl = `http://localhost:${appPort}/callback${url.search}`;
+    res.writeHead(302, { Location: redirectUrl });
+    res.end();
+    stopCodexProxy();
+  });
+
+  server.on("error", () => {
+    stopCodexProxy();
+  });
+
+  try {
+    server.listen(1455, "127.0.0.1", () => {
+      codexProxyServer = server;
+      codexProxyTimeout = setTimeout(() => stopCodexProxy(), 5 * 60 * 1000);
+    });
+  } catch {
+    stopCodexProxy();
   }
 }
 
@@ -210,20 +261,28 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
 
   // 4. Codex (OpenAI) PKCE flow
   if (pId === "codex") {
-    const codexRedirect = (req.query.redirect_uri as string) || "http://localhost:1455/auth/callback";
-    const params = new URLSearchParams({
+    const codexRedirect = "http://localhost:1455/auth/callback";
+    const params = {
       response_type: "code",
       client_id: CODEX_CLIENT_ID,
       redirect_uri: codexRedirect,
       scope: CODEX_SCOPE,
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
+      id_token_add_organizations: "true",
       codex_cli_simplified_flow: "true",
-      prompt: "login",
-      id_token_signing_alg: "RS256",
+      originator: "codex_cli_rs",
       state,
-    });
-    const authUrl = `${CODEX_AUTHORIZE_URL}?${params.toString()}`;
+    };
+    // Ensure spaces in scope are encoded as %20 instead of + (OpenAI auth server requires %20)
+    const queryString = Object.entries(params)
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join("&");
+    const authUrl = `${CODEX_AUTHORIZE_URL}?${queryString}`;
+
+    // Start local proxy on port 1455 in background to capture the callback
+    startCodexProxy(Number(appPort));
+
     res.json({
       authUrl,
       redirectUri: codexRedirect,
@@ -231,6 +290,26 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
       codeVerifier,
       codeChallenge,
       flowType: "authorization_code_pkce",
+    });
+    return;
+  }
+
+  // 4b. Cline & ClinePass OAuth flow
+  if (pId === "cline" || pId === "clinepass") {
+    const reg = getRegistryProvider(pId);
+    const authEndpoint = reg?.oauth?.authorizeUrl || "https://api.cline.bot/api/v1/auth/authorize";
+    const params = new URLSearchParams({
+      client_type: "extension",
+      callback_url: redirectUri,
+      redirect_uri: redirectUri,
+      state,
+    });
+    const authUrl = `${authEndpoint}?${params.toString()}`;
+    res.json({
+      authUrl,
+      redirectUri,
+      state,
+      flowType: "authorization_code",
     });
     return;
   }
@@ -830,6 +909,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
   // 6. Codex (OpenAI) PKCE exchange
   if (pId === "codex") {
     try {
+      const codexRedirect = "http://localhost:1455/auth/callback";
       const tokenRes = await fetch(CODEX_TOKEN_URL, {
         method: "POST",
         headers: {
@@ -840,7 +920,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
           grant_type: "authorization_code",
           client_id: CODEX_CLIENT_ID,
           code: rawCode,
-          redirect_uri: effectiveRedirectUri,
+          redirect_uri: codexRedirect,
           code_verifier: codeVerifier || "",
         }),
       });
@@ -859,10 +939,14 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       }
 
       let accountName = "Codex Account";
+      let chatgptAccountId: string | undefined;
+      let chatgptPlanType: string | undefined;
       if (tokenData.id_token) {
         const payload = parseJwtPayload(tokenData.id_token);
         const email = payload?.email || payload?.["https://api.openai.com/profile"]?.email;
         if (email) accountName = email;
+        chatgptAccountId = payload?.["https://api.openai.com/auth"]?.chatgpt_account_id;
+        chatgptPlanType = payload?.["https://api.openai.com/auth"]?.chatgpt_plan_type;
       }
 
       const existingProvider = ProviderRepository.getProviderById("codex");
@@ -892,6 +976,8 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
           email: accountName,
           refreshToken,
           expiresAt,
+          ...(chatgptAccountId ? { chatgptAccountId } : {}),
+          ...(chatgptPlanType ? { chatgptPlanType } : {}),
         },
       });
 
@@ -902,6 +988,122 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       return;
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to exchange Codex token" });
+      return;
+    }
+  }
+
+  // 6b. Cline & ClinePass exchange
+  if (pId === "cline" || pId === "clinepass") {
+    try {
+      let accessToken = "";
+      let refreshToken = "";
+      let email = "";
+      let expiresAt: number | undefined;
+      let firstName = "";
+      let lastName = "";
+
+      // 1. Try decoding base64 JSON from code param (Cline's token payload)
+      let decodedJson: any = null;
+      try {
+        let base64 = rawCode;
+        const padding = 4 - (base64.length % 4);
+        if (padding !== 4) base64 += "=".repeat(padding);
+        const decoded = Buffer.from(base64, "base64").toString("utf8");
+        const lastBrace = decoded.lastIndexOf("}");
+        if (lastBrace !== -1) {
+          decodedJson = JSON.parse(decoded.substring(0, lastBrace + 1));
+        }
+      } catch {}
+
+      if (decodedJson && (decodedJson.accessToken || decodedJson.access_token)) {
+        accessToken = decodedJson.accessToken || decodedJson.access_token;
+        refreshToken = decodedJson.refreshToken || decodedJson.refresh_token || "";
+        email = decodedJson.email || "";
+        firstName = decodedJson.firstName || "";
+        lastName = decodedJson.lastName || "";
+        if (decodedJson.expiresAt) {
+          expiresAt = new Date(decodedJson.expiresAt).getTime();
+        }
+      } else {
+        // 2. Fetch from token endpoint
+        const reg = getRegistryProvider(pId);
+        const tokenUrl =
+          reg?.oauth?.tokenExchangeUrl ||
+          reg?.oauth?.tokenUrl ||
+          "https://api.cline.bot/api/v1/auth/token";
+
+        const tokenRes = await fetch(tokenUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            grant_type: "authorization_code",
+            code: rawCode,
+            client_type: "extension",
+            redirect_uri: effectiveRedirectUri,
+          }),
+        });
+
+        if (!tokenRes.ok) {
+          const errText = await tokenRes.text();
+          res.status(400).json({ error: `${pId} token exchange failed: ${errText}` });
+          return;
+        }
+
+        const data: any = await tokenRes.json();
+        accessToken = data.data?.accessToken || data.accessToken || "";
+        refreshToken = data.data?.refreshToken || data.refreshToken || "";
+        email = data.data?.userInfo?.email || data.email || "";
+        if (data.data?.expiresAt || data.expiresAt) {
+          expiresAt = new Date(data.data?.expiresAt || data.expiresAt).getTime();
+        }
+      }
+
+      if (!accessToken) {
+        res.status(400).json({ error: `No access token received from ${pId}` });
+        return;
+      }
+
+      const accountName = email || `${pId.toUpperCase()} Account`;
+      const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+      const expiresInSec = expiresAt ? Math.max(60, Math.floor((expiresAt - Date.now()) / 1000)) : 3600;
+
+      const existingProvider = ProviderRepository.getProviderById(pId);
+      if (!existingProvider) {
+        const defaults = ProviderRepository.getProviderWithDefaults(pId);
+        if (defaults) ProviderRepository.saveProvider(defaults);
+      }
+
+      const storedToken = JSON.stringify({
+        accessToken,
+        refreshToken,
+        expiresAt: expiresAt || Date.now() + expiresInSec * 1000,
+        email,
+      });
+
+      ProviderRepository.addAccount({
+        id: accountId,
+        providerId: pId,
+        name: accountName,
+        rawApiKey: storedToken,
+        providerSpecificData: {
+          email,
+          firstName,
+          lastName,
+          refreshToken,
+          expiresAt,
+        },
+      });
+
+      res.json({
+        success: true,
+        account: { id: accountId, name: accountName, providerId: pId },
+      });
+      return;
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || `Failed to exchange ${pId} token` });
       return;
     }
   }
