@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ScanModelsModal } from "../components/ScanModelsModal";
+import { CommunityCatalogModal } from "../components/CommunityCatalogModal";
 import { saveProviderModels } from "../services/providerService";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
@@ -26,6 +27,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "connected" | "not_connected">("all");
   const [scanningProvider, setScanningProvider] = useState<ProviderItem | null>(null);
+  const [isCommunityCatalogOpen, setIsCommunityCatalogOpen] = useState(false);
 
   const loadBackendProviders = async () => {
     try {
@@ -285,6 +287,14 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
               <span className="material-symbols-outlined text-[16px]">add</span>
               Add OpenAI Compatible
             </button>
+            <button
+              onClick={() => setIsCommunityCatalogOpen(true)}
+              className="rt-btn rt-btn--secondary hover:border-blue-500/50"
+              title="Browse 124 community-curated routers & gateways"
+            >
+              <span className="material-symbols-outlined text-blue-400 text-[16px]">explore</span>
+              Community Catalog
+            </button>
           </div>
         </div>
 
@@ -511,6 +521,17 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           }}
         />
       )}
+
+      {/* Modal Community Catalog */}
+      <CommunityCatalogModal
+        isOpen={isCommunityCatalogOpen}
+        existingProviderIds={backendProviders.map((bp) => bp.id)}
+        onClose={() => setIsCommunityCatalogOpen(false)}
+        onImportSuccess={async () => {
+          await loadBackendProviders();
+          invalidateAvailableModelsCache();
+        }}
+      />
     </div>
   );
 };

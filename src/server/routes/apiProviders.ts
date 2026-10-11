@@ -1,10 +1,98 @@
 import { Router } from "express";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
+import {
+  COMMUNITY_PROVIDERS_CATALOG,
+  getCommunityCatalogProvider,
+} from "../../shared/constants/communityProvidersCatalog.js";
 import { scanProviderModels } from "../../core/scanner/modelScanner.js";
 import crypto from "node:crypto";
 
 export const providerRouter = Router();
+
+// GET community providers catalog (P3 on-demand catalog)
+providerRouter.get("/community-catalog", (req, res) => {
+  const query = String(req.query.q || "").toLowerCase().trim();
+  const category = String(req.query.category || "").toLowerCase().trim();
+
+  let list = COMMUNITY_PROVIDERS_CATALOG;
+  if (category && category !== "all") {
+    list = list.filter((p) => p.category.toLowerCase() === category);
+  }
+  if (query) {
+    list = list.filter(
+      (p) =>
+        p.id.toLowerCase().includes(query) ||
+        p.name.toLowerCase().includes(query) ||
+        p.baseUrl.toLowerCase().includes(query) ||
+        p.models?.some((m) => m.id.toLowerCase().includes(query) || m.name?.toLowerCase().includes(query))
+    );
+  }
+
+  res.json({
+    total: list.length,
+    catalog: list,
+  });
+});
+
+// POST import community provider into active SQLite database
+providerRouter.post("/community-catalog/import", (req, res) => {
+  const { id, apiKey, accountName, customBaseUrl } = req.body || {};
+  if (!id) {
+    res.status(400).json({ error: "Provider id is required for import." });
+    return;
+  }
+
+  const catalogItem = getCommunityCatalogProvider(id);
+  if (!catalogItem) {
+    res.status(404).json({ error: `Community provider "${id}" not found in catalog.` });
+    return;
+  }
+
+  const baseUrl = (customBaseUrl || catalogItem.baseUrl || "").trim();
+  if (!baseUrl) {
+    res.status(400).json({
+      error: `Provider "${catalogItem.name}" requires a valid Base URL. Please specify customBaseUrl.`,
+    });
+    return;
+  }
+
+  const now = Date.now();
+  const provider = {
+    id: catalogItem.id,
+    name: catalogItem.name,
+    baseUrl,
+    format: catalogItem.format || "openai",
+    isActive: true,
+    priority: 10,
+    models: (catalogItem.models || []).map((m: any) => (typeof m === "string" ? m : m.id)),
+    customHeaders: {},
+    thinkingMode: "auto",
+    strategy: null,
+    stickyLimit: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  ProviderRepository.saveProvider(provider);
+
+  let accountId: string | undefined;
+  if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
+    accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+    ProviderRepository.addAccount({
+      id: accountId,
+      providerId: provider.id,
+      name: accountName?.trim() || "Default Account",
+      rawApiKey: apiKey.trim(),
+    });
+  }
+
+  res.json({
+    success: true,
+    provider,
+    accountId,
+  });
+});
 
 // GET all registry providers
 providerRouter.get("/registry", (_req, res) => {

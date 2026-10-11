@@ -2,11 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import http from "node:http";
 
+import app from "../src/server/index.js";
+import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
 import {
   PROVIDER_REGISTRY,
   getRegistryProvider,
 } from "../src/shared/constants/providerRegistry.js";
+import {
+  COMMUNITY_PROVIDERS_CATALOG,
+  getCommunityCatalogProvider,
+} from "../src/shared/constants/communityProvidersCatalog.js";
 
 const P1_PROVIDERS = [
   "deepinfra",
@@ -147,3 +154,56 @@ test("Providers Expansion - Anti-Bloat Guard", () => {
     assert.equal(PROVIDER_REGISTRY[id], undefined, `Banned provider '${id}' must NOT be in PROVIDER_REGISTRY`);
   }
 });
+
+test("Providers Expansion - Community Catalog API & On-Demand Import", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const testProviderId = "openvecta";
+
+  try {
+    // 1. GET /api/providers/community-catalog
+    const res1 = await fetch(`${baseUrl}/api/providers/community-catalog`);
+    assert.equal(res1.status, 200);
+    const data1 = (await res1.json()) as any;
+    assert.ok(data1.total >= 100);
+    assert.ok(Array.isArray(data1.catalog));
+
+    // 2. Query filter
+    const res2 = await fetch(`${baseUrl}/api/providers/community-catalog?q=openvecta`);
+    assert.equal(res2.status, 200);
+    const data2 = (await res2.json()) as any;
+    assert.ok(data2.catalog.some((p: any) => p.id === "openvecta"));
+
+    // 3. POST /api/providers/community-catalog/import
+    const importRes = await fetch(`${baseUrl}/api/providers/community-catalog/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: testProviderId,
+        customBaseUrl: "https://api.openvecta.ai/v1",
+        apiKey: "sk-test-community-key",
+        accountName: "Community Test Key",
+      }),
+    });
+    assert.equal(importRes.status, 200);
+    const importData = (await importRes.json()) as any;
+    assert.equal(importData.success, true);
+    assert.equal(importData.provider.id, testProviderId);
+
+    // 4. Verify in DB
+    const saved = ProviderRepository.getProviderById(testProviderId);
+    assert.ok(saved, "Provider must be saved in SQLite DB");
+    assert.equal(saved.id, testProviderId);
+
+    const accounts = ProviderRepository.getAllAccountsByProvider(testProviderId);
+    assert.ok(accounts.length > 0, "Account must be created in SQLite DB");
+  } finally {
+    // Cleanup
+    ProviderRepository.deleteProvider(testProviderId);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+

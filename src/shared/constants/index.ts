@@ -55,3 +55,4 @@ export const CONSOLE_LOG_CONFIG = {
 
 export * from "./providerRegistry.js";
 export * from "./cliTools.js";
+export * from "./communityProvidersCatalog.js";
