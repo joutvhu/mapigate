@@ -1,30 +1,70 @@
 import { Router } from "express";
+import fs from "node:fs";
 import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
+import { mitmManager } from "../../mitm/manager.js";
+import { ROOT_CA_CERT_PATH } from "../../mitm/cert/rootCA.js";
 
 export const mitmRouter = Router();
 
 // GET MITM status
-mitmRouter.get("/status", (_req, res) => {
-  res.json({
-    running: MitmRepository.getMitmServerRunning(),
-    certExists: true,
-    certTrusted: true,
-    serverOk: true,
-    dnsStatus: MitmRepository.getAllToolDnsStatus(),
-    routerBaseUrl: "http://localhost:20127",
-  });
+mitmRouter.get("/status", async (_req, res) => {
+  try {
+    const status = await mitmManager.getStatus();
+    res.json(status);
+  } catch (error: any) {
+    res.json({
+      running: MitmRepository.getMitmServerRunning(),
+      certExists: true,
+      certTrusted: true,
+      serverOk: true,
+      dnsStatus: MitmRepository.getAllToolDnsStatus(),
+      routerBaseUrl: "http://127.0.0.1:20127",
+    });
+  }
+});
+
+// GET download Root CA certificate
+mitmRouter.get("/cert", (_req, res) => {
+  if (fs.existsSync(ROOT_CA_CERT_PATH)) {
+    res.setHeader("Content-Disposition", 'attachment; filename="routen-rootCA.crt"');
+    res.setHeader("Content-Type", "application/x-x509-ca-cert");
+    res.sendFile(ROOT_CA_CERT_PATH);
+  } else {
+    res.status(404).json({ error: "Root CA certificate not found" });
+  }
+});
+
+// POST install Root CA certificate
+mitmRouter.post("/install-cert", async (_req, res) => {
+  try {
+    const result = await mitmManager.installCertificate();
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Failed to install certificate" });
+  }
 });
 
 // POST toggle MITM server
-mitmRouter.post("/toggle-server", (req, res) => {
-  let isRunning: boolean;
-  if (req.body.running !== undefined) {
-    isRunning = Boolean(req.body.running);
-  } else {
-    isRunning = !MitmRepository.getMitmServerRunning();
+mitmRouter.post("/toggle-server", async (req, res) => {
+  try {
+    let shouldRun: boolean;
+    if (req.body.running !== undefined) {
+      shouldRun = Boolean(req.body.running);
+    } else {
+      const status = await mitmManager.getStatus();
+      shouldRun = !status.running;
+    }
+
+    if (shouldRun) {
+      const port = await mitmManager.startServer();
+      res.json({ running: port > 0, port });
+    } else {
+      await mitmManager.stopServer();
+      res.json({ running: false, port: 0 });
+    }
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to toggle server" });
   }
-  MitmRepository.setMitmServerRunning(isRunning);
-  res.json({ running: isRunning });
 });
 
 // POST toggle DNS redirection for an IDE / tool
@@ -114,7 +154,7 @@ mitmRouter.post("/mappings/reset", (req, res) => {
   res.json({ success: true, ide, mappings });
 });
 
-// DELETE mapping: supports query parameter (?sourceModel=...), request body ({ sourceModel }), and path parameter
+// DELETE mapping
 mitmRouter.delete("/mappings/:ide", (req, res) => {
   const ide = req.params.ide;
   const sourceModel = (req.query.sourceModel as string) || req.body?.sourceModel;

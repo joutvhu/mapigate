@@ -154,9 +154,3 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
   { id: "smelt", name: "Smelt", image: "/providers/smelt.svg", status: "Not installed" },
   { id: "codewhale", name: "CodeWhale", image: "/providers/codewhale.svg", status: "Not installed" },
 ];
-
-export const MITM_TOOLS_LIST: CliToolItem[] = [
-  { id: "antigravity", name: "Antigravity", image: "/providers/antigravity.png", status: "Connected", desc: "Google Antigravity IDE with MITM" },
-  { id: "kiro", name: "Kiro", image: "/providers/kiro.png", status: "Connected", desc: "Kiro IDE with MITM" },
-  { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", status: "Connected", desc: "GitHub Copilot in VS Code via MITM" },
-];

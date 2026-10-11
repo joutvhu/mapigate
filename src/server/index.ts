@@ -10,6 +10,7 @@ import { statsRouter } from "./routes/apiStats.js";
 import { comboRouter } from "./routes/apiCombos.js";
 import { mitmRouter } from "./routes/apiMitm.js";
 import { oauthRouter } from "./routes/apiOAuth.js";
+import { cliToolsRouter } from "./routes/apiCliTools.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 
 const app = express();
@@ -45,6 +46,7 @@ app.use("/api/stats", statsRouter);
 app.use("/api/combos", comboRouter);
 app.use("/api/mitm", mitmRouter);
 app.use("/api/oauth", oauthRouter);
+app.use("/api/cli-tools", cliToolsRouter);
 
 // OAuth Callback Relay Endpoint
 app.get("/callback", (_req, res) => {

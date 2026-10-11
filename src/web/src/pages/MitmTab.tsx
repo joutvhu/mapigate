@@ -38,8 +38,38 @@ const MITM_TOOLS: MitmToolConfig[] = [
   },
 ];
 
+interface MitmStatusData {
+  running: boolean;
+  port: number;
+  certExists: boolean;
+  certTrusted: boolean;
+  certPath: string;
+  fingerprint: string;
+  installCommands?: {
+    windows: string;
+    mac: string;
+    linux: string;
+  };
+  dnsStatus?: Record<string, boolean>;
+  routerBaseUrl: string;
+}
+
 export const MitmTab: React.FC = () => {
   const [serverRunning, setServerRunning] = useState(true);
+  const [mitmPort, setMitmPort] = useState(443);
+  const [certExists, setCertExists] = useState(true);
+  const [certTrusted, setCertTrusted] = useState(false);
+  const [certPath, setCertPath] = useState("");
+  const [fingerprint, setFingerprint] = useState("");
+  const [installCommands, setInstallCommands] = useState<{ windows: string; mac: string; linux: string }>({
+    windows: 'certutil -addstore -user "Root" "%USERPROFILE%\\.routen\\mitm\\rootCA.crt"',
+    mac: 'sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.routen/mitm/rootCA.crt',
+    linux: 'sudo cp ~/.routen/mitm/rootCA.crt /usr/local/share/ca-certificates/routen-rootCA.crt && sudo update-ca-certificates',
+  });
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [installingCert, setInstallingCert] = useState(false);
+  const [certInstallMsg, setCertInstallMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const [dnsStatus, setDnsStatus] = useState<Record<string, boolean>>({
     antigravity: false,
     kiro: true,
@@ -72,13 +102,23 @@ export const MitmTab: React.FC = () => {
   const [newSourceModel, setNewSourceModel] = useState("");
   const [newTargetModel, setNewTargetModel] = useState("");
 
-  // Initial load
-  useEffect(() => {
-    // 1. Status
+  const copyText = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
+
+  const loadStatus = () => {
     fetch("/api/mitm/status")
       .then((r) => r.json())
-      .then((d) => {
-        setServerRunning(d.running);
+      .then((d: MitmStatusData) => {
+        setServerRunning(Boolean(d.running));
+        if (d.port) setMitmPort(d.port);
+        setCertExists(Boolean(d.certExists));
+        setCertTrusted(Boolean(d.certTrusted));
+        if (d.certPath) setCertPath(d.certPath);
+        if (d.fingerprint) setFingerprint(d.fingerprint);
+        if (d.installCommands) setInstallCommands(d.installCommands);
         if (d.dnsStatus) {
           setDnsStatus({
             antigravity: Boolean(d.dnsStatus.antigravity),
@@ -88,8 +128,9 @@ export const MitmTab: React.FC = () => {
         }
       })
       .catch(() => {});
+  };
 
-    // 2. Load hosts and mappings for each tool
+  const loadToolData = () => {
     MITM_TOOLS.forEach((tool) => {
       fetch(`/api/mitm/hosts/${tool.id}`)
         .then((r) => r.json())
@@ -109,19 +150,46 @@ export const MitmTab: React.FC = () => {
         })
         .catch(() => {});
     });
+  };
+
+  useEffect(() => {
+    loadStatus();
+    loadToolData();
   }, []);
 
   const toggleServer = async () => {
     const next = !serverRunning;
     setServerRunning(next);
     try {
-      await fetch("/api/mitm/toggle-server", {
+      const res = await fetch("/api/mitm/toggle-server", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ running: next }),
       });
+      const data = await res.json();
+      setServerRunning(Boolean(data.running));
+      if (data.port) setMitmPort(data.port);
     } catch {
       //
+    }
+  };
+
+  const handleInstallCert = async () => {
+    setInstallingCert(true);
+    setCertInstallMsg(null);
+    try {
+      const res = await fetch("/api/mitm/install-cert", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setCertInstallMsg({ type: "success", text: data.message || "Root CA installed successfully!" });
+        loadStatus();
+      } else {
+        setCertInstallMsg({ type: "error", text: data.message || "Installation failed" });
+      }
+    } catch (e: any) {
+      setCertInstallMsg({ type: "error", text: e?.message || "Failed to install certificate" });
+    } finally {
+      setInstallingCert(false);
     }
   };
 
@@ -277,63 +345,34 @@ export const MitmTab: React.FC = () => {
       <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
         <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>
         <p>
-          ⚠️ <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot) via local Root CA to redirect requests to your chosen providers and models. DNS is calculated and managed independently per tool.
+          ⚠️ <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
         </p>
       </div>
 
       {/* MITM Server Control Card */}
-      <div className="rt-card p-6 space-y-4">
+      <div className="rt-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[22px] text-cyan-400">security</span>
+            <div className="size-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">security</span>
+            </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white">MITM Server</h3>
+                <h3 className="text-sm font-bold text-white">MITM HTTPS Proxy Server</h3>
                 <span className={`rt-badge ${serverRunning ? "rt-badge--success" : "rt-badge--muted"}`}>
-                  {serverRunning ? "● Running" : "Stopped"}
+                  {serverRunning ? `● Running (Port :${mitmPort})` : "Stopped"}
                 </span>
               </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Intercepts inbound IDE requests via SNI certificate emulation on port {mitmPort}.
+              </p>
             </div>
           </div>
 
-          {/* Badges */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="rt-badge rt-badge--success">
-              <span className="material-symbols-outlined text-[14px]">check</span> Cert
-            </span>
-            <span className="rt-badge rt-badge--success">
-              <span className="material-symbols-outlined text-[14px]">check</span> Trusted
-            </span>
-            <span className="rt-badge rt-badge--success">
-              <span className="material-symbols-outlined text-[14px]">check</span> Server
-            </span>
-          </div>
-        </div>
-
-        <div className="space-y-2 text-xs text-slate-400 leading-relaxed">
-          <p>
-            <strong className="text-slate-200">Purpose:</strong> Intercept closed IDE tools and route their chat turns through your custom providers.
-          </p>
-          <p>
-            <strong className="text-slate-200">How it works:</strong> IDE HTTPS request → DNS redirect to localhost:443/8443 → MITM proxy decodes → Routen Router → Upstream.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-          <div className="flex items-center gap-3 text-xs">
-            <span className="font-semibold text-slate-300">Routen Base URL:</span>
-            <code className="text-blue-400 font-mono bg-[#0A0D14] px-3 py-1.5 rounded-lg border border-[#1E293B]">
-              http://localhost:20127
-            </code>
-          </div>
-
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-500 italic">
-              Enable DNS per tool below to activate interception
-            </span>
             <button
               onClick={toggleServer}
-              className={`rt-btn ${serverRunning ? "rt-btn--danger" : "rt-btn--primary"}`}
+              className={`rt-btn text-xs py-1.5 px-3.5 ${serverRunning ? "rt-btn--danger" : "rt-btn--primary"}`}
             >
               <span className="material-symbols-outlined text-[16px]">
                 {serverRunning ? "stop" : "play_arrow"}
@@ -342,14 +381,172 @@ export const MitmTab: React.FC = () => {
             </button>
           </div>
         </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-1 text-xs">
+          <div className="flex items-center gap-3">
+            <span className="font-semibold text-slate-300">Routen Local Endpoint:</span>
+            <code className="text-blue-400 font-mono bg-[#0A0D14] px-3 py-1.5 rounded-lg border border-[#1E293B]">
+              http://127.0.0.1:20127
+            </code>
+          </div>
+
+          <span className="text-[11px] text-slate-400 italic">
+            Enable DNS per tool below to activate redirection
+          </span>
+        </div>
       </div>
 
-      {/* Per-Tool Accordions (Antigravity, Kiro, Copilot) */}
+      {/* ROOT CA CERTIFICATE MANAGEMENT CARD */}
+      <div className="rt-card p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">verified_user</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-white">SSL Root CA Certificate</h4>
+                {certTrusted ? (
+                  <span className="rt-badge rt-badge--success">
+                    <span className="material-symbols-outlined text-[13px]">check</span> Trusted in System
+                  </span>
+                ) : (
+                  <span className="rt-badge rt-badge--warning">
+                    <span className="material-symbols-outlined text-[13px]">info</span> Not Yet Trusted
+                  </span>
+                )}
+                {certExists && (
+                  <span className="rt-badge rt-badge--info">Generated</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Required for IDEs to accept MITM proxy SSL handshakes without security warnings.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/mitm/cert"
+              download="routen-rootCA.crt"
+              className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              Download CA
+            </a>
+            <button
+              disabled={installingCert}
+              onClick={handleInstallCert}
+              className="rt-btn rt-btn--primary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_task</span>
+              {installingCert ? "Installing..." : "Install to System Store"}
+            </button>
+          </div>
+        </div>
+
+        {/* Certificate Details */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div className="p-3 bg-[#0A0D14] rounded-xl border border-[#1E293B] space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 font-medium">SHA1 Fingerprint:</span>
+              {fingerprint && (
+                <button
+                  onClick={() => copyText("fp", fingerprint)}
+                  className="text-blue-400 hover:text-blue-300 font-mono text-[11px] flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                  {copiedKey === "fp" ? "Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+            <code className="text-purple-300 font-mono text-[11px] block break-all">
+              {fingerprint || "Generating upon first start..."}
+            </code>
+          </div>
+
+          <div className="p-3 bg-[#0A0D14] rounded-xl border border-[#1E293B] space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 font-medium">CA File Path:</span>
+              {certPath && (
+                <button
+                  onClick={() => copyText("cp", certPath)}
+                  className="text-blue-400 hover:text-blue-300 font-mono text-[11px] flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                  {copiedKey === "cp" ? "Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+            <code className="text-slate-300 font-mono text-[11px] block truncate">
+              {certPath || "~/.routen/mitm/rootCA.crt"}
+            </code>
+          </div>
+        </div>
+
+        {/* Manual Terminal Install Commands */}
+        <div className="space-y-2 text-xs">
+          <span className="font-semibold text-slate-300 block">Manual Installation Commands:</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+            {/* Windows Command */}
+            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-medium">Windows (PowerShell / cmd):</span>
+                <button
+                  onClick={() => copyText("winCmd", installCommands.windows)}
+                  className="text-blue-400 hover:text-blue-300 font-mono text-[11px] flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                  {copiedKey === "winCmd" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <code className="text-emerald-400 font-mono text-[11px] block break-all bg-[#05070B] p-2 rounded-lg border border-[#1E293B]">
+                {installCommands.windows}
+              </code>
+            </div>
+
+            {/* macOS Command */}
+            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 font-medium">macOS (Terminal):</span>
+                <button
+                  onClick={() => copyText("macCmd", installCommands.mac)}
+                  className="text-blue-400 hover:text-blue-300 font-mono text-[11px] flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                  {copiedKey === "macCmd" ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <code className="text-emerald-400 font-mono text-[11px] block break-all bg-[#05070B] p-2 rounded-lg border border-[#1E293B]">
+                {installCommands.mac}
+              </code>
+            </div>
+          </div>
+        </div>
+
+        {/* Cert Installation Message */}
+        {certInstallMsg && (
+          <div
+            className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+              certInstallMsg.type === "success"
+                ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
+                : "bg-red-500/10 border border-red-500/20 text-red-400"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {certInstallMsg.type === "success" ? "check_circle" : "error"}
+            </span>
+            {certInstallMsg.text}
+          </div>
+        )}
+      </div>
+
+      {/* INDEPENDENT TOOL ACCORDIONS (Antigravity, Kiro, GitHub Copilot) */}
       <div className="space-y-4">
         {MITM_TOOLS.map((tool) => {
           const isExpanded = expandedTool === tool.id;
           const isDnsOn = Boolean(dnsStatus[tool.id]);
-          const toolHosts = hostsByTool[tool.id] || "";
+          const toolHosts = hostsByTool[tool.id] || tool.defaultHost;
           const toolMappings = mappingsByTool[tool.id] || [];
           const savedMsg = hostsSavedMsgByTool[tool.id];
 
@@ -361,7 +558,7 @@ export const MitmTab: React.FC = () => {
                 className="flex items-center justify-between cursor-pointer select-none"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="size-8 rounded-xl bg-[#0D1322] border border-[#1E293B] p-1.5 flex items-center justify-center">
+                  <div className="size-9 rounded-xl bg-[#0D1322] border border-[#1E293B] p-1.5 flex items-center justify-center shrink-0">
                     <img src={tool.image} alt={tool.name} className="size-full object-contain" />
                   </div>
                   <div>
@@ -381,7 +578,7 @@ export const MitmTab: React.FC = () => {
                       e.stopPropagation();
                       toggleToolDns(tool.id);
                     }}
-                    className={`rt-btn text-xs ${isDnsOn ? "rt-btn--danger" : "rt-btn--primary"}`}
+                    className={`rt-btn text-xs py-1.5 px-3 ${isDnsOn ? "rt-btn--danger" : "rt-btn--primary"}`}
                   >
                     <span className="material-symbols-outlined text-[15px]">
                       {isDnsOn ? "stop" : "play_arrow"}
@@ -397,24 +594,24 @@ export const MitmTab: React.FC = () => {
 
               {/* Accordion Content */}
               {isExpanded && (
-                <div className="pt-4 border-t border-[#1E293B] space-y-5 text-xs">
-                  {/* Tool-specific Hosts Configuration */}
+                <div className="pt-4 border-t border-[#1E293B] space-y-5 text-xs animate-rt-fade-in">
+                  {/* Block 1: Tool-specific Hosts Configuration */}
                   <div className="space-y-3 p-4 rounded-xl bg-[#0A0D14] border border-[#1E293B]">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <h5 className="font-bold text-white flex items-center gap-1.5">
                           <span className="material-symbols-outlined text-blue-400 text-[16px]">dns</span>
-                          {tool.name} Hosts Redirection Entries
+                          Hosts File Entries ({tool.name})
                         </h5>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Domain redirection entries for this specific tool.
+                          Add these domain mappings to your system hosts file or let Routen intercept them.
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleResetToolHosts(tool.id)}
-                          className="rt-btn rt-btn--secondary text-xs"
+                          className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
                           title="Reset hosts entries to tool default"
                         >
                           <span className="material-symbols-outlined text-[14px]">restart_alt</span>
@@ -422,7 +619,7 @@ export const MitmTab: React.FC = () => {
                         </button>
                         <button
                           onClick={() => handleSaveToolHosts(tool.id)}
-                          className="rt-btn rt-btn--primary text-xs"
+                          className="rt-btn rt-btn--primary text-xs py-1.5 px-3"
                         >
                           <span className="material-symbols-outlined text-[14px]">save</span>
                           Save Hosts
@@ -448,21 +645,26 @@ export const MitmTab: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Tool's Model Redirection Mappings */}
+                  {/* Block 2: Model Redirection Mappings */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-200 block text-xs">
-                        Model Redirection Mappings ({tool.name} Model → Target Upstream Model):
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="font-bold text-slate-200 block text-xs">
+                          Model Redirection Mappings ({tool.name})
+                        </span>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Map requested models to your chosen Routen providers and upstream model IDs (slashes / supported).
+                        </p>
+                      </div>
 
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleResetToolMappings(tool.id)}
-                          className="rt-btn rt-btn--secondary text-xs"
-                          title="Reset mappings to default"
+                          className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
+                          title="Reset to default mappings"
                         >
                           <span className="material-symbols-outlined text-[14px]">restart_alt</span>
-                          Reset Mappings
+                          Reset to Default
                         </button>
                         <button
                           onClick={() => {
@@ -470,7 +672,7 @@ export const MitmTab: React.FC = () => {
                             setNewSourceModel("");
                             setNewTargetModel("");
                           }}
-                          className="rt-btn rt-btn--primary text-xs"
+                          className="rt-btn rt-btn--primary text-xs py-1.5 px-3"
                         >
                           <span className="material-symbols-outlined text-[14px]">add</span>
                           Add Mapping
@@ -482,13 +684,13 @@ export const MitmTab: React.FC = () => {
                     {editingTool === tool.id && editingSource && (
                       <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between gap-3 text-xs animate-rt-scale-in">
                         <div className="flex items-center gap-2 flex-1">
-                          <span className="font-mono text-slate-300 font-medium">{editingSource}</span>
+                          <span className="font-mono text-slate-200 font-medium">{editingSource}</span>
                           <span className="text-blue-400">→</span>
                           <input
                             type="text"
                             value={targetInput}
                             onChange={(e) => setTargetInput(e.target.value)}
-                            placeholder="Target model (e.g. ag/gemini-3.8-flash)"
+                            placeholder="Target model (e.g. ag/gemini-3.8-flash or cc/claude-sonnet-4-6)"
                             className="flex-1 bg-[#0A0D14] border border-blue-500/50 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none"
                             autoFocus
                           />
@@ -505,7 +707,7 @@ export const MitmTab: React.FC = () => {
                           </button>
                           <button
                             onClick={() => handleUpdateMapping(tool.id)}
-                            className="rt-btn rt-btn--primary text-xs"
+                            className="rt-btn rt-btn--primary text-xs py-1 px-3"
                           >
                             Save
                           </button>
@@ -513,10 +715,10 @@ export const MitmTab: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="rounded-xl border border-[#1E293B] overflow-hidden">
+                    <div className="rounded-xl border border-[#1E293B] overflow-hidden bg-[#0A0D14]">
                       {toolMappings.length === 0 ? (
                         <div className="p-4 text-xs text-slate-500 italic text-center">
-                          No model mappings configured for {tool.name}. Click 'Add Mapping' or 'Reset Mappings' to populate.
+                          No model mappings configured for {tool.name}. Click 'Add Mapping' or 'Reset to Default'.
                         </div>
                       ) : (
                         <table className="w-full text-left text-xs font-mono">
@@ -527,7 +729,7 @@ export const MitmTab: React.FC = () => {
                                   {m.sourceModel}
                                 </td>
                                 <td className="p-3 text-blue-400">
-                                  → <span className="text-slate-300 ml-1">{m.targetModel}</span>
+                                  → <span className="text-emerald-300 ml-1 font-mono">{m.targetModel}</span>
                                 </td>
                                 <td className="p-3 text-right space-x-2">
                                   <button
@@ -536,7 +738,7 @@ export const MitmTab: React.FC = () => {
                                       setEditingSource(m.sourceModel);
                                       setTargetInput(m.targetModel);
                                     }}
-                                    className="px-2.5 py-1 rounded bg-[#0A0D14] hover:bg-blue-600 hover:text-white border border-[#1E293B] text-slate-300 transition-colors cursor-pointer font-sans text-[11px]"
+                                    className="px-2.5 py-1 rounded bg-[#0E1320] hover:bg-blue-600 hover:text-white border border-[#1E293B] text-slate-300 transition-colors cursor-pointer font-sans text-[11px]"
                                   >
                                     Select
                                   </button>
@@ -562,7 +764,7 @@ export const MitmTab: React.FC = () => {
         })}
       </div>
 
-      {/* Add New Mapping Modal */}
+      {/* Add New Mapping Modal (Mounted via React Portal) */}
       <PortalModal
         isOpen={Boolean(modalTool)}
         onClose={() => setModalTool(null)}
@@ -570,18 +772,27 @@ export const MitmTab: React.FC = () => {
       >
         {modalTool && (
           <div className="space-y-4">
-            <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-400 text-[18px]">add_circle</span>
-              Add Model Mapping ({modalTool.toUpperCase()})
-            </h4>
-            <div className="space-y-3">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-400 text-[18px]">add_circle</span>
+                Add Model Mapping ({modalTool.toUpperCase()})
+              </h4>
+              <button
+                onClick={() => setModalTool(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Source Model ID (Sent by IDE)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. claude-sonnet-5 or gpt-4o"
+                  placeholder="e.g. auto, claude-sonnet-5, gpt-4o"
                   value={newSourceModel}
                   onChange={(e) => setNewSourceModel(e.target.value)}
                   className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
@@ -590,26 +801,32 @@ export const MitmTab: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Target Model ID (Routen Upstream Model)
+                  Target Upstream Model ID (Routen Provider Model)
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. ag/gemini-3.8-flash or cx/gpt-5.5"
+                  placeholder="e.g. ag/gemini-3.8-flash or cc/claude-sonnet-4-6"
                   value={newTargetModel}
                   onChange={(e) => setNewTargetModel(e.target.value)}
                   className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Supports slash / formats, e.g. provider/model-name.
+                </p>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-[#1E293B]">
+            <div className="flex justify-end gap-2 pt-3 border-t border-[#1E293B]">
               <button
                 onClick={() => setModalTool(null)}
-                className="px-4 py-2 text-xs text-slate-400 cursor-pointer"
+                className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
               >
                 Cancel
               </button>
-              <button onClick={handleAddMapping} className="rt-btn rt-btn--primary">
+              <button
+                onClick={handleAddMapping}
+                className="rt-btn rt-btn--primary text-xs py-1.5 px-4"
+              >
                 Add Mapping
               </button>
             </div>

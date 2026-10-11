@@ -19,3 +19,4 @@ export const ROUTEN_DB_FILE = "routen.sqlite";
 export const ROUTEN_LOG_FILE = "server.log";
 
 export * from "./providerRegistry.js";
+export * from "./cliTools.js";
