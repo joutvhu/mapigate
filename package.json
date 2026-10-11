@@ -18,6 +18,7 @@
     "start": "node dist/server/index.js",
     "test": "tsx --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
+    "migrate:9router": "tsx src/scripts/migrate-from-9router.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
-import nodeMachineId from "node-machine-id";
-const { machineIdSync } = nodeMachineId;
+import * as nodeMachineIdPkg from "node-machine-id";
+const machineIdSync: () => string =
+  (nodeMachineIdPkg as any).machineIdSync ||
+  (nodeMachineIdPkg as any).default?.machineIdSync ||
+  (() => "");
 
 /**
  * Crypto Vault: Encrypts & decrypts API keys using AES-256-GCM
