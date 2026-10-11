@@ -60,10 +60,38 @@ test("Unit - ComboPresets generation", () => {
   assert.ok(names.includes("sonnet"));
   assert.ok(names.includes("opus"));
   assert.ok(names.includes("haiku"));
+  assert.ok(names.includes("default"));
+  assert.ok(names.includes("opusplan"));
+
+  // Verify all models in claude presets use the "claude/" prefix instead of "cc/"
+  for (const preset of claudePresets) {
+    for (const model of preset.models) {
+      assert.ok(!model.startsWith("cc/"), `Model '${model}' should not have cc/ prefix`);
+      assert.ok(model.startsWith("claude/"), `Model '${model}' should start with claude/ prefix`);
+    }
+  }
+
+  const defaultPreset = claudePresets.find((p) => p.name === "default");
+  assert.deepEqual(defaultPreset?.models, ["claude/claude-sonnet-4-6"]);
+
+  const opusplanPreset = claudePresets.find((p) => p.name === "opusplan");
+  assert.deepEqual(opusplanPreset?.models, ["claude/claude-opus-4-6-thinking"]);
 
   // 2. Cursor presets
   const cursorPresets = buildCursorPresetItems();
   assert.ok(Array.isArray(cursorPresets));
+
+  // Cursor presets with live models use "cursor/" prefix instead of "cu/"
+  const cursorLivePresets = buildCursorPresetItems({
+    liveModels: [{ id: "cursor-small" }, { id: "claude-3.5-sonnet" }],
+  });
+  assert.equal(cursorLivePresets.length, 2);
+  for (const preset of cursorLivePresets) {
+    for (const model of preset.models) {
+      assert.ok(!model.startsWith("cu/"), `Model '${model}' should not have cu/ prefix`);
+      assert.ok(model.startsWith("cursor/"), `Model '${model}' should start with cursor/ prefix`);
+    }
+  }
 
   // 3. buildPresetItems with existing names check
   const preview = buildPresetItems("claude", { existingNames: ["sonnet"] });

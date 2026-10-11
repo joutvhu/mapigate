@@ -11,13 +11,13 @@ import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 export const VALID_COMBO_NAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
 export const PRESET_SOURCES = new Set(["cursor", "claude"]);
 
-const CURSOR_ALIAS = "cu";
-const CLAUDE_ALIAS = "cc";
+const CURSOR_ALIAS = "cursor";
+const CLAUDE_ALIAS = "claude";
 
 /** Extra Claude Code aliases not listed in defaultModels. */
 const CLAUDE_EXTRA_ALIAS_TARGETS: Record<string, string> = {
-  default: "cc/claude-sonnet-4-6",
-  opusplan: "cc/claude-opus-4-6-thinking",
+  default: "claude/claude-sonnet-4-6",
+  opusplan: "claude/claude-opus-4-6-thinking",
 };
 
 export function isValidComboPresetName(name: string): boolean {

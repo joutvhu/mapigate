@@ -706,7 +706,7 @@ export const MitmTab: React.FC = () => {
                             type="text"
                             value={targetInput}
                             onChange={(e) => setTargetInput(e.target.value)}
-                            placeholder="Target model (e.g. ag/gemini-3.8-flash or cc/claude-sonnet-4-6)"
+                            placeholder="Target model (e.g. ag/gemini-3.8-flash or claude/claude-sonnet-4-6)"
                             className="flex-1 bg-[#0A0D14] border border-blue-500/50 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none"
                             autoFocus
                           />
@@ -821,7 +821,7 @@ export const MitmTab: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. ag/gemini-3.8-flash or cc/claude-sonnet-4-6"
+                  placeholder="e.g. ag/gemini-3.8-flash or claude/claude-sonnet-4-6"
                   value={newTargetModel}
                   onChange={(e) => setNewTargetModel(e.target.value)}
                   className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
