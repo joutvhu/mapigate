@@ -175,10 +175,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     delete upstreamBody.tool_choice;
     delete upstreamBody.stream_options;
   } else {
-    if (targetFormat === "openai" && upstreamBody && upstreamBody.stream) {
-      if (!upstreamBody.stream_options) {
-        upstreamBody.stream_options = { include_usage: true };
-      }
+    if (targetFormat === "openai" && upstreamBody && upstreamBody.stream !== false) {
+      upstreamBody.stream_options = {
+        ...(upstreamBody.stream_options || {}),
+        include_usage: true,
+      };
     }
   }
 

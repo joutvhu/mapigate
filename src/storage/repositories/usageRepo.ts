@@ -45,8 +45,10 @@ interface PendingRecord {
 const pendingMap = new Map<string, PendingRecord>();
 let lastErrorProvider = { provider: "", ts: 0 };
 
+export const PENDING_TIMEOUT_MS = Number(process.env.ROUTEN_PENDING_TIMEOUT_MS || 600_000); // 10 minutes default for extended reasoning/thinking models
+
 function purgeStalePending(): void {
-  const cutoff = Date.now() - 600_000; // 10 minutes max for extended reasoning/thinking generations
+  const cutoff = Date.now() - PENDING_TIMEOUT_MS;
   for (const [id, rec] of pendingMap.entries()) {
     if (rec.startTime < cutoff) {
       pendingMap.delete(id);

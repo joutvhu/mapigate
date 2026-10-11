@@ -1,11 +1,21 @@
 import { getDatabase } from "../database.js";
+import { SettingsRepository } from "./settingsRepo.js";
 import type {
   RequestDetail,
   RequestDetailFilter,
   RequestDetailsListResponse,
 } from "../../shared/types/index.js";
 
-const DEFAULT_MAX_RECORDS = Number(process.env.ROUTEN_MAX_REQUEST_DETAILS || 1000);
+export function getMaxRecords(): number {
+  const fromEnv = Number(process.env.ROUTEN_MAX_REQUEST_DETAILS);
+  if (!isNaN(fromEnv) && fromEnv > 0) return fromEnv;
+  try {
+    const fromSettings = SettingsRepository.getSetting<number>("maxRequestDetails");
+    if (typeof fromSettings === "number" && fromSettings > 0) return fromSettings;
+  } catch {}
+  return 1000;
+}
+
 const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_FLUSH_INTERVAL_MS = 3000;
 const MAX_JSON_SIZE = 32 * 1024; // 32KB max per json payload to prevent DB bloat
@@ -105,10 +115,11 @@ export function flushRequestDetailsBuffer(): void {
     }
 
     // Retention prune if table count exceeds limit
+    const maxRecords = getMaxRecords();
     const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM request_details");
     const totalCount = countRow?.count || 0;
-    if (totalCount > DEFAULT_MAX_RECORDS) {
-      const excess = totalCount - DEFAULT_MAX_RECORDS;
+    if (totalCount > maxRecords) {
+      const excess = totalCount - maxRecords;
       db.run(
         `DELETE FROM request_details WHERE id IN (
           SELECT id FROM request_details ORDER BY timestamp ASC LIMIT ?

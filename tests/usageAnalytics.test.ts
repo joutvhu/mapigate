@@ -6,8 +6,9 @@ import {
   isFreeModel,
   formatCost,
 } from "../src/core/usage/pricing.js";
-import { UsageRepository } from "../src/storage/repositories/usageRepo.js";
-import { RequestDetailsRepository, flushRequestDetailsBuffer } from "../src/storage/repositories/requestDetailsRepo.js";
+import { UsageRepository, PENDING_TIMEOUT_MS } from "../src/storage/repositories/usageRepo.js";
+import { RequestDetailsRepository, flushRequestDetailsBuffer, getMaxRecords } from "../src/storage/repositories/requestDetailsRepo.js";
+import { SettingsRepository } from "../src/storage/repositories/settingsRepo.js";
 import { LogRepository } from "../src/storage/repositories/logRepo.js";
 
 test("pricing - detects free model namespaces correctly", () => {
@@ -156,3 +157,18 @@ test("usageRepo - computes usage stats and chart buckets from saved logs", () =>
   const totalChartTokens = chart.reduce((acc, c) => acc + c.tokens, 0);
   assert.ok(totalChartTokens >= 1200);
 });
+
+test("usageRepo - pending timeout threshold supports long-running reasoning models", () => {
+  assert.ok(PENDING_TIMEOUT_MS >= 600_000, "Pending timeout should be at least 10 minutes (600,000ms)");
+});
+
+test("requestDetailsRepo - supports configurable retention ceiling via settings and env", () => {
+  assert.ok(getMaxRecords() >= 1000, "Default max records should be at least 1000");
+
+  SettingsRepository.setSetting("maxRequestDetails", 2500);
+  assert.equal(getMaxRecords(), 2500, "Should read max records from SettingsRepository");
+
+  // Reset to default
+  SettingsRepository.setSetting("maxRequestDetails", null);
+});
+
