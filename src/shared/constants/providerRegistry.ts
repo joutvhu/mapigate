@@ -9846,10 +9846,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "uiAlias": "xmtp",
     "color": "#FF6700",
     "image": "/providers/xiaomi-tokenplan.png",
-    "website": "https://mimo.xiaomi.com",
+    "website": "https://platform.xiaomimimo.com/console/plan-manage",
     "notice": {
       "text": "Xiaomi MiMo Token Plan subscription (API key starts with tp-). Token Plan keys are cluster-specific — select the region matching your subscription.",
-      "apiKeyUrl": "https://mimo.xiaomi.com"
+      "apiKeyUrl": "https://platform.xiaomimimo.com/console/plan-manage",
     },
     "category": "apikey",
     "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
