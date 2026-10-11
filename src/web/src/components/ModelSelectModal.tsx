@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   DndContext,
   closestCenter,
@@ -18,6 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { PortalModal } from "./PortalModal.js";
 import { CapacityBadges } from "./CapacityBadges.js";
+import { Select } from "./Select.js";
 import { PROVIDER_REGISTRY } from "../../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel, type ModelCapabilities } from "../../../core/capabilities/index.js";
 
@@ -28,6 +29,9 @@ export interface ModelOption {
   providerId: string;
   providerName: string;
   caps: ModelCapabilities;
+  contextLength?: number;
+  kind?: string;
+  isCustom?: boolean;
 }
 
 export interface ModelSelectModalProps {
@@ -35,9 +39,31 @@ export interface ModelSelectModalProps {
   onClose: () => void;
   title?: string;
   initialSelectedModels?: string[];
-  onConfirm: (models: string[]) => void;
+  onConfirm?: (models: string[]) => void;
   multiSelect?: boolean;
   filterModality?: "vision" | "audio" | "pdf" | "thinking" | null;
+  // 9router-style props
+  onSelect?: (model: ModelOption) => void;
+  onDeselect?: (model: ModelOption) => void;
+  selectedModel?: string;
+  activeProviders?: Array<{
+    id?: string;
+    provider?: string;
+    name?: string;
+    accountsCount?: number;
+    [key: string]: any;
+  }>;
+  modelAliases?: Record<string, string>;
+  kindFilter?: string | null;
+  capFilter?: "vision" | "audio" | "pdf" | "thinking" | string | null;
+  addedModelValues?: string[];
+  closeOnSelect?: boolean;
+}
+
+interface ComboSummary {
+  id: string;
+  name: string;
+  models: string[];
 }
 
 interface SortableModelItemProps {
@@ -48,6 +74,19 @@ interface SortableModelItemProps {
   onMoveDown: () => void;
   isFirst: boolean;
   isLast: boolean;
+}
+
+function formatContextLength(len?: number): string | null {
+  if (!len || len <= 0) return null;
+  if (len >= 1000000) {
+    const m = (len / 1000000).toFixed(len % 1000000 === 0 ? 0 : 1);
+    return `${m}M ctx`;
+  }
+  if (len >= 1000) {
+    const k = Math.round(len / 1000);
+    return `${k}K ctx`;
+  }
+  return `${len} ctx`;
 }
 
 const SortableModelItem: React.FC<SortableModelItemProps> = ({
@@ -139,14 +178,25 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   onConfirm,
   multiSelect = true,
   filterModality = null,
+  onSelect,
+  onDeselect,
+  selectedModel,
+  activeProviders = [],
+  modelAliases = {},
+  kindFilter = null,
+  capFilter = null,
+  addedModelValues,
+  closeOnSelect = false,
 }) => {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProvider, setSelectedProvider] = useState<string>("all");
   const [activeModalityFilter, setActiveModalityFilter] = useState<string>(
-    filterModality || "all"
+    capFilter || filterModality || "all"
   );
   const [customModelInput, setCustomModelInput] = useState("");
+  const [combos, setCombos] = useState<ComboSummary[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -159,15 +209,44 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     })
   );
 
+  // Initialize selected models from either prop
   useEffect(() => {
     if (isOpen) {
-      setSelectedModels([...initialSelectedModels]);
+      const init = addedModelValues || initialSelectedModels || [];
+      setSelectedModels([...init]);
       setSearchQuery("");
       setSelectedProvider("all");
-      setActiveModalityFilter(filterModality || "all");
+      setActiveModalityFilter(capFilter || filterModality || "all");
       setCustomModelInput("");
+
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen, initialSelectedModels, filterModality]);
+  }, [isOpen, initialSelectedModels, addedModelValues, filterModality, capFilter]);
+
+  // Fetch combos
+  useEffect(() => {
+    if (!isOpen) return;
+    let isCancelled = false;
+
+    fetch("/api/combos")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (!isCancelled) {
+          const list = Array.isArray(data) ? data : data.combos || [];
+          setCombos(list);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setCombos([]);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen]);
 
   // Build model catalog from PROVIDER_REGISTRY
   const allModels: ModelOption[] = useMemo(() => {
@@ -176,9 +255,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
 
     for (const [providerId, provider] of Object.entries(PROVIDER_REGISTRY)) {
       if (!provider || !provider.models) continue;
+      const alias = provider.alias || provider.id || providerId;
+
       for (const m of provider.models) {
-        // Build canonical value
-        const val = m.id.includes("/") ? m.id : `${providerId}/${m.id}`;
+        const val = m.id.includes("/") ? m.id : `${alias}/${m.id}`;
         if (seen.has(val)) continue;
         seen.add(val);
 
@@ -190,12 +270,37 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
           providerId,
           providerName: provider.name || providerId,
           caps,
+          contextLength: m.contextLength,
+          kind: m.kind || "llm",
+          isCustom: false,
         });
+      }
+
+      // Add alias-mapped models
+      for (const [aliasKey, fullVal] of Object.entries(modelAliases)) {
+        if (
+          (fullVal.startsWith(`${alias}/`) || fullVal.startsWith(`${providerId}/`)) &&
+          !seen.has(fullVal)
+        ) {
+          seen.add(fullVal);
+          const slash = fullVal.indexOf("/");
+          const modelId = slash === -1 ? fullVal : fullVal.slice(slash + 1);
+          const caps = getCapabilitiesForModel(providerId, modelId);
+          list.push({
+            id: modelId,
+            value: fullVal,
+            name: aliasKey,
+            providerId,
+            providerName: provider.name || providerId,
+            caps,
+            isCustom: true,
+          });
+        }
       }
     }
 
     return list;
-  }, []);
+  }, [modelAliases]);
 
   // Distinct providers list
   const providerOptions = useMemo(() => {
@@ -208,9 +313,24 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [allModels]);
 
+  // Filter combos by search query (hidden if modality filter active)
+  const filteredCombos = useMemo(() => {
+    if (activeModalityFilter !== "all" || kindFilter) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return combos;
+    return combos.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.models.some((m) => m.toLowerCase().includes(q))
+    );
+  }, [combos, searchQuery, activeModalityFilter, kindFilter]);
+
   // Filtered available models
   const filteredModels = useMemo(() => {
     return allModels.filter((item) => {
+      // Kind filter
+      if (kindFilter && item.kind && item.kind !== kindFilter) return false;
+
       // Provider filter
       if (selectedProvider !== "all" && item.providerId !== selectedProvider) {
         return false;
@@ -244,22 +364,69 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
 
       return true;
     });
-  }, [allModels, selectedProvider, activeModalityFilter, searchQuery]);
+  }, [allModels, selectedProvider, activeModalityFilter, kindFilter, searchQuery]);
 
-  const handleToggleModel = (val: string) => {
-    if (selectedModels.includes(val)) {
-      setSelectedModels(selectedModels.filter((m) => m !== val));
+  const handleToggleModel = (item: ModelOption) => {
+    const val = item.value;
+    const isCurrentlySelected = selectedModels.includes(val);
+
+    if (isCurrentlySelected) {
+      if (onDeselect) {
+        onDeselect(item);
+      }
+      setSelectedModels((prev) => prev.filter((m) => m !== val));
     } else {
+      if (onSelect) {
+        onSelect(item);
+      }
       if (!multiSelect) {
         setSelectedModels([val]);
       } else {
-        setSelectedModels([...selectedModels, val]);
+        setSelectedModels((prev) => [...prev, val]);
       }
+    }
+
+    if (closeOnSelect) {
+      onClose();
+    }
+  };
+
+  const handleToggleCombo = (combo: ComboSummary) => {
+    const val = combo.name;
+    const isCurrentlySelected = selectedModels.includes(val);
+
+    const comboOption: ModelOption = {
+      id: combo.name,
+      value: combo.name,
+      name: combo.name,
+      providerId: "combo",
+      providerName: "Combos",
+      caps: getCapabilitiesForModel(null, combo.name),
+    };
+
+    if (isCurrentlySelected) {
+      if (onDeselect) onDeselect(comboOption);
+      setSelectedModels((prev) => prev.filter((m) => m !== val));
+    } else {
+      if (onSelect) onSelect(comboOption);
+      if (!multiSelect) {
+        setSelectedModels([val]);
+      } else {
+        setSelectedModels((prev) => [...prev, val]);
+      }
+    }
+
+    if (closeOnSelect) {
+      onClose();
     }
   };
 
   const handleRemoveModel = (val: string) => {
-    setSelectedModels(selectedModels.filter((m) => m !== val));
+    setSelectedModels((prev) => prev.filter((m) => m !== val));
+    const opt = allModels.find((m) => m.value === val);
+    if (opt && onDeselect) {
+      onDeselect(opt);
+    }
   };
 
   const handleMoveUp = (index: number) => {
@@ -302,14 +469,16 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       if (!multiSelect) {
         setSelectedModels([val]);
       } else {
-        setSelectedModels([...selectedModels, val]);
+        setSelectedModels((prev) => [...prev, val]);
       }
     }
     setCustomModelInput("");
   };
 
   const handleConfirm = () => {
-    onConfirm(selectedModels);
+    if (onConfirm) {
+      onConfirm(selectedModels);
+    }
     onClose();
   };
 
@@ -342,23 +511,24 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-[#1E293B]">
           {/* Left Column: Catalog & Filters (7 cols) */}
           <div className="lg:col-span-7 flex flex-col min-h-0 p-4 space-y-3.5 overflow-hidden">
-            {/* Search Input */}
+            {/* Search Input with Auto-focus and Clear button */}
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">
                 search
               </span>
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Search models by name, provider, or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">close</span>
                 </button>
@@ -367,19 +537,16 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
 
             {/* Provider and Modality Filters */}
             <div className="flex flex-wrap items-center gap-2">
-              {/* Provider Dropdown */}
-              <select
+              {/* Custom Select for Provider */}
+              <Select
                 value={selectedProvider}
-                onChange={(e) => setSelectedProvider(e.target.value)}
-                className="bg-[#0A0D14] border border-[#1E293B] rounded-xl px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 shrink-0"
-              >
-                <option value="all">All Providers ({providerOptions.length})</option>
-                {providerOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedProvider}
+                options={[
+                  { value: "all", label: `All Providers (${providerOptions.length})` },
+                  ...providerOptions.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                className="shrink-0 min-w-[150px]"
+              />
 
               {/* Modality Chips */}
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -420,18 +587,6 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveModalityFilter("pdf")}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
-                    activeModalityFilter === "pdf"
-                      ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
-                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-orange-300"
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[13px]">picture_as_pdf</span>
-                  PDF
-                </button>
-                <button
-                  type="button"
                   onClick={() => setActiveModalityFilter("thinking")}
                   className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
                     activeModalityFilter === "thinking"
@@ -440,24 +595,61 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                   }`}
                 >
                   <span className="material-symbols-outlined text-[13px]">psychology</span>
-                  Thinking
+                  Reasoning
                 </button>
               </div>
             </div>
 
-            {/* Models Catalog List */}
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
+            {/* Models Scrollable List */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+              {/* Combos section at top if any */}
+              {filteredCombos.length > 0 && (
+                <div className="p-2.5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-semibold">
+                    <span className="material-symbols-outlined text-[15px]">layers</span>
+                    <span>Smart Combos ({filteredCombos.length})</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {filteredCombos.map((combo) => {
+                      const isSelected = selectedModels.includes(combo.name);
+                      return (
+                        <button
+                          key={combo.id}
+                          type="button"
+                          onClick={() => handleToggleCombo(combo)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                            isSelected
+                              ? "bg-cyan-600 text-white border-cyan-500"
+                              : "bg-[#0A0D14] text-slate-300 border-[#1E293B] hover:border-cyan-500/40 hover:text-white"
+                          }`}
+                        >
+                          {isSelected && (
+                            <span className="material-symbols-outlined text-[12px] text-cyan-200">
+                              check
+                            </span>
+                          )}
+                          <span>{combo.name}</span>
+                          <span className="text-[10px] opacity-60">({combo.models.length})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {filteredModels.length === 0 ? (
                 <div className="py-12 text-center text-slate-500 text-xs">
                   No models matched your filter. Try clearing filters or enter a custom model below.
                 </div>
               ) : (
                 filteredModels.map((item) => {
-                  const isSelected = selectedModels.includes(item.value);
+                  const isSelected = selectedModels.includes(item.value) || selectedModel === item.value;
+                  const ctxBadge = formatContextLength(item.contextLength);
+
                   return (
                     <div
                       key={item.value}
-                      onClick={() => handleToggleModel(item.value)}
+                      onClick={() => handleToggleModel(item)}
                       className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
                         isSelected
                           ? "bg-blue-600/10 border-blue-500/40 text-white"
@@ -469,9 +661,14 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                           <span className="text-xs font-semibold text-white truncate">
                             {item.name}
                           </span>
-                          <span className="px-1.5 py-0.2 rounded bg-[#141B2D] border border-[#1E293B] text-[10px] text-slate-400 shrink-0">
+                          <span className="px-1.5 py-0.2 rounded bg-[#141B2D] border border-[#1E293B] text-[10px] text-slate-400 shrink-0 font-mono">
                             {item.providerName}
                           </span>
+                          {ctxBadge && (
+                            <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
+                              {ctxBadge}
+                            </span>
+                          )}
                         </div>
                         <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
                           {item.value}
@@ -485,7 +682,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleToggleModel(item.value);
+                          handleToggleModel(item);
                         }}
                         className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
                           isSelected
@@ -608,7 +805,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
               onClick={handleConfirm}
               className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
             >
-              Confirm Selection
+              {onConfirm ? "Confirm Selection" : "Done"}
             </button>
           </div>
         </div>
