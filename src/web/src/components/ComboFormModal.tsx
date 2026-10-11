@@ -35,6 +35,7 @@ export interface ComboFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   combo?: ComboItem | null;
+  title?: string;
   onSave: (combo: {
     id?: string;
     name: string;
@@ -44,11 +45,12 @@ export interface ComboFormModalProps {
   }) => Promise<void> | void;
 }
 
-const VALID_NAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
+export const VALID_NAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
 
 interface SortableComboModelRowProps {
   id: string;
   index: number;
+  onEdit: (newModel: string) => void;
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
@@ -59,12 +61,40 @@ interface SortableComboModelRowProps {
 const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
   id,
   index,
+  onEdit,
   onRemove,
   onMoveUp,
   onMoveDown,
   isFirst,
   isLast,
 }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(id);
+
+  useEffect(() => {
+    setDraft(id);
+  }, [id]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== id) {
+      onEdit(trimmed);
+    } else {
+      setDraft(id);
+    }
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commit();
+    } else if (e.key === "Escape") {
+      setDraft(id);
+      setEditing(false);
+    }
+  };
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
   });
@@ -80,29 +110,53 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl border bg-[#0A0D14] transition-all ${
+      className={`group flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl border bg-[#0A0D14] transition-all ${
         isDragging
           ? "border-blue-500 shadow-lg shadow-blue-500/10 bg-blue-950/40"
           : "border-[#1E293B] hover:border-slate-700"
       }`}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <button
           type="button"
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none"
+          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none shrink-0"
           title="Drag to reorder priority"
         >
           <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
         </button>
+
         <span className="size-5 rounded-md bg-[#141B2D] border border-[#1E293B] text-[10px] font-mono text-blue-400 font-bold flex items-center justify-center shrink-0">
           {index + 1}
         </span>
-        <span className="font-mono text-xs text-white truncate max-w-[200px] sm:max-w-[320px]" title={id}>
-          {id}
-        </span>
-        <CapacityBadges model={id} size="xs" />
+
+        {editing ? (
+          <input
+            autoFocus
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            className="min-w-0 flex-1 rounded border border-blue-500/60 bg-[#141B2D] px-2 py-0.5 font-mono text-xs text-white outline-none focus:border-blue-400"
+          />
+        ) : (
+          <div
+            className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-white hover:bg-white/5 flex items-center gap-2"
+            onClick={() => setEditing(true)}
+            title="Click to edit model ID inline"
+          >
+            <span className="truncate" title={id}>
+              {id}
+            </span>
+            <span className="material-symbols-outlined text-[13px] text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
+              edit
+            </span>
+          </div>
+        )}
+
+        {!editing && <CapacityBadges model={id} size="xs" />}
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
@@ -110,7 +164,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
           type="button"
           onClick={onMoveUp}
           disabled={isFirst}
-          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
+          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer transition-colors"
           title="Move up"
         >
           <span className="material-symbols-outlined text-[15px]">arrow_upward</span>
@@ -119,7 +173,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
           type="button"
           onClick={onMoveDown}
           disabled={isLast}
-          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
+          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer transition-colors"
           title="Move down"
         >
           <span className="material-symbols-outlined text-[15px]">arrow_downward</span>
@@ -127,8 +181,8 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
         <button
           type="button"
           onClick={onRemove}
-          className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
-          title="Remove"
+          className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
+          title="Remove model"
         >
           <span className="material-symbols-outlined text-[15px]">close</span>
         </button>
@@ -141,6 +195,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
   isOpen,
   onClose,
   combo,
+  title,
   onSave,
 }) => {
   const [name, setName] = useState("");
@@ -207,8 +262,14 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     }
   };
 
-  const handleRemoveModel = (val: string) => {
-    setModels(models.filter((m) => m !== val));
+  const handleEditModel = (index: number, newModel: string) => {
+    const updated = [...models];
+    updated[index] = newModel;
+    setModels(updated);
+  };
+
+  const handleRemoveModel = (index: number) => {
+    setModels(models.filter((_, idx) => idx !== index));
   };
 
   const handleMoveUp = (index: number) => {
@@ -254,18 +315,6 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     setQuickInputModel("");
   };
 
-  const handlePickerConfirm = (pickedModels: string[]) => {
-    // Preserve picked order and add any that are not already present
-    const updated = [...pickedModels];
-    for (const m of models) {
-      if (!updated.includes(m)) {
-        updated.push(m);
-      }
-    }
-    setModels(updated);
-    if (updated.length > 0) setModelsError("");
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateName(name)) return;
@@ -305,7 +354,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">
-                  {isEdit ? `Edit Combo: ${combo?.name}` : "Create Smart Model Combo"}
+                  {title || (isEdit ? `Edit Combo: ${combo?.name}` : "Create Smart Model Combo")}
                 </h3>
                 <p className="text-xs text-slate-400">
                   Configure an alias to rotate or fallback across multiple upstream models
@@ -377,12 +426,12 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                 )}
                 {strategy === "fallback" && (
                   <span className="text-blue-300">
-                    <strong>Fallback:</strong> Tries the first model; automatically moves to secondary backups on HTTP 429, 503, or quota errors.
+                    <strong>Fallback:</strong> Tries models sequentially; moves to backup on HTTP 429, 503, or quota errors.
                   </span>
                 )}
                 {strategy === "fusion" && (
                   <span className="text-indigo-300">
-                    <strong>Fusion:</strong> Queries member models concurrently in parallel, then uses the highest-capacity judge model to synthesize the final answer.
+                    <strong>Fusion:</strong> Queries member models concurrently in parallel, then synthesizes the best answer with a judge.
                   </span>
                 )}
               </div>
@@ -399,16 +448,16 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                   onClick={() => setShowModelPicker(true)}
                   className="px-3 py-1 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[15px]">playlist_add</span>
-                  Pick from Catalog
+                  <span className="material-symbols-outlined text-[15px]">add</span>
+                  Add Model
                 </button>
               </div>
 
-              {/* Drag-and-drop sortable list */}
+              {/* Drag-and-drop sortable list with item numbers, inline edit, and up/down buttons */}
               <div className="border border-[#1E293B] rounded-2xl bg-[#0A0D14]/50 p-2.5 space-y-2 min-h-[140px] max-h-[260px] overflow-y-auto">
                 {models.length === 0 ? (
                   <div className="py-8 text-center text-slate-500 text-xs">
-                    No models in this combo yet. Click &ldquo;Pick from Catalog&rdquo; or enter a model ID below.
+                    No models in this combo yet. Click &ldquo;Add Model&rdquo; to pick from catalog or enter a model ID below.
                   </div>
                 ) : (
                   <DndContext
@@ -420,10 +469,11 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                       <div className="space-y-1.5">
                         {models.map((m, idx) => (
                           <SortableComboModelRow
-                            key={m}
+                            key={`${m}-${idx}`}
                             id={m}
                             index={idx}
-                            onRemove={() => handleRemoveModel(m)}
+                            onEdit={(newVal) => handleEditModel(idx, newVal)}
+                            onRemove={() => handleRemoveModel(idx)}
                             onMoveUp={() => handleMoveUp(idx)}
                             onMoveDown={() => handleMoveDown(idx)}
                             isFirst={idx === 0}
@@ -443,11 +493,11 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                 </p>
               )}
 
-              {/* Quick Input Form */}
+              {/* Quick Input Form for manual additions */}
               <div className="flex gap-2 pt-1">
                 <input
                   type="text"
-                  placeholder="Type model ID (e.g. anthropic/claude-3-7-sonnet)..."
+                  placeholder="Or type custom model ID (e.g. anthropic/claude-3-7-sonnet)..."
                   value={quickInputModel}
                   onChange={(e) => setQuickInputModel(e.target.value)}
                   onKeyDown={(e) => {
@@ -501,14 +551,32 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
       </PortalModal>
 
       {/* Model Catalog Picker Sub-Modal */}
-      <ModelSelectModal
-        isOpen={showModelPicker}
-        onClose={() => setShowModelPicker(false)}
-        initialSelectedModels={models}
-        onConfirm={handlePickerConfirm}
-        title="Pick Models for Combo"
-        multiSelect={true}
-      />
+      {showModelPicker && (
+        <ModelSelectModal
+          isOpen={showModelPicker}
+          onClose={() => setShowModelPicker(false)}
+          addedModelValues={models}
+          initialSelectedModels={models}
+          onSelect={(m) => {
+            if (!models.includes(m.value)) {
+              setModels((prev) => [...prev, m.value]);
+              setModelsError("");
+            }
+          }}
+          onDeselect={(m) => {
+            setModels((prev) => prev.filter((val) => val !== m.value));
+          }}
+          onConfirm={(picked) => {
+            setModels(picked);
+            if (picked.length > 0) setModelsError("");
+          }}
+          title="Add Model to Combo"
+          multiSelect={true}
+          closeOnSelect={false}
+        />
+      )}
     </>
   );
 };
+
+export default ComboFormModal;

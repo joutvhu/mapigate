@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { getDatabase } from "../database.js";
 
 export interface CapacityAdapterEntry {
@@ -38,6 +39,31 @@ export const DEFAULT_CAPACITY_ADAPTER_SETTINGS: CapacityAdapterSettings = {
     models: [],
   },
 };
+
+export interface EndpointSettings {
+  host: string;
+  port: number;
+  requireApiKey: boolean;
+  proxyUrl?: string;
+  customHeaders?: Record<string, string>;
+}
+
+export const DEFAULT_ENDPOINT_SETTINGS: EndpointSettings = {
+  host: "127.0.0.1",
+  port: 20127,
+  requireApiKey: false,
+  proxyUrl: "",
+  customHeaders: {},
+};
+
+export interface GatewayApiKey {
+  id: string;
+  key: string;
+  name: string;
+  isActive: boolean;
+  createdAt: number;
+  lastUsedAt?: number;
+}
 
 function upgradeLegacyModel(m: string): string {
   return m === "oc/mimo-v2.5-free" ? DEFAULT_FALLBACK_MODEL : m;
@@ -150,5 +176,99 @@ export class SettingsRepository {
 
     this.setSetting("capacityAdapter", updated);
     return updated;
+  }
+
+  // --- Endpoint & Connection Settings ---
+
+  public static getEndpointSettings(): EndpointSettings {
+    const raw = this.getSetting<any>("endpointSettings");
+    if (!raw || typeof raw !== "object") {
+      return { ...DEFAULT_ENDPOINT_SETTINGS };
+    }
+    return {
+      host: typeof raw.host === "string" && raw.host.trim() ? raw.host.trim() : DEFAULT_ENDPOINT_SETTINGS.host,
+      port: typeof raw.port === "number" && raw.port > 0 ? raw.port : DEFAULT_ENDPOINT_SETTINGS.port,
+      requireApiKey: Boolean(raw.requireApiKey),
+      proxyUrl: typeof raw.proxyUrl === "string" ? raw.proxyUrl : DEFAULT_ENDPOINT_SETTINGS.proxyUrl,
+      customHeaders: raw.customHeaders && typeof raw.customHeaders === "object" ? raw.customHeaders : {},
+    };
+  }
+
+  public static setEndpointSettings(
+    settings: Partial<EndpointSettings>
+  ): EndpointSettings {
+    const current = this.getEndpointSettings();
+    const updated: EndpointSettings = {
+      host:
+        settings.host !== undefined && typeof settings.host === "string" && settings.host.trim()
+          ? settings.host.trim()
+          : current.host,
+      port:
+        settings.port !== undefined && typeof settings.port === "number" && settings.port > 0
+          ? settings.port
+          : current.port,
+      requireApiKey:
+        settings.requireApiKey !== undefined ? Boolean(settings.requireApiKey) : current.requireApiKey,
+      proxyUrl: settings.proxyUrl !== undefined ? String(settings.proxyUrl) : current.proxyUrl,
+      customHeaders:
+        settings.customHeaders !== undefined && typeof settings.customHeaders === "object"
+          ? settings.customHeaders
+          : current.customHeaders,
+    };
+    this.setSetting("endpointSettings", updated);
+    return updated;
+  }
+
+  // --- Client Gateway API Keys Management ---
+
+  public static getGatewayApiKeys(): GatewayApiKey[] {
+    const raw = this.getSetting<any>("gatewayApiKeys");
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw.map((k: any) => ({
+      id: String(k.id),
+      key: String(k.key),
+      name: String(k.name || "Default Key"),
+      isActive: k.isActive !== false,
+      createdAt: Number(k.createdAt) || Date.now(),
+      lastUsedAt: k.lastUsedAt ? Number(k.lastUsedAt) : undefined,
+    }));
+  }
+
+  public static createGatewayApiKey(name?: string): GatewayApiKey {
+    const keys = this.getGatewayApiKeys();
+    const id = "key_" + randomBytes(8).toString("hex");
+    const key = "sk-rt-" + randomBytes(24).toString("hex");
+    const newKey: GatewayApiKey = {
+      id,
+      key,
+      name: name && typeof name === "string" && name.trim() ? name.trim() : `Key ${keys.length + 1}`,
+      isActive: true,
+      createdAt: Date.now(),
+    };
+    keys.unshift(newKey);
+    this.setSetting("gatewayApiKeys", keys);
+    return newKey;
+  }
+
+  public static deleteGatewayApiKey(id: string): boolean {
+    const keys = this.getGatewayApiKeys();
+    const initialLen = keys.length;
+    const filtered = keys.filter((k) => k.id !== id && k.key !== id);
+    if (filtered.length !== initialLen) {
+      this.setSetting("gatewayApiKeys", filtered);
+      return true;
+    }
+    return false;
+  }
+
+  public static toggleGatewayApiKey(id: string): GatewayApiKey | undefined {
+    const keys = this.getGatewayApiKeys();
+    const index = keys.findIndex((k) => k.id === id || k.key === id);
+    if (index === -1) return undefined;
+    keys[index].isActive = !keys[index].isActive;
+    this.setSetting("gatewayApiKeys", keys);
+    return keys[index];
   }
 }

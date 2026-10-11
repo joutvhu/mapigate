@@ -210,6 +210,8 @@ export const CombosTab: React.FC = () => {
       }
     }
     await loadCombos();
+    setShowComboModal(false);
+    setEditingCombo(null);
   };
 
   // 5. Toggle Combo Active
