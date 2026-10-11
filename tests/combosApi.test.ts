@@ -109,9 +109,14 @@ test("Unit - ComboPresets generation", () => {
 });
 
 test("Unit - ComboRepository CRUD, validation, toggle, and seeding", () => {
-  // Initial seeding ensures combos are available
-  const allCombos = ComboRepository.getAllCombos();
-  assert.ok(allCombos.length > 0);
+  // Combos are not auto-seeded on query
+  const initialCombos = ComboRepository.getAllCombos();
+  assert.ok(Array.isArray(initialCombos));
+
+  // Explicit seeding works on demand
+  ComboRepository.seedInitialPresets();
+  const seededCombos = ComboRepository.getAllCombos();
+  assert.ok(seededCombos.length > 0);
 
   // Validation: empty name throws
   assert.throws(() => {
@@ -183,7 +188,6 @@ test("Integration - Combos & Settings REST Endpoints", async () => {
     assert.equal(getRes.status, 200);
     const getList = (await getRes.json()) as any[];
     assert.ok(Array.isArray(getList));
-    assert.ok(getList.length > 0);
 
     // 2. POST /api/combos - validation failures
     const emptyRes = await fetch(`${baseUrl}/api/combos`, {

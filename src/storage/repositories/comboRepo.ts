@@ -26,13 +26,10 @@ function mapRowToCombo(r: any): ComboRecord {
 }
 
 export class ComboRepository {
-  private static seeded = false;
-
   public static seedInitialPresets(): void {
     const db = getDatabase();
     const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM combos");
     if (countRow && countRow.count > 0) {
-      this.seeded = true;
       return;
     }
 
@@ -51,24 +48,15 @@ export class ComboRepository {
         now
       );
     }
-    this.seeded = true;
-  }
-
-  private static ensureSeeded(): void {
-    if (!this.seeded) {
-      this.seedInitialPresets();
-    }
   }
 
   public static getAllCombos(): ComboRecord[] {
-    this.ensureSeeded();
     const db = getDatabase();
     const rows = db.all<any>("SELECT * FROM combos ORDER BY created_at ASC");
     return rows.map(mapRowToCombo);
   }
 
   public static getComboById(id: string): ComboRecord | undefined {
-    this.ensureSeeded();
     const db = getDatabase();
     const row = db.get<any>("SELECT * FROM combos WHERE id = ?", id);
     if (!row) return undefined;
@@ -76,7 +64,6 @@ export class ComboRepository {
   }
 
   public static getComboByName(name: string): ComboRecord | undefined {
-    this.ensureSeeded();
     const db = getDatabase();
     const row = db.get<any>("SELECT * FROM combos WHERE name = ?", name);
     if (!row) return undefined;

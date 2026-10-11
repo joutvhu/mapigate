@@ -23,12 +23,12 @@ const DEFAULT_CAPACITY_ADAPTER: CapacityAdapterSettings = {
   vision: {
     enabled: true,
     roundRobin: false,
-    models: ["oc/mimo-v2.6-flash-free"],
+    models: [],
   },
   audioInput: {
     enabled: true,
     roundRobin: false,
-    models: ["oc/mimo-v2.6-flash-free"],
+    models: [],
   },
 };
 
