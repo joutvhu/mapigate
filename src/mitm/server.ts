@@ -22,7 +22,6 @@ import {
 import { removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 
 const DEFAULT_PRIMARY_PORT = 443;
-const DEFAULT_FALLBACK_PORT = 8443;
 
 const certCache = new Map<string, tls.SecureContext>();
 let rootCAPem: string = "";
@@ -189,33 +188,25 @@ export class MitmServer {
       SNICallback: sniCallback,
     };
 
-    return new Promise((resolve) => {
-      const tryListen = (portToTry: number) => {
-        const srv = https.createServer(sslOptions, (req, res) => {
-          handleMitmRequest(req, res);
-        });
+    return new Promise((resolve, reject) => {
+      const srv = https.createServer(sslOptions, (req, res) => {
+        handleMitmRequest(req, res);
+      });
 
-        srv.on("error", (err: any) => {
-          if ((err.code === "EACCES" || err.code === "EADDRINUSE") && portToTry === DEFAULT_PRIMARY_PORT) {
-            console.log(`[MITM] Port 443 unavailable (${err.code}), falling back to ${DEFAULT_FALLBACK_PORT}`);
-            tryListen(DEFAULT_FALLBACK_PORT);
-          } else {
-            console.error(`[MITM] Server error on port ${portToTry}:`, err.message);
-            this.running = false;
-            resolve(0);
-          }
-        });
+      srv.on("error", (err: any) => {
+        console.error(`[MITM] Server failed to bind on port ${preferredPort}:`, err.message);
+        this.running = false;
+        this.server = null;
+        reject(err);
+      });
 
-        srv.listen(portToTry, "0.0.0.0", () => {
-          this.server = srv;
-          this.port = portToTry;
-          this.running = true;
-          console.log(`[MITM] HTTPS Proxy server running on port ${portToTry}`);
-          resolve(portToTry);
-        });
-      };
-
-      tryListen(preferredPort);
+      srv.listen(preferredPort, "0.0.0.0", () => {
+        this.server = srv;
+        this.port = preferredPort;
+        this.running = true;
+        console.log(`[MITM] HTTPS Proxy server running on port ${preferredPort}`);
+        resolve(preferredPort);
+      });
     });
   }
 

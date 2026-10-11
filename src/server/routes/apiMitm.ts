@@ -9,6 +9,11 @@ import {
   checkAllDNSStatus,
 } from "../../mitm/dns/dnsConfig.js";
 import { type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
+import {
+  inspectPortOwner,
+  PortConflictError,
+  type PortOwnerInfo,
+} from "../../mitm/portConflict.js";
 
 export const mitmRouter = Router();
 
@@ -53,6 +58,22 @@ mitmRouter.post("/install-cert", async (_req, res) => {
   }
 });
 
+// GET port owner status
+mitmRouter.get("/port-status", async (req, res) => {
+  try {
+    const rawPort = req.query.port;
+    const port = rawPort ? Number(rawPort) : 443;
+    if (isNaN(port) || port <= 0 || port > 65535) {
+      res.status(400).json({ error: "Invalid port number" });
+      return;
+    }
+    const info = await inspectPortOwner(port);
+    res.json(info);
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to inspect port status" });
+  }
+});
+
 // POST toggle MITM server
 mitmRouter.post("/toggle-server", async (req, res) => {
   try {
@@ -65,13 +86,23 @@ mitmRouter.post("/toggle-server", async (req, res) => {
     }
 
     if (shouldRun) {
-      const port = await mitmManager.startServer();
+      const portOption = req.body.port ? Number(req.body.port) : undefined;
+      const forceKill = Boolean(req.body.forceKill);
+      const port = await mitmManager.startServer({ port: portOption, forceKill });
       res.json({ running: port > 0, port });
     } else {
       await mitmManager.stopServer();
       res.json({ running: false, port: 0 });
     }
   } catch (error: any) {
+    if (error instanceof PortConflictError || error.name === "PortConflictError") {
+      res.status(409).json({
+        error: error.message,
+        code: error.code || "PORT_443_BUSY",
+        portOwner: error.portOwner,
+      });
+      return;
+    }
     res.status(500).json({ error: error?.message || "Failed to toggle server" });
   }
 });

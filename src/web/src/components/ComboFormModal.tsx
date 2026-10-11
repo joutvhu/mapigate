@@ -58,6 +58,7 @@ interface SortableComboModelRowProps {
   onMoveDown: () => void;
   isFirst: boolean;
   isLast: boolean;
+  excludeValues?: string[];
 }
 
 const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
@@ -70,6 +71,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
   onMoveDown,
   isFirst,
   isLast,
+  excludeValues,
 }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(model);
@@ -143,6 +145,8 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
                 onChange={(val) => setDraft(val)}
                 onEnter={commit}
                 placeholder="e.g. anthropic/claude-3-7-sonnet"
+                excludeValues={excludeValues}
+                allowCombos={false}
                 className="w-full rounded border border-blue-500/60 bg-[#141B2D] px-2 py-0.5 font-mono text-xs text-white outline-none focus:border-blue-400"
               />
             </div>
@@ -548,6 +552,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                             onMoveDown={() => handleMoveDown(idx)}
                             isFirst={idx === 0}
                             isLast={idx === models.length - 1}
+                            excludeValues={excludedComboValues}
                           />
                         ))}
                       </div>
@@ -572,6 +577,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                     onChange={setQuickInputModel}
                     onEnter={() => handleAddQuickModel()}
                     excludeValues={excludedComboValues}
+                    allowCombos={false}
                     className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -625,6 +631,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
           addedModelValues={models}
           initialSelectedModels={models}
           excludeModelIds={excludedComboValues}
+          allowCombos={false}
           onSelect={(m) => {
             if (!models.includes(m.value)) {
               setModels((prev) => [...prev, m.value]);

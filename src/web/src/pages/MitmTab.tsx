@@ -64,9 +64,24 @@ interface MitmStatusData {
   routerBaseUrl: string;
 }
 
+interface PortOwnerInfo {
+  port: number;
+  inUse: boolean;
+  pid?: number;
+  processName?: string;
+  commandLine?: string;
+  isSystemProcess?: boolean;
+  remediationHint?: string;
+}
+
 export const MitmTab: React.FC = () => {
   const [serverRunning, setServerRunning] = useState(true);
   const [mitmPort, setMitmPort] = useState(443);
+  const [portConflict, setPortConflict] = useState<PortOwnerInfo | null>(null);
+  const [customPortInput, setCustomPortInput] = useState<string>("");
+  const [showAdvancedPort, setShowAdvancedPort] = useState<boolean>(false);
+  const [isKilling, setIsKilling] = useState<boolean>(false);
+  const [serverToggleError, setServerToggleError] = useState<string | null>(null);
   const [certExists, setCertExists] = useState(true);
   const [certTrusted, setCertTrusted] = useState(false);
   const [certPath, setCertPath] = useState("");
@@ -184,20 +199,63 @@ export const MitmTab: React.FC = () => {
     loadToolData();
   }, []);
 
-  const toggleServer = async () => {
-    const next = !serverRunning;
-    setServerRunning(next);
+  const toggleServer = async (forceKill = false, portOverride?: number) => {
+    setServerToggleError(null);
+    const targetPort =
+      portOverride ??
+      (customPortInput.trim() ? Number(customPortInput.trim()) : undefined);
+
+    if (serverRunning && !forceKill) {
+      setServerRunning(false);
+      try {
+        const res = await fetch("/api/mitm/toggle-server", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ running: false }),
+        });
+        const data = await res.json();
+        setServerRunning(Boolean(data.running));
+        if (data.port) setMitmPort(data.port);
+      } catch (err: any) {
+        setServerToggleError(err?.message || "Failed to stop server");
+      }
+      return;
+    }
+
+    if (forceKill) {
+      setIsKilling(true);
+    }
     try {
       const res = await fetch("/api/mitm/toggle-server", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ running: next }),
+        body: JSON.stringify({
+          running: true,
+          port: targetPort,
+          forceKill,
+        }),
       });
+
+      if (res.status === 409) {
+        const data = await res.json();
+        setPortConflict(data.portOwner || { port: targetPort || 443, inUse: true });
+        setServerRunning(false);
+        return;
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Failed to start server (${res.status})`);
+      }
+
       const data = await res.json();
       setServerRunning(Boolean(data.running));
       if (data.port) setMitmPort(data.port);
-    } catch {
-      //
+      setPortConflict(null);
+    } catch (err: any) {
+      setServerToggleError(err?.message || "Failed to start server");
+    } finally {
+      setIsKilling(false);
     }
   };
 
@@ -408,7 +466,7 @@ export const MitmTab: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={toggleServer}
+              onClick={() => toggleServer()}
               className={`rt-btn text-xs py-1.5 px-3.5 ${serverRunning ? "rt-btn--danger" : "rt-btn--primary"}`}
             >
               <span className="material-symbols-outlined text-[16px]">
@@ -418,6 +476,22 @@ export const MitmTab: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {serverToggleError && (
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px] text-rose-400">error</span>
+              <span>{serverToggleError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setServerToggleError(null)}
+              className="text-rose-400 hover:text-white"
+            >
+              <span className="material-symbols-outlined text-[15px]">close</span>
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1 text-xs">
           <div className="flex items-center gap-3">
@@ -430,6 +504,65 @@ export const MitmTab: React.FC = () => {
           <span className="text-[11px] text-slate-400 italic">
             Enable DNS per tool below to activate redirection
           </span>
+        </div>
+
+        {/* Advanced / Custom Port Configuration */}
+        <div className="pt-2 border-t border-[#1E293B]/60">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedPort((prev) => !prev)}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {showAdvancedPort ? "expand_less" : "tune"}
+            </span>
+            <span>Advanced / Custom Port Configuration</span>
+          </button>
+
+          {showAdvancedPort && (
+            <div className="mt-3 p-3.5 bg-[#0A0D14] rounded-xl border border-[#1E293B] space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block">
+                    Custom MITM Listen Port
+                  </label>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Default is port 443. Custom ports are for manual developer testing only.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="65535"
+                    placeholder="443"
+                    value={customPortInput}
+                    onChange={(e) => setCustomPortInput(e.target.value)}
+                    disabled={serverRunning}
+                    className="w-24 bg-[#141B2D] border border-[#1E293B] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white text-center focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                  />
+                  {!serverRunning && customPortInput && (
+                    <button
+                      type="button"
+                      onClick={() => setCustomPortInput("")}
+                      className="text-xs text-slate-400 hover:text-white px-1.5 py-1 rounded"
+                      title="Reset to default 443"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Explicit warning banner about DNS limitation */}
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11.5px] text-amber-300 leading-relaxed">
+                <span className="material-symbols-outlined text-[16px] text-amber-400 shrink-0 mt-0.5">warning</span>
+                <span>
+                  <strong>Notice:</strong> OS <code>hosts</code> file redirection maps domain names to IP addresses without port numbers. AI coding tools (Antigravity, Kiro, Copilot, Cursor) connect to port 443 by default. Running on custom ports will <strong>not</strong> intercept standard IDE traffic.
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -886,6 +1019,148 @@ export const MitmTab: React.FC = () => {
                 Add Mapping
               </button>
             </div>
+          </div>
+        )}
+      </PortalModal>
+
+      {/* Port Conflict Modal Dialog (Mounted via React Portal) */}
+      <PortalModal
+        isOpen={Boolean(portConflict)}
+        onClose={() => setPortConflict(null)}
+        maxWidthClass="max-w-md"
+      >
+        {portConflict && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`material-symbols-outlined text-[20px] ${
+                    portConflict.isSystemProcess ? "text-rose-400" : "text-amber-400"
+                  }`}
+                >
+                  {portConflict.isSystemProcess ? "gpp_bad" : "warning"}
+                </span>
+                <h4 className="text-sm font-bold text-white">
+                  Port {portConflict.port} {portConflict.isSystemProcess ? "System Conflict" : "Already In Use"}
+                </h4>
+              </div>
+              <button
+                onClick={() => setPortConflict(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            {portConflict.isSystemProcess ? (
+              /* Windows System Process Conflict (PID <= 4 / HTTP.sys / IIS) */
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-rose-300 font-semibold">
+                    <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+                    <span>Windows Kernel / System Service Conflict</span>
+                  </div>
+                  <p className="text-slate-300 text-[11.5px] leading-relaxed">
+                    Port {portConflict.port} is occupied by{" "}
+                    <strong>{portConflict.processName || "System"}</strong> (PID {portConflict.pid ?? 4}).
+                    This is a Windows system kernel service (e.g. <code>HTTP.sys</code>, IIS, or Web Publishing Service) and cannot be killed directly.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-[#0A0D14] border border-[#1E293B] rounded-xl space-y-2">
+                  <span className="text-slate-400 text-[11px] font-semibold block">
+                    Run these commands as Administrator to release the port:
+                  </span>
+                  <div className="space-y-1.5 font-mono text-[11px]">
+                    <div className="flex items-center justify-between bg-[#141B2D] px-2.5 py-1.5 rounded-lg border border-[#1E293B]">
+                      <code className="text-cyan-300">iisreset /stop</code>
+                      <button
+                        type="button"
+                        onClick={() => copyText("iisreset", "iisreset /stop")}
+                        className="text-slate-400 hover:text-white ml-2 shrink-0"
+                        title="Copy command"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {copiedKey === "iisreset" ? "check" : "content_copy"}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between bg-[#141B2D] px-2.5 py-1.5 rounded-lg border border-[#1E293B]">
+                      <code className="text-cyan-300">net stop w3svc</code>
+                      <button
+                        type="button"
+                        onClick={() => copyText("w3svc", "net stop w3svc")}
+                        className="text-slate-400 hover:text-white ml-2 shrink-0"
+                        title="Copy command"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {copiedKey === "w3svc" ? "check" : "content_copy"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1E293B]">
+                  <button
+                    type="button"
+                    onClick={() => setPortConflict(null)}
+                    className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleServer(false, portConflict.port)}
+                    className="rt-btn rt-btn--primary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">refresh</span>
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Regular Process Conflict */
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2">
+                  <p className="text-slate-300 text-[11.5px] leading-relaxed">
+                    Port {portConflict.port} is currently used by another process:
+                  </p>
+                  <div className="p-2.5 bg-[#0A0D14] rounded-lg border border-[#1E293B] font-mono text-xs text-amber-200">
+                    <div>
+                      Process: <strong className="text-white">{portConflict.processName || "Unknown"}</strong>
+                    </div>
+                    <div>
+                      PID: <strong className="text-white">{portConflict.pid ?? "Unknown"}</strong>
+                    </div>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    Kill this process to start MITM Proxy on port {portConflict.port}?
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1E293B]">
+                  <button
+                    type="button"
+                    onClick={() => setPortConflict(null)}
+                    className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isKilling}
+                    onClick={() => toggleServer(true, portConflict.port)}
+                    className="rt-btn rt-btn--danger text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">
+                      {isKilling ? "hourglass_empty" : "power_settings_new"}
+                    </span>
+                    {isKilling ? "Terminating..." : "Kill & Start"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </PortalModal>
