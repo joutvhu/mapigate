@@ -1,5 +1,4 @@
 import os from "node:os";
-import fs from "node:fs";
 import path from "node:path";
 
 export const APP_NAME = "Mapigate";
@@ -12,25 +11,12 @@ export function getDefaultDataDir(): string {
   if (process.env.MAPIGATE_DATA_DIR) {
     return process.env.MAPIGATE_DATA_DIR;
   }
-  if (process.env.MAPIGATE_DATA_DIR) {
-    return process.env.MAPIGATE_DATA_DIR;
-  }
-  const mapigateDir = path.join(os.homedir(), ".mapigate");
-  const mapigateDir = path.join(os.homedir(), ".mapigate");
-  if (!fs.existsSync(mapigateDir) && fs.existsSync(mapigateDir)) {
-    return mapigateDir;
-  }
-  return mapigateDir;
+  return path.join(os.homedir(), ".mapigate");
 }
 
 export const MAPIGATE_PID_FILE = "mapigate.pid";
 export const MAPIGATE_DB_FILE = "mapigate.sqlite";
 export const MAPIGATE_LOG_FILE = "server.log";
-
-// Backward-compatible aliases
-export const MAPIGATE_PID_FILE = MAPIGATE_PID_FILE;
-export const MAPIGATE_DB_FILE = MAPIGATE_DB_FILE;
-export const MAPIGATE_LOG_FILE = MAPIGATE_LOG_FILE;
 
 export const CONSOLE_LOG_CONFIG = {
   maxLines: 300,

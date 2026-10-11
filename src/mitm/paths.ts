@@ -8,15 +8,7 @@ export function defaultDir(): string {
   if (process.env.MAPIGATE_DATA_DIR) {
     return process.env.MAPIGATE_DATA_DIR;
   }
-  if (process.env.MAPIGATE_DATA_DIR) {
-    return process.env.MAPIGATE_DATA_DIR;
-  }
-  const mapigateDir = path.join(os.homedir(), `.${APP_NAME}`);
-  const legacyDir = path.join(os.homedir(), ".mapigate");
-  if (!fs.existsSync(mapigateDir) && fs.existsSync(legacyDir)) {
-    return legacyDir;
-  }
-  return mapigateDir;
+  return path.join(os.homedir(), `.${APP_NAME}`);
 }
 
 export function getDataDir(): string {

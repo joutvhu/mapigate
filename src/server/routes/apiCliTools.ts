@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { CLI_TOOLS, MAPIGATE_BASE_URL, MAPIGATE_BASE_URL } from "../../shared/constants/cliTools.js";
+import { CLI_TOOLS, MAPIGATE_BASE_URL } from "../../shared/constants/cliTools.js";
 
 const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
@@ -17,7 +17,6 @@ export interface ToolStatusResponse {
   status: "Connected" | "Guide" | "Not configured" | "Not installed";
   configPath?: string;
   settingsPath?: string;
-  hasMapigate: boolean;
   hasMapigate: boolean;
 }
 
@@ -68,7 +67,6 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
       configured: false,
       status: "Not installed",
       hasMapigate: false,
-      hasMapigate: false,
     };
   }
 
@@ -83,7 +81,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
   if (fileExists && resolvedConfigPath) {
     try {
       fileContent = await fs.readFile(resolvedConfigPath, "utf-8");
-      if (fileContent.includes("20127") || fileContent.includes("mapigate") || fileContent.includes("mapigate")) {
+      if (fileContent.includes("20127") || fileContent.includes("mapigate")) {
         hasMapigate = true;
       }
     } catch {
@@ -117,7 +115,6 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
     configPath: resolvedConfigPath || undefined,
     settingsPath: resolvedConfigPath || undefined,
     hasMapigate,
-    hasMapigate: hasMapigate,
   };
 }
 

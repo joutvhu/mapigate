@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { getDefaultDataDir, MAPIGATE_PID_FILE } from "../../shared/constants/index.js";
 
@@ -28,24 +27,6 @@ export class PidFileManager {
       }
     }
 
-    // Check legacy mapigate.pid in data dir or ~/.mapigate
-    const dir = getDefaultDataDir();
-    const legacyPaths = [
-      path.join(dir, "mapigate.pid"),
-      path.join(os.homedir(), ".mapigate", "mapigate.pid"),
-    ];
-    for (const legacy of legacyPaths) {
-      if (fs.existsSync(legacy)) {
-        try {
-          const content = fs.readFileSync(legacy, "utf8").trim();
-          const pid = parseInt(content, 10);
-          if (!isNaN(pid)) return pid;
-        } catch {
-          // Continue
-        }
-      }
-    }
-
     return null;
   }
 
@@ -56,22 +37,6 @@ export class PidFileManager {
         fs.unlinkSync(file);
       } catch {
         // Ignored
-      }
-    }
-
-    // Also clean up any legacy mapigate.pid
-    const dir = getDefaultDataDir();
-    const legacyPaths = [
-      path.join(dir, "mapigate.pid"),
-      path.join(os.homedir(), ".mapigate", "mapigate.pid"),
-    ];
-    for (const legacy of legacyPaths) {
-      if (fs.existsSync(legacy)) {
-        try {
-          fs.unlinkSync(legacy);
-        } catch {
-          // Ignored
-        }
       }
     }
   }

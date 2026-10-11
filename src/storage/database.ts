@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { getDefaultDataDir, MAPIGATE_DB_FILE } from "../shared/constants/index.js";
@@ -71,25 +70,6 @@ export function getDatabase(): DatabaseDriver {
   }
 
   const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
-  if (!fs.existsSync(dbPath)) {
-    // Check if legacy mapigate.sqlite exists in dataDir or ~/.mapigate
-    const legacyInDir = path.join(dataDir, "mapigate.sqlite");
-    const legacyInHome = path.join(os.homedir(), ".mapigate", "mapigate.sqlite");
-    const legacyPath = fs.existsSync(legacyInDir) ? legacyInDir : (fs.existsSync(legacyInHome) ? legacyInHome : null);
-    if (legacyPath) {
-      try {
-        fs.copyFileSync(legacyPath, dbPath);
-        if (fs.existsSync(`${legacyPath}-wal`)) {
-          fs.copyFileSync(`${legacyPath}-wal`, `${dbPath}-wal`);
-        }
-        if (fs.existsSync(`${legacyPath}-shm`)) {
-          fs.copyFileSync(`${legacyPath}-shm`, `${dbPath}-shm`);
-        }
-      } catch {
-        // Fallback: proceed to create fresh db
-      }
-    }
-  }
   dbInstance = new NodeSqliteDriver(dbPath);
 
   // Hook cleanup on process exit
