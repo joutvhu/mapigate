@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { PROVIDER_REGISTRY } from "../../shared/constants/providerRegistry.js";
-import { getCapabilitiesForModel } from "../../core/capabilities/index.js";
+import { getCapabilitiesForModel, aggregateComboCapabilities } from "../../core/capabilities/index.js";
 import crypto from "node:crypto";
 
 export const modelRouter = Router();
@@ -43,9 +44,90 @@ modelRouter.get("/available", (req, res) => {
         audio: boolean;
       };
       contextLength: number;
+      isCombo?: boolean;
+      strategy?: string;
+      models?: string[];
     }> = [];
 
     const seenValues = new Set<string>();
+
+    // Include active combos
+    const allCombos = ComboRepository.getAllCombos();
+    for (const combo of allCombos) {
+      if (!combo.isActive) continue;
+
+      let comboHasConnected = false;
+      let comboAccountsCount = 0;
+
+      for (const m of combo.models) {
+        let pId = "";
+        const slash = m.indexOf("/");
+        if (slash !== -1) {
+          pId = m.slice(0, slash);
+        } else {
+          for (const prov of Object.values(PROVIDER_REGISTRY)) {
+            if (prov?.models?.some((pm) => pm.id === m)) {
+              pId = prov.id;
+              break;
+            }
+          }
+        }
+
+        if (pId) {
+          let count = activeCounts.get(pId) || 0;
+          const regProv = PROVIDER_REGISTRY[pId];
+          if (regProv) {
+            if (regProv.alias && regProv.alias !== regProv.id) {
+              count += activeCounts.get(regProv.alias) || 0;
+            }
+            if (regProv.aliases) {
+              for (const a of regProv.aliases) {
+                if (a !== regProv.id && a !== regProv.alias) {
+                  count += activeCounts.get(a) || 0;
+                }
+              }
+            }
+          }
+          if (count > 0) {
+            comboHasConnected = true;
+            comboAccountsCount += count;
+          }
+        }
+      }
+
+      if (connectedOnly && !comboHasConnected) {
+        continue;
+      }
+
+      const val = combo.name;
+      if (seenValues.has(val)) continue;
+      seenValues.add(val);
+
+      const comboCaps = aggregateComboCapabilities(combo.models);
+      const vision = Boolean(comboCaps?.vision);
+      const reasoning = Boolean(comboCaps?.reasoning);
+      const audio = Boolean(comboCaps?.audioInput || comboCaps?.audioOutput);
+      const contextLength = comboCaps?.contextWindow || 0;
+
+      availableModels.push({
+        id: combo.id,
+        value: val,
+        name: combo.name,
+        providerId: "combo",
+        providerName: "Combos",
+        hasConnectedAccount: comboHasConnected,
+        accountsCount: comboAccountsCount,
+        caps: {
+          vision,
+          reasoning,
+          audio,
+        },
+        contextLength,
+        isCombo: true,
+        strategy: combo.strategy,
+        models: combo.models,
+      });
+    }
 
     for (const provider of Object.values(PROVIDER_REGISTRY)) {
       if (!provider || !provider.models) continue;
@@ -174,3 +256,70 @@ modelRouter.delete("/rules/:id", (req, res) => {
   ModelRepository.deleteRule(req.params.id);
   res.json({ success: true });
 });
+
+// GET /v1/models (OpenAI-compatible list)
+export function handleOpenAiModelsList(_req: any, res: any) {
+  try {
+    const list: Array<{
+      id: string;
+      object: "model";
+      created: number;
+      owned_by: string;
+    }> = [];
+
+    const allCombos = ComboRepository.getAllCombos();
+    for (const c of allCombos) {
+      if (!c.isActive) continue;
+      list.push({
+        id: c.name,
+        object: "model",
+        created: Math.floor(c.createdAt / 1000) || Math.floor(Date.now() / 1000),
+        owned_by: "combo",
+      });
+    }
+
+    const seen = new Set<string>();
+    for (const p of Object.values(PROVIDER_REGISTRY)) {
+      if (!p || !p.models) continue;
+      for (const m of p.models) {
+        const id = `${p.id}/${m.id}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          list.push({
+            id,
+            object: "model",
+            created: Math.floor(Date.now() / 1000),
+            owned_by: p.id,
+          });
+        }
+      }
+    }
+
+    const dbProviders = ProviderRepository.getAllProviders();
+    for (const p of dbProviders) {
+      if (PROVIDER_REGISTRY[p.id]) continue;
+      const pModels = Array.isArray(p.models) ? p.models : [];
+      for (const m of pModels) {
+        const mId = typeof m === "string" ? m : (m as any).id;
+        const id = `${p.id}/${mId}`;
+        if (!seen.has(id)) {
+          seen.add(id);
+          list.push({
+            id,
+            object: "model",
+            created: Math.floor(Date.now() / 1000),
+            owned_by: p.id,
+          });
+        }
+      }
+    }
+
+    res.json({
+      object: "list",
+      data: list,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to list models" });
+  }
+}
+

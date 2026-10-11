@@ -64,8 +64,11 @@ export class QuotaService {
         account.providerSpecificData
       );
 
+      const isGitHubOrCopilot =
+        account.providerId.toLowerCase() === "github" ||
+        account.providerId.toLowerCase() === "copilot";
       const effectiveToken =
-        account.providerId.toLowerCase() === "github" && freshCreds.githubAccessToken
+        isGitHubOrCopilot && freshCreds.githubAccessToken
           ? freshCreds.githubAccessToken
           : (freshCreds.accessToken || freshCreds.apiKey || account.rawApiKey);
 

@@ -30,7 +30,7 @@ import {
 } from "../../core/router/comboEngine.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
-import { logger, tagForSession, LogSymbol, formatDoneLine } from "../../shared/logger.js";
+import { logger, tagForSession, LogSymbol, formatDoneLine, maskKey } from "../../shared/logger.js";
 
 const MAX_PROXY_DISPATCHERS = 50;
 const proxyDispatchers = new Map<string, ProxyAgent>();
@@ -545,10 +545,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       }
 
       const durationMs = Date.now() - startTime;
+      const sanitizedErr = errText.slice(0, 500).replace(/sk-[a-zA-Z0-9_-]{20,}/g, (m) => maskKey(m));
       logger.errorLine(
         reqTag,
         LogSymbol.ERROR,
-        `ERROR ${upstreamRes.status} · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${errText.slice(0, 500)}`
+        `ERROR ${upstreamRes.status} · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${sanitizedErr}`
       );
 
       return {

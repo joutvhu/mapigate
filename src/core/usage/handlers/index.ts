@@ -38,6 +38,7 @@ export async function fetchRawQuotaForProvider(
       return await getCodexUsage(token, psd);
 
     case "github":
+    case "copilot":
       return await getGitHubUsage(psd.githubAccessToken || token, psd);
 
     case "kiro":

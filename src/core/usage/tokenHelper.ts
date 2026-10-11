@@ -170,7 +170,7 @@ export async function ensureFreshCredentials(
   }
 
   // 0. GitHub Copilot (uses githubAccessToken or rawApiKey to mint Copilot token)
-  if (pId === "github") {
+  if (pId === "github" || pId === "copilot") {
     try {
       const refreshed = await refreshCopilotToken({
         githubAccessToken: creds.githubAccessToken || creds.providerSpecificData.githubAccessToken,

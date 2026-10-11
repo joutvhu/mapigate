@@ -12,7 +12,7 @@ initConsoleLogCapture();
 import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, APP_VERSION } from "../shared/constants/index.js";
 import { handleProxyRequest } from "./proxy/chatProxy.js";
 import { providerRouter } from "./routes/apiProviders.js";
-import { modelRouter } from "./routes/apiModels.js";
+import { modelRouter, handleOpenAiModelsList } from "./routes/apiModels.js";
 import { statsRouter } from "./routes/apiStats.js";
 import { comboRouter } from "./routes/apiCombos.js";
 import { mitmRouter } from "./routes/apiMitm.js";
@@ -55,6 +55,9 @@ app.post("/v1/chat/completions", (req, res) => {
 app.post("/v1/messages", (req, res) => {
   handleProxyRequest(req, res, "anthropic");
 });
+
+app.get("/v1/models", handleOpenAiModelsList);
+app.get("/models", handleOpenAiModelsList);
 
 // Dashboard Management APIs
 app.use("/api/providers", providerRouter);

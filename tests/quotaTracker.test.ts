@@ -1086,7 +1086,23 @@ test("fetchRawQuotaForProvider - dispatches correctly across all registered prov
   });
   assert.ok(dsRes.message?.includes("DeepSeek API key not available"));
 
-  // 3. Dispatch to unknown provider
+  // 3. Dispatch to Copilot alias
+  const copilotRes = await fetchRawQuotaForProvider({
+    providerId: "copilot",
+    account: {
+      id: "acc_copilot",
+      providerId: "copilot",
+      name: "Copilot Dev",
+      rawApiKey: "",
+      isActive: true,
+      priority: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+  assert.ok(copilotRes.message?.includes("GitHub access token not available"));
+
+  // 4. Dispatch to unknown provider
   const unkRes = await fetchRawQuotaForProvider({
     providerId: "some_unsupported_provider",
     account: {

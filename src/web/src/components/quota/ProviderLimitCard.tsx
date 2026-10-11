@@ -18,6 +18,7 @@ const PROVIDER_COLORS: Record<string, string> = {
   codex: "#10A37F",
   openai: "#10A37F",
   github: "#24292F",
+  copilot: "#24292F",
   kiro: "#FF9900",
   deepseek: "#4D6BFE",
   grok: "#E11D48",
