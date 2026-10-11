@@ -696,41 +696,6 @@ export const MitmTab: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Inline edit box if editing */}
-                    {editingTool === tool.id && editingSource && (
-                      <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-between gap-3 text-xs animate-rt-scale-in">
-                        <div className="flex items-center gap-2 flex-1">
-                          <span className="font-mono text-slate-200 font-medium">{editingSource}</span>
-                          <span className="text-blue-400">→</span>
-                          <input
-                            type="text"
-                            value={targetInput}
-                            onChange={(e) => setTargetInput(e.target.value)}
-                            placeholder="Target model (e.g. ag/gemini-3.8-flash or claude/claude-sonnet-4-6)"
-                            className="flex-1 bg-[#0A0D14] border border-blue-500/50 rounded-lg px-2.5 py-1 text-xs text-white font-mono focus:outline-none"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setEditingSource(null);
-                              setEditingTool(null);
-                            }}
-                            className="px-2.5 py-1 rounded bg-[#0A0D14] border border-[#1E293B] text-slate-400 hover:text-white"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => handleUpdateMapping(tool.id)}
-                            className="rt-btn rt-btn--primary text-xs py-1 px-3"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
                     <div className="rounded-xl border border-[#1E293B] overflow-hidden bg-[#0A0D14]">
                       {toolMappings.length === 0 ? (
                         <div className="p-4 text-xs text-slate-500 italic text-center">
@@ -739,43 +704,92 @@ export const MitmTab: React.FC = () => {
                       ) : (
                         <table className="w-full text-left text-xs font-mono">
                           <tbody className="divide-y divide-[#1E293B]">
-                            {toolMappings.map((m, idx) => (
-                              <tr key={idx} className="hover:bg-white/5 transition-colors">
-                                <td className="p-3 text-slate-200 font-sans font-medium">
-                                  {m.sourceModel}
-                                </td>
-                                <td className="p-3 text-blue-400">
-                                  {m.targetModel ? (
-                                    <>
-                                      → <span className="text-emerald-300 ml-1 font-mono">{m.targetModel}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
-                                      (unmapped)
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="p-3 text-right space-x-2">
-                                  <button
-                                    onClick={() => {
-                                      setEditingTool(tool.id);
-                                      setEditingSource(m.sourceModel);
-                                      setTargetInput(m.targetModel);
-                                    }}
-                                    className="px-2.5 py-1 rounded bg-[#0E1320] hover:bg-blue-600 hover:text-white border border-[#1E293B] text-slate-300 transition-colors cursor-pointer font-sans text-[11px]"
-                                  >
-                                    Select
-                                  </button>
-                                  <button
-                                    onClick={() => deleteMapping(tool.id, m.sourceModel)}
-                                    className="p-1 text-slate-500 hover:text-red-400 transition-colors"
-                                    title="Delete mapping"
-                                  >
-                                    <span className="material-symbols-outlined text-[15px]">close</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            {toolMappings.map((m, idx) => {
+                              const isEditing = editingTool === tool.id && editingSource === m.sourceModel;
+                              return (
+                                <tr
+                                  key={idx}
+                                  className={`transition-colors ${isEditing ? "bg-blue-500/10" : "hover:bg-white/5"}`}
+                                >
+                                  <td className="p-3 text-slate-200 font-sans font-medium">
+                                    {m.sourceModel}
+                                  </td>
+                                  <td className="p-3 text-blue-400">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-blue-400 font-mono">→</span>
+                                        <input
+                                          type="text"
+                                          value={targetInput}
+                                          onChange={(e) => setTargetInput(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") handleUpdateMapping(tool.id);
+                                            if (e.key === "Escape") {
+                                              setEditingSource(null);
+                                              setEditingTool(null);
+                                              setTargetInput("");
+                                            }
+                                          }}
+                                          placeholder="e.g. ag/gemini-3.8-flash"
+                                          className="bg-[#080B11] border border-blue-500/60 focus:border-blue-400 rounded-lg px-2.5 py-1 text-xs text-white font-mono w-full max-w-xs focus:outline-none"
+                                          autoFocus
+                                        />
+                                      </div>
+                                    ) : m.targetModel ? (
+                                      <>
+                                        → <span className="text-emerald-300 ml-1 font-mono">{m.targetModel}</span>
+                                      </>
+                                    ) : (
+                                      <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
+                                        (unmapped)
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-right space-x-2 whitespace-nowrap">
+                                    {isEditing ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleUpdateMapping(tool.id)}
+                                          className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-sans text-[11px] font-medium transition-colors cursor-pointer"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingSource(null);
+                                            setEditingTool(null);
+                                            setTargetInput("");
+                                          }}
+                                          className="px-2.5 py-1 rounded bg-[#0E1320] hover:bg-slate-700 border border-[#1E293B] text-slate-400 hover:text-white font-sans text-[11px] transition-colors cursor-pointer"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button
+                                          onClick={() => {
+                                            setEditingTool(tool.id);
+                                            setEditingSource(m.sourceModel);
+                                            setTargetInput(m.targetModel);
+                                          }}
+                                          className="px-2.5 py-1 rounded bg-[#0E1320] hover:bg-blue-600 hover:text-white border border-[#1E293B] text-slate-300 transition-colors cursor-pointer font-sans text-[11px]"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          onClick={() => deleteMapping(tool.id, m.sourceModel)}
+                                          className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                                          title="Delete mapping"
+                                        >
+                                          <span className="material-symbols-outlined text-[15px]">close</span>
+                                        </button>
+                                      </>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       )}
