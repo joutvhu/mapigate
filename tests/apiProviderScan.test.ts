@@ -357,4 +357,58 @@ describe("API Provider Scan Endpoints", () => {
     assert.ok(ids.includes("model-shared"));
     assert.equal(body.scannedAccounts?.length, 2);
   });
+
+  test("POST /api/providers/:id/scan-models passes region to scanner and targets regional endpoint", async () => {
+    const providerId = `xmtp-api-prov-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Xiaomi Token Plan Provider",
+      baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-xmtp-${Date.now()}`,
+      providerId,
+      name: "SGP Account",
+      rawApiKey: "tp-sgp-key",
+    });
+
+    const origFetch = globalThis.fetch;
+    let probedUrl: string | undefined;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      probedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      if (probedUrl.includes("token-plan-ams.xiaomimimo.com")) {
+        return new Response(JSON.stringify({ data: [{ id: "mimo-v2.6-pro" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return origFetch(input, init);
+    };
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${apiPort}/api/providers/${providerId}/scan-models`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          region: "ams",
+        }),
+      });
+
+      assert.equal(res.status, 200);
+      const body = (await res.json()) as any;
+      assert.equal(body.success, true);
+      assert.equal(body.endpointUrl, "https://token-plan-ams.xiaomimimo.com/v1/models");
+      assert.equal(body.models[0].id, "mimo-v2.6-pro");
+      assert.ok(probedUrl?.includes("token-plan-ams.xiaomimimo.com"));
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
 });

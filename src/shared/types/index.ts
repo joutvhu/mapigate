@@ -233,6 +233,7 @@ export interface ScanModelsResult {
   count: number;
   error?: string;
   scannedAccounts?: { id: string; name: string }[];
+  failedAccounts?: { id: string; name: string; error?: string }[];
   noAccountsConfigured?: boolean;
 }
 
@@ -243,5 +244,7 @@ export interface ScanModelsOptions {
   customHeaders?: Record<string, string>;
   format?: string;
   timeoutMs?: number;
+  region?: string;
+  providerSpecificData?: Record<string, any>;
 }
 

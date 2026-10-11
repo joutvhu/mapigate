@@ -9759,7 +9759,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "baseUrls": [
       "https://api.xiaomimimo.com/v1/chat/completions"
     ],
-    "validateUrl": "https://api.xiaomimimo.com/v1/models",
+    "validateUrl": "https://token-plan-sgp.xiaomimimo.com/v1/models",
     "format": "openai",
     "defaultHeaders": {},
     "thinkingMode": "auto",
@@ -9860,7 +9860,7 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "baseUrls": [
       "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions"
     ],
-    "validateUrl": "",
+    "validateUrl": "https://token-plan-sgp.xiaomimimo.com/v1/models",
     "format": "openai",
     "defaultHeaders": {},
     "thinkingMode": "auto",

@@ -10,7 +10,8 @@ export function resolveCandidateUrls(
   baseUrl: string,
   format?: string,
   providerId?: string,
-  registryItem?: ProviderRegistryItem
+  registryItem?: ProviderRegistryItem,
+  region?: string
 ): string[] {
   let cleanBase = (baseUrl || "").trim().replace(/\/+$/, "");
   if (!cleanBase) return [];
@@ -28,6 +29,35 @@ export function resolveCandidateUrls(
     format === "ollama" ||
     lowerBase.includes(":11434") ||
     (providerId && providerId.toLowerCase().includes("ollama"));
+
+  // Xiaomi MiMo & Xiaomi Token Plan endpoint resolution
+  // https://api.xiaomimimo.com/v1/models is invalid; must use https://token-plan-${region}.xiaomimimo.com/v1/models
+  const isXiaomi =
+    providerId === "xiaomi-tokenplan" ||
+    providerId === "xmtp" ||
+    providerId === "xiaomi-mimo" ||
+    providerId === "mimo" ||
+    (registryItem && (
+      registryItem.id === "xiaomi-tokenplan" ||
+      registryItem.id === "xiaomi-mimo" ||
+      registryItem.alias === "xmtp" ||
+      registryItem.alias === "mimo"
+    )) ||
+    lowerBase.includes("xiaomimimo.com");
+
+  if (isXiaomi) {
+    const urlRegionMatch = lowerBase.match(/token-plan-([a-z0-9_-]+)\.xiaomimimo\.com/);
+    const targetRegion = (region || (urlRegionMatch ? urlRegionMatch[1] : "") || "sgp").toLowerCase().trim();
+
+    add(`https://token-plan-${targetRegion}.xiaomimimo.com/v1/models`);
+    const fallbackRegions = ["sgp", "cn", "ams"];
+    for (const r of fallbackRegions) {
+      if (r !== targetRegion) {
+        add(`https://token-plan-${r}.xiaomimimo.com/v1/models`);
+      }
+    }
+    return candidates;
+  }
 
   // 1. If baseUrl already points directly to /models, /v1/models, or /api/tags
   if (lowerBase.endsWith("/models") || lowerBase.endsWith("/api/tags")) {
@@ -207,14 +237,20 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
  */
 export async function scanProviderModels(options: ScanModelsOptions): Promise<ScanModelsResult> {
   try {
-    let { providerId, baseUrl, apiKey, customHeaders, format, timeoutMs = 8000 } = options;
+    let { providerId, baseUrl, apiKey, customHeaders, format, timeoutMs = 8000, region, providerSpecificData } = options;
 
     let registryItem: ProviderRegistryItem | undefined;
     if (providerId) {
       registryItem = getRegistryProvider(providerId);
     }
 
-    let accountsToScan: { id: string; name: string; apiKey: string }[] = [];
+    let accountsToScan: {
+      id: string;
+      name: string;
+      apiKey: string;
+      region?: string;
+      providerSpecificData?: Record<string, any>;
+    }[] = [];
 
     // Resolve missing parameters from ProviderRepository if providerId is specified
     let dbProvider: any;
@@ -243,7 +279,13 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       }
 
       if (apiKey) {
-        accountsToScan = [{ id: "explicit", name: "Custom API Key", apiKey }];
+        accountsToScan = [{
+          id: "explicit",
+          name: "Custom API Key",
+          apiKey,
+          region: region || providerSpecificData?.region,
+          providerSpecificData,
+        }];
       } else {
         let accounts = ProviderRepository.getAccountsByProvider(providerId);
         if (accounts.length === 0) {
@@ -254,6 +296,8 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
             id: a.id,
             name: a.name,
             apiKey: a.rawApiKey || "",
+            region: a.providerSpecificData?.region || region,
+            providerSpecificData: a.providerSpecificData || providerSpecificData,
           }));
         } else {
           const isZeroAuth =
@@ -261,7 +305,13 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
             providerId === "opencode" ||
             providerId === "oc";
           if (isZeroAuth) {
-            accountsToScan = [{ id: "acc_opencode_free", name: "OpenCode Free (Public)", apiKey: "public" }];
+            accountsToScan = [{
+              id: "acc_opencode_free",
+              name: "OpenCode Free (Public)",
+              apiKey: "public",
+              region,
+              providerSpecificData,
+            }];
           } else {
             return {
               success: false,
@@ -274,7 +324,13 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         }
       }
     } else {
-      accountsToScan = [{ id: "ad-hoc", name: "Default", apiKey: apiKey || "" }];
+      accountsToScan = [{
+        id: "ad-hoc",
+        name: "Default",
+        apiKey: apiKey || "",
+        region: region || providerSpecificData?.region,
+        providerSpecificData,
+      }];
     }
 
     if (!baseUrl) {
@@ -286,7 +342,7 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       };
     }
 
-    const candidateUrls = resolveCandidateUrls(baseUrl, format, providerId, registryItem);
+    const candidateUrls = resolveCandidateUrls(baseUrl, format, providerId, registryItem, region);
     if (candidateUrls.length === 0) {
       return {
         success: false,
@@ -311,6 +367,7 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
 
     const modelsById = new Map<string, ScannedModel>();
     const scannedAccounts: { id: string; name: string }[] = [];
+    const failedAccounts: { id: string; name: string; error?: string }[] = [];
     let discoveredEndpointUrl: string | undefined;
     let authError: string | null = null;
     let lastError: string | null = null;
@@ -343,9 +400,19 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       }
 
       let accountSucceeded = false;
-      const orderedUrls = discoveredEndpointUrl
-        ? [discoveredEndpointUrl, ...candidateUrls.filter((u) => u !== discoveredEndpointUrl)]
-        : candidateUrls;
+      const accountRegion = account.region || account.providerSpecificData?.region || region;
+      const accountCandidateUrls = resolveCandidateUrls(baseUrl, format, providerId, registryItem, accountRegion);
+
+      let orderedUrls = accountCandidateUrls;
+      if (discoveredEndpointUrl && accountCandidateUrls.includes(discoveredEndpointUrl)) {
+        if (discoveredEndpointUrl === accountCandidateUrls[0]) {
+          orderedUrls = accountCandidateUrls;
+        } else {
+          const primary = accountCandidateUrls[0];
+          const remaining = accountCandidateUrls.slice(1).filter((u) => u !== discoveredEndpointUrl);
+          orderedUrls = [primary, discoveredEndpointUrl, ...remaining];
+        }
+      }
 
       for (const url of orderedUrls) {
         try {
@@ -393,6 +460,12 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
 
       if (accountSucceeded) {
         scannedAccounts.push({ id: account.id, name: account.name });
+      } else {
+        failedAccounts.push({
+          id: account.id,
+          name: account.name,
+          error: authError || lastError || "Failed to scan account",
+        });
       }
     }
 
@@ -403,6 +476,7 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         models: Array.from(modelsById.values()),
         count: modelsById.size,
         scannedAccounts,
+        failedAccounts: failedAccounts.length > 0 ? failedAccounts : undefined,
       };
     }
 
@@ -410,6 +484,7 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       success: false,
       models: [],
       count: 0,
+      failedAccounts: failedAccounts.length > 0 ? failedAccounts : undefined,
       error: authError || lastError || "Could not discover models from any candidate endpoints.",
     };
   } catch (err: unknown) {

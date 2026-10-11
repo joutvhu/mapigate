@@ -32,6 +32,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [endpointUrl, setEndpointUrl] = useState<string | null>(null);
   const [scannedAccounts, setScannedAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [failedAccounts, setFailedAccounts] = useState<{ id: string; name: string; error?: string }[]>([]);
   const [noAccountsConfigured, setNoAccountsConfigured] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,6 +55,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         setScannedModels(result.models);
         setEndpointUrl(result.endpointUrl || null);
         setScannedAccounts(result.scannedAccounts || []);
+        setFailedAccounts(result.failedAccounts || []);
         setNoAccountsConfigured(false);
         // Default: select all discovered models
         setSelectedIds(new Set(result.models.map((m) => m.id)));
@@ -61,6 +63,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         setScannedModels([]);
         setEndpointUrl(null);
         setScannedAccounts([]);
+        setFailedAccounts(result.failedAccounts || []);
         if (result.noAccountsConfigured) {
           setNoAccountsConfigured(true);
         }
@@ -81,6 +84,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
       setSearchQuery("");
       setShowOverrides(false);
       setScannedAccounts([]);
+      setFailedAccounts([]);
       setNoAccountsConfigured(false);
       triggerScan(provider.baseUrl || undefined);
     } else {
@@ -89,6 +93,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
       setErrorMsg(null);
       setEndpointUrl(null);
       setScannedAccounts([]);
+      setFailedAccounts([]);
       setNoAccountsConfigured(false);
     }
   }, [isOpen, provider.id, provider.baseUrl, triggerScan]);
@@ -176,7 +181,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         </div>
 
         {/* Scanned accounts & endpoint probe info */}
-        {(scannedAccounts.length > 0 || endpointUrl) && (
+        {(scannedAccounts.length > 0 || failedAccounts.length > 0 || endpointUrl) && (
           <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] text-[11px]">
             {scannedAccounts.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 text-slate-300">
@@ -188,6 +193,23 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                   <span
                     key={acc.id}
                     className="px-2 py-0.5 rounded font-mono text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                  >
+                    {acc.name}
+                  </span>
+                ))}
+              </div>
+            )}
+            {failedAccounts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-amber-300">
+                <span className="material-symbols-outlined text-amber-400 text-[15px]">warning</span>
+                <span className="text-amber-400/90 font-medium">
+                  {failedAccounts.length === 1 ? "1 account failed to authenticate:" : `${failedAccounts.length} accounts failed to authenticate:`}
+                </span>
+                {failedAccounts.map((acc) => (
+                  <span
+                    key={acc.id}
+                    title={acc.error}
+                    className="px-2 py-0.5 rounded font-mono text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20"
                   >
                     {acc.name}
                   </span>
@@ -275,7 +297,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. https://api.xiaomimimo.com/v1/models or https://api.xkiro.com/v1"
+                  placeholder="e.g. https://token-plan-sgp.xiaomimimo.com/v1/models or https://api.xkiro.com/v1"
                   value={customBaseUrl}
                   onChange={(e) => setCustomBaseUrl(e.target.value)}
                   className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"

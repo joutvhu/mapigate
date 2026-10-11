@@ -9,9 +9,41 @@ import {
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
 
 describe("Model Scanner - Candidate URL Resolution", () => {
-  test("preserves explicit /models endpoint without alteration", () => {
+  test("preserves explicit /models endpoint without alteration for standard providers", () => {
+    const urls = resolveCandidateUrls("https://api.xkiro.com/v1/models");
+    assert.deepEqual(urls, ["https://api.xkiro.com/v1/models"]);
+  });
+
+  test("resolves Xiaomi endpoint to regional token-plan URL defaulting to sgp", () => {
     const urls = resolveCandidateUrls("https://api.xiaomimimo.com/v1/models");
-    assert.deepEqual(urls, ["https://api.xiaomimimo.com/v1/models"]);
+    assert.equal(urls[0], "https://token-plan-sgp.xiaomimimo.com/v1/models");
+    assert.ok(urls.includes("https://token-plan-cn.xiaomimimo.com/v1/models"));
+    assert.ok(urls.includes("https://token-plan-ams.xiaomimimo.com/v1/models"));
+    assert.ok(!urls.includes("https://api.xiaomimimo.com/v1/models"));
+  });
+
+  test("resolves Xiaomi candidate URLs prioritizing region parameter", () => {
+    const urlsCn = resolveCandidateUrls(
+      "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+      undefined,
+      "xiaomi-tokenplan",
+      undefined,
+      "cn"
+    );
+    assert.equal(urlsCn[0], "https://token-plan-cn.xiaomimimo.com/v1/models");
+    assert.ok(urlsCn.includes("https://token-plan-sgp.xiaomimimo.com/v1/models"));
+    assert.ok(urlsCn.includes("https://token-plan-ams.xiaomimimo.com/v1/models"));
+
+    const urlsAms = resolveCandidateUrls(
+      "https://api.xiaomimimo.com/v1/chat/completions",
+      undefined,
+      "xiaomi-mimo",
+      undefined,
+      "ams"
+    );
+    assert.equal(urlsAms[0], "https://token-plan-ams.xiaomimimo.com/v1/models");
+    assert.ok(urlsAms.includes("https://token-plan-sgp.xiaomimimo.com/v1/models"));
+    assert.ok(urlsAms.includes("https://token-plan-cn.xiaomimimo.com/v1/models"));
   });
 
   test("preserves explicit /api/tags endpoint for Ollama", () => {
@@ -346,5 +378,55 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     const scannedNames = result.scannedAccounts?.map((a) => a.name);
     assert.ok(scannedNames?.includes("Account 1"));
     assert.ok(scannedNames?.includes("Account 2"));
+    // Failed accounts should surface Bad Account
+    assert.equal(result.failedAccounts?.length, 1);
+    assert.equal(result.failedAccounts?.[0].name, "Bad Account");
+  });
+
+  test("uses account-specific region from providerSpecificData when scanning", async () => {
+    const providerId = `xmtp-test-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Xiaomi Token Plan Regional",
+      baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-ams-${Date.now()}`,
+      providerId,
+      name: "AMS Account",
+      rawApiKey: "tp-ams-token",
+      providerSpecificData: { region: "ams" },
+    });
+
+    const origFetch = globalThis.fetch;
+    let probedUrl: string | undefined;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      probedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      if (probedUrl.includes("token-plan-ams.xiaomimimo.com")) {
+        return new Response(JSON.stringify({ data: [{ id: "mimo-v2.6-pro" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return origFetch(input, init);
+    };
+
+    try {
+      const result = await scanProviderModels({ providerId });
+      assert.equal(result.success, true);
+      assert.equal(result.endpointUrl, "https://token-plan-ams.xiaomimimo.com/v1/models");
+      assert.equal(result.models.length, 1);
+      assert.equal(result.models[0].id, "mimo-v2.6-pro");
+      assert.ok(probedUrl?.includes("token-plan-ams.xiaomimimo.com"));
+    } finally {
+      globalThis.fetch = origFetch;
+    }
   });
 });

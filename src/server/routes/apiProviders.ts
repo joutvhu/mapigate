@@ -207,7 +207,7 @@ providerRouter.post("/validate", async (req, res) => {
 // POST ad-hoc model scanning from upstream provider API
 providerRouter.post("/scan-models", async (req, res) => {
   try {
-    const { providerId, baseUrl, apiKey, customHeaders, format, timeoutMs } = req.body || {};
+    const { providerId, baseUrl, apiKey, customHeaders, format, timeoutMs, region, providerSpecificData } = req.body || {};
     if (!providerId && !baseUrl) {
       res.status(400).json({ success: false, models: [], count: 0, error: "Either providerId or baseUrl is required." });
       return;
@@ -219,6 +219,8 @@ providerRouter.post("/scan-models", async (req, res) => {
       customHeaders,
       format,
       timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
+      region,
+      providerSpecificData,
     });
     if (!result.success) {
       if (result.noAccountsConfigured) {
@@ -240,7 +242,7 @@ providerRouter.post("/scan-models", async (req, res) => {
 providerRouter.post("/:id/scan-models", async (req, res) => {
   try {
     const providerId = req.params.id;
-    const { baseUrl, apiKey, customHeaders, format, timeoutMs } = req.body || {};
+    const { baseUrl, apiKey, customHeaders, format, timeoutMs, region, providerSpecificData } = req.body || {};
     const dbProv = ProviderRepository.getProviderById(providerId);
     const regProv = getRegistryProvider(providerId);
 
@@ -249,6 +251,8 @@ providerRouter.post("/:id/scan-models", async (req, res) => {
       return;
     }
 
+    const effectiveRegion = region || regProv?.defaultRegion;
+
     const result = await scanProviderModels({
       providerId,
       baseUrl,
@@ -256,6 +260,8 @@ providerRouter.post("/:id/scan-models", async (req, res) => {
       customHeaders,
       format,
       timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
+      region: effectiveRegion,
+      providerSpecificData,
     });
 
     if (!result.success) {
