@@ -11,6 +11,7 @@ import {
   MAPIGATE_DB_FILE,
   MAPIGATE_LOG_FILE,
   getDefaultDataDir,
+  isDevelopmentMode,
 } from "../src/shared/constants/index.js";
 import { MAPIGATE_BASE_URL, MAPIGATE_V1_URL } from "../src/shared/constants/cliTools.js";
 import { PidFileManager } from "../src/cli/daemon/pidFile.js";
@@ -27,20 +28,54 @@ test("Mapigate Rename - Constants", () => {
 });
 
 test("Mapigate Rename - Data Directory Resolution", () => {
-  const origEnv = process.env.MAPIGATE_DATA_DIR;
+  const origDataDir = process.env.MAPIGATE_DATA_DIR;
+  const origNodeEnv = process.env.NODE_ENV;
+  const origMapigateDev = process.env.MAPIGATE_DEV;
+  const origMapigateProd = process.env.MAPIGATE_PROD;
 
   try {
-    // 1. MAPIGATE_DATA_DIR takes precedence
+    // 1. MAPIGATE_DATA_DIR takes highest precedence
     process.env.MAPIGATE_DATA_DIR = "/custom/mapigate/data";
     assert.equal(getDefaultDataDir(), "/custom/mapigate/data");
 
-    // 2. Default resolution
+    // 2. Clear MAPIGATE_DATA_DIR to test environment-based resolution
     delete process.env.MAPIGATE_DATA_DIR;
-    const resolved = getDefaultDataDir();
-    assert.equal(resolved, path.join(os.homedir(), ".mapigate"));
+
+    // 2a. Development mode resolution (in repo root)
+    delete process.env.MAPIGATE_PROD;
+    process.env.NODE_ENV = "development";
+    assert.equal(isDevelopmentMode(), true);
+    assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
+
+    // 2b. MAPIGATE_DEV flag
+    delete process.env.NODE_ENV;
+    process.env.MAPIGATE_DEV = "1";
+    assert.equal(isDevelopmentMode(), true);
+    assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
+    delete process.env.MAPIGATE_DEV;
+
+    // 2c. Production mode resolution (NODE_ENV=production)
+    process.env.NODE_ENV = "production";
+    assert.equal(isDevelopmentMode(), false);
+    assert.equal(getDefaultDataDir(), path.join(os.homedir(), ".mapigate"));
+
+    // 2d. Production mode resolution (MAPIGATE_PROD=1)
+    delete process.env.NODE_ENV;
+    process.env.MAPIGATE_PROD = "1";
+    assert.equal(isDevelopmentMode(), false);
+    assert.equal(getDefaultDataDir(), path.join(os.homedir(), ".mapigate"));
   } finally {
-    if (origEnv !== undefined) process.env.MAPIGATE_DATA_DIR = origEnv;
+    if (origDataDir !== undefined) process.env.MAPIGATE_DATA_DIR = origDataDir;
     else delete process.env.MAPIGATE_DATA_DIR;
+
+    if (origNodeEnv !== undefined) process.env.NODE_ENV = origNodeEnv;
+    else delete process.env.NODE_ENV;
+
+    if (origMapigateDev !== undefined) process.env.MAPIGATE_DEV = origMapigateDev;
+    else delete process.env.MAPIGATE_DEV;
+
+    if (origMapigateProd !== undefined) process.env.MAPIGATE_PROD = origMapigateProd;
+    else delete process.env.MAPIGATE_PROD;
   }
 });
 

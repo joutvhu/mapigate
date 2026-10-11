@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { DatabaseSync } from "node:sqlite";
+import { getDefaultDataDir } from "../shared/constants/index.js";
 
 export function scrubDatabase(dbPath?: string) {
-  const targetPath = dbPath || path.join(os.homedir(), ".mapigate", "mapigate.sqlite");
+  const targetPath = dbPath || path.join(getDefaultDataDir(), "mapigate.sqlite");
   if (!fs.existsSync(targetPath)) {
     console.log(`Database file not found at ${targetPath}, nothing to scrub.`);
     return { accountsDeleted: 0, providersDeleted: 0, combosDeleted: 0 };

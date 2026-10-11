@@ -9,8 +9,8 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,WEB\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:web\"",
-    "dev:server": "tsx watch src/server/index.ts",
+    "dev": "cross-env NODE_ENV=development MAPIGATE_DEV=1 concurrently -k -p \"[{name}]\" -n \"SERVER,WEB\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:server": "cross-env NODE_ENV=development MAPIGATE_DEV=1 tsx watch src/server/index.ts",
     "dev:web": "vite src/web",
     "build": "npm run build:server && npm run build:web",
     "build:server": "tsc -p tsconfig.server.json",

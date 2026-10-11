@@ -10,7 +10,7 @@ build/
 # Local Environment & Data
 .env
 .env.local
-.mapigate-data/
+.mapigate/
 .mapigate-data/
 *.sqlite
 *.sqlite-wal

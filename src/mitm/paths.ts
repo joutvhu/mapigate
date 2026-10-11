@@ -1,18 +1,15 @@
 import path from "node:path";
-import os from "node:os";
 import fs from "node:fs";
+import { getDefaultDataDir } from "../shared/constants/index.js";
 
 export const APP_NAME = "mapigate";
 
 export function defaultDir(): string {
-  if (process.env.MAPIGATE_DATA_DIR) {
-    return process.env.MAPIGATE_DATA_DIR;
-  }
-  return path.join(os.homedir(), `.${APP_NAME}`);
+  return getDefaultDataDir();
 }
 
 export function getDataDir(): string {
-  const dir = defaultDir();
+  const dir = getDefaultDataDir();
   try {
     fs.mkdirSync(dir, { recursive: true });
   } catch {
