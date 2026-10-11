@@ -454,6 +454,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     // Bedrock EventStream
     if (isBedrock && upstreamRes.headers.get("content-type")?.includes("eventstream")) {
       let residualBuffer: any = new Uint8Array(0);
+      const bedrockOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState();
 
       while (true) {
         const { done, value } = await reader.read();
@@ -491,7 +492,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
             if (clientFormat === "anthropic") {
               res.write(`event: ${eventObj.type || "content_block_delta"}\ndata: ${rawEventString}\n\n`);
             } else {
-              const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(eventObj, requestId);
+              const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+                eventObj,
+                requestId,
+                bedrockOpenAiState
+              );
               for (const ch of openAiChunks) {
                 res.write(ch);
               }
@@ -566,6 +571,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     }
 
     // Standard SSE text streams
+    const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId);
     if (clientFormat === "anthropic" && targetFormat === "openai") {
       res.write(
         `event: message_start\ndata: ${JSON.stringify({
@@ -579,7 +585,9 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
           },
         })}\n\n`
       );
+      openAiToAnthropicState.messageStartSent = true;
     }
+    const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState();
 
     const decoder = new TextDecoder();
     let buffer = "";
@@ -650,7 +658,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
           }
 
           if (clientFormat === "anthropic" && targetFormat === "openai") {
-            const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(jsonChunk, requestId);
+            const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
+              jsonChunk,
+              requestId,
+              openAiToAnthropicState
+            );
             for (const ev of anthropicEvents) {
               res.write(ev);
             }
@@ -659,7 +671,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
               type: currentEventName || jsonChunk.type,
               ...jsonChunk,
             };
-            const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(eventPayload, requestId);
+            const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+              eventPayload,
+              requestId,
+              claudeToOpenAiState
+            );
             for (const ch of openAiChunks) {
               res.write(ch);
             }
@@ -672,6 +688,13 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         } catch {
           res.write(rawLine + "\n\n");
         }
+      }
+    }
+
+    if (clientFormat === "anthropic" && targetFormat === "openai") {
+      const finalEvents = AnthropicAdapter.finalizeStream(openAiToAnthropicState);
+      for (const ev of finalEvents) {
+        res.write(ev);
       }
     }
 

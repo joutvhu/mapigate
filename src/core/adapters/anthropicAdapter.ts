@@ -1,8 +1,51 @@
+export interface AnthropicStreamState {
+  messageStartSent?: boolean;
+  messageId?: string;
+  nextBlockIndex: number;
+  currentBlockType: "thinking" | "text" | null;
+  currentBlockIndex: number | null;
+  toolCalls: Map<number, { id: string; name: string; blockIndex: number; started: boolean; stopped?: boolean }>;
+  outputTokens?: number;
+  messageStopSent?: boolean;
+}
+
+export interface AnthropicToOpenAiStreamState {
+  toolCallIndex: number;
+  blockIndexToToolCallIndex: Map<number, number>;
+}
+
 /**
  * Anthropic Adapter
  * Translates bidirectionally between Anthropic Messages format and OpenAI Chat format
  */
 export class AnthropicAdapter {
+  private static openAiStreamStates = new Map<string, AnthropicStreamState>();
+  private static anthropicStreamStates = new Map<string, AnthropicToOpenAiStreamState>();
+
+  /**
+   * Create a state tracker for OpenAI -> Anthropic streaming
+   */
+  public static createStreamState(messageId?: string): AnthropicStreamState {
+    return {
+      messageStartSent: false,
+      messageId: messageId || `msg_${Date.now()}`,
+      nextBlockIndex: 0,
+      currentBlockType: null,
+      currentBlockIndex: null,
+      toolCalls: new Map(),
+    };
+  }
+
+  /**
+   * Create a state tracker for Anthropic -> OpenAI streaming
+   */
+  public static createAnthropicToOpenAiState(): AnthropicToOpenAiStreamState {
+    return {
+      toolCallIndex: 0,
+      blockIndexToToolCallIndex: new Map(),
+    };
+  }
+
   /**
    * Convert Anthropic /v1/messages payload to OpenAI /v1/chat/completions payload
    */
@@ -28,17 +71,39 @@ export class AnthropicAdapter {
         const role = msg.role;
 
         if (typeof msg.content === "string") {
-          messages.push({ role, content: msg.content });
+          const outMsg: any = { role, content: msg.content };
+          if (msg.reasoning_content || msg.reasoning || msg.thought) {
+            outMsg.reasoning_content = msg.reasoning_content || msg.reasoning || msg.thought;
+          }
+          if (msg.thinking_signature || msg.signature) {
+            outMsg.thinking_signature = msg.thinking_signature || msg.signature;
+            outMsg.signature = msg.thinking_signature || msg.signature;
+          }
+          messages.push(outMsg);
           continue;
         }
 
         if (Array.isArray(msg.content)) {
           let textAccumulator = "";
+          let reasoningAccumulator = "";
+          let thinkingSignature: string | undefined = undefined;
+          let redactedThinking: string | undefined = undefined;
           const toolCalls: any[] = [];
 
           for (const block of msg.content) {
             if (block.type === "text") {
               textAccumulator += (block.text || "") + "\n";
+            } else if (block.type === "thinking") {
+              if (block.thinking) {
+                reasoningAccumulator += (block.thinking || "") + "\n";
+              }
+              if (block.signature) {
+                thinkingSignature = block.signature;
+              }
+            } else if (block.type === "redacted_thinking") {
+              if (block.data) {
+                redactedThinking = block.data;
+              }
             } else if (block.type === "tool_use") {
               toolCalls.push({
                 id: block.id,
@@ -57,9 +122,23 @@ export class AnthropicAdapter {
             }
           }
 
-          if (textAccumulator.trim() || toolCalls.length > 0) {
+          const hasText = Boolean(textAccumulator.trim());
+          const hasReasoning = Boolean(reasoningAccumulator.trim());
+          const hasToolCalls = toolCalls.length > 0;
+
+          if (hasText || hasReasoning || hasToolCalls || redactedThinking) {
             const outMsg: any = { role, content: textAccumulator.trim() || null };
-            if (toolCalls.length > 0) {
+            if (hasReasoning) {
+              outMsg.reasoning_content = reasoningAccumulator.trim();
+            }
+            if (thinkingSignature) {
+              outMsg.thinking_signature = thinkingSignature;
+              outMsg.signature = thinkingSignature;
+            }
+            if (redactedThinking) {
+              outMsg.redacted_thinking = redactedThinking;
+            }
+            if (hasToolCalls) {
               outMsg.tool_calls = toolCalls;
             }
             messages.push(outMsg);
@@ -128,6 +207,17 @@ export class AnthropicAdapter {
 
         if (msg.role === "assistant") {
           const contentBlocks: any[] = [];
+          const reasoning = msg.reasoning_content || msg.reasoning || msg.thought;
+          if (reasoning) {
+            const thinkingBlock: any = {
+              type: "thinking",
+              thinking: reasoning,
+            };
+            if (msg.thinking_signature || msg.signature) {
+              thinkingBlock.signature = msg.thinking_signature || msg.signature;
+            }
+            contentBlocks.push(thinkingBlock);
+          }
           if (msg.content) {
             contentBlocks.push({ type: "text", text: msg.content });
           }
@@ -191,55 +281,160 @@ export class AnthropicAdapter {
   /**
    * Convert OpenAI response chunk to Anthropic SSE event format
    */
-  public static openAiChunkToAnthropicEvent(chunk: any, messageId: string): string[] {
+  public static openAiChunkToAnthropicEvent(
+    chunk: any,
+    messageId: string,
+    state?: AnthropicStreamState
+  ): string[] {
     const delta = chunk?.choices?.[0]?.delta;
-    if (!delta) return [];
+    const finishReason = chunk?.choices?.[0]?.finish_reason;
+    if (!delta && !finishReason && !chunk?.usage) return [];
+
+    let streamState = state;
+    if (!streamState) {
+      streamState = AnthropicAdapter.openAiStreamStates.get(messageId);
+      if (!streamState) {
+        streamState = AnthropicAdapter.createStreamState(messageId);
+        AnthropicAdapter.openAiStreamStates.set(messageId, streamState);
+        if (AnthropicAdapter.openAiStreamStates.size > 500) {
+          const oldestKey = AnthropicAdapter.openAiStreamStates.keys().next().value;
+          if (oldestKey) AnthropicAdapter.openAiStreamStates.delete(oldestKey);
+        }
+      }
+    }
 
     const events: string[] = [];
 
-    // Text delta
-    if (delta.content) {
+    // Track usage if present
+    if (chunk.usage?.completion_tokens != null) {
+      streamState.outputTokens = chunk.usage.completion_tokens;
+    }
+
+    // 1. Check reasoning / thinking across vendor formats:
+    // reasoning_content (OpenAI, DeepSeek, GLM, Qwen)
+    // reasoning (compat layers, Ollama, Groq)
+    // thought (Gemini, etc.)
+    // reasoning_details (MiniMax)
+    let reasoningText =
+      (typeof delta?.reasoning_content === "string" && delta.reasoning_content) ||
+      (typeof delta?.reasoning === "string" && delta.reasoning) ||
+      (typeof delta?.thought === "string" && delta.thought) ||
+      "";
+
+    if (!reasoningText && Array.isArray(delta?.reasoning_details)) {
+      reasoningText = delta.reasoning_details
+        .map((d: any) => (typeof d === "string" ? d : d?.text || d?.content || ""))
+        .join("");
+    }
+
+    if (reasoningText) {
+      if (streamState.currentBlockType !== "thinking") {
+        if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
+          events.push(
+            `event: content_block_stop\ndata: ${JSON.stringify({
+              type: "content_block_stop",
+              index: streamState.currentBlockIndex,
+            })}\n\n`
+          );
+        }
+        streamState.currentBlockIndex = streamState.nextBlockIndex++;
+        streamState.currentBlockType = "thinking";
+        events.push(
+          `event: content_block_start\ndata: ${JSON.stringify({
+            type: "content_block_start",
+            index: streamState.currentBlockIndex,
+            content_block: { type: "thinking", thinking: "" },
+          })}\n\n`
+        );
+      }
+
       events.push(
         `event: content_block_delta\ndata: ${JSON.stringify({
           type: "content_block_delta",
-          index: 0,
+          index: streamState.currentBlockIndex,
+          delta: { type: "thinking_delta", thinking: reasoningText },
+        })}\n\n`
+      );
+    }
+
+    // 2. Text delta
+    if (typeof delta?.content === "string" && delta.content) {
+      if (streamState.currentBlockType !== "text") {
+        if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
+          events.push(
+            `event: content_block_stop\ndata: ${JSON.stringify({
+              type: "content_block_stop",
+              index: streamState.currentBlockIndex,
+            })}\n\n`
+          );
+        }
+        streamState.currentBlockIndex = streamState.nextBlockIndex++;
+        streamState.currentBlockType = "text";
+        events.push(
+          `event: content_block_start\ndata: ${JSON.stringify({
+            type: "content_block_start",
+            index: streamState.currentBlockIndex,
+            content_block: { type: "text", text: "" },
+          })}\n\n`
+        );
+      }
+
+      events.push(
+        `event: content_block_delta\ndata: ${JSON.stringify({
+          type: "content_block_delta",
+          index: streamState.currentBlockIndex,
           delta: { type: "text_delta", text: delta.content },
         })}\n\n`
       );
     }
 
-    // Reasoning / Thinking delta
-    if (delta.reasoning_content) {
-      events.push(
-        `event: content_block_delta\ndata: ${JSON.stringify({
-          type: "content_block_delta",
-          index: 0,
-          delta: { type: "thinking_delta", thinking: delta.reasoning_content },
-        })}\n\n`
-      );
-    }
+    // 3. Tool calls delta
+    if (Array.isArray(delta?.tool_calls)) {
+      if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
+        events.push(
+          `event: content_block_stop\ndata: ${JSON.stringify({
+            type: "content_block_stop",
+            index: streamState.currentBlockIndex,
+          })}\n\n`
+        );
+        streamState.currentBlockType = null;
+        streamState.currentBlockIndex = null;
+      }
 
-    // Tool calls delta
-    if (Array.isArray(delta.tool_calls)) {
       for (const tc of delta.tool_calls) {
-        if (tc.id && tc.function?.name) {
+        const tcIndex = tc.index ?? 0;
+        let toolInfo = streamState.toolCalls.get(tcIndex);
+
+        if (tc.id && tc.function?.name && !toolInfo) {
+          const toolBlockIndex = streamState.nextBlockIndex++;
+          toolInfo = {
+            id: tc.id,
+            name: tc.function.name,
+            blockIndex: toolBlockIndex,
+            started: true,
+          };
+          streamState.toolCalls.set(tcIndex, toolInfo);
+
           events.push(
             `event: content_block_start\ndata: ${JSON.stringify({
               type: "content_block_start",
-              index: tc.index || 0,
+              index: toolBlockIndex,
               content_block: {
                 type: "tool_use",
                 id: tc.id,
                 name: tc.function.name,
+                input: {},
               },
             })}\n\n`
           );
         }
+
         if (tc.function?.arguments) {
+          const blockIdx = toolInfo ? toolInfo.blockIndex : streamState.nextBlockIndex;
           events.push(
             `event: content_block_delta\ndata: ${JSON.stringify({
               type: "content_block_delta",
-              index: tc.index || 0,
+              index: blockIdx,
               delta: {
                 type: "input_json_delta",
                 partial_json: tc.function.arguments,
@@ -250,17 +445,97 @@ export class AnthropicAdapter {
       }
     }
 
-    // Finish reason
-    if (chunk.choices?.[0]?.finish_reason) {
-      const stopReason = chunk.choices[0].finish_reason === "tool_calls" ? "tool_use" : "end_turn";
+    // 4. Finish reason
+    if (finishReason) {
+      if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
+        events.push(
+          `event: content_block_stop\ndata: ${JSON.stringify({
+            type: "content_block_stop",
+            index: streamState.currentBlockIndex,
+          })}\n\n`
+        );
+        streamState.currentBlockType = null;
+        streamState.currentBlockIndex = null;
+      }
+
+      for (const toolInfo of streamState.toolCalls.values()) {
+        if (toolInfo.started && !toolInfo.stopped) {
+          toolInfo.stopped = true;
+          events.push(
+            `event: content_block_stop\ndata: ${JSON.stringify({
+              type: "content_block_stop",
+              index: toolInfo.blockIndex,
+            })}\n\n`
+          );
+        }
+      }
+
+      const stopReason =
+        finishReason === "tool_calls"
+          ? "tool_use"
+          : finishReason === "length"
+          ? "max_tokens"
+          : "end_turn";
+
       events.push(
         `event: message_delta\ndata: ${JSON.stringify({
           type: "message_delta",
           delta: { stop_reason: stopReason, stop_sequence: null },
-          usage: { output_tokens: 0 },
+          usage: { output_tokens: streamState.outputTokens || 0 },
         })}\n\n`
       );
       events.push(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+      streamState.messageStopSent = true;
+
+      AnthropicAdapter.openAiStreamStates.delete(messageId);
+    }
+
+    return events;
+  }
+
+  /**
+   * Finalize an Anthropic stream if finish_reason was omitted or unclosed blocks remain
+   */
+  public static finalizeStream(state: AnthropicStreamState): string[] {
+    if (state.messageStopSent) return [];
+
+    const events: string[] = [];
+
+    if (state.currentBlockType !== null && state.currentBlockIndex !== null) {
+      events.push(
+        `event: content_block_stop\ndata: ${JSON.stringify({
+          type: "content_block_stop",
+          index: state.currentBlockIndex,
+        })}\n\n`
+      );
+      state.currentBlockType = null;
+      state.currentBlockIndex = null;
+    }
+
+    for (const toolInfo of state.toolCalls.values()) {
+      if (toolInfo.started && !toolInfo.stopped) {
+        toolInfo.stopped = true;
+        events.push(
+          `event: content_block_stop\ndata: ${JSON.stringify({
+            type: "content_block_stop",
+            index: toolInfo.blockIndex,
+          })}\n\n`
+        );
+      }
+    }
+
+    events.push(
+      `event: message_delta\ndata: ${JSON.stringify({
+        type: "message_delta",
+        delta: { stop_reason: "end_turn", stop_sequence: null },
+        usage: { output_tokens: state.outputTokens || 0 },
+      })}\n\n`
+    );
+    events.push(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+    state.messageStopSent = true;
+
+    if (state.messageId) {
+      AnthropicAdapter.openAiStreamStates.delete(state.messageId);
     }
 
     return events;
@@ -269,11 +544,28 @@ export class AnthropicAdapter {
   /**
    * Convert Anthropic SSE event to OpenAI SSE chunk format
    */
-  public static anthropicChunkToOpenAiEvent(event: any, requestId: string): string[] {
+  public static anthropicChunkToOpenAiEvent(
+    event: any,
+    requestId: string,
+    state?: AnthropicToOpenAiStreamState
+  ): string[] {
     if (!event || !event.type) return [];
     const created = Math.floor(Date.now() / 1000);
     const chunkId = `chatcmpl-${requestId}`;
     const events: string[] = [];
+
+    let streamState = state;
+    if (!streamState) {
+      streamState = AnthropicAdapter.anthropicStreamStates.get(requestId);
+      if (!streamState) {
+        streamState = AnthropicAdapter.createAnthropicToOpenAiState();
+        AnthropicAdapter.anthropicStreamStates.set(requestId, streamState);
+        if (AnthropicAdapter.anthropicStreamStates.size > 500) {
+          const oldestKey = AnthropicAdapter.anthropicStreamStates.keys().next().value;
+          if (oldestKey) AnthropicAdapter.anthropicStreamStates.delete(oldestKey);
+        }
+      }
+    }
 
     if (event.type === "content_block_delta") {
       if (event.delta?.type === "text_delta" && event.delta.text) {
@@ -307,6 +599,13 @@ export class AnthropicAdapter {
           })}\n\n`
         );
       } else if (event.delta?.type === "input_json_delta" && event.delta.partial_json) {
+        const rawIndex = typeof event.index === "number" ? event.index : 0;
+        let toolIdx = streamState.blockIndexToToolCallIndex.get(rawIndex);
+        if (toolIdx === undefined) {
+          toolIdx = streamState.toolCallIndex++;
+          streamState.blockIndexToToolCallIndex.set(rawIndex, toolIdx);
+        }
+
         events.push(
           `data: ${JSON.stringify({
             id: chunkId,
@@ -318,7 +617,7 @@ export class AnthropicAdapter {
                 delta: {
                   tool_calls: [
                     {
-                      index: event.index || 0,
+                      index: toolIdx,
                       function: { arguments: event.delta.partial_json },
                     },
                   ],
@@ -330,6 +629,13 @@ export class AnthropicAdapter {
         );
       }
     } else if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+      const rawIndex = typeof event.index === "number" ? event.index : 0;
+      let toolIdx = streamState.blockIndexToToolCallIndex.get(rawIndex);
+      if (toolIdx === undefined) {
+        toolIdx = streamState.toolCallIndex++;
+        streamState.blockIndexToToolCallIndex.set(rawIndex, toolIdx);
+      }
+
       events.push(
         `data: ${JSON.stringify({
           id: chunkId,
@@ -341,7 +647,7 @@ export class AnthropicAdapter {
               delta: {
                 tool_calls: [
                   {
-                    index: event.index || 0,
+                    index: toolIdx,
                     id: event.content_block.id,
                     type: "function",
                     function: {
@@ -373,6 +679,7 @@ export class AnthropicAdapter {
         })}\n\n`
       );
     } else if (event.type === "message_stop") {
+      AnthropicAdapter.anthropicStreamStates.delete(requestId);
       events.push("data: [DONE]\n\n");
     }
 
