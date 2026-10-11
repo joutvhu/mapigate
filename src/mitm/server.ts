@@ -1,14 +1,25 @@
 import https from "node:https";
 import tls from "node:tls";
 import fs from "node:fs";
-import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { ROOT_CA_KEY_PATH, ROOT_CA_CERT_PATH, generateRootCA } from "./cert/rootCA.js";
 import { getCertForDomain } from "./cert/generate.js";
 import { interceptAntigravity } from "./handlers/antigravity.js";
 import { interceptKiro } from "./handlers/kiro.js";
 import { interceptCopilot } from "./handlers/copilot.js";
+import { interceptCursor } from "./handlers/cursor.js";
+import { passthroughHttps } from "./handlers/base.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
+import {
+  getToolForHost,
+  isChatRequest,
+  extractModel,
+  MODEL_SYNONYMS,
+  MODEL_PATTERNS,
+  MODEL_NO_MAP,
+  type MitmToolId,
+} from "../shared/constants/mitmToolHosts.js";
+import { removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 
 const DEFAULT_PRIMARY_PORT = 443;
 const DEFAULT_FALLBACK_PORT = 8443;
@@ -36,35 +47,42 @@ function sniCallback(servername: string, cb: (err: Error | null, ctx?: tls.Secur
   }
 }
 
-function resolveModelMapping(tool: string, incomingModel?: string): string {
+function resolveModelMapping(tool: string, incomingModel?: string | null): string | null {
+  if (!incomingModel) return null;
   const mappings = MitmRepository.getMappings(tool);
-  if (!incomingModel) {
-    return mappings[0]?.targetModel || "claude-sonnet-4-6";
-  }
+  if (mappings.length === 0) return null;
 
-  // Exact match
+  const normalized = incomingModel.replace(/^models\//, "");
+  const synonym = MODEL_SYNONYMS[tool]?.[normalized] || normalized;
+
+  // 1. Exact match with synonym or normalized
   const exact = mappings.find(
-    (m) => m.sourceModel.toLowerCase() === incomingModel.toLowerCase()
+    (m) =>
+      m.sourceModel.toLowerCase() === synonym.toLowerCase() ||
+      m.sourceModel.toLowerCase() === normalized.toLowerCase()
   );
   if (exact) return exact.targetModel;
 
-  // Prefix match
+  // 2. Prefix match
   const prefix = mappings.find(
     (m) =>
-      incomingModel.toLowerCase().startsWith(m.sourceModel.toLowerCase()) ||
-      m.sourceModel.toLowerCase().startsWith(incomingModel.toLowerCase())
+      synonym.toLowerCase().startsWith(m.sourceModel.toLowerCase()) ||
+      m.sourceModel.toLowerCase().startsWith(synonym.toLowerCase())
   );
   if (prefix) return prefix.targetModel;
 
-  return mappings[0]?.targetModel || incomingModel;
-}
+  // 3. Pattern match (catches renamed or generic flash/opus variants)
+  const patterns = MODEL_PATTERNS[tool] || [];
+  for (const { match, alias } of patterns) {
+    if (match.test(synonym)) {
+      const patternMapped = mappings.find(
+        (m) => m.sourceModel.toLowerCase() === alias.toLowerCase()
+      );
+      if (patternMapped) return patternMapped.targetModel;
+    }
+  }
 
-function identifyTool(host: string = ""): "antigravity" | "kiro" | "copilot" | null {
-  const cleanHost = host.split(":")[0].toLowerCase();
-  if (cleanHost.includes("cloudcode-pa.googleapis.com")) return "antigravity";
-  if (cleanHost.includes("kiro.dev")) return "kiro";
-  if (cleanHost.includes("githubcopilot.com")) return "copilot";
-  return null;
+  return mappings[0]?.targetModel || null;
 }
 
 function collectBody(req: IncomingMessage): Promise<Buffer> {
@@ -77,35 +95,55 @@ function collectBody(req: IncomingMessage): Promise<Buffer> {
 }
 
 async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const host = req.headers.host || "";
-  const tool = identifyTool(host);
-
-  if (!tool) {
-    res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: `Host ${host} not recognized by Routen MITM Proxy` }));
-    return;
-  }
-
-  const dnsActive = MitmRepository.getToolDnsStatus(tool);
-  if (!dnsActive) {
-    // If DNS redirection is turned off for this tool, return warning
-    res.writeHead(503, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: `DNS interception for ${tool} is currently disabled in Routen` }));
-    return;
-  }
-
   try {
-    const bodyBuffer = await collectBody(req);
-    let incomingModel: string | undefined;
+    if (req.url === "/_mitm_health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, pid: process.pid }));
+      return;
+    }
 
-    try {
-      const parsed = JSON.parse(bodyBuffer.toString("utf-8"));
-      incomingModel = parsed.model || parsed.conversationState?.currentMessage?.userInputMessage?.model;
-    } catch {
-      // Body might be non-JSON
+    const bodyBuffer = await collectBody(req);
+
+    // Anti-loop: skip requests originated from Routen itself
+    if (req.headers["x-request-source"] === "local") {
+      return passthroughHttps(req, res, bodyBuffer);
+    }
+
+    const host = req.headers.host || "";
+    const tool = getToolForHost(host);
+
+    // If host is not a recognized MITM tool domain, safely pass through upstream
+    if (!tool) {
+      return passthroughHttps(req, res, bodyBuffer);
+    }
+
+    // Check if DNS / interception is active for this tool
+    const dnsActive = MitmRepository.getToolDnsStatus(tool);
+    if (!dnsActive) {
+      return passthroughHttps(req, res, bodyBuffer);
+    }
+
+    // Pass through non-chat traffic (telemetry, auth, experiments, etc.)
+    if (!isChatRequest(tool, req)) {
+      return passthroughHttps(req, res, bodyBuffer);
+    }
+
+    // Cursor uses binary proto — delegate directly to Cursor handler
+    if (tool === "cursor") {
+      return interceptCursor(req, res, bodyBuffer, null, passthroughHttps);
+    }
+
+    const incomingModel = extractModel(req.url, bodyBuffer);
+
+    // Bypass models that must never be re-routed (e.g. Antigravity inline tab autocomplete)
+    if (incomingModel && (MODEL_NO_MAP[tool] || []).some((re) => re.test(incomingModel))) {
+      return passthroughHttps(req, res, bodyBuffer);
     }
 
     const mappedModel = resolveModelMapping(tool, incomingModel);
+    if (!mappedModel) {
+      return passthroughHttps(req, res, bodyBuffer);
+    }
 
     switch (tool) {
       case "antigravity":
@@ -119,10 +157,11 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
         break;
     }
   } catch (error: any) {
+    console.error("[MITM Server] Unhandled error:", error.message);
     if (!res.headersSent) {
       res.writeHead(500, { "Content-Type": "application/json" });
     }
-    res.end(JSON.stringify({ error: error?.message || "Internal MITM Proxy Error" }));
+    res.end(JSON.stringify({ error: { message: error?.message || "Internal MITM Proxy Error", type: "mitm_error" } }));
   }
 }
 
@@ -204,3 +243,21 @@ export class MitmServer {
 }
 
 export const mitmServerInstance = new MitmServer();
+
+// Clean up DNS entries on unexpected process exit
+let shutdownHookRegistered = false;
+if (!shutdownHookRegistered) {
+  shutdownHookRegistered = true;
+  const onExit = () => {
+    removeAllDNSEntriesSync();
+  };
+  process.on("exit", onExit);
+  process.on("SIGINT", () => {
+    onExit();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    onExit();
+    process.exit(0);
+  });
+}

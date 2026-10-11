@@ -3,6 +3,7 @@ import { mitmServerInstance } from "./server.js";
 import { ROOT_CA_CERT_PATH, ROOT_CA_KEY_PATH, getCertFingerprint, generateRootCA } from "./cert/rootCA.js";
 import { checkCertInstalled, installCert, getInstallCommand } from "./cert/install.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
+import { checkAllDNSStatus, removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 
 export class MitmManager {
   private static instance: MitmManager;
@@ -21,6 +22,14 @@ export class MitmManager {
     const fingerprint = certExists ? getCertFingerprint(ROOT_CA_CERT_PATH) : "";
     const installCommands = getInstallCommand(ROOT_CA_CERT_PATH);
 
+    // Merge repo state with live /etc/hosts file entries
+    const repoDns = MitmRepository.getAllToolDnsStatus();
+    const liveDns = checkAllDNSStatus();
+    const mergedDnsStatus: Record<string, boolean> = {
+      ...repoDns,
+      ...liveDns,
+    };
+
     return {
       running: serverStatus.running,
       port: serverStatus.port,
@@ -29,7 +38,7 @@ export class MitmManager {
       certPath: ROOT_CA_CERT_PATH,
       fingerprint,
       installCommands,
-      dnsStatus: MitmRepository.getAllToolDnsStatus(),
+      dnsStatus: mergedDnsStatus,
       routerBaseUrl: "http://127.0.0.1:20127",
     };
   }
@@ -52,6 +61,10 @@ export class MitmManager {
       generateRootCA();
     }
     return installCert(ROOT_CA_CERT_PATH);
+  }
+
+  public cleanupDnsSync() {
+    removeAllDNSEntriesSync();
   }
 }
 

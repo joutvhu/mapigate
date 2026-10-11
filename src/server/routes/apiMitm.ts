@@ -3,6 +3,12 @@ import fs from "node:fs";
 import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
 import { mitmManager } from "../../mitm/manager.js";
 import { ROOT_CA_CERT_PATH } from "../../mitm/cert/rootCA.js";
+import {
+  addDNSEntry,
+  removeDNSEntry,
+  checkAllDNSStatus,
+} from "../../mitm/dns/dnsConfig.js";
+import { type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
 
 export const mitmRouter = Router();
 
@@ -17,7 +23,10 @@ mitmRouter.get("/status", async (_req, res) => {
       certExists: true,
       certTrusted: true,
       serverOk: true,
-      dnsStatus: MitmRepository.getAllToolDnsStatus(),
+      dnsStatus: {
+        ...MitmRepository.getAllToolDnsStatus(),
+        ...checkAllDNSStatus(),
+      },
       routerBaseUrl: "http://127.0.0.1:20127",
     });
   }
@@ -68,24 +77,38 @@ mitmRouter.post("/toggle-server", async (req, res) => {
 });
 
 // POST toggle DNS redirection for an IDE / tool
-mitmRouter.post("/toggle-dns", (req, res) => {
+mitmRouter.post("/toggle-dns", async (req, res) => {
   const tool = req.body.tool || req.body.ide;
   if (!tool || typeof tool !== "string") {
     res.status(400).json({ error: "Missing tool or ide parameter" });
     return;
   }
-  const toolKey = tool.toLowerCase();
+  const toolKey = tool.toLowerCase() as MitmToolId;
   const currentStatus = MitmRepository.getToolDnsStatus(toolKey);
   const newStatus = req.body.active !== undefined ? Boolean(req.body.active) : !currentStatus;
 
+  let dnsError: string | null = null;
+  try {
+    if (newStatus) {
+      await addDNSEntry(toolKey, req.body.sudoPassword);
+    } else {
+      await removeDNSEntry(toolKey, req.body.sudoPassword);
+    }
+  } catch (err: any) {
+    console.warn(`[MITM API] Failed to update hosts file for ${toolKey}:`, err.message);
+    dnsError = err.message;
+  }
+
   MitmRepository.setToolDnsStatus(toolKey, newStatus);
-  const allDnsStatus = MitmRepository.getAllToolDnsStatus();
+  const liveDns = checkAllDNSStatus();
+  const allDnsStatus = { ...MitmRepository.getAllToolDnsStatus(), ...liveDns };
 
   res.json({
     tool: toolKey,
     ide: toolKey,
     active: newStatus,
     dnsStatus: allDnsStatus,
+    ...(dnsError && { warning: dnsError }),
   });
 });
 
@@ -154,7 +177,7 @@ mitmRouter.post("/mappings/reset", (req, res) => {
   res.json({ success: true, ide, mappings });
 });
 
-// DELETE mapping
+// DELETE mapping (supports query string, JSON body, or wildcard path for slashes in model IDs)
 mitmRouter.delete("/mappings/:ide", (req, res) => {
   const ide = req.params.ide;
   const sourceModel = (req.query.sourceModel as string) || req.body?.sourceModel;

@@ -1,4 +1,9 @@
 import { getDatabase } from "../database.js";
+import {
+  TOOL_HOSTS,
+  formatToolDefaultHosts,
+  type MitmToolId,
+} from "../../shared/constants/mitmToolHosts.js";
 
 export interface MitmMapping {
   ide: string;
@@ -7,32 +12,59 @@ export interface MitmMapping {
 }
 
 export const TOOL_DEFAULT_HOSTS: Record<string, string> = {
-  antigravity: "127.0.0.1 daily-cloudcode-pa.googleapis.com",
-  kiro: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 api.kiro.dev",
-  copilot: "127.0.0.1 api.githubcopilot.com",
+  antigravity: formatToolDefaultHosts("antigravity"),
+  kiro: formatToolDefaultHosts("kiro"),
+  copilot: formatToolDefaultHosts("copilot"),
+  cursor: formatToolDefaultHosts("cursor"),
 };
 
 export const DEFAULT_HOSTS_ENTRIES = Object.values(TOOL_DEFAULT_HOSTS).join("\n");
 
 export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = [
   { ide: "kiro", sourceModel: "Auto (Kiro Agent)", targetModel: "ag/gemini-3.8-flash" },
+  { ide: "kiro", sourceModel: "auto", targetModel: "ag/gemini-3.8-flash" },
+  { ide: "kiro", sourceModel: "simple-task", targetModel: "gh/gpt-5-mini" },
   { ide: "kiro", sourceModel: "Claude Sonnet 5", targetModel: "ag/gemini-3.8-flash" },
   { ide: "kiro", sourceModel: "Claude Sonnet 4.5", targetModel: "ag/claude-opus-4-6-thinking" },
   { ide: "kiro", sourceModel: "Claude Sonnet 4", targetModel: "ag/claude-sonnet-4-6" },
   { ide: "kiro", sourceModel: "Claude Haiku 4.5", targetModel: "ag/gemini-3.8-flash" },
   { ide: "kiro", sourceModel: "DeepSeek 3.2", targetModel: "xmtp/mimo-v2.6-pro" },
+  { ide: "kiro", sourceModel: "MiniMax M2.5", targetModel: "xmtp/mimo-v2.6-flash" },
   { ide: "kiro", sourceModel: "MiniMax M2.1", targetModel: "xmtp/mimo-v2.6-flash" },
   { ide: "kiro", sourceModel: "GPT 5.6 Sol", targetModel: "ag/gemini-3.8-flash" },
+  { ide: "kiro", sourceModel: "gpt-5.6-sol", targetModel: "ag/gemini-3.8-flash" },
   { ide: "kiro", sourceModel: "GPT 5.6 Terra", targetModel: "ag/gemini-3.8-flash" },
+  { ide: "kiro", sourceModel: "gpt-5.6-terra", targetModel: "ag/gemini-3.8-flash" },
   { ide: "kiro", sourceModel: "GPT 5.6 Luna", targetModel: "ag/gemini-3.8-flash" },
+  { ide: "kiro", sourceModel: "gpt-5.6-luna", targetModel: "ag/gemini-3.8-flash" },
+  { ide: "kiro", sourceModel: "GLM 5", targetModel: "xmtp/mimo-v2.6-flash" },
   { ide: "kiro", sourceModel: "Qwen3 Coder Next", targetModel: "gh/gpt-5-mini" },
 ];
 
 export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = [
   { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (High)", targetModel: "gemini-3.8-flash" },
   { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Medium)", targetModel: "gemini-3.8-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Low)", targetModel: "gemini-3.8-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (High)", targetModel: "gemini-3.7-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Medium)", targetModel: "gemini-3.7-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Low)", targetModel: "gemini-3.7-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (High)", targetModel: "gemini-3.6-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Medium)", targetModel: "gemini-3.6-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Low)", targetModel: "gemini-3.6-flash" },
+  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High)", targetModel: "gemini-3.1-pro" },
+  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (Low)", targetModel: "gemini-3.1-pro" },
+  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High) / Legacy", targetModel: "gemini-pro-agent" },
   { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Thinking)", targetModel: "claude-sonnet-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (High)", targetModel: "claude-sonnet-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Medium)", targetModel: "claude-sonnet-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Low)", targetModel: "claude-sonnet-5-5" },
   { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Thinking)", targetModel: "claude-opus-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (High)", targetModel: "claude-opus-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Medium)", targetModel: "claude-opus-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Low)", targetModel: "claude-opus-5-5" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 4.6 (Thinking)", targetModel: "claude-sonnet-4-6" },
+  { ide: "antigravity", sourceModel: "Claude Opus 4.6 (Thinking)", targetModel: "claude-opus-4-6-thinking" },
+  { ide: "antigravity", sourceModel: "GPT-OSS 120B (Medium)", targetModel: "gpt-oss-120b-medium" },
 ];
 
 export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = [
@@ -42,9 +74,17 @@ export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = [
   { ide: "copilot", sourceModel: "o1", targetModel: "cx/o3-mini" },
 ];
 
+export const DEFAULT_CURSOR_MAPPINGS: MitmMapping[] = [
+  { ide: "cursor", sourceModel: "claude-sonnet-4-5", targetModel: "claude-sonnet-4-5" },
+  { ide: "cursor", sourceModel: "claude-opus-4", targetModel: "claude-opus-4" },
+  { ide: "cursor", sourceModel: "gpt-4o", targetModel: "gpt-4o" },
+];
+
 export function getDefaultMappings(tool: string): MitmMapping[] {
-  if (tool === "antigravity") return DEFAULT_ANTIGRAVITY_MAPPINGS;
-  if (tool === "copilot") return DEFAULT_COPILOT_MAPPINGS;
+  const t = tool.toLowerCase();
+  if (t === "antigravity") return DEFAULT_ANTIGRAVITY_MAPPINGS;
+  if (t === "copilot") return DEFAULT_COPILOT_MAPPINGS;
+  if (t === "cursor") return DEFAULT_CURSOR_MAPPINGS;
   return DEFAULT_KIRO_MAPPINGS;
 }
 
@@ -60,7 +100,7 @@ export class MitmRepository {
   }
 
   public static getAllToolDnsStatus(): Record<string, boolean> {
-    const tools = ["antigravity", "kiro", "copilot"];
+    const tools: MitmToolId[] = ["antigravity", "kiro", "copilot", "cursor"];
     const result: Record<string, boolean> = {};
     for (const tool of tools) {
       result[tool] = this.getToolDnsStatus(tool);

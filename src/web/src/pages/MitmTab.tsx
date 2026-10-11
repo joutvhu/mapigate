@@ -6,8 +6,10 @@ interface MitmMappingRow {
   targetModel: string;
 }
 
+type MitmToolId = "antigravity" | "kiro" | "copilot" | "cursor";
+
 interface MitmToolConfig {
-  id: "antigravity" | "kiro" | "copilot";
+  id: MitmToolId;
   name: string;
   image: string;
   desc: string;
@@ -20,21 +22,28 @@ const MITM_TOOLS: MitmToolConfig[] = [
     name: "Antigravity IDE",
     image: "/providers/antigravity.png",
     desc: "Intercept Google Antigravity IDE requests via MITM proxy",
-    defaultHost: "127.0.0.1 daily-cloudcode-pa.googleapis.com",
+    defaultHost: "127.0.0.1 daily-cloudcode-pa.googleapis.com\n127.0.0.1 cloudcode-pa.googleapis.com",
   },
   {
     id: "kiro",
     name: "Kiro IDE",
     image: "/providers/kiro.png",
-    desc: "Intercept Kiro IDE requests via MITM proxy",
-    defaultHost: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 api.kiro.dev",
+    desc: "Intercept Amazon Kiro IDE requests via MITM proxy",
+    defaultHost: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
   },
   {
     id: "copilot",
     name: "GitHub Copilot",
     image: "/providers/copilot.png",
     desc: "Intercept GitHub Copilot requests in VS Code via MITM proxy",
-    defaultHost: "127.0.0.1 api.githubcopilot.com",
+    defaultHost: "127.0.0.1 api.individual.githubcopilot.com",
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    image: "/providers/cursor.png",
+    desc: "Intercept Cursor IDE requests via MITM proxy (Coming Soon)",
+    defaultHost: "127.0.0.1 api2.cursor.sh",
   },
 ];
 
@@ -74,14 +83,16 @@ export const MitmTab: React.FC = () => {
     antigravity: false,
     kiro: true,
     copilot: false,
+    cursor: false,
   });
-  const [expandedTool, setExpandedTool] = useState<"antigravity" | "kiro" | "copilot" | null>("kiro");
+  const [expandedTool, setExpandedTool] = useState<MitmToolId | null>("kiro");
 
   // Per-tool Hosts State
   const [hostsByTool, setHostsByTool] = useState<Record<string, string>>({
-    antigravity: "127.0.0.1 daily-cloudcode-pa.googleapis.com",
-    kiro: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 api.kiro.dev",
-    copilot: "127.0.0.1 api.githubcopilot.com",
+    antigravity: "127.0.0.1 daily-cloudcode-pa.googleapis.com\n127.0.0.1 cloudcode-pa.googleapis.com",
+    kiro: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
+    copilot: "127.0.0.1 api.individual.githubcopilot.com",
+    cursor: "127.0.0.1 api2.cursor.sh",
   });
   const [hostsSavedMsgByTool, setHostsSavedMsgByTool] = useState<Record<string, string | null>>({});
 
@@ -90,6 +101,7 @@ export const MitmTab: React.FC = () => {
     antigravity: [],
     kiro: [],
     copilot: [],
+    cursor: [],
   });
 
   // Editing mapping
@@ -98,7 +110,7 @@ export const MitmTab: React.FC = () => {
   const [targetInput, setTargetInput] = useState("");
 
   // Add Mapping Modal
-  const [modalTool, setModalTool] = useState<"antigravity" | "kiro" | "copilot" | null>(null);
+  const [modalTool, setModalTool] = useState<MitmToolId | null>(null);
   const [newSourceModel, setNewSourceModel] = useState("");
   const [newTargetModel, setNewTargetModel] = useState("");
 
@@ -120,11 +132,13 @@ export const MitmTab: React.FC = () => {
         if (d.fingerprint) setFingerprint(d.fingerprint);
         if (d.installCommands) setInstallCommands(d.installCommands);
         if (d.dnsStatus) {
-          setDnsStatus({
-            antigravity: Boolean(d.dnsStatus.antigravity),
-            kiro: Boolean(d.dnsStatus.kiro),
-            copilot: Boolean(d.dnsStatus.copilot),
-          });
+          setDnsStatus((prev) => ({
+            ...prev,
+            antigravity: Boolean(d.dnsStatus?.antigravity),
+            kiro: Boolean(d.dnsStatus?.kiro),
+            copilot: Boolean(d.dnsStatus?.copilot),
+            cursor: Boolean(d.dnsStatus?.cursor),
+          }));
         }
       })
       .catch(() => {});
@@ -193,7 +207,7 @@ export const MitmTab: React.FC = () => {
     }
   };
 
-  const toggleToolDns = async (toolId: "antigravity" | "kiro" | "copilot") => {
+  const toggleToolDns = async (toolId: MitmToolId) => {
     const next = !dnsStatus[toolId];
     setDnsStatus((prev) => ({ ...prev, [toolId]: next }));
     try {
@@ -204,11 +218,13 @@ export const MitmTab: React.FC = () => {
       });
       const data = await res.json();
       if (data.dnsStatus) {
-        setDnsStatus({
+        setDnsStatus((prev) => ({
+          ...prev,
           antigravity: Boolean(data.dnsStatus.antigravity),
           kiro: Boolean(data.dnsStatus.kiro),
           copilot: Boolean(data.dnsStatus.copilot),
-        });
+          cursor: Boolean(data.dnsStatus.cursor),
+        }));
       }
     } catch {
       //
@@ -345,7 +361,7 @@ export const MitmTab: React.FC = () => {
       <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
         <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>
         <p>
-          ⚠️ <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
+          ⚠️ <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot, Cursor) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
         </p>
       </div>
 
@@ -541,7 +557,7 @@ export const MitmTab: React.FC = () => {
         )}
       </div>
 
-      {/* INDEPENDENT TOOL ACCORDIONS (Antigravity, Kiro, GitHub Copilot) */}
+      {/* INDEPENDENT TOOL ACCORDIONS (Antigravity, Kiro, GitHub Copilot, Cursor) */}
       <div className="space-y-4">
         {MITM_TOOLS.map((tool) => {
           const isExpanded = expandedTool === tool.id;
@@ -604,7 +620,7 @@ export const MitmTab: React.FC = () => {
                           Hosts File Entries ({tool.name})
                         </h5>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Add these domain mappings to your system hosts file or let Routen intercept them.
+                          Domain mappings added to your system hosts file when DNS redirection is enabled.
                         </p>
                       </div>
 
