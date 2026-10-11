@@ -1406,18 +1406,15 @@ test("tokenHelper - extracts GitHub OAuth token when wrapped in JSON accessToken
   assert.equal(creds.providerSpecificData.githubAccessToken, "ghu_RUwHDYSampleToken123");
 });
 
-test("Xiaomi MiMo & Token Plan Handler - self-tracked monthly quota (OmniRoute pattern)", async () => {
+test("Xiaomi MiMo & Token Plan Handler - avoids inaccurate local estimation and parses upstream session quota", async () => {
   const accountId = "test_acc_mimo_" + Date.now();
   const providerId = "xiaomi-tokenplan";
 
-  // 1. Initial quota with 0 routed tokens
+  // 1. Plain API key without upstream quota endpoint returns empty quotas without fake calculations
   const resEmpty = await getMimoUsage("tp-sample-key", providerId, {}, accountId);
   assert.equal(resEmpty.plan, "Xiaomi MiMo Token Plan");
-  assert.ok(resEmpty.quotas?.monthly);
-  assert.equal(resEmpty.quotas.monthly.total, XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT);
-  assert.equal(resEmpty.quotas.monthly.used, 0);
-  assert.equal(resEmpty.quotas.monthly.remaining, XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT);
-  assert.equal(resEmpty.quotas.monthly.remainingPercentage, 100);
+  assert.deepEqual(resEmpty.quotas, {});
+  assert.ok(resEmpty.message?.includes("does not provide an upstream quota API"));
 
   // 2. Dispatching through fetchRawQuotaForProvider
   const dispatchRes = await fetchRawQuotaForProvider({
@@ -1435,10 +1432,10 @@ test("Xiaomi MiMo & Token Plan Handler - self-tracked monthly quota (OmniRoute p
   });
 
   assert.equal(dispatchRes.plan, "Xiaomi MiMo Token Plan");
-  assert.ok(dispatchRes.quotas?.monthly);
-  assert.equal(dispatchRes.quotas.monthly.total, 4_100_000_000);
+  assert.deepEqual(dispatchRes.quotas, {});
+  assert.ok(dispatchRes.message?.includes("does not provide an upstream quota API"));
 
-  // 3. Optional session endpoint fallback (mock passToken)
+  // 3. Upstream session endpoint (mock passToken) parses real upstream percentage
   const mockSessionFetch: typeof fetch = (async (url: any, opts: any) => {
     assert.equal(String(url), "https://aistudio.xiaomimimo.com/open-apis/v1/user/usage");
     assert.ok(opts.headers["Cookie"]?.includes("passToken=test_pass_token"));

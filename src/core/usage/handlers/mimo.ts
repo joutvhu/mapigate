@@ -1,5 +1,4 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../types.js";
-import { LogRepository } from "../../../storage/repositories/logRepo.js";
 import { parseResetTime } from "../utils.js";
 
 /**
@@ -13,16 +12,15 @@ export const MIMO_ACCOUNT_USAGE_URL = "https://aistudio.xiaomimimo.com/open-apis
 /**
  * Xiaomi MiMo / Xiaomi Token Plan Usage Handler.
  *
- * Implements the OmniRoute reference pattern:
  * Xiaomi exposes token plan usage only behind the web console session cookie
  * (the `tp-...` / `sk-...` API key cannot access the internal quota endpoint).
  *
  * Therefore, Mapigate:
  * 1. If an account session / cookie is provided in providerSpecificData (e.g. mimoPassToken),
- *    calls the upstream session API.
- * 2. Otherwise (standard Token Plan API key), self-tracks all tokens routed to this
- *    connection in the current UTC month from `request_logs` and compares them against
- *    the known Token Plan monthly limit (4.1B tokens).
+ *    calls the upstream session API for real quota percentage.
+ * 2. If only an API key is present without an upstream quota endpoint, no inaccurate
+ *    local estimation is performed. Mapigate gracefully returns an informational message
+ *    without displaying fabricated quota progress bars.
  */
 export async function getMimoUsage(
   apiKey: string,
@@ -78,41 +76,15 @@ export async function getMimoUsage(
         }
       }
     } catch {
-      // Fall through to self-tracked Token Plan usage
+      // Ignored
     }
   }
 
-  // 2. Self-tracked Monthly Quota (OmniRoute pattern)
-  // Sum routed tokens in current UTC month from local request_logs
-  const usedTokens = LogRepository.getMonthlyTokensForAccount(accountId || "", pId);
-  const totalTokens = XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT;
-  const remainingTokens = Math.max(0, totalTokens - usedTokens);
-  const remainingPercentage =
-    totalTokens > 0
-      ? Math.max(0, Math.min(100, Math.round(((totalTokens - usedTokens) / totalTokens) * 100)))
-      : 100;
-
-  // Reset timestamp: 00:00:00 UTC on the 1st day of next month
-  const now = new Date();
-  const nextMonthUtc = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0)
-  );
-
-  const quotas: Record<string, RawQuotaBucket> = {
-    monthly: {
-      displayName: "Monthly Tokens",
-      used: usedTokens,
-      total: totalTokens,
-      remaining: remainingTokens,
-      remainingPercentage,
-      resetAt: nextMonthUtc.getTime(),
-      unlimited: false,
-      recurring: true,
-    },
-  };
-
+  // 2. For API key without upstream quota endpoint:
+  // Do NOT display inaccurate local estimation. Return informative message with empty quotas.
   return {
     plan: planName,
-    quotas,
+    message: "Xiaomi Token Plan does not provide an upstream quota API for API keys.",
+    quotas: {},
   };
 }
