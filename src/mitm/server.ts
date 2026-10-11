@@ -4,11 +4,13 @@ import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { ROOT_CA_KEY_PATH, ROOT_CA_CERT_PATH, generateRootCA } from "./cert/rootCA.js";
 import { getCertForDomain } from "./cert/generate.js";
-import { interceptAntigravity } from "./handlers/antigravity.js";
-import { interceptKiro } from "./handlers/kiro.js";
-import { interceptCopilot } from "./handlers/copilot.js";
-import { interceptCursor } from "./handlers/cursor.js";
 import { passthroughHttps } from "./handlers/base.js";
+import { MitmHandlerRegistry } from "./registry.js";
+import { CursorMitmHandler } from "./handlers/cursorHandler.js";
+import { CopilotMitmHandler } from "./handlers/copilotHandler.js";
+import { KiroMitmHandler } from "./handlers/kiroHandler.js";
+import { AntigravityMitmHandler } from "./handlers/antigravityHandler.js";
+import { DefaultPassthroughMitmHandler } from "./handlers/defaultPassthrough.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 import {
   getToolForHost,
@@ -20,6 +22,12 @@ import {
   type MitmToolId,
 } from "../shared/constants/mitmToolHosts.js";
 import { removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
+
+MitmHandlerRegistry.register(new CursorMitmHandler());
+MitmHandlerRegistry.register(new CopilotMitmHandler());
+MitmHandlerRegistry.register(new KiroMitmHandler());
+MitmHandlerRegistry.register(new AntigravityMitmHandler());
+MitmHandlerRegistry.register(new DefaultPassthroughMitmHandler());
 
 const DEFAULT_PRIMARY_PORT = 443;
 
@@ -129,7 +137,17 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
 
     // Cursor uses binary proto — delegate directly to Cursor handler
     if (tool === "cursor") {
-      return interceptCursor(req, res, bodyBuffer, null, passthroughHttps);
+      const cursorHandler = MitmHandlerRegistry.get("cursor");
+      if (cursorHandler) {
+        return await cursorHandler.handle({
+          req,
+          res,
+          bodyBuffer,
+          mappedModel: null,
+          passthrough: passthroughHttps,
+        });
+      }
+      return passthroughHttps(req, res, bodyBuffer);
     }
 
     const incomingModel = extractModel(req.url, bodyBuffer);
@@ -144,16 +162,17 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
       return passthroughHttps(req, res, bodyBuffer);
     }
 
-    switch (tool) {
-      case "antigravity":
-        await interceptAntigravity(req, res, bodyBuffer, mappedModel);
-        break;
-      case "kiro":
-        await interceptKiro(req, res, bodyBuffer, mappedModel);
-        break;
-      case "copilot":
-        await interceptCopilot(req, res, bodyBuffer, mappedModel);
-        break;
+    const handler = MitmHandlerRegistry.get(tool);
+    if (handler) {
+      await handler.handle({
+        req,
+        res,
+        bodyBuffer,
+        mappedModel,
+        passthrough: passthroughHttps,
+      });
+    } else {
+      await passthroughHttps(req, res, bodyBuffer);
     }
   } catch (error: any) {
     console.error("[MITM Server] Unhandled error:", error.message);

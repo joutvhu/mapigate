@@ -11,6 +11,8 @@ export interface ComboRecord {
   updatedAt: number;
 }
 
+export type ComboConfig = ComboRecord;
+
 export const VALID_NAME_REGEX = /^[a-zA-Z0-9_.-]+$/;
 
 function mapRowToCombo(r: any): ComboRecord {

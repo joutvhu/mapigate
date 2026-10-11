@@ -1,4 +1,5 @@
 export type AIFormat = "openai" | "anthropic" | "gemini" | "claude" | string;
+export type { ComboRecord, ComboConfig } from "../../storage/repositories/comboRepo.js";
 
 export interface ProviderConfig {
   id: string;
