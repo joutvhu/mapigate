@@ -15,6 +15,9 @@ export interface AvailableModelItem {
     audio: boolean;
   };
   contextLength: number;
+  isCombo?: boolean;
+  strategy?: "round-robin" | "fallback" | "fusion" | string;
+  models?: string[];
 }
 
 export interface ModelAutocompleteInputProps {
@@ -26,10 +29,17 @@ export interface ModelAutocompleteInputProps {
   autoFocus?: boolean;
   connectedOnly?: boolean;
   disabled?: boolean;
+  excludeValues?: string[];
+  allowCombos?: boolean;
 }
 
 let cachedModelsPromise: Promise<AvailableModelItem[]> | null = null;
 let cachedModelsData: AvailableModelItem[] | null = null;
+
+export function invalidateAvailableModelsCache(): void {
+  cachedModelsPromise = null;
+  cachedModelsData = null;
+}
 
 export function getAvailableModelsCached(): Promise<AvailableModelItem[]> {
   if (cachedModelsData) return Promise.resolve(cachedModelsData);
@@ -60,6 +70,8 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
   autoFocus = false,
   connectedOnly = true,
   disabled = false,
+  excludeValues,
+  allowCombos = true,
 }) => {
   const [models, setModels] = useState<AvailableModelItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -108,24 +120,43 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
   // If filterConnected is on but no providers have accounts, we don't forcefully blank the list if user wants to see catalog
   const filteredModels = useMemo(() => {
     const q = (value || "").trim().toLowerCase();
+    const excludeSet = new Set((excludeValues || []).map((v) => v.toLowerCase()));
 
     let pool = models;
+    if (allowCombos === false) {
+      pool = pool.filter((m) => !m.isCombo);
+    }
+    if (excludeSet.size > 0) {
+      pool = pool.filter(
+        (m) => !excludeSet.has(m.value.toLowerCase()) && !excludeSet.has(m.id.toLowerCase())
+      );
+    }
+
     if (filterConnected && hasAnyConnected) {
-      pool = models.filter((m) => m.hasConnectedAccount);
+      pool = pool.filter((m) => m.hasConnectedAccount);
     }
 
     if (!q) {
-      return pool.slice(0, 40);
+      return pool.slice(0, 50);
     }
 
     const matches = pool.filter((m) => {
-      return (
+      const matchBasic =
         m.value.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
         m.name.toLowerCase().includes(q) ||
         m.providerName.toLowerCase().includes(q) ||
-        m.providerId.toLowerCase().includes(q)
-      );
+        m.providerId.toLowerCase().includes(q);
+
+      if (matchBasic) return true;
+
+      // If combo, also search strategy and bundled model names
+      if (m.isCombo) {
+        if (m.strategy && m.strategy.toLowerCase().includes(q)) return true;
+        if (m.models && m.models.some((sub) => sub.toLowerCase().includes(q))) return true;
+      }
+
+      return false;
     });
 
     // Sort: exact matches or prefixes first
@@ -139,11 +170,15 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
       if (bVal === q || bId === q) return 1;
       if (aVal.startsWith(q) || aId.startsWith(q)) return -1;
       if (bVal.startsWith(q) || bId.startsWith(q)) return 1;
+
+      // Prioritize combos when matched
+      if (a.isCombo && !b.isCombo) return -1;
+      if (!a.isCombo && b.isCombo) return 1;
       return 0;
     });
 
     return matches.slice(0, 50);
-  }, [models, value, filterConnected, hasAnyConnected]);
+  }, [models, value, filterConnected, hasAnyConnected, excludeValues, allowCombos]);
 
   // Keep highlighted item in view
   useEffect(() => {
@@ -303,12 +338,38 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
                   >
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="px-1.5 py-0.2 rounded bg-slate-800/80 border border-slate-700/60 font-mono text-[9.5px] text-slate-300">
-                          {item.providerName || item.providerId}
-                        </span>
+                        {item.isCombo ? (
+                          <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 font-mono text-[9.5px] text-cyan-300 font-semibold tracking-wide">
+                            COMBO
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.2 rounded bg-slate-800/80 border border-slate-700/60 font-mono text-[9.5px] text-slate-300">
+                            {item.providerName || item.providerId}
+                          </span>
+                        )}
+
                         <span className="font-medium text-xs text-slate-100 truncate">
                           {item.name}
                         </span>
+
+                        {item.isCombo && item.strategy && (
+                          <span
+                            className={`px-1.5 py-0.2 rounded font-sans text-[9px] font-medium border ${
+                              item.strategy === "round-robin"
+                                ? "bg-cyan-950/40 text-cyan-300 border-cyan-500/30"
+                                : item.strategy === "fusion"
+                                ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
+                                : "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                            }`}
+                          >
+                            {item.strategy === "round-robin"
+                              ? "Round Robin"
+                              : item.strategy === "fusion"
+                              ? "Fusion"
+                              : "Fallback"}
+                          </span>
+                        )}
+
                         {item.hasConnectedAccount && (
                           <span
                             className="size-1.5 rounded-full bg-emerald-400 shrink-0"
@@ -317,9 +378,21 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
                         )}
                       </div>
 
-                      <div className="font-mono text-[10.5px] text-slate-400 truncate">
-                        {item.value}
-                      </div>
+                      {item.isCombo && item.models && item.models.length > 0 ? (
+                        <div className="font-mono text-[10.5px] text-slate-400 truncate">
+                          <span className="text-cyan-400 font-semibold">
+                            {item.models.length} model{item.models.length > 1 ? "s" : ""}:
+                          </span>{" "}
+                          <span className="text-slate-300">
+                            {item.models.slice(0, 3).join(", ")}
+                            {item.models.length > 3 ? ` +${item.models.length - 3} more` : ""}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="font-mono text-[10.5px] text-slate-400 truncate">
+                          {item.value}
+                        </div>
+                      )}
                     </div>
 
                     <div className="shrink-0 flex items-center gap-1.5">
