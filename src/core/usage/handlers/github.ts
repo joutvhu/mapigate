@@ -5,9 +5,10 @@ const GITHUB_COPILOT_USER_URL = "https://api.github.com/copilot_internal/user";
 
 export async function getGitHubUsage(
   accessToken: string,
-  _providerSpecificData?: Record<string, any>
+  providerSpecificData?: Record<string, any>
 ): Promise<RawProviderQuotaResult> {
-  if (!accessToken) {
+  const token = providerSpecificData?.githubAccessToken || accessToken;
+  if (!token) {
     return { plan: "Copilot", message: "GitHub access token not available." };
   }
 
@@ -15,7 +16,7 @@ export async function getGitHubUsage(
     const res = await fetch(GITHUB_COPILOT_USER_URL, {
       method: "GET",
       headers: {
-        Authorization: `token ${accessToken}`,
+        Authorization: `token ${token}`,
         Accept: "application/json",
         "X-GitHub-Api-Version": "2025-04-01",
         "User-Agent": "GitHubCopilot/1.0.0",

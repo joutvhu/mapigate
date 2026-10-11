@@ -25,7 +25,11 @@ export interface AccountQuotaResult {
 
 export interface ProviderUsageContext {
   providerId: string;
-  account: ProviderAccount & { rawApiKey: string };
+  account: ProviderAccount & {
+    rawApiKey: string;
+    githubAccessToken?: string;
+    projectId?: string;
+  };
   force?: boolean;
   proxyUrl?: string;
 }
