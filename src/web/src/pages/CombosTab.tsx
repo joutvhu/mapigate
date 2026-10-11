@@ -321,6 +321,7 @@ export const CombosTab: React.FC = () => {
             });
             if (createRes.ok) {
               await loadCombos();
+              invalidateAvailableModelsCache();
             }
           } catch (err) {
             console.error("Error generating presets:", err);
