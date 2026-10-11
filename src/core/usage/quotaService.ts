@@ -6,6 +6,7 @@ import { fetchRawQuotaForProvider } from "./handlers/index.js";
 
 const DEFAULT_CACHE_TTL_MS = 60_000; // 60s cache
 const CLAUDE_CACHE_TTL_MS = 600_000; // 10 min cache for Claude
+const ACCOUNT_TIMEOUT_MS = 8_000; // 8-second per-account timeout
 
 interface CacheEntry {
   data: AccountQuotaResult;
@@ -24,7 +25,7 @@ export class QuotaService {
   }
 
   /**
-   * Fetches normalized quota for a single account
+   * Fetches normalized quota for a single account with an 8-second timeout
    */
   public async fetchQuotaForAccount(
     accountId: string,
@@ -54,7 +55,7 @@ export class QuotaService {
       };
     }
 
-    try {
+    const fetchCore = async (): Promise<AccountQuotaResult> => {
       // 1. Ensure token is refreshed if expired
       const freshCreds = await ensureFreshCredentials(
         account.id,
@@ -63,10 +64,21 @@ export class QuotaService {
         account.providerSpecificData
       );
 
+      const effectiveToken =
+        account.providerId.toLowerCase() === "github" && freshCreds.githubAccessToken
+          ? freshCreds.githubAccessToken
+          : (freshCreds.accessToken || freshCreds.apiKey || account.rawApiKey);
+
       const resolvedAccount = {
         ...account,
-        rawApiKey: freshCreds.accessToken || freshCreds.apiKey || account.rawApiKey,
-        providerSpecificData: freshCreds.providerSpecificData,
+        rawApiKey: effectiveToken,
+        githubAccessToken: freshCreds.githubAccessToken,
+        projectId: freshCreds.projectId || freshCreds.providerSpecificData?.projectId,
+        providerSpecificData: {
+          ...freshCreds.providerSpecificData,
+          ...(freshCreds.githubAccessToken ? { githubAccessToken: freshCreds.githubAccessToken } : {}),
+          ...(freshCreds.projectId ? { projectId: freshCreds.projectId } : {}),
+        },
       };
 
       // 2. Query provider quota handler
@@ -131,6 +143,18 @@ export class QuotaService {
       });
 
       return result;
+    };
+
+    let timer: NodeJS.Timeout | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error("Quota request timed out after 8 seconds"));
+      }, ACCOUNT_TIMEOUT_MS);
+      timer.unref?.();
+    });
+
+    try {
+      return await Promise.race([fetchCore(), timeoutPromise]);
     } catch (err: any) {
       const errorResult: AccountQuotaResult = {
         accountId: account.id,
@@ -140,15 +164,19 @@ export class QuotaService {
         isActive: account.isActive,
         quotas: [],
         lastFetchedAt: Date.now(),
-        error: err.message || "Failed to fetch quota",
+        error: err?.message || "Failed to fetch quota",
       };
 
       return errorResult;
+    } finally {
+      if (timer) {
+        clearTimeout(timer);
+      }
     }
   }
 
   /**
-   * Fetches quotas for all accounts in SQLite
+   * Fetches quotas for all accounts in SQLite with isolated error boundaries
    */
   public async fetchQuotaForAllAccounts(force = false): Promise<AccountQuotaResult[]> {
     const accounts = ProviderRepository.getAllAccounts();
@@ -163,7 +191,7 @@ export class QuotaService {
         isActive: acc.isActive,
         quotas: [],
         lastFetchedAt: Date.now(),
-        error: err.message || "Failed to fetch quota",
+        error: err?.message || "Failed to fetch quota",
       }))
     );
 
@@ -171,11 +199,25 @@ export class QuotaService {
   }
 
   /**
-   * Refreshes a batch of accounts (or all accounts if list is empty)
+   * Refreshes a batch of accounts (or all accounts if list is empty) with isolated error boundaries
    */
   public async batchRefresh(accountIds?: string[]): Promise<AccountQuotaResult[]> {
     if (accountIds && accountIds.length > 0) {
-      const promises = accountIds.map((id) => this.fetchQuotaForAccount(id, true));
+      const promises = accountIds.map((id) =>
+        this.fetchQuotaForAccount(id, true).catch((err) => {
+          const acc = ProviderRepository.getAccountById(id);
+          return {
+            accountId: id,
+            providerId: acc?.providerId || "unknown",
+            accountName: acc?.name || "Unknown",
+            plan: "Standard",
+            isActive: acc?.isActive ?? true,
+            quotas: [],
+            lastFetchedAt: Date.now(),
+            error: err?.message || "Failed to fetch quota",
+          };
+        })
+      );
       return await Promise.all(promises);
     }
     return await this.fetchQuotaForAllAccounts(true);

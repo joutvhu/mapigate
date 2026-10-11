@@ -20,7 +20,7 @@ export async function fetchRawQuotaForProvider(
 
   switch (pId) {
     case "antigravity":
-      return await getAntigravityUsage(token, psd);
+      return await getAntigravityUsage(token, psd, { force });
 
     case "gemini":
     case "gemini-cli":
@@ -33,7 +33,7 @@ export async function fetchRawQuotaForProvider(
       return await getCodexUsage(token, psd);
 
     case "github":
-      return await getGitHubUsage(token, psd);
+      return await getGitHubUsage(psd?.githubAccessToken || token, psd);
 
     case "kiro":
       return await getKiroUsage(token, psd);
