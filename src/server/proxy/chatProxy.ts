@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { RuleEngine, stripModelContextMarker } from "../../core/router/ruleEngine.js";
-import { LoadBalancer } from "../../core/router/loadBalancer.js";
+import { LoadBalancer, isRateLimitOrQuotaError } from "../../core/router/loadBalancer.js";
 import { RtkCompressor } from "../../core/rtk/compressor.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
@@ -151,69 +151,43 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     };
   }
 
-  // Account resolution
-  const account = LoadBalancer.pickAccount(provider.id);
-  const hasCustomHeaders = Boolean(
-    provider.customHeaders && Object.keys(provider.customHeaders).length > 0
-  );
-  const isNoAuthOrProfile =
-    provider.id.startsWith("bedrock") ||
-    provider.id === "ollama-local" ||
-    provider.id === "devin-cli";
-
-  if ((!account || !account.rawApiKey) && !hasCustomHeaders && !isNoAuthOrProfile) {
-    return {
-      ok: false,
-      status: 503,
-      error: `No active API key account found for provider '${provider.name}'.`,
-    };
-  }
-
   // Capability context window guard
   const { contextWindow } = getCapabilitiesForModel(provider.id, targetModel);
   const adjustedBody = stripHistoryForContext(body, contextWindow);
-
-  let promptTokens = rtkStats.compressedTokens || 0;
-  let completionTokens = 0;
-  let cachedTokens = 0;
-  let cacheCreationTokens = 0;
-  let reasoningTokens = 0;
-  let ttftMs: number | undefined = undefined;
-  let capturedResponseText = "";
 
   const targetFormat = provider.format || "openai";
   const isBedrock = provider.id.startsWith("bedrock") || provider.credentialForm === "aws";
 
   // Bidirectional request payload conversion
-  let upstreamBody: any;
+  let baseUpstreamBody: any;
   if (clientFormat === "anthropic" && targetFormat === "openai") {
-    upstreamBody = AnthropicAdapter.anthropicToOpenAi(adjustedBody);
-    upstreamBody.model = targetModel;
+    baseUpstreamBody = AnthropicAdapter.anthropicToOpenAi(adjustedBody);
+    baseUpstreamBody.model = targetModel;
   } else if (clientFormat === "openai" && (targetFormat === "claude" || isBedrock)) {
-    upstreamBody = AnthropicAdapter.openAiToAnthropic(adjustedBody);
-    upstreamBody.model = targetModel;
+    baseUpstreamBody = AnthropicAdapter.openAiToAnthropic(adjustedBody);
+    baseUpstreamBody.model = targetModel;
   } else if (clientFormat === "anthropic") {
-    upstreamBody = { ...adjustedBody, model: targetModel };
+    baseUpstreamBody = { ...adjustedBody, model: targetModel };
   } else {
-    upstreamBody = OpenAiAdapter.normalizeRequest(adjustedBody, targetModel);
+    baseUpstreamBody = OpenAiAdapter.normalizeRequest(adjustedBody, targetModel);
   }
 
   if (isPanel) {
-    upstreamBody.stream = false;
-    delete upstreamBody.tools;
-    delete upstreamBody.tool_choice;
-    delete upstreamBody.stream_options;
+    baseUpstreamBody.stream = false;
+    delete baseUpstreamBody.tools;
+    delete baseUpstreamBody.tool_choice;
+    delete baseUpstreamBody.stream_options;
   } else {
-    if (targetFormat === "openai" && upstreamBody && upstreamBody.stream !== false) {
-      upstreamBody.stream_options = {
-        ...(upstreamBody.stream_options || {}),
+    if (targetFormat === "openai" && baseUpstreamBody && baseUpstreamBody.stream !== false) {
+      baseUpstreamBody.stream_options = {
+        ...(baseUpstreamBody.stream_options || {}),
         include_usage: true,
       };
     }
   }
 
   // Upstream BaseUrl Deduplication
-  let upstreamUrl: string;
+  let defaultUpstreamUrl: string;
   const rawBase = (provider.baseUrl || "").trim();
   const hasTerminalPath =
     rawBase.includes("/chat/completions") ||
@@ -222,17 +196,58 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     rawBase.includes("/generateAssistantResponse");
 
   if (hasTerminalPath) {
-    upstreamUrl = rawBase;
+    defaultUpstreamUrl = rawBase;
   } else {
     const cleanBase = rawBase.replace(/\/+$/, "");
     if (targetFormat === "claude") {
-      upstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/messages` : `${cleanBase}/v1/messages`;
+      defaultUpstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/messages` : `${cleanBase}/v1/messages`;
     } else {
-      upstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/chat/completions` : `${cleanBase}/v1/chat/completions`;
+      defaultUpstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/chat/completions` : `${cleanBase}/v1/chat/completions`;
     }
   }
 
-  try {
+  const triedAccountIds = new Set<string>();
+  let lastFailureResult: ModelCallResult | undefined;
+
+  while (true) {
+    // Account resolution with exclusion of already-tried accounts (intra-provider failover)
+    const account = LoadBalancer.pickAccount(provider.id, triedAccountIds);
+    const hasCustomHeaders = Boolean(
+      provider.customHeaders && Object.keys(provider.customHeaders).length > 0
+    );
+    const isNoAuthOrProfile =
+      provider.id.startsWith("bedrock") ||
+      provider.id === "ollama-local" ||
+      provider.id === "devin-cli";
+
+    if ((!account || !account.rawApiKey) && !hasCustomHeaders && !isNoAuthOrProfile) {
+      if (triedAccountIds.size > 0 && lastFailureResult) {
+        return lastFailureResult;
+      }
+      return {
+        ok: false,
+        status: 503,
+        error: `No active API key account found for provider '${provider.name}'.`,
+      };
+    }
+
+    if (account) {
+      triedAccountIds.add(account.id);
+    }
+
+    let promptTokens = rtkStats.compressedTokens || 0;
+    let completionTokens = 0;
+    let cachedTokens = 0;
+    let cacheCreationTokens = 0;
+    let reasoningTokens = 0;
+    let ttftMs: number | undefined = undefined;
+    let capturedResponseText = "";
+
+    // Clone upstreamBody for each account attempt in case of provider-specific mutations
+    const upstreamBody = JSON.parse(JSON.stringify(baseUpstreamBody));
+    let upstreamUrl = defaultUpstreamUrl;
+
+    try {
     let bearerToken = account?.rawApiKey || "";
     const psd = account?.providerSpecificData || {};
 
@@ -465,10 +480,35 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     }
 
     if (!upstreamRes.ok) {
-      if (upstreamRes.status === 429 && account) {
-        LoadBalancer.markRateLimited(account.id);
-      }
       const errText = await upstreamRes.text();
+      const isRateLimitOrQuota = isRateLimitOrQuotaError(upstreamRes.status, errText);
+
+      if (isRateLimitOrQuota && account) {
+        let cooldownMs = 60_000;
+        const retryAfterHeader = upstreamRes.headers?.get?.("retry-after");
+        if (retryAfterHeader) {
+          const parsedSec = Number.parseInt(retryAfterHeader, 10);
+          if (Number.isFinite(parsedSec) && parsedSec > 0) {
+            cooldownMs = Math.max(10_000, parsedSec * 1000);
+          }
+        }
+        LoadBalancer.markRateLimited(account.id, cooldownMs, provider.id);
+
+        const nextAccount = LoadBalancer.pickAccount(provider.id, triedAccountIds);
+        if (nextAccount) {
+          console.warn(
+            `[chatProxy] Account '${account.name || account.id}' for provider '${provider.id}' hit ${upstreamRes.status} (rate-limit/quota). Cooldown: ${cooldownMs}ms. Failing over to next account '${nextAccount.name || nextAccount.id}'...`
+          );
+          lastFailureResult = {
+            ok: false,
+            status: upstreamRes.status,
+            text: errText,
+            error: errText,
+          };
+          continue;
+        }
+      }
+
       return {
         ok: false,
         status: upstreamRes.status,
@@ -953,12 +993,16 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     UsageRepository.endPendingRequest(requestId, false);
     return { ok: true, status: 200, modelUsed: targetModel };
   } catch (err: any) {
+    if (triedAccountIds.size > 0 && lastFailureResult) {
+      return lastFailureResult;
+    }
     return {
       ok: false,
       status: 500,
       error: err.message || "Upstream request failed",
     };
   }
+} // end while (true)
 }
 
 export async function handleProxyRequest(
