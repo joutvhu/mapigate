@@ -1,6 +1,6 @@
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import type { AccountQuotaResult, NormalizedQuotaItem } from "./types.js";
-import { formatResetTime, parseResetTime } from "./utils.js";
+import { formatResetTime, parseResetTime, sortNormalizedQuotas } from "./utils.js";
 import { ensureFreshCredentials } from "./tokenHelper.js";
 import { fetchRawQuotaForProvider } from "./handlers/index.js";
 
@@ -96,6 +96,28 @@ export class QuotaService {
 
       if (rawResult.quotas) {
         for (const [key, bucket] of Object.entries(rawResult.quotas)) {
+          // If antigravity, filter strictly to the 4 recognized summary buckets
+          if (account.providerId.toLowerCase() === "antigravity") {
+            const allowedAntigravityKeys = [
+              "gemini_session",
+              "gemini_weekly",
+              "claude_gpt_session",
+              "claude_gpt_weekly",
+            ];
+            const allowedLabels = [
+              "gemini (5h)",
+              "gemini (weekly)",
+              "claude & gpt (5h)",
+              "claude & gpt (weekly)",
+            ];
+            const isAllowed =
+              allowedAntigravityKeys.includes(key.toLowerCase()) ||
+              allowedLabels.includes((bucket.displayName || "").toLowerCase());
+            if (!isAllowed) {
+              continue;
+            }
+          }
+
           const used = Math.max(0, bucket.used ?? 0);
           const total = Math.max(0, bucket.total ?? 100);
           const resetAt = parseResetTime(bucket.resetAt);
@@ -123,13 +145,16 @@ export class QuotaService {
         }
       }
 
+      // Sort quotas into fixed deterministic order
+      const sortedQuotas = sortNormalizedQuotas(account.providerId, quotas);
+
       const result: AccountQuotaResult = {
         accountId: account.id,
         providerId: account.providerId,
         accountName: account.name,
         plan: rawResult.plan || "Standard",
         isActive: account.isActive,
-        quotas,
+        quotas: sortedQuotas,
         lastFetchedAt: Date.now(),
         error: rawResult.error,
         message: rawResult.message,

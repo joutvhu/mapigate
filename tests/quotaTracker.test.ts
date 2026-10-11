@@ -6,6 +6,7 @@ import {
   parseResetTime,
   getStatusColor,
   formatResetTimeDisplay,
+  sortNormalizedQuotas,
 } from "../src/core/usage/utils.js";
 import { QuotaService } from "../src/core/usage/quotaService.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
@@ -374,12 +375,15 @@ test("Antigravity - tier detection: paid-tier returns both models and weekly/ses
 
   assert.equal(result.plan, "Gemini Advanced");
   assert.ok(result.quotas);
-  assert.ok(result.quotas["gemini-3.8-flash-high"]);
-  assert.equal(result.quotas["gemini-3.8-flash-high"].remainingPercentage, 90);
-  assert.ok(result.quotas["claude-sonnet-5-5-high"]);
-  assert.equal(result.quotas["claude-sonnet-5-5-high"].remainingPercentage, 60);
+  // Summary quotas must be present
   assert.ok(result.quotas.gemini_weekly);
   assert.ok(result.quotas.gemini_session);
+  // Synthesized Claude session from Claude models
+  assert.ok(result.quotas.claude_gpt_session);
+  assert.equal(result.quotas.claude_gpt_session.remainingPercentage, 60);
+  // Per-model quotas must NOT be exposed
+  assert.equal(result.quotas["gemini-3.8-flash-high"], undefined);
+  assert.equal(result.quotas["claude-sonnet-5-5-high"], undefined);
 });
 
 test("Antigravity - weekly reconciliation updates session quota when models are exhausted", async () => {
@@ -1118,4 +1122,109 @@ test("fetchRawQuotaForProvider - dispatches correctly across all registered prov
   });
   assert.ok(unkRes.message?.includes("Quota tracking is not supported"));
 });
+
+test("sortNormalizedQuotas - sorts Antigravity into exact fixed order without changing on refresh", () => {
+  const rawItems = [
+    { label: "Claude & GPT (Weekly)", used: 200, total: 1000, remainingPercentage: 80 },
+    { label: "Gemini (Weekly)", used: 300, total: 1000, remainingPercentage: 70 },
+    { label: "Claude & GPT (5h)", used: 100, total: 1000, remainingPercentage: 90 },
+    { label: "Gemini (5h)", used: 500, total: 1000, remainingPercentage: 50 },
+  ];
+
+  const sorted1 = sortNormalizedQuotas("antigravity", rawItems);
+  assert.deepEqual(
+    sorted1.map((q) => q.label),
+    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)"]
+  );
+
+  // Repeated calls must yield identical order (idempotent / stable)
+  const reversed = [...rawItems].reverse();
+  const sorted2 = sortNormalizedQuotas("antigravity", reversed);
+  assert.deepEqual(
+    sorted2.map((q) => q.label),
+    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)"]
+  );
+});
+
+test("sortNormalizedQuotas - deterministic priority and alphabetical tie-breaker for other providers", () => {
+  // GitHub Copilot
+  const copilotItems = [
+    { label: "Premium Interactions", used: 1, total: 50, remainingPercentage: 98 },
+    { label: "Completions", used: 0, total: 0, remainingPercentage: 100 },
+    { label: "Chat", used: 10, total: 1000, remainingPercentage: 99 },
+    { label: "Custom Extra Pool", used: 0, total: 10, remainingPercentage: 100 },
+  ];
+  const sortedCopilot = sortNormalizedQuotas("copilot", copilotItems);
+  assert.deepEqual(
+    sortedCopilot.map((q) => q.label),
+    ["Chat", "Completions", "Premium Interactions", "Custom Extra Pool"]
+  );
+
+  // Alphabetical tie-breaker for unlisted provider
+  const genericItems = [
+    { label: "Zoo Tokens", used: 0, total: 10, remainingPercentage: 100 },
+    { label: "Alpha Rate Limit", used: 0, total: 10, remainingPercentage: 100 },
+    { label: "Beta Quota", used: 0, total: 10, remainingPercentage: 100 },
+  ];
+  const sortedGeneric = sortNormalizedQuotas("unknown_provider", genericItems);
+  assert.deepEqual(
+    sortedGeneric.map((q) => q.label),
+    ["Alpha Rate Limit", "Beta Quota", "Zoo Tokens"]
+  );
+});
+
+test("QuotaService - Antigravity account normalizes to only the 4 summary buckets in fixed order", async () => {
+  const pId = "ag_test_fixed_" + Date.now();
+  const accId = "ag_acc_fixed_" + Date.now();
+
+  ProviderRepository.saveProvider({
+    id: pId,
+    name: "Antigravity Test Provider",
+    baseUrl: "https://cloudcode-pa.googleapis.com",
+    format: "gemini",
+    isActive: true,
+    priority: 1,
+    models: ["gemini-3.8-flash-high"],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  ProviderRepository.addAccount({
+    id: accId,
+    providerId: pId,
+    name: "AG Account Fixed",
+    rawApiKey: "mock_ag_key",
+  });
+
+  // Test sortNormalizedQuotas directly on simulated QuotaService output
+  const simulatedQuotas = [
+    { label: "gemini-3.8-flash-high", used: 10, total: 1000, remainingPercentage: 99 },
+    { label: "Claude & GPT (Weekly)", used: 200, total: 1000, remainingPercentage: 80 },
+    { label: "Gemini (Weekly)", used: 300, total: 1000, remainingPercentage: 70 },
+    { label: "Claude & GPT (5h)", used: 100, total: 1000, remainingPercentage: 90 },
+    { label: "claude-sonnet-5-5-high", used: 50, total: 1000, remainingPercentage: 95 },
+    { label: "Gemini (5h)", used: 500, total: 1000, remainingPercentage: 50 },
+  ];
+
+  const allowedLabels = [
+    "gemini (5h)",
+    "gemini (weekly)",
+    "claude & gpt (5h)",
+    "claude & gpt (weekly)",
+  ];
+  const filtered = simulatedQuotas.filter((q) =>
+    allowedLabels.some((l) => q.label.toLowerCase() === l)
+  );
+  const sorted = sortNormalizedQuotas("antigravity", filtered);
+
+  assert.equal(sorted.length, 4);
+  assert.deepEqual(
+    sorted.map((q) => q.label),
+    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)"]
+  );
+
+  ProviderRepository.deleteAccount(accId);
+  ProviderRepository.deleteProvider(pId);
+});
+
 

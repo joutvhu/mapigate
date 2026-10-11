@@ -316,6 +316,7 @@ export async function getAntigravityUsage(
       (isFreeTier ? "Free" : "Standard");
 
     const quotas: Record<string, RawQuotaBucket> = {};
+    const modelQuotas: Record<string, RawQuotaBucket> = {};
 
     // 2. Paid-tier: Fetch Available Models (5h per-model windows)
     if (!isFreeTier) {
@@ -367,7 +368,7 @@ export async function getAntigravityUsage(
               const remaining = Math.round(total * remainingFraction);
               const used = Math.max(0, total - remaining);
 
-              quotas[modelKey] = {
+              modelQuotas[modelKey] = {
                 displayName: info.displayName || modelKey,
                 used,
                 total,
@@ -385,26 +386,61 @@ export async function getAntigravityUsage(
       }
     }
 
-    // 3. Best-effort weekly quota overlay
+    // 3. Best-effort weekly and session quota summary
     try {
       const weeklyQuotas = await fetchAntigravityWeeklyQuota(accessToken, projectId, options);
 
       if (isFreeTier) {
         // Free-tier accounts only have weekly quotas (no separate 5h window).
         // Only keep weekly buckets to avoid misleading 0% session windows.
-        for (const [k, v] of Object.entries(weeklyQuotas)) {
-          if (k.endsWith("_weekly")) {
-            quotas[k] = v;
+        const freeTierKeys = ["gemini_weekly", "claude_gpt_weekly"];
+        for (const k of freeTierKeys) {
+          if (weeklyQuotas[k]) {
+            quotas[k] = weeklyQuotas[k];
           }
         }
       } else {
-        // Reconcile short-window session quota if models are exhausted:
-        // If every model in a family is locked/exhausted (remainingPercentage === 0)
-        // until a future reset time, update the 5h session row (not the weekly row).
-        const entries = Object.entries(quotas);
+        const entries = Object.entries(modelQuotas);
         const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image"));
         const claudeModels = entries.filter(([k]) => k.startsWith("claude-"));
 
+        // If gemini_session missing from summary, synthesize from Gemini models
+        if (!weeklyQuotas.gemini_session && geminiModels.length > 0) {
+          const rep = geminiModels.reduce((min, cur) =>
+            (cur[1].remainingPercentage ?? 100) < (min[1].remainingPercentage ?? 100) ? cur : min
+          )[1];
+          weeklyQuotas.gemini_session = {
+            displayName: "Gemini (5h)",
+            used: rep.used,
+            total: rep.total,
+            remaining: rep.remaining,
+            remainingPercentage: rep.remainingPercentage,
+            resetAt: rep.resetAt,
+            unlimited: false,
+            recurring: true,
+          };
+        }
+
+        // If claude_gpt_session missing from summary, synthesize from Claude models
+        if (!weeklyQuotas.claude_gpt_session && claudeModels.length > 0) {
+          const rep = claudeModels.reduce((min, cur) =>
+            (cur[1].remainingPercentage ?? 100) < (min[1].remainingPercentage ?? 100) ? cur : min
+          )[1];
+          weeklyQuotas.claude_gpt_session = {
+            displayName: "Claude & GPT (5h)",
+            used: rep.used,
+            total: rep.total,
+            remaining: rep.remaining,
+            remainingPercentage: rep.remainingPercentage,
+            resetAt: rep.resetAt,
+            unlimited: false,
+            recurring: true,
+          };
+        }
+
+        // Reconcile short-window session quota if models are exhausted:
+        // If every model in a family is locked/exhausted (remainingPercentage === 0)
+        // until a future reset time, update the 5h session row (not the weekly row).
         if (weeklyQuotas.gemini_session && geminiModels.length > 0) {
           const allGeminiExhausted = geminiModels.every(([, q]) => (q.remainingPercentage ?? 0) === 0);
           if (allGeminiExhausted && (weeklyQuotas.gemini_session.remainingPercentage ?? 0) > 0) {
@@ -449,7 +485,23 @@ export async function getAntigravityUsage(
           }
         }
 
-        Object.assign(quotas, weeklyQuotas);
+        // Only populate the 4 summary buckets in fixed deterministic order:
+        // 1. Gemini (5h)
+        // 2. Gemini (Weekly)
+        // 3. Claude & GPT (5h)
+        // 4. Claude & GPT (Weekly)
+        const ANTIGRAVITY_ORDERED_KEYS = [
+          "gemini_session",
+          "gemini_weekly",
+          "claude_gpt_session",
+          "claude_gpt_weekly",
+        ];
+
+        for (const key of ANTIGRAVITY_ORDERED_KEYS) {
+          if (weeklyQuotas[key]) {
+            quotas[key] = weeklyQuotas[key];
+          }
+        }
       }
     } catch {
       // Best-effort overlay

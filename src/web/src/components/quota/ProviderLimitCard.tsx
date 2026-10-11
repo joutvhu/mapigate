@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import type { AccountQuotaResult } from "../../../core/usage/types.js";
+import { sortNormalizedQuotas } from "../../../../shared/constants/quotaOrder";
 import { QuotaProgressBar } from "./QuotaProgressBar.js";
 
 export interface ProviderLimitCardProps {
@@ -55,6 +56,22 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
   };
 
   const isCardLoading = loading || refreshing;
+
+  const displayQuotas = useMemo(() => {
+    let list = account.quotas || [];
+    if (account.providerId?.toLowerCase() === "antigravity") {
+      const allowed = [
+        "gemini (5h)",
+        "gemini (weekly)",
+        "claude & gpt (5h)",
+        "claude & gpt (weekly)",
+      ];
+      list = list.filter((q) =>
+        allowed.some((a) => (q.label || "").toLowerCase().trim() === a)
+      );
+    }
+    return sortNormalizedQuotas(account.providerId, list);
+  }, [account.providerId, account.quotas]);
 
   return (
     <div
@@ -144,16 +161,16 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
         </div>
 
         {/* Quota Progress Bars or Skeletons */}
-        {isCardLoading && account.quotas.length === 0 ? (
+        {isCardLoading && displayQuotas.length === 0 ? (
           <div className="space-y-3 py-2">
             <div className="h-4 bg-slate-800/60 rounded animate-pulse w-3/4" />
             <div className="h-2 bg-slate-800/60 rounded-full animate-pulse w-full" />
             <div className="h-4 bg-slate-800/60 rounded animate-pulse w-2/3" />
             <div className="h-2 bg-slate-800/60 rounded-full animate-pulse w-full" />
           </div>
-        ) : account.quotas.length > 0 ? (
+        ) : displayQuotas.length > 0 ? (
           <div className="space-y-2.5">
-            {account.quotas.map((q, idx) => (
+            {displayQuotas.map((q, idx) => (
               <QuotaProgressBar
                 key={`${q.label}-${idx}`}
                 label={q.label}
