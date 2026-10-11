@@ -1,0 +1,618 @@
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { PortalModal } from "./PortalModal.js";
+import { CapacityBadges } from "./CapacityBadges.js";
+import { PROVIDER_REGISTRY } from "../../../shared/constants/providerRegistry.js";
+import { getCapabilitiesForModel, type ModelCapabilities } from "../../../core/capabilities/index.js";
+
+export interface ModelOption {
+  id: string;
+  value: string;
+  name: string;
+  providerId: string;
+  providerName: string;
+  caps: ModelCapabilities;
+}
+
+export interface ModelSelectModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title?: string;
+  initialSelectedModels?: string[];
+  onConfirm: (models: string[]) => void;
+  multiSelect?: boolean;
+  filterModality?: "vision" | "audio" | "pdf" | "thinking" | null;
+}
+
+interface SortableModelItemProps {
+  id: string;
+  index: number;
+  onRemove: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
+}
+
+const SortableModelItem: React.FC<SortableModelItemProps> = ({
+  id,
+  index,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-[#0A0D14] transition-all ${
+        isDragging
+          ? "border-blue-500 shadow-lg shadow-blue-500/10 bg-blue-950/40"
+          : "border-[#1E293B] hover:border-slate-700"
+      }`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none"
+          title="Drag to reorder priority"
+        >
+          <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
+        </button>
+        <span className="size-5 rounded-md bg-[#141B2D] border border-[#1E293B] text-[10px] font-mono text-blue-400 font-bold flex items-center justify-center shrink-0">
+          {index + 1}
+        </span>
+        <span className="font-mono text-xs text-white truncate max-w-[200px] sm:max-w-[260px]" title={id}>
+          {id}
+        </span>
+        <CapacityBadges model={id} size="xs" />
+      </div>
+
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={onMoveUp}
+          disabled={isFirst}
+          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
+          title="Move up"
+        >
+          <span className="material-symbols-outlined text-[15px]">arrow_upward</span>
+        </button>
+        <button
+          type="button"
+          onClick={onMoveDown}
+          disabled={isLast}
+          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
+          title="Move down"
+        >
+          <span className="material-symbols-outlined text-[15px]">arrow_downward</span>
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
+          title="Remove"
+        >
+          <span className="material-symbols-outlined text-[15px]">close</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
+  isOpen,
+  onClose,
+  title = "Select & Reorder Models",
+  initialSelectedModels = [],
+  onConfirm,
+  multiSelect = true,
+  filterModality = null,
+}) => {
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState<string>("all");
+  const [activeModalityFilter, setActiveModalityFilter] = useState<string>(
+    filterModality || "all"
+  );
+  const [customModelInput, setCustomModelInput] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedModels([...initialSelectedModels]);
+      setSearchQuery("");
+      setSelectedProvider("all");
+      setActiveModalityFilter(filterModality || "all");
+      setCustomModelInput("");
+    }
+  }, [isOpen, initialSelectedModels, filterModality]);
+
+  // Build model catalog from PROVIDER_REGISTRY
+  const allModels: ModelOption[] = useMemo(() => {
+    const list: ModelOption[] = [];
+    const seen = new Set<string>();
+
+    for (const [providerId, provider] of Object.entries(PROVIDER_REGISTRY)) {
+      if (!provider || !provider.models) continue;
+      for (const m of provider.models) {
+        // Build canonical value
+        const val = m.id.includes("/") ? m.id : `${providerId}/${m.id}`;
+        if (seen.has(val)) continue;
+        seen.add(val);
+
+        const caps = getCapabilitiesForModel(providerId, m.id);
+        list.push({
+          id: m.id,
+          value: val,
+          name: m.name || m.id,
+          providerId,
+          providerName: provider.name || providerId,
+          caps,
+        });
+      }
+    }
+
+    return list;
+  }, []);
+
+  // Distinct providers list
+  const providerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of allModels) {
+      if (!map.has(m.providerId)) {
+        map.set(m.providerId, m.providerName);
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [allModels]);
+
+  // Filtered available models
+  const filteredModels = useMemo(() => {
+    return allModels.filter((item) => {
+      // Provider filter
+      if (selectedProvider !== "all" && item.providerId !== selectedProvider) {
+        return false;
+      }
+
+      // Modality filter
+      if (activeModalityFilter === "vision" && !item.caps.vision) return false;
+      if (activeModalityFilter === "pdf" && !item.caps.pdf) return false;
+      if (
+        activeModalityFilter === "audio" &&
+        !item.caps.audioInput &&
+        !(item.caps as any).audio
+      )
+        return false;
+      if (
+        activeModalityFilter === "thinking" &&
+        !item.caps.reasoning &&
+        !(item.caps as any).thinking &&
+        !item.caps.thinkingFormat
+      )
+        return false;
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = item.name.toLowerCase().includes(q);
+        const matchesVal = item.value.toLowerCase().includes(q);
+        const matchesProvider = item.providerName.toLowerCase().includes(q);
+        if (!matchesName && !matchesVal && !matchesProvider) return false;
+      }
+
+      return true;
+    });
+  }, [allModels, selectedProvider, activeModalityFilter, searchQuery]);
+
+  const handleToggleModel = (val: string) => {
+    if (selectedModels.includes(val)) {
+      setSelectedModels(selectedModels.filter((m) => m !== val));
+    } else {
+      if (!multiSelect) {
+        setSelectedModels([val]);
+      } else {
+        setSelectedModels([...selectedModels, val]);
+      }
+    }
+  };
+
+  const handleRemoveModel = (val: string) => {
+    setSelectedModels(selectedModels.filter((m) => m !== val));
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const next = [...selectedModels];
+    const temp = next[index - 1];
+    next[index - 1] = next[index];
+    next[index] = temp;
+    setSelectedModels(next);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === selectedModels.length - 1) return;
+    const next = [...selectedModels];
+    const temp = next[index + 1];
+    next[index + 1] = next[index];
+    next[index] = temp;
+    setSelectedModels(next);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setSelectedModels((items) => {
+        const oldIndex = items.indexOf(String(active.id));
+        const newIndex = items.indexOf(String(over.id));
+        if (oldIndex !== -1 && newIndex !== -1) {
+          return arrayMove(items, oldIndex, newIndex);
+        }
+        return items;
+      });
+    }
+  };
+
+  const handleAddCustomModel = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = customModelInput.trim();
+    if (!val) return;
+    if (!selectedModels.includes(val)) {
+      if (!multiSelect) {
+        setSelectedModels([val]);
+      } else {
+        setSelectedModels([...selectedModels, val]);
+      }
+    }
+    setCustomModelInput("");
+  };
+
+  const handleConfirm = () => {
+    onConfirm(selectedModels);
+    onClose();
+  };
+
+  return (
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-4xl">
+      <div className="flex flex-col h-[85vh] max-h-[780px] -m-2 sm:-m-4">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#1E293B]">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">tune</span>
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-white">{title}</h3>
+              <p className="text-xs text-slate-400">
+                Pick models and drag & drop in the right panel to set priority order
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+
+        {/* Modal Body: 2 Columns */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 min-h-0 overflow-hidden divide-y lg:divide-y-0 lg:divide-x divide-[#1E293B]">
+          {/* Left Column: Catalog & Filters (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col min-h-0 p-4 space-y-3.5 overflow-hidden">
+            {/* Search Input */}
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="Search models by name, provider, or ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              )}
+            </div>
+
+            {/* Provider and Modality Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Provider Dropdown */}
+              <select
+                value={selectedProvider}
+                onChange={(e) => setSelectedProvider(e.target.value)}
+                className="bg-[#0A0D14] border border-[#1E293B] rounded-xl px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500 shrink-0"
+              >
+                <option value="all">All Providers ({providerOptions.length})</option>
+                {providerOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Modality Chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setActiveModalityFilter("all")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer ${
+                    activeModalityFilter === "all"
+                      ? "bg-blue-600 text-white border-blue-500"
+                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-white"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModalityFilter("vision")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                    activeModalityFilter === "vision"
+                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-cyan-300"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">visibility</span>
+                  Vision
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModalityFilter("audio")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                    activeModalityFilter === "audio"
+                      ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-purple-300"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">graphic_eq</span>
+                  Audio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModalityFilter("pdf")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                    activeModalityFilter === "pdf"
+                      ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
+                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-orange-300"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">picture_as_pdf</span>
+                  PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveModalityFilter("thinking")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1 ${
+                    activeModalityFilter === "thinking"
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-emerald-300"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[13px]">psychology</span>
+                  Thinking
+                </button>
+              </div>
+            </div>
+
+            {/* Models Catalog List */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5 pr-1">
+              {filteredModels.length === 0 ? (
+                <div className="py-12 text-center text-slate-500 text-xs">
+                  No models matched your filter. Try clearing filters or enter a custom model below.
+                </div>
+              ) : (
+                filteredModels.map((item) => {
+                  const isSelected = selectedModels.includes(item.value);
+                  return (
+                    <div
+                      key={item.value}
+                      onClick={() => handleToggleModel(item.value)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-blue-600/10 border-blue-500/40 text-white"
+                          : "bg-[#0A0D14]/70 border-[#1E293B] hover:border-slate-700 text-slate-300"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white truncate">
+                            {item.name}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded bg-[#141B2D] border border-[#1E293B] text-[10px] text-slate-400 shrink-0">
+                            {item.providerName}
+                          </span>
+                        </div>
+                        <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
+                          {item.value}
+                        </div>
+                        <div className="mt-1">
+                          <CapacityBadges caps={item.caps} size="xs" />
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleModel(item.value);
+                        }}
+                        className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                          isSelected
+                            ? "bg-blue-600 border-blue-500 text-white"
+                            : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">
+                          {isSelected ? "check" : "add"}
+                        </span>
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Custom Model Input */}
+            <form onSubmit={handleAddCustomModel} className="flex gap-2 pt-1 border-t border-[#1E293B]">
+              <input
+                type="text"
+                placeholder="Or enter custom model ID (e.g. provider/model)..."
+                value={customModelInput}
+                onChange={(e) => setCustomModelInput(e.target.value)}
+                className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="submit"
+                disabled={!customModelInput.trim()}
+                className="px-3 py-1.5 rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-blue-500/50 hover:bg-blue-600/10 text-xs text-slate-300 hover:text-white disabled:opacity-40 cursor-pointer"
+              >
+                Add Custom
+              </button>
+            </form>
+          </div>
+
+          {/* Right Column: Selected Models & Drag-and-Drop Sorting (5 cols) */}
+          <div className="lg:col-span-5 flex flex-col min-h-0 p-4 space-y-3 bg-[#0A0D14]/40">
+            <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-blue-400 text-[18px]">
+                  format_list_numbered
+                </span>
+                <span className="text-xs font-bold text-white">
+                  Selected Models ({selectedModels.length})
+                </span>
+              </div>
+              {selectedModels.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedModels([])}
+                  className="text-[11px] text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-normal">
+              Order determines execution priority (1 = primary, 2+ = backup fallbacks). Drag handles to reorder.
+            </p>
+
+            {/* Sortable List */}
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+              {selectedModels.length === 0 ? (
+                <div className="py-16 text-center text-slate-500 text-xs border border-dashed border-[#1E293B] rounded-2xl p-4">
+                  No models selected yet. Click any model on the left to add it to this priority list.
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={selectedModels} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-1.5">
+                      {selectedModels.map((modelId, index) => (
+                        <SortableModelItem
+                          key={modelId}
+                          id={modelId}
+                          index={index}
+                          onRemove={() => handleRemoveModel(modelId)}
+                          onMoveUp={() => handleMoveUp(index)}
+                          onMoveDown={() => handleMoveDown(index)}
+                          isFirst={index === 0}
+                          isLast={index === selectedModels.length - 1}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-between p-4 sm:p-5 border-t border-[#1E293B] bg-[#0A0D14]/60">
+          <div className="text-xs text-slate-400">
+            {selectedModels.length === 0 ? (
+              <span>No models selected</span>
+            ) : (
+              <span>
+                <strong className="text-white font-mono">{selectedModels.length}</strong> model
+                {selectedModels.length > 1 ? "s" : ""} in priority order
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-[#141B2D] border border-[#1E293B] hover:border-slate-700 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/20 transition-all cursor-pointer"
+            >
+              Confirm Selection
+            </button>
+          </div>
+        </div>
+      </div>
+    </PortalModal>
+  );
+};

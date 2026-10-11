@@ -8,6 +8,7 @@ export interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmVariant?: "danger" | "primary" | "emerald";
+  variant?: "danger" | "primary" | "emerald";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -19,11 +20,13 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   confirmVariant = "primary",
+  variant,
   onConfirm,
   onCancel,
 }) => {
+  const effectiveVariant = variant || confirmVariant;
   const getButtonClass = () => {
-    switch (confirmVariant) {
+    switch (effectiveVariant) {
       case "danger":
         return "bg-red-600 hover:bg-red-500 text-white";
       case "emerald":

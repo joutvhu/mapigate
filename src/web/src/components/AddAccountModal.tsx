@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { planBulkAdd } from "../utils/bulkAdd";
 import { PortalModal } from "./PortalModal";
+import { Select } from "./Select";
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -379,17 +380,16 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 <label className="block text-slate-300 font-medium mb-1">
                   Cluster Region <span className="text-red-400">*</span>
                 </label>
-                <select
+                <Select
                   value={selectedRegion}
-                  onChange={(e) => setSelectedRegion(e.target.value)}
-                  className="w-full bg-[#0F1420] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-xs cursor-pointer"
-                >
-                  {availableRegions.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.label} ({r.id})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedRegion(val)}
+                  options={availableRegions.map((r) => ({
+                    value: r.id,
+                    label: `${r.label} (${r.id})`,
+                  }))}
+                  className="w-full"
+                  triggerClassName="bg-[#0F1420] font-mono text-xs py-2"
+                />
                 {isXiaomiTokenPlan && (
                   <p className="text-[11px] text-slate-400 mt-1">
                     Token Plan keys are cluster-specific — select the region matching your subscription.

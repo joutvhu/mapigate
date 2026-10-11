@@ -8,6 +8,7 @@ import { CopilotAuthModal } from "../components/CopilotAuthModal";
 import { CursorAuthModal } from "../components/CursorAuthModal";
 import { KiroAuthModal } from "../components/KiroAuthModal";
 import { PortalModal } from "../components/PortalModal";
+import { Select } from "../components/Select";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -449,10 +450,10 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             {/* Routing Strategy selector (matches 9router) */}
             <div className="flex flex-wrap items-center gap-2 pl-2 border-l border-[#1E293B]">
               <span className="text-xs text-slate-400 font-medium">Strategy:</span>
-              <select
+              <Select
                 value={providerStrategy || ""}
-                onChange={(e) => {
-                  const strategy = e.target.value || null;
+                onChange={(val) => {
+                  const strategy = val || null;
                   setProviderStrategy(strategy);
                   const sticky = strategy === "round-robin" ? (providerStickyLimit || "1") : providerStickyLimit;
                   if (strategy === "round-robin" && !providerStickyLimit) {
@@ -460,13 +461,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                   }
                   saveProviderStrategy(strategy, sticky);
                 }}
-                className="px-2.5 py-1 text-xs border border-[#1E293B] rounded-lg bg-[#0A0D14] text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer"
-              >
-                <option value="">Default (Global)</option>
-                <option value="fill-first">Fill First</option>
-                <option value="round-robin">Round Robin</option>
-                <option value="earliest-reset">Earliest Reset</option>
-              </select>
+                options={[
+                  { value: "", label: "Default (Global)" },
+                  { value: "fill-first", label: "Fill First" },
+                  { value: "round-robin", label: "Round Robin" },
+                  { value: "earliest-reset", label: "Earliest Reset" },
+                ]}
+                className="w-40"
+              />
 
               {providerStrategy === "round-robin" && (
                 <div className="flex items-center gap-1.5">
@@ -711,17 +713,16 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             <span className="text-xs text-slate-500 font-mono">({models.length} active)</span>
             <div className="flex items-center gap-1.5 text-xs text-slate-400 ml-2">
               <span>Thinking / Reasoning:</span>
-              <select
+              <Select
                 value={thinkingMode}
-                onChange={(e) => setThinkingMode(e.target.value)}
-                className="bg-[#0A0D14] border border-[#1E293B] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none font-mono"
-              >
-                {thinkingOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt.toUpperCase()}
-                  </option>
-                ))}
-              </select>
+                onChange={setThinkingMode}
+                options={thinkingOptions.map((opt) => ({
+                  value: opt,
+                  label: opt.toUpperCase(),
+                }))}
+                className="w-32"
+                triggerClassName="font-mono text-xs"
+              />
             </div>
           </div>
 

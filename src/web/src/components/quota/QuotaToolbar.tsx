@@ -1,4 +1,5 @@
 import React from "react";
+import { Select } from "../Select";
 
 export type QuotaSortMode = "expiring-first" | "quota-asc" | "quota-desc";
 export type AccountStatusFilter = "all" | "active" | "inactive";
@@ -41,40 +42,39 @@ export const QuotaToolbar: React.FC<QuotaToolbarProps> = ({
       {/* Left Filter & Sort Dropdowns */}
       <div className="flex flex-wrap items-center gap-2.5">
         {/* Provider Filter */}
-        <select
+        <Select
           value={selectedProvider}
-          onChange={(e) => onSelectProvider(e.target.value)}
-          className="bg-[#0A0D14] border border-[#1E293B] text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
-        >
-          <option value="all">All providers</option>
-          {providers.map((p) => (
-            <option key={p} value={p}>
-              {p.toUpperCase()}
-            </option>
-          ))}
-        </select>
+          onChange={onSelectProvider}
+          options={[
+            { value: "all", label: "All providers" },
+            ...providers.map((p) => ({ value: p, label: p.toUpperCase() })),
+          ]}
+          className="min-w-[140px]"
+        />
 
         {/* Account Status Filter */}
-        <select
+        <Select
           value={statusFilter}
-          onChange={(e) => onSelectStatusFilter(e.target.value as AccountStatusFilter)}
-          className="bg-[#0A0D14] border border-[#1E293B] text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
-        >
-          <option value="all">All accounts</option>
-          <option value="active">Active only</option>
-          <option value="inactive">Turned off</option>
-        </select>
+          onChange={(val) => onSelectStatusFilter(val as AccountStatusFilter)}
+          options={[
+            { value: "all", label: "All accounts" },
+            { value: "active", label: "Active only" },
+            { value: "inactive", label: "Turned off" },
+          ]}
+          className="min-w-[130px]"
+        />
 
         {/* Sort Dropdown */}
-        <select
+        <Select
           value={sortMode}
-          onChange={(e) => onSelectSortMode(e.target.value as QuotaSortMode)}
-          className="bg-[#0A0D14] border border-[#1E293B] text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500 cursor-pointer"
-        >
-          <option value="expiring-first">Expiring first</option>
-          <option value="quota-asc">% Quota: low to high</option>
-          <option value="quota-desc">% Quota: high to low</option>
-        </select>
+          onChange={(val) => onSelectSortMode(val as QuotaSortMode)}
+          options={[
+            { value: "expiring-first", label: "Expiring first" },
+            { value: "quota-asc", label: "% Quota: low to high" },
+            { value: "quota-desc", label: "% Quota: high to low" },
+          ]}
+          className="min-w-[170px]"
+        />
       </div>
 
       {/* Right Action Buttons */}

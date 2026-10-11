@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { RequestDetail, RequestDetailsListResponse } from "../../../../shared/types/index.js";
 import { RequestDetailDrawer } from "./RequestDetailDrawer.js";
+import { Select } from "../Select.js";
 import {
   Search,
   RefreshCw,
@@ -125,38 +126,36 @@ export const RequestDetailsView: React.FC = () => {
           {/* Provider selector */}
           <div className="flex items-center gap-1.5 text-xs">
             <Filter className="w-3.5 h-3.5 text-slate-500" />
-            <select
+            <Select
               value={provider}
-              onChange={(e) => {
-                setProvider(e.target.value);
+              onChange={(val) => {
+                setProvider(val);
                 setPage(1);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#070A11] border border-slate-800 text-xs text-slate-300 focus:outline-hidden focus:border-blue-500"
-            >
-              <option value="all">All Providers</option>
-              {availableProviders.map((p) => (
-                <option key={p} value={p}>
-                  {p.toUpperCase()}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "all", label: "All Providers" },
+                ...availableProviders.map((p) => ({ value: p, label: p.toUpperCase() })),
+              ]}
+              className="min-w-[140px]"
+            />
           </div>
 
           {/* Status selector */}
           <div className="flex items-center text-xs">
-            <select
+            <Select
               value={status}
-              onChange={(e) => {
-                setStatus(e.target.value);
+              onChange={(val) => {
+                setStatus(val);
                 setPage(1);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#070A11] border border-slate-800 text-xs text-slate-300 focus:outline-hidden focus:border-blue-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="200">200 OK</option>
-              <option value="429">429 Rate Limit</option>
-              <option value="500">500 Error</option>
-            </select>
+              options={[
+                { value: "all", label: "All Statuses" },
+                { value: "200", label: "200 OK" },
+                { value: "429", label: "429 Rate Limit" },
+                { value: "500", label: "500 Error" },
+              ]}
+              className="min-w-[130px]"
+            />
           </div>
         </div>
 
@@ -253,18 +252,19 @@ export const RequestDetailsView: React.FC = () => {
           <div className="p-3 border-t border-slate-800 bg-[#0A0E18] flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-2">
               <span>Rows per page:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
+              <Select
+                value={String(pageSize)}
+                onChange={(val) => {
+                  setPageSize(Number(val));
                   setPage(1);
                 }}
-                className="px-2 py-1 rounded bg-[#070A11] border border-slate-800 text-slate-300 focus:outline-hidden"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
+                options={[
+                  { value: "10", label: "10" },
+                  { value: "20", label: "20" },
+                  { value: "50", label: "50" },
+                ]}
+                className="w-20"
+              />
             </div>
 
             <div className="flex items-center gap-3">
