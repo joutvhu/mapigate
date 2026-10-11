@@ -1,7 +1,33 @@
+import path from "node:path";
 import { Router } from "express";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
+import {
+  getDefaultDataDir,
+  MAPIGATE_DB_FILE,
+  isDevelopmentMode,
+  APP_NAME,
+  APP_VERSION,
+} from "../../shared/constants/index.js";
 
 export const settingsRouter = Router();
+
+// GET /api/settings/system-info - Get data directory, database path & environment status
+settingsRouter.get("/system-info", (_req, res) => {
+  try {
+    const dataDir = getDefaultDataDir();
+    const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
+    const isDev = isDevelopmentMode();
+    res.json({
+      dataDir,
+      dbPath,
+      isDevelopmentMode: isDev,
+      appName: APP_NAME,
+      version: APP_VERSION,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to fetch system info" });
+  }
+});
 
 // --- Multimodal Capacity Adapter ---
 

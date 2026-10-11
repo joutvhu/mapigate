@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar, type NavTab } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { ProvidersTab } from "./pages/ProvidersTab";
@@ -17,6 +17,26 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
+  const [systemInfo, setSystemInfo] = useState<{
+    dataDir: string;
+    dbPath: string;
+    isDevelopmentMode: boolean;
+    appName?: string;
+    version?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (currentTab === "settings") {
+      fetch("/api/settings/system-info")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && (data.dbPath || data.dataDir)) {
+            setSystemInfo(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentTab]);
 
   const handleSelectTab = (tab: NavTab) => {
     setCurrentTab(tab);
@@ -89,11 +109,18 @@ export default function App() {
               </div>
 
               <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] text-xs font-mono text-slate-300 space-y-2">
-                <span className="text-slate-500 uppercase text-[10px] font-bold block font-sans">
-                  Local Data Directory:
-                </span>
-                <code className="text-blue-400 block bg-[#0F1420] p-2.5 rounded-lg border border-[#1E293B]">
-                  ~/.mapigate/mapigate.sqlite
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 uppercase text-[10px] font-bold block font-sans">
+                    Local Data Directory:
+                  </span>
+                  {systemInfo?.isDevelopmentMode && (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-sans font-medium">
+                      Development Mode (.mapigate local)
+                    </span>
+                  )}
+                </div>
+                <code className="text-blue-400 block bg-[#0F1420] p-2.5 rounded-lg border border-[#1E293B] break-all select-all">
+                  {systemInfo?.dbPath || systemInfo?.dataDir || "~/.mapigate/mapigate.sqlite"}
                 </code>
               </div>
             </div>

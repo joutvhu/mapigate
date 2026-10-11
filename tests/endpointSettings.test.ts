@@ -271,3 +271,25 @@ test("Integration - Combo CRUD: Create, Update models/order/strategy, and Delete
     server.close();
   }
 });
+
+test("Integration - Settings System Info GET /api/settings/system-info", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const res = await fetch(`${baseUrl}/api/settings/system-info`);
+    assert.equal(res.status, 200);
+    const data = (await res.json()) as any;
+    assert.ok(typeof data.dataDir === "string" && data.dataDir.length > 0);
+    assert.ok(typeof data.dbPath === "string" && data.dbPath.length > 0);
+    assert.ok(data.dbPath.endsWith("mapigate.sqlite"));
+    assert.ok(typeof data.isDevelopmentMode === "boolean");
+    assert.equal(data.appName, "Mapigate");
+    assert.ok(typeof data.version === "string" && data.version.length > 0);
+  } finally {
+    server.close();
+  }
+});
+
