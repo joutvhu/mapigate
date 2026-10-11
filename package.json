@@ -15,10 +15,14 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build:web": "vite build src/web --outDir ../../dist/web",
     "start": "node dist/server/index.js",
+    "test": "tsx --test tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@xyflow/react": "^12.12.0",
     "commander": "^13.1.0",
     "cors": "^2.8.5",
@@ -67,6 +71,6 @@
     "cline",
     "llm-proxy"
   ],
-  "author": "",
+  "author": "Giao Ho",
   "license": "MIT"
 }

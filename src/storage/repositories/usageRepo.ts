@@ -46,7 +46,7 @@ const pendingMap = new Map<string, PendingRecord>();
 let lastErrorProvider = { provider: "", ts: 0 };
 
 function purgeStalePending(): void {
-  const cutoff = Date.now() - 120_000; // 2 minutes max
+  const cutoff = Date.now() - 600_000; // 10 minutes max for extended reasoning/thinking generations
   for (const [id, rec] of pendingMap.entries()) {
     if (rec.startTime < cutoff) {
       pendingMap.delete(id);

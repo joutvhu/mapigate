@@ -5,7 +5,7 @@ import type {
   RequestDetailsListResponse,
 } from "../../shared/types/index.js";
 
-const DEFAULT_MAX_RECORDS = 300;
+const DEFAULT_MAX_RECORDS = Number(process.env.ROUTEN_MAX_REQUEST_DETAILS || 1000);
 const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_FLUSH_INTERVAL_MS = 3000;
 const MAX_JSON_SIZE = 32 * 1024; // 32KB max per json payload to prevent DB bloat

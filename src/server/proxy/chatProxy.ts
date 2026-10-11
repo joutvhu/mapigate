@@ -141,6 +141,13 @@ export async function handleProxyRequest(
     upstreamBody = OpenAiAdapter.normalizeRequest(body, targetModel);
   }
 
+  // Ensure OpenAI streaming endpoints emit the final token usage chunk
+  if (targetFormat === "openai" && upstreamBody && upstreamBody.stream) {
+    if (!upstreamBody.stream_options) {
+      upstreamBody.stream_options = { include_usage: true };
+    }
+  }
+
   // 4. Upstream BaseUrl Deduplication
   let upstreamUrl: string;
   const rawBase = (provider.baseUrl || "").trim();
