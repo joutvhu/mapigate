@@ -13,7 +13,7 @@
     "dev:server": "cross-env MAPIGATE_DEV=1 tsx watch src/server/index.ts",
     "dev:web": "vite src/web",
     "build": "npm run build:server && npm run build:web",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build:server": "tsc -p tsconfig.server.json && node --input-type=module -e \"import fs from 'node:fs'; fs.mkdirSync('dist/cli/tray', { recursive: true }); for (const f of ['tray.ps1', 'icon.ico', 'icon.png']) fs.copyFileSync('src/cli/tray/' + f, 'dist/cli/tray/' + f);\"",
     "build:web": "vite build src/web --outDir ../../dist/web",
     "start": "node dist/server/index.js",
     "test": "tsx --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",

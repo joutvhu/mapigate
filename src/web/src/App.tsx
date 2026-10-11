@@ -11,32 +11,13 @@ import { MitmTab } from "./pages/MitmTab";
 import { EndpointTab } from "./pages/EndpointTab";
 import { TokenSaverTab } from "./pages/TokenSaverTab";
 import { ConsoleLogTab } from "./pages/ConsoleLogTab";
+import { SettingsTab } from "./pages/SettingsTab";
 import type { ProviderItem } from "./constants/providersData";
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
-  const [systemInfo, setSystemInfo] = useState<{
-    dataDir: string;
-    dbPath: string;
-    isDevelopmentMode: boolean;
-    appName?: string;
-    version?: string;
-  } | null>(null);
-
-  useEffect(() => {
-    if (currentTab === "settings") {
-      fetch("/api/settings/system-info")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && (data.dbPath || data.dataDir)) {
-            setSystemInfo(data);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [currentTab]);
 
   const handleSelectTab = (tab: NavTab) => {
     setCurrentTab(tab);
@@ -83,48 +64,7 @@ export default function App() {
           {currentTab === "clitools" && <CliToolsTab />}
           {currentTab === "mitm" && <MitmTab />}
           {currentTab === "consolelog" && <ConsoleLogTab />}
-
-          {currentTab === "settings" && (
-            <div className="w-full px-2 sm:px-4 rt-card p-6 space-y-6 animate-rt-fade-in">
-              <div className="flex items-center gap-3 pb-3 border-b border-[#1E293B]">
-                <span className="material-symbols-outlined text-blue-400 text-[22px]">tune</span>
-                <div>
-                  <h3 className="text-sm font-bold text-white">System & Storage Preferences</h3>
-                  <p className="text-xs text-slate-400">Local SQLite database and hardware encryption status</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1">
-                  <span className="text-slate-500 uppercase text-[10px] font-bold">Storage Engine</span>
-                  <p className="text-white font-mono font-semibold">SQLite WAL (node:sqlite)</p>
-                  <p className="text-slate-400 text-[11px]">Concurrent read/write without locks</p>
-                </div>
-
-                <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1">
-                  <span className="text-slate-500 uppercase text-[10px] font-bold">Credential Vault</span>
-                  <p className="text-emerald-400 font-mono font-semibold">AES-256-GCM Hardware-salted</p>
-                  <p className="text-slate-400 text-[11px]">Tied to this machine ID</p>
-                </div>
-              </div>
-
-              <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] text-xs font-mono text-slate-300 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-500 uppercase text-[10px] font-bold block font-sans">
-                    Local Data Directory:
-                  </span>
-                  {systemInfo?.isDevelopmentMode && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400 font-sans font-medium">
-                      Development Mode (.mapigate local)
-                    </span>
-                  )}
-                </div>
-                <code className="text-blue-400 block bg-[#0F1420] p-2.5 rounded-lg border border-[#1E293B] break-all select-all">
-                  {systemInfo?.dbPath || systemInfo?.dataDir || "~/.mapigate/mapigate.sqlite"}
-                </code>
-              </div>
-            </div>
-          )}
+          {currentTab === "settings" && <SettingsTab />}
         </main>
       </div>
     </div>

@@ -33,7 +33,7 @@ export async function inspectTool(toolHandler: any): Promise<ToolInspectionResul
 
 export function printToolRecord(r: ToolInspectionResult): void {
   if (r.error) {
-    console.log(`❌ ${chalk.bold(r.name)}: ${chalk.red(r.error)}`);
+    console.log(`${chalk.red("[ERR]")} ${chalk.bold(r.name)}: ${chalk.red(r.error)}`);
     return;
   }
 
@@ -43,7 +43,7 @@ export function printToolRecord(r: ToolInspectionResult): void {
   }
 
   const inactive = r.active === false ? `  ${chalk.yellow("(Mapigate config present but not active provider)")}` : "";
-  console.log(`✅ ${chalk.green.bold(r.name)}${inactive}`);
+  console.log(`${chalk.green("[OK]")} ${chalk.green.bold(r.name)}${inactive}`);
   console.log(`   File:     ${chalk.gray(r.files.join(", "))}`);
   console.log(`   Base URL: ${chalk.cyan(r.baseUrl || "(none)")}`);
   console.log(`   API Key:  ${chalk.gray(r.apiKey || "(none)")}`);

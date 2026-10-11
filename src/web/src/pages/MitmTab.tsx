@@ -362,7 +362,15 @@ export const MitmTab: React.FC = () => {
       <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
         <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>
         <p>
-          ⚠️ <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot, Cursor) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
+          <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot, Cursor) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
+        </p>
+      </div>
+
+      {/* Architecture Flow Banner */}
+      <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 leading-relaxed">
+        <span className="material-symbols-outlined text-[18px] text-blue-400 shrink-0">info</span>
+        <p className="font-mono text-[11px] sm:text-xs text-blue-200">
+          How it works: Antigravity/Kiro IDE request → DNS redirect to localhost:443 → MITM proxy intercepts → Mapigate → response to Antigravity/Kiro
         </p>
       </div>
 

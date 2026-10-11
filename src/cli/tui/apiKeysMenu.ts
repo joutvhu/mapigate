@@ -6,7 +6,7 @@ import { copyToClipboard } from "../ui/clipboard.js";
 
 export async function showApiKeysMenu(breadcrumb: string[] = ["Mapigate", "API Keys"]): Promise<void> {
   await showMenuWithBack({
-    title: "🔑 Gateway API Keys",
+    title: "Gateway API Keys",
     breadcrumb,
     refresh: async () => {
       const res = await ApiClient.getApiKeys();
@@ -59,7 +59,7 @@ async function showManageKeysList(keys: any[], breadcrumb: string[]): Promise<vo
   }
 
   await showMenuWithBack({
-    title: "🔑 Select API Key",
+    title: "Select API Key",
     breadcrumb,
     items: keys.map((k) => ({
       label: `${k.name} [${maskKey(k.key)}] ${k.isActive ? `${COLORS.green}●${COLORS.reset}` : `${COLORS.dim}○${COLORS.reset}`}`,

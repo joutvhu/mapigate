@@ -5,7 +5,7 @@ import { COLORS, showStatus } from "../ui/display.js";
 
 export async function showCombosMenu(breadcrumb: string[] = ["Mapigate", "Combos"]): Promise<void> {
   await showMenuWithBack({
-    title: "🔀 Combos & Fallback Chains",
+    title: "Combos & Fallback Chains",
     breadcrumb,
     refresh: async () => {
       const res = await ApiClient.getCombos();
@@ -72,7 +72,7 @@ async function showManageCombosList(combos: any[], breadcrumb: string[]): Promis
   }
 
   await showMenuWithBack({
-    title: "🔀 Select Combo",
+    title: "Select Combo",
     breadcrumb,
     items: combos.map((c) => ({
       label: `${c.name} (${c.models?.length || 0} models) ${c.isActive !== false ? `${COLORS.green}●${COLORS.reset}` : `${COLORS.dim}○${COLORS.reset}`}`,

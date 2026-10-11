@@ -139,15 +139,15 @@ export async function selectMenu(
       }
       console.log();
 
-      const isWin = process.platform === "win32";
       items.forEach((item, index) => {
         const isSelected = index === selectedIndex;
-        const icon = item.icon || (isSelected ? (isWin ? ">" : "★") : (isWin ? " " : "☆"));
+        const pointer = isSelected ? ">" : " ";
+        const iconPart = item.icon ? `${item.icon} ` : "";
 
         if (isSelected) {
-          console.log(` ${COLORS.reverse}${COLORS.bold} ${icon} ${item.label} ${COLORS.reset}`);
+          console.log(` ${COLORS.reverse}${COLORS.bold} ${pointer} ${iconPart}${item.label} ${COLORS.reset}`);
         } else {
-          console.log(`   ${icon} ${item.label}`);
+          console.log(`   ${pointer} ${iconPart}${item.label}`);
         }
       });
       console.log();

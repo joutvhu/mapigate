@@ -7,7 +7,7 @@ import { CLI_TOOLS } from "../../shared/constants/cliTools.js";
 
 export async function showCliToolsMenu(breadcrumb: string[] = ["Mapigate", "CLI Tools"]): Promise<void> {
   await showMenuWithBack({
-    title: "🛠️ AI Coding Tools Integration",
+    title: "AI Coding Tools Integration",
     breadcrumb,
     refresh: async () => {
       const res = await ApiClient.getCliToolsStatus();
@@ -54,7 +54,7 @@ async function showSingleToolDetails(toolId: string, status: any, breadcrumb: st
       .join("\n"),
     items: [
       {
-        label: "⚡ Quick Setup (Configure Tool for Mapigate)",
+        label: "Quick Setup (Configure Tool for Mapigate)",
         action: async () => {
           console.log(`\nConfiguring ${tool.name} to route through Mapigate...`);
           let model: string | undefined;
@@ -72,7 +72,7 @@ async function showSingleToolDetails(toolId: string, status: any, breadcrumb: st
         },
       },
       {
-        label: "🔄 Reset Tool Configuration (Remove Mapigate)",
+        label: "Reset Tool Configuration (Remove Mapigate)",
         action: async () => {
           const confirmed = await confirm(`Remove Mapigate configuration for ${tool.name}?`);
           if (confirmed) {
@@ -87,7 +87,7 @@ async function showSingleToolDetails(toolId: string, status: any, breadcrumb: st
         },
       },
       {
-        label: "📋 View Manual Setup Guide & Copy Env",
+        label: "View Manual Setup Guide & Copy Env",
         action: async () => {
           console.log(`\n${COLORS.bold}Manual Setup Instructions for ${tool.name}:${COLORS.reset}`);
           const endpoint = ApiClient.getBaseUrl();

@@ -7,7 +7,7 @@ import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/p
 
 export async function showProvidersMenu(breadcrumb: string[] = ["Mapigate", "Providers"]): Promise<void> {
   await showMenuWithBack({
-    title: "⚡ Providers Management",
+    title: "Providers Management",
     breadcrumb,
     refresh: async () => {
       const res = await ApiClient.getProviders();
@@ -43,7 +43,7 @@ async function showConfiguredProvidersList(providers: any[], breadcrumb: string[
   }
 
   await showMenuWithBack({
-    title: "⚡ Configured Providers",
+    title: "Configured Providers",
     breadcrumb,
     items: providers.map((prov) => ({
       label: `${prov.name || prov.id} (${prov.accountsCount || 0} accounts) ${prov.isActive ? `${COLORS.green}●${COLORS.reset}` : `${COLORS.dim}○${COLORS.reset}`}`,

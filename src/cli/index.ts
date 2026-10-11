@@ -2,6 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { APP_NAME, APP_VERSION, DEFAULT_PORT, DEFAULT_HOST } from "../shared/constants/index.js";
 import { ProcessManager } from "./daemon/processManager.js";
+import { PidFileManager } from "./daemon/pidFile.js";
 import { startTerminalUI } from "./tui/terminalUI.js";
 import { selectMenu, pause } from "./ui/input.js";
 import { clearScreen } from "./ui/display.js";
@@ -16,62 +17,109 @@ import { runDoctor } from "./commands/doctor.js";
 import { runProviders } from "./commands/providers.js";
 import { runModels } from "./commands/models.js";
 
-async function showLauncherMenu(port: number): Promise<string> {
+async function showLauncherMenu(port: number, isListening: boolean, pid: number | null): Promise<string> {
   clearScreen();
   const host = DEFAULT_HOST === "0.0.0.0" ? "localhost" : DEFAULT_HOST;
   const webUrl = `http://${host}:${port}`;
-  const subtitle = `🚀 Server: \x1b[32m${webUrl}\x1b[0m`;
+
+  const statusBadge = isListening
+    ? `\x1b[32m[RUNNING]\x1b[0m (PID: ${pid ?? "unknown"}, Port: ${port})`
+    : `\x1b[90m[STOPPED]\x1b[0m (Port: ${port})`;
+
+  const subtitle = `Status: ${statusBadge}${isListening ? `\n  URL:    \x1b[36m${webUrl}\x1b[0m` : ""}`;
 
   const menuItems = [
-    { label: "Web UI (Open in Browser)", icon: "🌐" },
-    { label: "Terminal UI (Interactive CLI)", icon: "💻" },
-    { label: "Status & RTK Metrics", icon: "📊" },
-    { label: "Run in Background (Daemon)", icon: "🔔" },
-    { label: "Stop Server & Exit", icon: "🛑" },
-    { label: "Exit (Leave server running)", icon: "🚪" },
+    { label: "Start Server (Foreground)" },
+    { label: "Start Server (Background Daemon)" },
+    { label: "Stop Background Server" },
+    { label: "Open Dashboard (Web UI)" },
+    { label: "Terminal UI (Interactive CLI)" },
+    { label: "Status & RTK Metrics" },
+    { label: "Exit CLI (keep background server running)" },
+    { label: "Exit CLI and Stop Server" },
   ];
 
   const selected = await selectMenu(
-    `Choose Interface (v${APP_VERSION})`,
+    `${APP_NAME} Launcher (v${APP_VERSION})`,
     menuItems,
-    0,
+    isListening ? 3 : 0,
     subtitle
   );
 
   switch (selected) {
     case 0:
-      return "web";
+      return "start-fg";
     case 1:
-      return "terminal";
+      return "start-bg";
     case 2:
-      return "status";
-    case 3:
-      return "daemon";
-    case 4:
       return "stop";
+    case 3:
+      return "web";
+    case 4:
+      return "terminal";
+    case 5:
+      return "status";
+    case 6:
+      return "exit-keep";
+    case 7:
+      return "exit-stop";
     default:
-      return "exit";
+      return "exit-keep";
   }
 }
 
 async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void> {
-  const isListening = await ProcessManager.isServerListening(port);
-  if (!isListening) {
-    console.log(chalk.cyan(`Starting ${APP_NAME} background daemon on port ${port}...`));
-    const res = await ProcessManager.startDaemon(port);
-    if (!res.success) {
-      console.log(chalk.red(`Could not start ${APP_NAME}: ${res.message}`));
-      return;
-    }
-    await ProcessManager.waitForReady(port, 10000);
-  }
-
   const host = DEFAULT_HOST === "0.0.0.0" ? "localhost" : DEFAULT_HOST;
   const webUrl = `http://${host}:${port}`;
 
   while (true) {
-    const choice = await showLauncherMenu(port);
-    if (choice === "web") {
+    const isListening = await ProcessManager.isServerListening(port);
+    const pid = PidFileManager.readPid();
+    const choice = await showLauncherMenu(port, isListening, pid);
+
+    if (choice === "start-fg") {
+      clearScreen();
+      if (isListening) {
+        console.log(chalk.yellow(`\n[!] Server is already running on port ${port} (PID: ${pid ?? "unknown"}).`));
+        console.log(chalk.gray(`    Stop the running instance first if you wish to run in foreground.\n`));
+        await pause();
+        continue;
+      }
+      console.log(chalk.cyan(`\nStarting ${APP_NAME} in foreground on port ${port}...`));
+      await runStart({ port, daemon: false, noBrowser: false });
+      return;
+    } else if (choice === "start-bg") {
+      clearScreen();
+      if (isListening) {
+        console.log(chalk.yellow(`\n[!] Server is already running on port ${port} (PID: ${pid ?? "unknown"}).\n`));
+      } else {
+        console.log(chalk.cyan(`\nStarting ${APP_NAME} background daemon on port ${port}...`));
+        const res = await ProcessManager.startDaemon(port);
+        if (res.success) {
+          console.log(chalk.green(`[OK] ${res.message}\n`));
+        } else {
+          console.log(chalk.red(`[ERR] ${res.message}\n`));
+        }
+      }
+      await pause();
+    } else if (choice === "stop") {
+      clearScreen();
+      console.log(chalk.cyan(`\nStopping ${APP_NAME} on port ${port}...`));
+      const res = ProcessManager.stopDaemon(port);
+      console.log(res.success ? chalk.green(`[OK] ${res.message}\n`) : chalk.red(`[ERR] ${res.message}\n`));
+      await pause();
+    } else if (choice === "web") {
+      if (!isListening) {
+        console.log(chalk.cyan(`\nServer is not running. Starting background daemon first...`));
+        const res = await ProcessManager.startDaemon(port);
+        if (res.success) {
+          await ProcessManager.waitForReady(port, 5000);
+        } else {
+          console.log(chalk.red(`[ERR] Could not start server: ${res.message}`));
+          await pause();
+          continue;
+        }
+      }
       openBrowser(webUrl);
       await pause("\nPress Enter to return to launcher menu...");
     } else if (choice === "terminal") {
@@ -80,20 +128,24 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
       clearScreen();
       await runStatus({ port });
       await pause("\nPress Enter to return to launcher menu...");
-    } else if (choice === "daemon") {
+    } else if (choice === "exit-keep") {
       clearScreen();
-      console.log(`\n🔔 ${APP_NAME} is active in background on port ${port}.`);
-      console.log(`   Web Dashboard: ${webUrl}`);
-      console.log(`   API Endpoint:  ${webUrl}/v1\n`);
+      if (isListening) {
+        console.log(`\nExiting CLI. ${APP_NAME} remains running in background on port ${port} (PID: ${pid ?? "unknown"}).\n`);
+      } else {
+        console.log(`\nExiting CLI.\n`);
+      }
       process.exit(0);
-    } else if (choice === "stop") {
+    } else if (choice === "exit-stop") {
       clearScreen();
-      console.log(chalk.cyan(`\n🛑 Stopping ${APP_NAME} on port ${port}...`));
-      const res = ProcessManager.stopDaemon(port);
-      console.log(res.success ? chalk.green(`✓ ${res.message}\n`) : chalk.red(`✗ ${res.message}\n`));
+      if (isListening) {
+        console.log(chalk.cyan(`Stopping ${APP_NAME} on port ${port}...`));
+        const res = ProcessManager.stopDaemon(port);
+        console.log(res.success ? chalk.green(`[OK] ${res.message}\n`) : chalk.red(`[ERR] ${res.message}\n`));
+      }
+      console.log(`Exited CLI.\n`);
       process.exit(0);
     } else {
-      console.log(`\nExiting CLI (${APP_NAME} remains running in background on port ${port}).\n`);
       process.exit(0);
     }
   }

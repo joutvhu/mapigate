@@ -20,6 +20,9 @@ import { consoleLogsRouter } from "./routes/apiConsoleLogs.js";
 import { quotaRouter } from "./routes/apiQuota.js";
 import { usageRouter } from "./routes/apiUsage.js";
 import { settingsRouter } from "./routes/apiSettings.js";
+import { serverRouter, handleShutdownRequest } from "./routes/apiServer.js";
+import { serverLifecycle } from "./lifecycle.js";
+import { initTray } from "../cli/tray/tray.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 
@@ -61,6 +64,8 @@ app.use("/api/console-logs", consoleLogsRouter);
 app.use("/api/quota", quotaRouter);
 app.use("/api/usage", usageRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/server", serverRouter);
+app.post("/api/shutdown", handleShutdownRequest);
 
 // OAuth Callback Relay Endpoint
 app.get("/callback", (_req, res) => {
@@ -190,23 +195,36 @@ if (!isTest) {
   tokenScheduler.start();
 
   server = app.listen(port, host, () => {
-    console.log(`🚀 [${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
+    serverLifecycle.setServer(server);
+    console.log(`[${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
     try {
       const dnsStatus = MitmRepository.getAllToolDnsStatus();
-      console.log(`📡 [MITM] Inspecting tool-level DNS isolation on boot:`, dnsStatus);
+      console.log(`[MITM] Inspecting tool-level DNS isolation on boot:`, dnsStatus);
     } catch (err) {
       console.warn(`[MITM] Could not inspect cold boot tool DNS status:`, err);
+    }
+
+    // Initialize system tray if running in background daemon mode or tray explicitly requested
+    if (process.env.MAPIGATE_DAEMON === "1" || process.env.MAPIGATE_TRAY === "1") {
+      try {
+        initTray({
+          port,
+          onQuit: () => {
+            serverLifecycle.shutdownServer({ delayMs: 0, exitProcess: true });
+          },
+        });
+      } catch (err) {
+        console.warn(`[Tray] Could not initialize system tray:`, err);
+      }
     }
   });
 
   process.on("SIGINT", () => {
-    tokenScheduler.stop();
-    server?.close(() => process.exit(0));
+    serverLifecycle.shutdownServer({ delayMs: 0, exitProcess: true });
   });
 
   process.on("SIGTERM", () => {
-    tokenScheduler.stop();
-    server?.close(() => process.exit(0));
+    serverLifecycle.shutdownServer({ delayMs: 0, exitProcess: true });
   });
 }
 

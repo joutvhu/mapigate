@@ -105,7 +105,12 @@ export class ProcessManager {
       stdio: ["ignore", logFd, logFd],
       windowsHide: true,
       shell,
-      env: { ...process.env, PORT: String(port) },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        MAPIGATE_DAEMON: "1",
+        MAPIGATE_TRAY: "1",
+      },
     });
 
     try {

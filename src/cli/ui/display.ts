@@ -113,10 +113,10 @@ export function showTable(headers: string[], rows: (string | number)[][]): void 
  */
 export function showStatus(message: string, type: "success" | "error" | "warning" | "info" = "info"): void {
   const symbols = {
-    success: `${COLORS.green}✓${COLORS.reset}`,
-    error: `${COLORS.red}✗${COLORS.reset}`,
-    warning: `${COLORS.yellow}⚠${COLORS.reset}`,
-    info: `${COLORS.cyan}ℹ${COLORS.reset}`,
+    success: `${COLORS.green}[OK]${COLORS.reset}`,
+    error: `${COLORS.red}[ERR]${COLORS.reset}`,
+    warning: `${COLORS.yellow}[!]${COLORS.reset}`,
+    info: `${COLORS.cyan}[i]${COLORS.reset}`,
   };
 
   console.log(`  ${symbols[type]} ${message}`);

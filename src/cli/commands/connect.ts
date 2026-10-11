@@ -72,7 +72,7 @@ export async function runConnect(target?: string, options: ConnectOptions = {}):
   const { handlers, unrecognized } = resolveToolHandlersWithValidation(toolListRaw);
 
   if (unrecognized.length > 0) {
-    console.log(chalk.yellow(`\n⚠ Warning: Unrecognized tool(s): ${unrecognized.join(", ")}`));
+    console.log(chalk.yellow(`\n[!] Warning: Unrecognized tool(s): ${unrecognized.join(", ")}`));
     console.log(chalk.gray(`  Supported tools: ${SUPPORTED_TOOL_IDS.join(", ")}, all\n`));
   }
 
@@ -85,7 +85,7 @@ export async function runConnect(target?: string, options: ConnectOptions = {}):
     console.log(`\n${chalk.bold(`Resetting ${handlers.length} tool(s) to defaults...`)}`);
     for (const h of handlers) {
       const files = await h.reset();
-      console.log(`  ${chalk.yellow("↺")} ${h.name}: reset (${files.join(", ")})`);
+      console.log(`  ${chalk.yellow("[RESET]")} ${h.name}: reset (${files.join(", ")})`);
     }
     console.log(`\n${chalk.green("Reset completed successfully.")}\n`);
     return;
@@ -105,9 +105,9 @@ export async function runConnect(target?: string, options: ConnectOptions = {}):
         model: defaultModel,
         claudeModels,
       });
-      console.log(`  ${chalk.green("✓")} ${chalk.bold(h.name)}: configured (${chalk.gray(written.join(", "))})`);
+      console.log(`  ${chalk.green("[OK]")} ${chalk.bold(h.name)}: configured (${chalk.gray(written.join(", "))})`);
     } catch (err: any) {
-      console.log(`  ${chalk.red("✗")} ${chalk.bold(h.name)}: ${chalk.red(err.message)}`);
+      console.log(`  ${chalk.red("[ERR]")} ${chalk.bold(h.name)}: ${chalk.red(err.message)}`);
     }
   }
 

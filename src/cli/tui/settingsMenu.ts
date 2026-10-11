@@ -10,7 +10,7 @@ import fs from "node:fs";
 
 export async function showSettingsMenu(breadcrumb: string[] = ["Mapigate", "Settings & Diagnostics"]): Promise<void> {
   await showMenuWithBack({
-    title: "⚙️ Settings & Diagnostics",
+    title: "Settings & Diagnostics",
     breadcrumb,
     items: [
       {
@@ -26,7 +26,7 @@ export async function showSettingsMenu(breadcrumb: string[] = ["Mapigate", "Sett
         },
       },
       {
-        label: "🩺 Run System Doctor Diagnostics",
+        label: "Run System Doctor Diagnostics",
         action: async () => {
           await runDoctorDiagnostics();
         },
