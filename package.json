@@ -2,6 +2,7 @@
   "name": "mapigate",
   "version": "0.1.0",
   "description": "AI Model API Gateway & Token Optimizer for coding tools",
+  "author": "Giao Ho",
   "main": "dist/server/index.js",
   "bin": {
     "mapigate": "bin/mapigate.js",
@@ -15,6 +16,7 @@
     "build": "npm run build:server && npm run build:web",
     "build:server": "tsc -p tsconfig.server.json && node --input-type=module -e \"import fs from 'node:fs'; fs.mkdirSync('dist/cli/tray', { recursive: true }); for (const f of ['tray.ps1', 'icon.ico', 'icon.png']) fs.copyFileSync('src/cli/tray/' + f, 'dist/cli/tray/' + f);\"",
     "build:web": "vite build src/web --outDir ../../dist/web",
+    "build:icons": "node scripts/generate-icons.mjs",
     "start": "node dist/server/index.js",
     "test": "tsx --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
@@ -73,6 +75,13 @@
     "cline",
     "llm-proxy"
   ],
-  "author": "Giao Ho",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joutvhu/mapigate.git"
+  },
+  "homepage": "https://github.com/joutvhu/mapigate#readme",
+  "bugs": {
+    "url": "https://github.com/joutvhu/mapigate/issues"
+  },
   "license": "MIT"
 }

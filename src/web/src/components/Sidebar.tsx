@@ -35,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
         {/* Brand Logo Header */}
         <div className="rt-sidebar__brand pt-5">
           <div className="rt-sidebar__brand-icon">
-            <span className="material-symbols-outlined text-[20px]">hub</span>
+            <span className="material-symbols-outlined text-[20px]">graph_5</span>
           </div>
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
