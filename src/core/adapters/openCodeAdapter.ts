@@ -215,26 +215,51 @@ export function concealFingerprintToolNames(tools: any[]): { tools: any[]; map: 
   return { tools: out, map };
 }
 
+export type FingerprintFormat = "openai" | "claude" | "flat";
+
 /**
  * Append missing quartet declarations as disabled decoy functions.
+ * Format-aware: generates Anthropic { name, description, input_schema } for "claude",
+ * flat { type: "function", name, description, parameters } for "flat",
+ * or nested { type: "function", function: { ... } } for "openai".
  */
-export function appendMissingFingerprintTools(tools: any[], flat = false): any[] {
+export function appendMissingFingerprintTools(
+  tools: any[],
+  format: FingerprintFormat | boolean = "openai"
+): any[] {
   const list = Array.isArray(tools) ? [...tools] : [];
+  const isClaude = format === "claude";
+  const isFlat = format === true || format === "flat";
+
   for (const name of OPENCODE_FINGERPRINT_TOOLS) {
     if (list.some((tool) => fingerprintToolKey(toolNameOf(tool)) === name)) continue;
-    list.push(flat ? {
-      type: "function",
-      name,
-      description: "This tool is currently unavailable and must not be used.",
-      parameters: { type: "object", properties: {} },
-    } : {
-      type: "function",
-      function: {
+
+    if (isClaude) {
+      // Anthropic Messages format: { name, description, input_schema }
+      list.push({
+        name,
+        description: "This tool is currently unavailable and must not be used.",
+        input_schema: { type: "object", properties: {} },
+      });
+    } else if (isFlat) {
+      // Responses / flat format: { type: "function", name, description, parameters }
+      list.push({
+        type: "function",
         name,
         description: "This tool is currently unavailable and must not be used.",
         parameters: { type: "object", properties: {} },
-      },
-    });
+      });
+    } else {
+      // OpenAI Chat format: { type: "function", function: { name, description, parameters } }
+      list.push({
+        type: "function",
+        function: {
+          name,
+          description: "This tool is currently unavailable and must not be used.",
+          parameters: { type: "object", properties: {} },
+        },
+      });
+    }
   }
   return list;
 }
@@ -242,17 +267,30 @@ export function appendMissingFingerprintTools(tools: any[], flat = false): any[]
 /**
  * Retarget tool_choice to point at quartet member after canonicalization.
  */
-export function retargetToolChoice(body: any, map: Map<string, string>): void {
+export function retargetToolChoice(
+  body: any,
+  map: Map<string, string>,
+  format: FingerprintFormat | boolean = "openai"
+): void {
   if (!body || typeof body !== "object" || !map?.size) return;
   const choice = body.tool_choice;
   if (!choice || typeof choice !== "object" || Array.isArray(choice)) return;
 
+  // Claude format: { type: "tool", name: "tool_name" }
+  if (choice.type === "tool" && typeof choice.name === "string") {
+    const key = fingerprintToolKey(choice.name);
+    if (key && map.has(key)) choice.name = key;
+    return;
+  }
+
+  // Flat or named: { type: "function", name: "..." } or { name: "..." }
   if (typeof choice.name === "string") {
     const key = fingerprintToolKey(choice.name);
     if (key && map.has(key)) body.tool_choice = { ...choice, name: key };
     return;
   }
 
+  // OpenAI format: { type: "function", function: { name: "..." } }
   const fn = choice.function;
   if (fn && typeof fn === "object" && !Array.isArray(fn) && typeof fn.name === "string") {
     const key = fingerprintToolKey(fn.name);
@@ -264,18 +302,32 @@ export function retargetToolChoice(body: any, map: Map<string, string>): void {
 
 /**
  * Applies OpenCode free-tier fingerprint tool quartet (bash, glob, grep, read) to request body.
+ * Format-aware: generates Claude schema and avoids invalid tool_choice: "none" for Anthropic Messages.
  * Always returns a map of { [canonicalName]: originalName } to restore downstream.
  */
-export function applyFingerprintTools(body: any, flat = false): Map<string, string> {
+export function applyFingerprintTools(
+  body: any,
+  format: FingerprintFormat | boolean = "openai"
+): Map<string, string> {
   if (!body || typeof body !== "object") return new Map();
+
+  const isClaude = format === "claude";
+  const isFlat = format === true || format === "flat";
 
   const hadClientTools = Array.isArray(body.tools) && body.tools.length > 0;
   const { tools, map } = concealFingerprintToolNames(body.tools);
-  body.tools = appendMissingFingerprintTools(tools, flat);
-  retargetToolChoice(body, map);
+  body.tools = appendMissingFingerprintTools(tools, format);
+  retargetToolChoice(body, map, format);
 
-  if (!body.tool_choice) {
-    if (flat) body.tool_choice = "auto";
+  if (isClaude) {
+    // Anthropic Messages API strictly rejects string tool_choice like "none" (HTTP 400).
+    // Valid values are { type: "auto" }, { type: "any" }, or { type: "tool", name: "..." }.
+    // If tool_choice is string "none", delete it.
+    if (body.tool_choice === "none") {
+      delete body.tool_choice;
+    }
+  } else if (!body.tool_choice) {
+    if (isFlat) body.tool_choice = "auto";
     else if (!hadClientTools) body.tool_choice = "none";
   }
 
@@ -363,8 +415,9 @@ export function isMessagesModel(modelId?: string): boolean {
 
 export function buildOpenCodeUrl(modelId?: string, baseUrl: string = OPENCODE_BASE_URL): string {
   const base = baseUrl.replace(/\/+$/, "");
-  if (isResponsesModel(modelId)) return `${base}/zen/v1/responses`;
   if (isMessagesModel(modelId)) return `${base}/zen/v1/messages`;
+  // Fallback to chat completions for OpenAI-compatible models (including Muse Spark)
+  // to avoid Responses API protocol impedance mismatch in Mapigate's proxy pipeline
   return `${base}/zen/v1/chat/completions`;
 }
 

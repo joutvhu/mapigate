@@ -35,14 +35,15 @@ export function resolveCandidateUrls(
     return candidates;
   }
 
-  // OpenCode Free discovery endpoint
-  const isOpenCode =
-    providerId === "opencode" ||
-    providerId === "oc" ||
-    cleanBase.includes("opencode.ai") ||
-    (registryItem && (registryItem.id === "opencode" || registryItem.alias === "oc"));
+  // OpenCode Free discovery endpoint - strictly scoped to OpenCode Free, excluding paid opencode-go and opencode-zen
+  const isOpenCodeFree =
+    (providerId === "opencode" ||
+      providerId === "oc" ||
+      (registryItem && (registryItem.id === "opencode" || registryItem.alias === "oc"))) &&
+    !providerId?.startsWith("opencode-go") &&
+    !providerId?.startsWith("opencode-zen");
 
-  if (isOpenCode) {
+  if (isOpenCodeFree) {
     add("https://opencode.ai/zen/v1/models");
     add(`${cleanBase}/zen/v1/models`);
     add(`${cleanBase}/v1/models`);
@@ -282,13 +283,14 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       baseUrl.toLowerCase().includes("googleapis.com") ||
       baseUrl.toLowerCase().includes("generativelanguage");
 
-    const isOpenCode =
-      providerId === "opencode" ||
-      providerId === "oc" ||
-      baseUrl.includes("opencode.ai") ||
-      (registryItem && (registryItem.id === "opencode" || registryItem.alias === "oc"));
+    const isOpenCodeFree =
+      (providerId === "opencode" ||
+        providerId === "oc" ||
+        (registryItem && (registryItem.id === "opencode" || registryItem.alias === "oc"))) &&
+      !providerId?.startsWith("opencode-go") &&
+      !providerId?.startsWith("opencode-zen");
 
-    if (isOpenCode) {
+    if (isOpenCodeFree) {
       if (!apiKey) {
         apiKey = "public";
       }

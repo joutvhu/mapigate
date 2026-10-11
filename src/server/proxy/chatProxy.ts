@@ -399,7 +399,8 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     if (isOpenCodeFree) {
       upstreamUrl = buildOpenCodeUrl(targetModel, provider.baseUrl);
       upstreamBody.stream = true;
-      openCodeToolMap = applyFingerprintTools(upstreamBody, false);
+      const fingerprintFormat = targetFormat === "claude" ? "claude" : false;
+      openCodeToolMap = applyFingerprintTools(upstreamBody, fingerprintFormat);
       const openCodeHeaders = buildOpenCodeHeaders(
         req.headers as Record<string, string>,
         account?.id,

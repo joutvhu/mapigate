@@ -4,6 +4,7 @@ import http from "node:http";
 import express from "express";
 import { providerRouter } from "../src/server/routes/apiProviders.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
+import { resolveCandidateUrls } from "../src/core/scanner/modelScanner.js";
 
 describe("API Provider Scan Endpoints", () => {
   let mockUpstream: http.Server;
@@ -227,5 +228,33 @@ describe("API Provider Scan Endpoints", () => {
     assert.equal(saved.customHeaders?.["X-Custom-Routing"], "route-1");
     assert.equal(saved.proxyUrl, "http://127.0.0.1:8080");
     assert.deepEqual(saved.models, ["scanned-model-1", "scanned-model-2"]);
+  });
+
+  test("model scanner isolates OpenCode Go and Zen from OpenCode Free", () => {
+    // 1. Paid OpenCode Go should probe /zen/go/v1/models, NOT /zen/v1/models
+    const goCandidates = resolveCandidateUrls(
+      "https://opencode.ai/zen/go/v1/chat/completions",
+      "openai",
+      "opencode-go"
+    );
+    assert.ok(
+      goCandidates.includes("https://opencode.ai/zen/go/v1/models"),
+      "opencode-go must probe its own /zen/go/v1 endpoint"
+    );
+    assert.ok(
+      !goCandidates.includes("https://opencode.ai/zen/v1/models"),
+      "opencode-go must NOT be hijacked to free endpoint https://opencode.ai/zen/v1/models"
+    );
+
+    // 2. OpenCode Free should probe /zen/v1/models
+    const freeCandidates = resolveCandidateUrls(
+      "https://opencode.ai",
+      "openai",
+      "opencode"
+    );
+    assert.ok(
+      freeCandidates.includes("https://opencode.ai/zen/v1/models"),
+      "opencode free must probe /zen/v1/models"
+    );
   });
 });

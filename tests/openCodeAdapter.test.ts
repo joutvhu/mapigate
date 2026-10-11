@@ -95,6 +95,37 @@ describe("OpenCode Adapter - Fingerprint Tool Quartet Injection and Restoration"
     assert.equal(body.tools.length, 5); // Bash (canonicalized) + CustomTool + glob + grep + read
   });
 
+  test("appends missing fingerprint quartet with Claude schema when format is claude", () => {
+    const body: any = { tools: [] };
+    const map = applyFingerprintTools(body, "claude");
+
+    assert.equal(body.tools.length, 4);
+    for (const tool of body.tools) {
+      assert.ok(tool.name, "Must have tool name");
+      assert.ok(tool.input_schema, "Must have Anthropic input_schema");
+      assert.equal(tool.type, undefined, "Anthropic tool must not have type: function");
+      assert.equal(tool.function, undefined, "Anthropic tool must not be wrapped in function object");
+    }
+    assert.notEqual(body.tool_choice, "none", "Anthropic request must never have tool_choice: none");
+    assert.equal(map.size, 0);
+  });
+
+  test("retargets and canonicalizes Claude tools", () => {
+    const body: any = {
+      tools: [
+        { name: "Bash", description: "Run command", input_schema: { type: "object", properties: {} } },
+      ],
+      tool_choice: { type: "tool", name: "Bash" },
+    };
+    const map = applyFingerprintTools(body, "claude");
+
+    assert.equal(map.get("bash"), "Bash");
+    const bashTool = body.tools.find((t: any) => t.name === "bash");
+    assert.ok(bashTool);
+    assert.equal(body.tool_choice.name, "bash");
+    assert.equal(body.tools.length, 4); // Bash (canonicalized) + glob + grep + read
+  });
+
   test("restores original tool names in OpenAI chunk delta", () => {
     const map = new Map<string, string>([["bash", "Bash"]]);
     const chunk = {
@@ -138,11 +169,11 @@ describe("OpenCode Adapter - URL Routing and Header Construction", () => {
     assert.equal(buildOpenCodeUrl("union-alpha"), "https://opencode.ai/zen/v1/messages");
     assert.equal(
       buildOpenCodeUrl("muse-spark-1.2-contributor-free"),
-      "https://opencode.ai/zen/v1/responses"
+      "https://opencode.ai/zen/v1/chat/completions"
     );
     assert.equal(
       buildOpenCodeUrl("muse-spark-1.3-contributor-free"),
-      "https://opencode.ai/zen/v1/responses"
+      "https://opencode.ai/zen/v1/chat/completions"
     );
     assert.equal(buildOpenCodeUrl("jev-1.13-free"), "https://opencode.ai/zen/v1/chat/completions");
     assert.equal(buildOpenCodeUrl("unknown-model"), "https://opencode.ai/zen/v1/chat/completions");

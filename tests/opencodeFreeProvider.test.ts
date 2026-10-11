@@ -106,7 +106,7 @@ test("OpenCode Free Provider - Session Fingerprinting and Tool Cloaking", () => 
 
 test("OpenCode Free Provider - URL and Headers Contract", () => {
   assert.equal(buildOpenCodeUrl("union-alpha"), "https://opencode.ai/zen/v1/messages");
-  assert.equal(buildOpenCodeUrl("muse-spark-1.3-contributor-free"), "https://opencode.ai/zen/v1/responses");
+  assert.equal(buildOpenCodeUrl("muse-spark-1.3-contributor-free"), "https://opencode.ai/zen/v1/chat/completions");
   assert.equal(buildOpenCodeUrl("jev-1.13-free"), "https://opencode.ai/zen/v1/chat/completions");
 
   const headers = buildOpenCodeHeaders({}, "ses_1234567890ab1234567890abcd", "msg_1234567890ab1234567890abcd", "https://opencode.ai/zen/v1/messages");
@@ -115,6 +115,29 @@ test("OpenCode Free Provider - URL and Headers Contract", () => {
   assert.equal(headers["x-opencode-client"], "desktop");
   assert.equal(headers["x-opencode-project"], "global");
   assert.equal(headers["anthropic-version"], "2023-06-01");
+});
+
+test("OpenCode Free Provider - Claude Format Fingerprint Tools for Union Alpha", () => {
+  const reqBody: any = {
+    model: "union-alpha",
+    messages: [{ role: "user", content: "Hello" }],
+    tools: [
+      { name: "Bash", description: "Execute bash", input_schema: { type: "object", properties: {} } }
+    ]
+  };
+
+  const map = applyFingerprintTools(reqBody, "claude");
+  assert.equal(map.get("bash"), "Bash");
+  assert.equal(reqBody.tools.length, 4);
+
+  for (const tool of reqBody.tools) {
+    assert.ok(tool.name, "Tool must have name");
+    assert.ok(tool.input_schema, "Claude tool must have input_schema");
+    assert.equal(tool.type, undefined, "Claude tool must not have type: function");
+    assert.equal(tool.function, undefined, "Claude tool must not have function wrapper");
+  }
+
+  assert.notEqual(reqBody.tool_choice, "none", "Anthropic messages request must never have tool_choice: none");
 });
 
 test("OpenCode Free Provider - Endpoints & HTTP Integration", async () => {
