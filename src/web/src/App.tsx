@@ -34,6 +34,8 @@ export default function App() {
           currentTab={currentTab}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          detailProvider={detailProvider}
+          onBackToProviders={() => setDetailProvider(null)}
         />
 
         {/* Tab Pages Scrollable Container */}

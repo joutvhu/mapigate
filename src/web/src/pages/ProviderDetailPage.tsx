@@ -360,7 +360,12 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       {/* Top Breadcrumb & Provider Header */}
       <div className="space-y-3">
         <button
-          onClick={onBack}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onBack();
+          }}
           className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
         >
           <span className="material-symbols-outlined text-[16px]">arrow_back</span>

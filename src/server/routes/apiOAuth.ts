@@ -68,7 +68,11 @@ export const GOOGLE_OAUTH_SCOPES = [
 export const CLAUDE_CLIENT_ID = "REDACTED_CLAUDE_CLIENT_ID";
 export const CLAUDE_AUTHORIZE_URL = "https://claude.ai/oauth/authorize";
 export const CLAUDE_TOKEN_URL = "https://api.anthropic.com/v1/oauth/token";
-export const CLAUDE_SCOPES = ["openid", "email", "profile", "offline_access"];
+export const CLAUDE_SCOPES = [
+  "org:create_api_key",
+  "user:profile",
+  "user:inference",
+];
 
 export const CODEX_CLIENT_ID = "REDACTED_CODEX_CLIENT_ID";
 export const CODEX_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
@@ -536,8 +540,11 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
   }
 
   // Strip state suffix if present (e.g. code#state)
+  let extractedCodeState = "";
   if (rawCode.includes("#")) {
-    rawCode = rawCode.split("#")[0];
+    const parts = rawCode.split("#");
+    rawCode = parts[0];
+    extractedCodeState = parts[1] || "";
   }
 
   // 2. Direct raw JWT token paste (e.g. eyJ...)
@@ -752,7 +759,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         },
         body: JSON.stringify({
           code: rawCode,
-          state: state || undefined,
+          state: extractedCodeState || state || undefined,
           grant_type: "authorization_code",
           client_id: CLAUDE_CLIENT_ID,
           redirect_uri: effectiveRedirectUri,

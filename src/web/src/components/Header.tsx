@@ -1,10 +1,13 @@
 import React from "react";
 import type { NavTab } from "./Sidebar";
+import type { ProviderItem } from "../constants/providersData";
 
 interface HeaderProps {
   currentTab: NavTab;
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  detailProvider?: ProviderItem | null;
+  onBackToProviders?: () => void;
 }
 
 const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string }> = {
@@ -55,7 +58,13 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
   },
 };
 
-export const Header: React.FC<HeaderProps> = ({ currentTab, searchQuery, onSearchChange }) => {
+export const Header: React.FC<HeaderProps> = ({
+  currentTab,
+  searchQuery,
+  onSearchChange,
+  detailProvider,
+  onBackToProviders,
+}) => {
   const meta = PAGE_META[currentTab] || PAGE_META.providers;
 
   return (
@@ -66,11 +75,31 @@ export const Header: React.FC<HeaderProps> = ({ currentTab, searchQuery, onSearc
           <span className="material-symbols-outlined text-[20px]">{meta.icon}</span>
         </div>
         <div className="flex flex-col min-w-0">
-          <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
-            {meta.title}
-          </h2>
+          {currentTab === "providers" && detailProvider ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={onBackToProviders}
+                className="text-sm font-bold text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                title="Back to Providers"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                Providers
+              </button>
+              <span className="text-slate-600 text-xs">/</span>
+              <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
+                {detailProvider.name}
+              </h2>
+            </div>
+          ) : (
+            <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
+              {meta.title}
+            </h2>
+          )}
           <p className="text-[11px] text-slate-400 truncate leading-tight mt-0.5">
-            {meta.subtitle}
+            {currentTab === "providers" && detailProvider
+              ? `Configure credentials, upstream headers, and fallback strategy for ${detailProvider.name}`
+              : meta.subtitle}
           </p>
         </div>
       </div>
