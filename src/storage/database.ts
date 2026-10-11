@@ -94,6 +94,13 @@ export function getDatabase(): DatabaseDriver {
   return dbInstance;
 }
 
+export function closeDatabase(): void {
+  if (dbInstance) {
+    dbInstance.close();
+    dbInstance = null;
+  }
+}
+
 function initSchema(db: DatabaseDriver) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS providers (

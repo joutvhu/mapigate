@@ -88,6 +88,10 @@ test("LoadBalancer - account picking, cooldowns, and exclusion", () => {
 
   LoadBalancer.clearCooldowns();
   assert.equal(LoadBalancer.isAccountInCooldown(picked1.id), false);
+
+  ProviderRepository.deleteAccount(acc1Id);
+  ProviderRepository.deleteAccount(acc2Id);
+  ProviderRepository.deleteProvider(providerId);
 });
 
 test("Intra-Provider Failover - 429 rate limit immediately fails over to next account", async () => {
@@ -247,6 +251,9 @@ test("Intra-Provider Failover - 429 rate limit immediately fails over to next ac
   } finally {
     globalThis.fetch = originalFetch;
     LoadBalancer.reset();
+    ProviderRepository.deleteAccount(accAId);
+    ProviderRepository.deleteAccount(accBId);
+    ProviderRepository.deleteProvider(providerId);
   }
 });
 
@@ -358,6 +365,9 @@ test("Intra-Provider Failover - quota exhaustion error (403) triggers failover",
   } finally {
     globalThis.fetch = originalFetch;
     LoadBalancer.reset();
+    ProviderRepository.deleteAccount(acc1);
+    ProviderRepository.deleteAccount(acc2);
+    ProviderRepository.deleteProvider(providerId);
   }
 });
 
@@ -452,6 +462,9 @@ test("Intra-Provider Failover - returns 429 when all provider accounts hit rate 
   } finally {
     globalThis.fetch = originalFetch;
     LoadBalancer.reset();
+    ProviderRepository.deleteAccount(acc1);
+    ProviderRepository.deleteAccount(acc2);
+    ProviderRepository.deleteProvider(providerId);
   }
 });
 
@@ -542,5 +555,8 @@ test("Intra-Provider Failover - does NOT failover on non-quota errors (e.g. 400 
   } finally {
     globalThis.fetch = originalFetch;
     LoadBalancer.reset();
+    ProviderRepository.deleteAccount(acc1);
+    ProviderRepository.deleteAccount(acc2);
+    ProviderRepository.deleteProvider(providerId);
   }
 });

@@ -16,7 +16,7 @@
     "build:server": "tsc -p tsconfig.server.json",
     "build:web": "vite build src/web --outDir ../../dist/web",
     "start": "node dist/server/index.js",
-    "test": "tsx --test --test-concurrency=1 tests/**/*.test.ts",
+    "test": "tsx --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit"
   },
