@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { ActiveRequestItem } from "../../../../shared/types/index.js";
-import { Network, Server } from "lucide-react";
+import { Network } from "lucide-react";
 
 const KAME_PARTICLE_COUNT = 5;
 

@@ -11,7 +11,6 @@ interface ToolStatusData {
   status: "Connected" | "Guide" | "Not configured" | "Not installed";
   configPath?: string;
   hasMapigate?: boolean;
-  hasMapigate?: boolean;
 }
 
 export const CliToolsTab: React.FC = () => {

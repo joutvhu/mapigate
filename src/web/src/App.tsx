@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Sidebar, type NavTab } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { ProvidersTab } from "./pages/ProvidersTab";

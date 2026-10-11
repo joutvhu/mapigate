@@ -727,7 +727,7 @@ export const CombosTab: React.FC = () => {
                     No models in vision pool. Click Manage Models to add.
                   </span>
                 ) : (
-                  capacityAdapter.vision.models.map((m, mIdx) => (
+                  capacityAdapter.vision.models.map((m) => (
                     <span
                       key={m}
                       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-[#141B2D] border border-cyan-500/20 text-[11px] text-cyan-300 font-mono"
@@ -822,7 +822,7 @@ export const CombosTab: React.FC = () => {
                     No models in audio pool. Click Manage Models to add.
                   </span>
                 ) : (
-                  capacityAdapter.audioInput.models.map((m, mIdx) => (
+                  capacityAdapter.audioInput.models.map((m) => (
                     <span
                       key={m}
                       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-[#141B2D] border border-purple-500/20 text-[11px] text-purple-300 font-mono"
