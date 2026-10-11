@@ -86,4 +86,33 @@ export class LogRepository {
       totalCost: Number(row?.total_cost || 0),
     };
   }
+
+  /**
+   * Calculates total routed tokens for an account in the current UTC month.
+   * Matches OmniRoute's getMonthlyProviderTokensForConnection pattern.
+   */
+  public static getMonthlyTokensForAccount(
+    accountId: string,
+    providerId?: string
+  ): number {
+    if (!accountId && !providerId) return 0;
+    const db = getDatabase();
+    const now = new Date();
+    const monthStartMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+
+    const row = db.get<any>(
+      `SELECT COALESCE(SUM(prompt_tokens), 0)
+            + COALESCE(SUM(completion_tokens), 0)
+            + COALESCE(SUM(cached_tokens), 0)
+            + COALESCE(SUM(cache_creation_tokens), 0) AS total
+       FROM request_logs
+       WHERE (account_id = ? OR (account_id IS NULL AND provider_id = ?))
+         AND timestamp >= ?`,
+      accountId,
+      providerId || "",
+      monthStartMs
+    );
+
+    return Math.max(0, Number(row?.total || 0));
+  }
 }

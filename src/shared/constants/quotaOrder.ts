@@ -109,6 +109,22 @@ export const PROVIDER_QUOTA_ORDER_MAP: Record<string, string[]> = {
     "Free Tokens (Daily)",
     "Wallet Balance",
   ],
+  "xiaomi-tokenplan": [
+    "Monthly Tokens",
+    "Weekly Quota",
+  ],
+  xmtp: [
+    "Monthly Tokens",
+    "Weekly Quota",
+  ],
+  "xiaomi-mimo": [
+    "Monthly Tokens",
+    "Weekly Quota",
+  ],
+  mimo: [
+    "Monthly Tokens",
+    "Weekly Quota",
+  ],
 };
 
 /**

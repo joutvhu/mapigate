@@ -33,6 +33,7 @@ import { getGrokUsage, unwrapVal, detectGrokTier } from "../src/core/usage/handl
 import { getDeepseekUsage, sanitizeApiKey, parseBalanceInfos } from "../src/core/usage/handlers/deepseek.js";
 import { getGlmUsage, parseGlmQuotaResponse } from "../src/core/usage/handlers/glm.js";
 import { getXKiroUsage, parseXKiroUsageData } from "../src/core/usage/handlers/xkiro.js";
+import { getMimoUsage, XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT } from "../src/core/usage/handlers/mimo.js";
 import { fetchRawQuotaForProvider } from "../src/core/usage/handlers/index.js";
 
 test("utils - parseResetTime correctly handles varied date formats", () => {
@@ -1404,6 +1405,70 @@ test("tokenHelper - extracts GitHub OAuth token when wrapped in JSON accessToken
   assert.equal(creds.githubAccessToken, "ghu_RUwHDYSampleToken123");
   assert.equal(creds.providerSpecificData.githubAccessToken, "ghu_RUwHDYSampleToken123");
 });
+
+test("Xiaomi MiMo & Token Plan Handler - self-tracked monthly quota (OmniRoute pattern)", async () => {
+  const accountId = "test_acc_mimo_" + Date.now();
+  const providerId = "xiaomi-tokenplan";
+
+  // 1. Initial quota with 0 routed tokens
+  const resEmpty = await getMimoUsage("tp-sample-key", providerId, {}, accountId);
+  assert.equal(resEmpty.plan, "Xiaomi MiMo Token Plan");
+  assert.ok(resEmpty.quotas?.monthly);
+  assert.equal(resEmpty.quotas.monthly.total, XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT);
+  assert.equal(resEmpty.quotas.monthly.used, 0);
+  assert.equal(resEmpty.quotas.monthly.remaining, XIAOMI_MIMO_MONTHLY_TOKEN_LIMIT);
+  assert.equal(resEmpty.quotas.monthly.remainingPercentage, 100);
+
+  // 2. Dispatching through fetchRawQuotaForProvider
+  const dispatchRes = await fetchRawQuotaForProvider({
+    providerId: "xiaomi-tokenplan",
+    account: {
+      id: accountId,
+      providerId: "xiaomi-tokenplan",
+      name: "MiMo Account",
+      rawApiKey: "tp-fake-key",
+      isActive: true,
+      priority: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+
+  assert.equal(dispatchRes.plan, "Xiaomi MiMo Token Plan");
+  assert.ok(dispatchRes.quotas?.monthly);
+  assert.equal(dispatchRes.quotas.monthly.total, 4_100_000_000);
+
+  // 3. Optional session endpoint fallback (mock passToken)
+  const mockSessionFetch: typeof fetch = (async (url: any, opts: any) => {
+    assert.equal(String(url), "https://aistudio.xiaomimimo.com/open-apis/v1/user/usage");
+    assert.ok(opts.headers["Cookie"]?.includes("passToken=test_pass_token"));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code: 0,
+        data: {
+          percent: 92,
+          resetDate: "2026-11-01",
+        },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const sessionRes = await getMimoUsage(
+    "tp-key",
+    "xiaomi-mimo",
+    { mimoPassToken: "test_pass_token" },
+    accountId,
+    { fetchFn: mockSessionFetch }
+  );
+
+  assert.equal(sessionRes.plan, "Xiaomi MiMo");
+  assert.ok(sessionRes.quotas?.weekly);
+  assert.equal(sessionRes.quotas.weekly.remainingPercentage, 92);
+  assert.equal(sessionRes.quotas.weekly.used, 8);
+});
+
 
 
 

@@ -11,6 +11,7 @@ import { getMiniMaxUsage } from "./minimax.js";
 import { getQoderUsage } from "./qoder.js";
 import { getGlmUsage } from "./glm.js";
 import { getXKiroUsage } from "./xkiro.js";
+import { getMimoUsage } from "./mimo.js";
 
 export async function fetchRawQuotaForProvider(
   context: ProviderUsageContext
@@ -66,6 +67,12 @@ export async function fetchRawQuotaForProvider(
 
     case "xkiro":
       return await getXKiroUsage(token, psd);
+
+    case "xiaomi-tokenplan":
+    case "xmtp":
+    case "xiaomi-mimo":
+    case "mimo":
+      return await getMimoUsage(token, pId, psd, account.id);
 
     default:
       return {

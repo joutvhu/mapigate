@@ -10,6 +10,32 @@ export interface QuotaProgressBarProps {
   recurring?: boolean;
 }
 
+function formatUsageAmount(used: number, total: number, label: string): string {
+  const isToken = label.toLowerCase().includes("token");
+  if (total >= 1_000_000_000) {
+    const totalStr = `${(total / 1_000_000_000).toFixed(1)}B`;
+    const usedStr =
+      used >= 1_000_000_000
+        ? `${(used / 1_000_000_000).toFixed(2)}B`
+        : used >= 1_000_000
+        ? `${(used / 1_000_000).toFixed(1)}M`
+        : used.toLocaleString();
+    return `${usedStr} / ${totalStr} tokens`;
+  }
+  if (total >= 1_000_000) {
+    const totalStr = `${(total / 1_000_000).toFixed(0)}M`;
+    const usedStr =
+      used >= 1_000_000
+        ? `${(used / 1_000_000).toFixed(2)}M`
+        : used.toLocaleString();
+    return `${usedStr} / ${totalStr} tokens`;
+  }
+  if (total <= 100) {
+    return `${used}% used`;
+  }
+  return `${used.toLocaleString()} / ${total.toLocaleString()} ${isToken ? "tokens" : "reqs"}`;
+}
+
 export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
   label,
   used,
@@ -75,11 +101,7 @@ export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
       {/* Usage details and countdown */}
       <div className="flex items-center justify-between text-[11px] text-slate-400">
         <span>
-          {unlimited
-            ? "Unlimited"
-            : total === 100
-            ? `${used}% used`
-            : `${used.toLocaleString()} / ${total.toLocaleString()} ${total <= 100 ? "%" : "reqs"}`}
+          {unlimited ? "Unlimited" : formatUsageAmount(used, total, label)}
         </span>
         {resetInText && resetInText !== "-" && (
           <div className="flex items-center gap-1 font-mono text-[10px] text-slate-400">
