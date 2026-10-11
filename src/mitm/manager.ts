@@ -52,7 +52,14 @@ export class MitmManager {
 
   public async startServer(options?: { port?: number; forceKill?: boolean } | number): Promise<number> {
     const opts = typeof options === "number" ? { port: options } : (options || {});
-    const targetPort = opts.port || Number(process.env.MAPIGATE_MITM_PORT) || 443;
+    const targetPort =
+      opts.port !== undefined
+        ? opts.port
+        : (Number(process.env.MAPIGATE_MITM_PORT) || 443);
+
+    if (isNaN(targetPort) || !Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+      throw new Error(`Invalid port: ${targetPort}. Port must be an integer between 1 and 65535.`);
+    }
 
     // Pre-flight check: is port already occupied?
     const portOwner = await inspectPortOwner(targetPort);
@@ -61,7 +68,7 @@ export class MitmManager {
         console.log(
           `[MITM] Terminating process occupying port ${targetPort} (PID ${portOwner.pid}, name=${portOwner.processName})...`
         );
-        await killProcessByPid(portOwner.pid, true);
+        await killProcessByPid(portOwner.pid, true, portOwner.processName);
 
         // Polling briefly to confirm port is released
         let released = false;

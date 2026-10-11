@@ -5,6 +5,7 @@ import {
   checkPortFree,
   inspectPortOwner,
   killProcessByPid,
+  isProtectedSystemProcess,
   PortConflictError,
 } from "../src/mitm/portConflict.js";
 import { mitmManager } from "../src/mitm/manager.js";
@@ -112,6 +113,63 @@ describe("MITM Port Conflict Management and Safety Invariants", () => {
         assert.ok(err instanceof Error);
         return true;
       }
+    );
+  });
+
+  it("isProtectedSystemProcess and killProcessByPid guard named system services for defense-in-depth", async () => {
+    // isProtectedSystemProcess tests
+    assert.equal(isProtectedSystemProcess(4), true);
+    assert.equal(isProtectedSystemProcess(1234, "svchost.exe"), true);
+    assert.equal(isProtectedSystemProcess(1234, "svchost"), true);
+    assert.equal(isProtectedSystemProcess(5678, "w3wp.exe"), true);
+    assert.equal(isProtectedSystemProcess(5678, "System"), true);
+    assert.equal(isProtectedSystemProcess(9999, "node.exe"), false);
+    assert.equal(isProtectedSystemProcess(9999, "nginx.exe"), false);
+
+    // killProcessByPid defense-in-depth: rejects protected named process even with PID > 4
+    await assert.rejects(
+      async () => {
+        await killProcessByPid(9999, true, "svchost.exe");
+      },
+      (err: any) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /Cannot terminate protected system process "svchost\.exe"/);
+        return true;
+      }
+    );
+
+    await assert.rejects(
+      async () => {
+        await killProcessByPid(8888, true, "w3wp.exe");
+      },
+      (err: any) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /Cannot terminate protected system process "w3wp\.exe"/);
+        return true;
+      }
+    );
+  });
+
+  it("MitmManager.startServer rejects invalid port numbers outside 1-65535", async () => {
+    await assert.rejects(
+      async () => {
+        await mitmManager.startServer({ port: 0 });
+      },
+      /Invalid port: 0/
+    );
+
+    await assert.rejects(
+      async () => {
+        await mitmManager.startServer({ port: 70000 });
+      },
+      /Invalid port: 70000/
+    );
+
+    await assert.rejects(
+      async () => {
+        await mitmManager.startServer({ port: -1 });
+      },
+      /Invalid port: -1/
     );
   });
 

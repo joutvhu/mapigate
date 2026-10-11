@@ -35,10 +35,53 @@ const SYSTEM_PROCESS_NAMES = new Set([
   "http.sys",
   "w3wp.exe",
   "w3wp",
+  "csrss",
+  "csrss.exe",
+  "lsass",
+  "lsass.exe",
+  "services",
+  "services.exe",
+  "smss",
+  "smss.exe",
+  "wininit",
+  "wininit.exe",
 ]);
 
 const SYSTEM_REMEDIATION_HINT =
   "Chạy 'iisreset /stop' hoặc 'net stop w3svc' bằng quyền Administrator để giải phóng port.";
+
+/**
+ * Check if a process by PID or process name is a protected system service.
+ */
+export function isProtectedSystemProcess(pid?: number, processName?: string): boolean {
+  if (pid !== undefined && (!pid || pid <= 4)) return true;
+  if (!processName) return false;
+  const lower = processName.trim().toLowerCase();
+  const baseName = lower.replace(/\.exe$/i, "");
+  return SYSTEM_PROCESS_NAMES.has(lower) || SYSTEM_PROCESS_NAMES.has(baseName);
+}
+
+/**
+ * Look up the process name by PID.
+ */
+export function getProcessNameByPid(pid: number): Promise<string> {
+  const isWin = process.platform === "win32";
+  if (isWin) {
+    return new Promise<string>((resolve) => {
+      exec(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, { windowsHide: true, timeout: 3000 }, (_err, stdout) => {
+        if (!stdout) return resolve("unknown");
+        const match = stdout.match(/"([^"]+)"/);
+        resolve(match ? match[1] : "unknown");
+      });
+    });
+  } else {
+    return new Promise<string>((resolve) => {
+      exec(`ps -p ${pid} -o comm=`, { windowsHide: true, timeout: 3000 }, (_err, stdout) => {
+        resolve(stdout?.trim() || "unknown");
+      });
+    });
+  }
+}
 
 /**
  * Probe whether a TCP port is free to bind on 0.0.0.0.
@@ -139,8 +182,7 @@ if ($c) {
           if (parsed.InUse) {
             const pid: number = parsed.Pid;
             let processName: string = parsed.ProcessName || (pid <= 4 ? "System" : "unknown");
-            const isSystemProcess =
-              pid <= 4 || SYSTEM_PROCESS_NAMES.has(processName.toLowerCase());
+            const isSystemProcess = isProtectedSystemProcess(pid, processName);
 
             return {
               port,
@@ -164,8 +206,7 @@ if ($c) {
     if (netstatOwner && netstatOwner.pid !== undefined) {
       const pid = netstatOwner.pid;
       const processName = netstatOwner.processName || (pid <= 4 ? "System" : "unknown");
-      const isSystemProcess =
-        pid <= 4 || SYSTEM_PROCESS_NAMES.has(processName.toLowerCase());
+      const isSystemProcess = isProtectedSystemProcess(pid, processName);
 
       return {
         port,
@@ -212,7 +253,7 @@ if ($c) {
         });
       });
 
-      const isSystemProcess = lsofPid <= 1;
+      const isSystemProcess = isProtectedSystemProcess(lsofPid, procName);
       return {
         port,
         inUse: true,
@@ -241,10 +282,28 @@ if ($c) {
 /**
  * Terminate a process by PID with safety checks preventing termination of system processes.
  */
-export async function killProcessByPid(pid: number, _force: boolean = true): Promise<boolean> {
+export async function killProcessByPid(
+  pid: number,
+  _force: boolean = true,
+  knownProcessName?: string
+): Promise<boolean> {
   if (!pid || pid <= 4) {
     throw new Error(
       `Cannot terminate system process with PID ${pid}. Termination aborted for system safety.`
+    );
+  }
+
+  // Defense-in-depth: Inspect process name to prevent terminating protected system services (e.g. svchost, w3wp)
+  if (knownProcessName && isProtectedSystemProcess(pid, knownProcessName)) {
+    throw new Error(
+      `Cannot terminate protected system process "${knownProcessName}" (PID ${pid}). Termination aborted for system safety.`
+    );
+  }
+
+  const liveProcessName = await getProcessNameByPid(pid);
+  if (isProtectedSystemProcess(pid, liveProcessName)) {
+    throw new Error(
+      `Cannot terminate protected system process "${liveProcessName}" (PID ${pid}). Termination aborted for system safety.`
     );
   }
 

@@ -63,8 +63,8 @@ mitmRouter.get("/port-status", async (req, res) => {
   try {
     const rawPort = req.query.port;
     const port = rawPort ? Number(rawPort) : 443;
-    if (isNaN(port) || port <= 0 || port > 65535) {
-      res.status(400).json({ error: "Invalid port number" });
+    if (isNaN(port) || !Number.isInteger(port) || port < 1 || port > 65535) {
+      res.status(400).json({ error: "Invalid port number. Port must be an integer between 1 and 65535." });
       return;
     }
     const info = await inspectPortOwner(port);
@@ -86,7 +86,15 @@ mitmRouter.post("/toggle-server", async (req, res) => {
     }
 
     if (shouldRun) {
-      const portOption = req.body.port ? Number(req.body.port) : undefined;
+      let portOption: number | undefined;
+      if (req.body.port !== undefined && req.body.port !== null && req.body.port !== "") {
+        const parsedPort = Number(req.body.port);
+        if (isNaN(parsedPort) || !Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+          res.status(400).json({ error: "Invalid port number. Port must be an integer between 1 and 65535." });
+          return;
+        }
+        portOption = parsedPort;
+      }
       const forceKill = Boolean(req.body.forceKill);
       const port = await mitmManager.startServer({ port: portOption, forceKill });
       res.json({ running: port > 0, port });

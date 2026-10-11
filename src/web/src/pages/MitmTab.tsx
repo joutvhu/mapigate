@@ -201,9 +201,17 @@ export const MitmTab: React.FC = () => {
 
   const toggleServer = async (forceKill = false, portOverride?: number) => {
     setServerToggleError(null);
-    const targetPort =
-      portOverride ??
-      (customPortInput.trim() ? Number(customPortInput.trim()) : undefined);
+    let targetPort: number | undefined = undefined;
+    if (portOverride !== undefined) {
+      targetPort = portOverride;
+    } else if (customPortInput.trim()) {
+      const parsed = Number(customPortInput.trim());
+      if (isNaN(parsed) || !Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+        setServerToggleError("Port must be an integer between 1 and 65535.");
+        return;
+      }
+      targetPort = parsed;
+    }
 
     if (serverRunning && !forceKill) {
       setServerRunning(false);
