@@ -745,7 +745,15 @@ export const MitmTab: React.FC = () => {
                                   {m.sourceModel}
                                 </td>
                                 <td className="p-3 text-blue-400">
-                                  → <span className="text-emerald-300 ml-1 font-mono">{m.targetModel}</span>
+                                  {m.targetModel ? (
+                                    <>
+                                      → <span className="text-emerald-300 ml-1 font-mono">{m.targetModel}</span>
+                                    </>
+                                  ) : (
+                                    <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
+                                      (unmapped)
+                                    </span>
+                                  )}
                                 </td>
                                 <td className="p-3 text-right space-x-2">
                                   <button

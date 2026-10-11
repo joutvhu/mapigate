@@ -21,63 +21,63 @@ export const TOOL_DEFAULT_HOSTS: Record<string, string> = {
 export const DEFAULT_HOSTS_ENTRIES = Object.values(TOOL_DEFAULT_HOSTS).join("\n");
 
 export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = [
-  { ide: "kiro", sourceModel: "Auto (Kiro Agent)", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "auto", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "simple-task", targetModel: "gh/gpt-5-mini" },
-  { ide: "kiro", sourceModel: "Claude Sonnet 5", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "Claude Sonnet 4.5", targetModel: "ag/claude-opus-4-6-thinking" },
-  { ide: "kiro", sourceModel: "Claude Sonnet 4", targetModel: "ag/claude-sonnet-4-6" },
-  { ide: "kiro", sourceModel: "Claude Haiku 4.5", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "DeepSeek 3.2", targetModel: "xmtp/mimo-v2.6-pro" },
-  { ide: "kiro", sourceModel: "MiniMax M2.5", targetModel: "xmtp/mimo-v2.6-flash" },
-  { ide: "kiro", sourceModel: "MiniMax M2.1", targetModel: "xmtp/mimo-v2.6-flash" },
-  { ide: "kiro", sourceModel: "GPT 5.6 Sol", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "gpt-5.6-sol", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "GPT 5.6 Terra", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "gpt-5.6-terra", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "GPT 5.6 Luna", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "gpt-5.6-luna", targetModel: "ag/gemini-3.8-flash" },
-  { ide: "kiro", sourceModel: "GLM 5", targetModel: "xmtp/mimo-v2.6-flash" },
-  { ide: "kiro", sourceModel: "Qwen3 Coder Next", targetModel: "gh/gpt-5-mini" },
+  { ide: "kiro", sourceModel: "Auto (Kiro Agent)", targetModel: "" },
+  { ide: "kiro", sourceModel: "auto", targetModel: "" },
+  { ide: "kiro", sourceModel: "simple-task", targetModel: "" },
+  { ide: "kiro", sourceModel: "Claude Sonnet 5", targetModel: "" },
+  { ide: "kiro", sourceModel: "Claude Sonnet 4.5", targetModel: "" },
+  { ide: "kiro", sourceModel: "Claude Sonnet 4", targetModel: "" },
+  { ide: "kiro", sourceModel: "Claude Haiku 4.5", targetModel: "" },
+  { ide: "kiro", sourceModel: "DeepSeek 3.2", targetModel: "" },
+  { ide: "kiro", sourceModel: "MiniMax M2.5", targetModel: "" },
+  { ide: "kiro", sourceModel: "MiniMax M2.1", targetModel: "" },
+  { ide: "kiro", sourceModel: "GPT 5.6 Sol", targetModel: "" },
+  { ide: "kiro", sourceModel: "gpt-5.6-sol", targetModel: "" },
+  { ide: "kiro", sourceModel: "GPT 5.6 Terra", targetModel: "" },
+  { ide: "kiro", sourceModel: "gpt-5.6-terra", targetModel: "" },
+  { ide: "kiro", sourceModel: "GPT 5.6 Luna", targetModel: "" },
+  { ide: "kiro", sourceModel: "gpt-5.6-luna", targetModel: "" },
+  { ide: "kiro", sourceModel: "GLM 5", targetModel: "" },
+  { ide: "kiro", sourceModel: "Qwen3 Coder Next", targetModel: "" },
 ];
 
 export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = [
-  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (High)", targetModel: "gemini-3.8-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Medium)", targetModel: "gemini-3.8-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Low)", targetModel: "gemini-3.8-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (High)", targetModel: "gemini-3.7-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Medium)", targetModel: "gemini-3.7-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Low)", targetModel: "gemini-3.7-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (High)", targetModel: "gemini-3.6-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Medium)", targetModel: "gemini-3.6-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Low)", targetModel: "gemini-3.6-flash" },
-  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High)", targetModel: "gemini-3.1-pro" },
-  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (Low)", targetModel: "gemini-3.1-pro" },
-  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High) / Legacy", targetModel: "gemini-pro-agent" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Thinking)", targetModel: "claude-sonnet-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (High)", targetModel: "claude-sonnet-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Medium)", targetModel: "claude-sonnet-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Low)", targetModel: "claude-sonnet-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Thinking)", targetModel: "claude-opus-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (High)", targetModel: "claude-opus-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Medium)", targetModel: "claude-opus-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Low)", targetModel: "claude-opus-5-5" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 4.6 (Thinking)", targetModel: "claude-sonnet-4-6" },
-  { ide: "antigravity", sourceModel: "Claude Opus 4.6 (Thinking)", targetModel: "claude-opus-4-6-thinking" },
-  { ide: "antigravity", sourceModel: "GPT-OSS 120B (Medium)", targetModel: "gpt-oss-120b-medium" },
+  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (High)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Medium)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Low)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (High)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Medium)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Low)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (High)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Medium)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Low)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (Low)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High) / Legacy", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Thinking)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (High)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Medium)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Low)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Thinking)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (High)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Medium)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Low)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Sonnet 4.6 (Thinking)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "Claude Opus 4.6 (Thinking)", targetModel: "" },
+  { ide: "antigravity", sourceModel: "GPT-OSS 120B (Medium)", targetModel: "" },
 ];
 
 export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = [
-  { ide: "copilot", sourceModel: "gpt-4o", targetModel: "cx/gpt-5.5" },
-  { ide: "copilot", sourceModel: "claude-3.5-sonnet", targetModel: "ag/claude-sonnet-5-5" },
-  { ide: "copilot", sourceModel: "claude-3.7-sonnet", targetModel: "ag/claude-sonnet-5-5" },
-  { ide: "copilot", sourceModel: "o1", targetModel: "cx/o3-mini" },
+  { ide: "copilot", sourceModel: "gpt-4o", targetModel: "" },
+  { ide: "copilot", sourceModel: "claude-3.5-sonnet", targetModel: "" },
+  { ide: "copilot", sourceModel: "claude-3.7-sonnet", targetModel: "" },
+  { ide: "copilot", sourceModel: "o1", targetModel: "" },
 ];
 
 export const DEFAULT_CURSOR_MAPPINGS: MitmMapping[] = [
-  { ide: "cursor", sourceModel: "claude-sonnet-4-5", targetModel: "claude-sonnet-4-5" },
-  { ide: "cursor", sourceModel: "claude-opus-4", targetModel: "claude-opus-4" },
-  { ide: "cursor", sourceModel: "gpt-4o", targetModel: "gpt-4o" },
+  { ide: "cursor", sourceModel: "claude-sonnet-4-5", targetModel: "" },
+  { ide: "cursor", sourceModel: "claude-opus-4", targetModel: "" },
+  { ide: "cursor", sourceModel: "gpt-4o", targetModel: "" },
 ];
 
 export function getDefaultMappings(tool: string): MitmMapping[] {
@@ -207,10 +207,39 @@ export class MitmRepository {
 
   public static resetMappings(ide: string): MitmMapping[] {
     const db = getDatabase();
+    // 1. Fetch current mappings for this ide to preserve user targetModel selections
+    const currentRows = db.all<any>("SELECT source_model, target_model FROM mitm_mappings WHERE ide = ?", ide);
+    const existingTargetMap = new Map<string, string>();
+    for (const r of currentRows) {
+      if (r.target_model && r.target_model.trim().length > 0) {
+        existingTargetMap.set(r.source_model, r.target_model.trim());
+      }
+    }
+
+    // 2. Delete old mappings for this ide
     db.run("DELETE FROM mitm_mappings WHERE ide = ?", ide);
+
+    // 3. Get standard defaults for this IDE with empty target models
     const defaults = getDefaultMappings(ide);
-    this.initDefaultMappings(ide, defaults);
-    return defaults;
+
+    // 4. Preserve existing user choices for standard models, or default to ""
+    const restoredMappings: MitmMapping[] = defaults.map((m) => ({
+      ide: m.ide,
+      sourceModel: m.sourceModel,
+      targetModel: existingTargetMap.get(m.sourceModel) || "",
+    }));
+
+    // 5. Insert restored mappings
+    for (const m of restoredMappings) {
+      db.run(
+        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
+        m.ide,
+        m.sourceModel,
+        m.targetModel
+      );
+    }
+
+    return restoredMappings;
   }
 
   public static updateMapping(ide: string, sourceModel: string, targetModel: string): void {

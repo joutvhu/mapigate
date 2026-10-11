@@ -20,6 +20,7 @@ import {
   DEFAULT_COPILOT_MAPPINGS,
   DEFAULT_CURSOR_MAPPINGS,
   TOOL_DEFAULT_HOSTS,
+  MitmRepository,
 } from "../src/storage/repositories/mitmRepo.js";
 import { checkAllDNSStatus } from "../src/mitm/dns/dnsConfig.js";
 
@@ -142,7 +143,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.ok(!noMapPatterns.some((re) => re.test("gemini-3.8-flash-medium")));
   });
 
-  it("provides comprehensive default model mappings for all tools", () => {
+  it("provides comprehensive default model mappings for all tools with empty target models", () => {
     const agDefaults = getDefaultMappings("antigravity");
     assert.ok(agDefaults.length >= 20);
     assert.ok(agDefaults.some((m) => m.sourceModel === "Gemini 3.8 Flash (High)"));
@@ -158,6 +159,35 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
 
     const cursorDefaults = getDefaultMappings("cursor");
     assert.ok(cursorDefaults.some((m) => m.sourceModel === "claude-sonnet-4-5"));
+
+    // Invariant: all default target models must be empty string
+    for (const mapping of [...agDefaults, ...kiroDefaults, ...copilotDefaults, ...cursorDefaults]) {
+      assert.equal(mapping.targetModel, "", `Default mapping for '${mapping.sourceModel}' must have empty targetModel`);
+    }
+  });
+
+  it("smart resetMappings preserves user selections while resetting standard models", () => {
+    // Setup existing mapping with user choice
+    MitmRepository.updateMapping("cursor", "claude-sonnet-4-5", "custom/my-model-1");
+    MitmRepository.updateMapping("cursor", "non-standard-custom", "custom/random");
+
+    // Before reset, cursor has custom mapping
+    const beforeReset = MitmRepository.getMappings("cursor");
+    assert.equal(beforeReset.find((m) => m.sourceModel === "claude-sonnet-4-5")?.targetModel, "custom/my-model-1");
+
+    // Execute smart reset
+    const afterReset = MitmRepository.resetMappings("cursor");
+
+    // Standard model with user choice was PRESERVED
+    const preserved = afterReset.find((m) => m.sourceModel === "claude-sonnet-4-5");
+    assert.equal(preserved?.targetModel, "custom/my-model-1");
+
+    // Standard model without user choice was reset to ""
+    const unmapped = afterReset.find((m) => m.sourceModel === "claude-opus-4");
+    assert.equal(unmapped?.targetModel, "");
+
+    // Non-standard custom model was pruned on reset to defaults
+    assert.equal(afterReset.find((m) => m.sourceModel === "non-standard-custom"), undefined);
   });
 
   it("checks DNS status returning keys for all 4 tools", () => {
