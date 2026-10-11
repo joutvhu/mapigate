@@ -1,172 +1,399 @@
-import React, { useState } from "react";
-import { SEED_QUOTA_ACCOUNTS, type AccountQuotaCard } from "../constants/mockData";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import type { AccountQuotaResult } from "../../core/usage/types.js";
+import { ProviderLimitCard } from "../components/quota/ProviderLimitCard.js";
+import {
+  QuotaToolbar,
+  type QuotaSortMode,
+  type AccountStatusFilter,
+} from "../components/quota/QuotaToolbar.js";
+import { EditAccountModal, type EditAccountData } from "../components/EditAccountModal.js";
+import { ConfirmModal } from "../components/ConfirmModal.js";
+
+const AUTO_REFRESH_INTERVAL_SEC = 60;
 
 export const QuotaTab: React.FC = () => {
-  const [accounts, setAccounts] = useState(SEED_QUOTA_ACCOUNTS);
+  const [accounts, setAccounts] = useState<AccountQuotaResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<AccountStatusFilter>("all");
+  const [sortMode, setSortMode] = useState<QuotaSortMode>("expiring-first");
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [countdown, setCountdown] = useState(AUTO_REFRESH_INTERVAL_SEC);
 
-  const toggleAccount = (id: string) => {
-    setAccounts(accounts.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a)));
+  const [editingAccount, setEditingAccount] = useState<EditAccountData | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant?: "danger" | "emerald" | "primary";
+    confirmText?: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Fetch all accounts and quotas
+  const fetchAllQuotas = useCallback(async (force = false) => {
+    try {
+      const url = force ? "/api/quota?force=true" : "/api/quota";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const data: AccountQuotaResult[] = await res.json();
+      setAccounts(data);
+    } catch (err: any) {
+      console.error("[QuotaTab] Failed to fetch quotas:", err);
+    } finally {
+      setLoading(false);
+      setRefreshingAll(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchAllQuotas();
+  }, [fetchAllQuotas]);
+
+  // Auto-refresh countdown effect (respects Page Visibility API)
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const timer = setInterval(() => {
+      // Pause countdown when tab is hidden to save network/CPU
+      if (document.hidden) return;
+
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          fetchAllQuotas(false);
+          return AUTO_REFRESH_INTERVAL_SEC;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [autoRefresh, fetchAllQuotas]);
+
+  // Manual refresh all accounts
+  const handleRefreshAll = async () => {
+    setRefreshingAll(true);
+    setCountdown(AUTO_REFRESH_INTERVAL_SEC);
+    await fetchAllQuotas(true);
   };
 
-  const turnOffEmpty = () => {
-    setAccounts(
-      accounts.map((a) => {
-        const hasZero = a.quotas.some((q) => q.percent === 0);
-        return hasZero ? { ...a, isActive: false } : a;
-      })
+  // Single account refresh
+  const handleRefreshAccount = async (accountId: string) => {
+    try {
+      const res = await fetch(`/api/quota/${accountId}`);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const updated: AccountQuotaResult = await res.json();
+      setAccounts((prev) =>
+        prev.map((acc) => (acc.accountId === accountId ? updated : acc))
+      );
+    } catch (err: any) {
+      console.error(`[QuotaTab] Failed to refresh account ${accountId}:`, err);
+    }
+  };
+
+  // Single account toggle
+  const handleToggleAccount = async (accountId: string, isActive: boolean) => {
+    // Optimistic UI update
+    setAccounts((prev) =>
+      prev.map((acc) => (acc.accountId === accountId ? { ...acc, isActive } : acc))
     );
+
+    try {
+      const res = await fetch(`/api/quota/accounts/${accountId}/toggle`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setAccounts((prev) =>
+          prev.map((acc) => (acc.accountId === accountId ? { ...acc, isActive: !isActive } : acc))
+        );
+      }
+    } catch (err) {
+      setAccounts((prev) =>
+        prev.map((acc) => (acc.accountId === accountId ? { ...acc, isActive: !isActive } : acc))
+      );
+    }
   };
 
-  const turnOnAvailable = () => {
-    setAccounts(
-      accounts.map((a) => {
-        const hasAvailable = a.quotas.some((q) => q.percent > 0);
-        return hasAvailable ? { ...a, isActive: true } : a;
-      })
+  // Save edited account details
+  const handleSaveAccount = async (updates: {
+    name: string;
+    apiKey?: string;
+    isActive: boolean;
+  }) => {
+    if (!editingAccount) return;
+
+    const res = await fetch(`/api/quota/accounts/${editingAccount.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to update account.");
+    }
+
+    const { account: updatedAccount } = await res.json();
+    if (updatedAccount) {
+      setAccounts((prev) =>
+        prev.map((acc) => (acc.accountId === editingAccount.id ? updatedAccount : acc))
+      );
+    } else {
+      await fetchAllQuotas(true);
+    }
+  };
+
+  // Batch action: Turn off Empty
+  const handleTurnOffEmpty = () => {
+    const emptyAccounts = accounts.filter(
+      (acc) =>
+        acc.isActive &&
+        acc.quotas.length > 0 &&
+        acc.quotas.some((q) => !q.unlimited && q.remainingPercentage === 0)
     );
+
+    if (emptyAccounts.length === 0) {
+      alert("No active accounts with depleted (0%) quota found.");
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: "Turn off Depleted Accounts",
+      message: `Are you sure you want to turn off ${emptyAccounts.length} account(s) with 0% quota? This will prevent upstream 429 rate limit errors.`,
+      variant: "danger",
+      confirmText: `Turn off (${emptyAccounts.length})`,
+      onConfirm: async () => {
+        const ids = emptyAccounts.map((a) => a.accountId);
+        // Optimistic UI update
+        setAccounts((prev) =>
+          prev.map((a) => (ids.includes(a.accountId) ? { ...a, isActive: false } : a))
+        );
+        setConfirmModal(null);
+
+        try {
+          await fetch("/api/quota/toggle-batch", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accountIds: ids, isActive: false }),
+          });
+        } catch (err) {
+          console.error("[QuotaTab] Failed to turn off depleted accounts:", err);
+        }
+      },
+    });
   };
 
-  const getBarColor = (percent: number) => {
-    if (percent === 0) return "bg-red-500";
-    if (percent < 50) return "bg-amber-500";
-    return "bg-emerald-400";
+  // Batch action: Turn on Available
+  const handleTurnOnAvailable = () => {
+    const availableAccounts = accounts.filter(
+      (acc) =>
+        !acc.isActive &&
+        acc.quotas.length > 0 &&
+        acc.quotas.every((q) => q.unlimited || q.remainingPercentage > 0)
+    );
+
+    if (availableAccounts.length === 0) {
+      alert("No inactive accounts with available (>0%) quota found.");
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: "Turn on Available Accounts",
+      message: `Activate ${availableAccounts.length} account(s) that have recovered capacity?`,
+      variant: "emerald",
+      confirmText: `Turn on (${availableAccounts.length})`,
+      onConfirm: async () => {
+        const ids = availableAccounts.map((a) => a.accountId);
+        setAccounts((prev) =>
+          prev.map((a) => (ids.includes(a.accountId) ? { ...a, isActive: true } : a))
+        );
+        setConfirmModal(null);
+
+        try {
+          await fetch("/api/quota/toggle-batch", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ accountIds: ids, isActive: true }),
+          });
+        } catch (err) {
+          console.error("[QuotaTab] Failed to turn on available accounts:", err);
+        }
+      },
+    });
   };
+
+  // Distinct list of providers for dropdown
+  const uniqueProviders = useMemo(() => {
+    const set = new Set<string>();
+    accounts.forEach((a) => {
+      if (a.providerId) set.add(a.providerId.toLowerCase());
+    });
+    return Array.from(set).sort();
+  }, [accounts]);
+
+  // Filtered & Sorted accounts
+  const visibleAccounts = useMemo(() => {
+    let list = [...accounts];
+
+    // 1. Provider Filter
+    if (selectedProvider !== "all") {
+      list = list.filter(
+        (a) => a.providerId.toLowerCase() === selectedProvider.toLowerCase()
+      );
+    }
+
+    // 2. Status Filter
+    if (statusFilter === "active") {
+      list = list.filter((a) => a.isActive);
+    } else if (statusFilter === "inactive") {
+      list = list.filter((a) => !a.isActive);
+    }
+
+    // 3. Sorting
+    if (sortMode === "expiring-first") {
+      const getEarliestExpiry = (acc: AccountQuotaResult): number => {
+        const timestamps = acc.quotas
+          .map((q) => q.resetAt)
+          .filter((t): t is number => typeof t === "number" && t > 0);
+        return timestamps.length > 0 ? Math.min(...timestamps) : Number.POSITIVE_INFINITY;
+      };
+
+      list.sort((a, b) => {
+        const diff = getEarliestExpiry(a) - getEarliestExpiry(b);
+        if (diff !== 0) return diff;
+        return a.accountName.localeCompare(b.accountName);
+      });
+    } else if (sortMode === "quota-asc") {
+      const getMinPercentage = (acc: AccountQuotaResult): number => {
+        if (acc.quotas.length === 0) return Number.POSITIVE_INFINITY;
+        return Math.min(...acc.quotas.map((q) => q.remainingPercentage));
+      };
+
+      list.sort((a, b) => {
+        const diff = getMinPercentage(a) - getMinPercentage(b);
+        if (diff !== 0) return diff;
+        return a.accountName.localeCompare(b.accountName);
+      });
+    } else if (sortMode === "quota-desc") {
+      const getMaxPercentage = (acc: AccountQuotaResult): number => {
+        if (acc.quotas.length === 0) return Number.NEGATIVE_INFINITY;
+        return Math.max(...acc.quotas.map((q) => q.remainingPercentage));
+      };
+
+      list.sort((a, b) => {
+        const diff = getMaxPercentage(b) - getMaxPercentage(a);
+        if (diff !== 0) return diff;
+        return a.accountName.localeCompare(b.accountName);
+      });
+    }
+
+    return list;
+  }, [accounts, selectedProvider, statusFilter, sortMode]);
 
   return (
     <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* Top Controls Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs p-4 rounded-2xl bg-[#0F1420]/70 border border-[#1E293B]">
-        <div className="flex flex-wrap items-center gap-2">
-          <select className="bg-[#0A0D14] border border-[#1E293B] text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500">
-            <option>All providers</option>
-            <option>Antigravity</option>
-            <option>GitHub Copilot</option>
-          </select>
-
-          <select className="bg-[#0A0D14] border border-[#1E293B] text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500">
-            <option>All accounts</option>
-          </select>
-
-          <select className="bg-[#0A0D14] border border-[#1E293B] text-slate-200 rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500">
-            <option>Expiring first</option>
-            <option>Highest available</option>
-          </select>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            onClick={turnOffEmpty}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer font-medium"
-          >
-            <span className="material-symbols-outlined text-[15px]">block</span>
-            Turn off Empty
-          </button>
-
-          <button
-            onClick={turnOnAvailable}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer font-medium"
-          >
-            <span className="material-symbols-outlined text-[15px]">check_circle</span>
-            Turn on Available
-          </button>
-
-          <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer ml-1 select-none">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="accent-blue-600 rounded"
-            />
-            Autorefresh
-          </label>
-
-          <button
-            onClick={() => alert("Refreshed all sliding window quotas.")}
-            className="p-1.5 rounded-xl border border-[#1E293B] bg-[#0A0D14] text-slate-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">refresh</span>
-          </button>
-        </div>
-      </div>
+      <QuotaToolbar
+        providers={uniqueProviders}
+        selectedProvider={selectedProvider}
+        onSelectProvider={setSelectedProvider}
+        statusFilter={statusFilter}
+        onSelectStatusFilter={setStatusFilter}
+        sortMode={sortMode}
+        onSelectSortMode={setSortMode}
+        autoRefresh={autoRefresh}
+        onToggleAutoRefresh={setAutoRefresh}
+        countdownSeconds={countdown}
+        isRefreshingAll={refreshingAll}
+        onRefreshAll={handleRefreshAll}
+        onTurnOffEmpty={handleTurnOffEmpty}
+        onTurnOnAvailable={handleTurnOnAvailable}
+      />
 
       {/* Grid of Quota Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-        {accounts.map((card, idx) => (
-          <div
-            key={card.id}
-            className={`rt-card stagger-item space-y-4 p-5 ${
-              !card.isActive ? "opacity-60" : ""
-            }`}
-            style={{ animationDelay: `${idx * 45}ms` }}
-          >
-            {/* Account Card Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="size-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center p-2 shrink-0">
-                  <img src={card.providerIcon} alt={card.provider} className="size-full object-contain" />
-                </div>
-                <div className="min-w-0">
-                  <h4 className="text-xs font-bold text-white truncate">{card.provider}</h4>
-                  <p className="text-[11px] text-blue-400 truncate font-mono">{card.accountName}</p>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 w-full">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-[#0F1420]/80 border border-[#1E293B] rounded-2xl p-5 space-y-4 animate-pulse shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <div className="size-10 bg-slate-800 rounded-xl" />
+                <div className="space-y-2 flex-1">
+                  <div className="h-4 bg-slate-800 rounded w-1/2" />
+                  <div className="h-3 bg-slate-800 rounded w-3/4" />
                 </div>
               </div>
-
-              {/* Actions & Switch */}
-              <div className="flex items-center gap-2">
-                <button className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">edit</span>
-                </button>
-                <button className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">refresh</span>
-                </button>
-                <label className="relative inline-flex items-center cursor-pointer ml-1">
-                  <input
-                    type="checkbox"
-                    checked={card.isActive}
-                    onChange={() => toggleAccount(card.id)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600" />
-                </label>
+              <div className="space-y-3 pt-2">
+                <div className="h-3 bg-slate-800 rounded w-full" />
+                <div className="h-2 bg-slate-800 rounded-full w-full" />
+                <div className="h-3 bg-slate-800 rounded w-5/6" />
+                <div className="h-2 bg-slate-800 rounded-full w-full" />
               </div>
             </div>
+          ))}
+        </div>
+      ) : visibleAccounts.length === 0 ? (
+        <div className="p-12 text-center rounded-2xl bg-[#0F1420]/50 border border-[#1E293B] text-slate-400 space-y-3">
+          <span className="material-symbols-outlined text-[36px] text-slate-500">
+            account_balance_wallet
+          </span>
+          <div className="text-sm font-medium text-slate-300">No matching accounts found</div>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            {accounts.length === 0
+              ? "Connect provider accounts in the Providers tab to track real-time quota."
+              : "Try adjusting your provider, status, or search filters above."}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 w-full">
+          {visibleAccounts.map((account) => (
+            <ProviderLimitCard
+              key={account.accountId}
+              account={account}
+              onRefresh={handleRefreshAccount}
+              onEdit={(acc) =>
+                setEditingAccount({
+                  id: acc.accountId,
+                  providerId: acc.providerId,
+                  name: acc.accountName,
+                  isActive: acc.isActive,
+                })
+              }
+              onToggle={handleToggleAccount}
+            />
+          ))}
+        </div>
+      )}
 
-            {/* Quota Progress Bars */}
-            <div className="space-y-3 pt-1 border-t border-[#1E293B]">
-              <span className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
-                {card.quotas.length} RATE WINDOWS & QUOTAS
-              </span>
+      {/* Edit Account Modal (Mounted via React Portal to document.body) */}
+      <EditAccountModal
+        isOpen={Boolean(editingAccount)}
+        account={editingAccount}
+        onClose={() => setEditingAccount(null)}
+        onSave={handleSaveAccount}
+      />
 
-              {card.quotas.map((q, qIdx) => (
-                <div key={qIdx} className="space-y-1.5 text-[11px]">
-                  <div className="flex items-center justify-between text-slate-300">
-                    <span className="flex items-center gap-2 font-medium">
-                      <span className={`size-1.5 rounded-full ${getBarColor(q.percent)}`} />
-                      {q.label}
-                    </span>
-                    <div className="flex items-center gap-2 font-mono text-[10.5px]">
-                      {q.used && <span className="text-slate-500">{q.used}</span>}
-                      <span className={q.percent === 0 ? "text-red-400 font-bold" : "text-emerald-400 font-bold"}>
-                        {q.percent}%
-                      </span>
-                      <span className="text-slate-400">{q.resetIn}</span>
-                    </div>
-                  </div>
-
-                  {/* Glowing progress track */}
-                  <div className="h-2 w-full bg-[#0A0D14] rounded-full overflow-hidden p-0.5 border border-[#1E293B]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${getBarColor(q.percent)}`}
-                      style={{ width: `${q.percent}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Confirmation Modal (Mounted via React Portal to document.body) */}
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          variant={confirmModal.variant}
+          confirmText={confirmModal.confirmText}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 };

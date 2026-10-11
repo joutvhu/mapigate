@@ -17,6 +17,7 @@ import { mitmRouter } from "./routes/apiMitm.js";
 import { oauthRouter } from "./routes/apiOAuth.js";
 import { cliToolsRouter } from "./routes/apiCliTools.js";
 import { consoleLogsRouter } from "./routes/apiConsoleLogs.js";
+import { quotaRouter } from "./routes/apiQuota.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 
 const app = express();
@@ -54,6 +55,7 @@ app.use("/api/mitm", mitmRouter);
 app.use("/api/oauth", oauthRouter);
 app.use("/api/cli-tools", cliToolsRouter);
 app.use("/api/console-logs", consoleLogsRouter);
+app.use("/api/quota", quotaRouter);
 
 // OAuth Callback Relay Endpoint
 app.get("/callback", (_req, res) => {

@@ -165,6 +165,33 @@ export class ProviderRepository {
     db.run("DELETE FROM providers WHERE id = ?", id);
   }
 
+  public static getAllAccounts(): (ProviderAccount & { rawApiKey: string })[] {
+    const db = getDatabase();
+    const rows = db.all<any>(
+      "SELECT * FROM provider_accounts ORDER BY provider_id ASC, rate_limit_hits ASC, last_used_at ASC"
+    );
+
+    return rows.map((r) => ({
+      id: r.id,
+      providerId: r.provider_id,
+      name: r.name,
+      apiKeyEncrypted: r.api_key_encrypted,
+      rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
+      isActive: Boolean(r.is_active),
+      rateLimitHits: r.rate_limit_hits,
+      lastUsedAt: r.last_used_at,
+      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+    }));
+  }
+
+  public static bulkToggleAccounts(accountIds: string[], isActive: boolean): void {
+    if (!accountIds || accountIds.length === 0) return;
+    const db = getDatabase();
+    for (const id of accountIds) {
+      db.run("UPDATE provider_accounts SET is_active = ? WHERE id = ?", isActive ? 1 : 0, id);
+    }
+  }
+
   public static getAllAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
     const db = getDatabase();
     const rows = db.all<any>(
