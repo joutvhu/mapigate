@@ -328,7 +328,7 @@ export class ProviderRepository {
     rawApiKey?: string;
     providerSpecificData?: Record<string, any>;
   }): void {
-    const provider = this.ensureProviderExists(account.providerId, account.name);
+    const provider = this.ensureProviderExists(account.providerId);
     const db = getDatabase();
     const rawKey = account.rawApiKey || "";
     const encryptedKey = CryptoVault.encrypt(rawKey);
@@ -359,7 +359,7 @@ export class ProviderRepository {
     const db = getDatabase();
     const now = Date.now();
     for (const acc of accounts) {
-      const provider = this.ensureProviderExists(acc.providerId, acc.name);
+      const provider = this.ensureProviderExists(acc.providerId);
       const rawKey = acc.rawApiKey || "";
       const encryptedKey = CryptoVault.encrypt(rawKey);
       const psdJson = acc.providerSpecificData ? JSON.stringify(acc.providerSpecificData) : null;

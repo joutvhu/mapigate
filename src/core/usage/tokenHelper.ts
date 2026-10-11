@@ -19,6 +19,10 @@ export interface ResolvedCredentials {
   apiKey?: string;
   expiresAt?: number;
   email?: string;
+  githubAccessToken?: string;
+  projectId?: string;
+  copilotToken?: string;
+  copilotTokenExpiresAt?: number;
   providerSpecificData: Record<string, any>;
 }
 
@@ -29,30 +33,46 @@ export function extractCredentials(
   rawApiKey: string,
   providerSpecificData?: Record<string, any>
 ): ResolvedCredentials {
-  const psd = providerSpecificData || {};
+  const psd: Record<string, any> = { ...(providerSpecificData || {}) };
   let accessToken = "";
   let refreshToken = psd.refreshToken || "";
   let expiresAt = typeof psd.expiresAt === "number" ? psd.expiresAt : undefined;
   let email = psd.email || "";
   let apiKey = "";
+  let githubAccessToken = psd.githubAccessToken || "";
+  let projectId = psd.projectId || "";
 
   const trimmedKey = rawApiKey?.trim() || "";
 
   if (trimmedKey.startsWith("{") && trimmedKey.endsWith("}")) {
     try {
       const parsed = JSON.parse(trimmedKey);
-      accessToken = parsed.accessToken || parsed.access_token || "";
+      accessToken = parsed.accessToken || parsed.access_token || parsed.token || "";
       if (parsed.refreshToken || parsed.refresh_token) {
         refreshToken = parsed.refreshToken || parsed.refresh_token;
       }
-      if (parsed.expiresAt) {
-        expiresAt = Number(parsed.expiresAt);
+      if (parsed.expiresAt || parsed.expires_at) {
+        expiresAt = Number(parsed.expiresAt || parsed.expires_at);
+      } else if (parsed.expiresIn || parsed.expires_in) {
+        expiresAt = Date.now() + Number(parsed.expiresIn || parsed.expires_in) * 1000;
       }
       if (parsed.email) {
         email = parsed.email;
       }
-      if (parsed.apiKey || parsed.api_key) {
-        apiKey = parsed.apiKey || parsed.api_key;
+      if (parsed.apiKey || parsed.api_key || parsed.key) {
+        apiKey = parsed.apiKey || parsed.api_key || parsed.key;
+      }
+      if (parsed.githubAccessToken || parsed.github_access_token) {
+        githubAccessToken = parsed.githubAccessToken || parsed.github_access_token;
+      }
+      if (parsed.projectId || parsed.project_id) {
+        projectId = parsed.projectId || parsed.project_id;
+      }
+      if (parsed.copilotToken || parsed.copilot_token) {
+        psd.copilotToken = parsed.copilotToken || parsed.copilot_token;
+      }
+      if (parsed.copilotTokenExpiresAt || parsed.copilot_token_expires_at) {
+        psd.copilotTokenExpiresAt = parsed.copilotTokenExpiresAt || parsed.copilot_token_expires_at;
       }
     } catch {
       accessToken = trimmedKey;
@@ -63,7 +83,28 @@ export function extractCredentials(
     apiKey = trimmedKey;
   }
 
-  // If specific copilotToken exists in PSD, use it as active accessToken / apiKey
+  // Preserve githubAccessToken if present in rawApiKey
+  if (!githubAccessToken && trimmedKey) {
+    if (
+      trimmedKey.startsWith("gho_") ||
+      trimmedKey.startsWith("ghu_") ||
+      trimmedKey.startsWith("ghp_") ||
+      trimmedKey.startsWith("github_pat_")
+    ) {
+      githubAccessToken = trimmedKey;
+    } else if (
+      !trimmedKey.startsWith("{") &&
+      !trimmedKey.startsWith("tid=") &&
+      !trimmedKey.startsWith("token ")
+    ) {
+      // If copilotToken is in PSD, trimmedKey was the original OAuth token
+      if (psd.copilotToken && trimmedKey !== psd.copilotToken) {
+        githubAccessToken = trimmedKey;
+      }
+    }
+  }
+
+  // If specific copilotToken exists in PSD, use it as active accessToken / apiKey for chat calls
   if (psd.copilotToken) {
     accessToken = psd.copilotToken;
     apiKey = psd.copilotToken;
@@ -80,12 +121,23 @@ export function extractCredentials(
     expiresAt = normalizeExpiryMs(psd.copilotTokenExpiresAt) || undefined;
   }
 
+  if (githubAccessToken && !psd.githubAccessToken) {
+    psd.githubAccessToken = githubAccessToken;
+  }
+  if (projectId && !psd.projectId) {
+    psd.projectId = projectId;
+  }
+
   return {
     accessToken,
     refreshToken: refreshToken || undefined,
     apiKey: apiKey || undefined,
     expiresAt,
     email: email || undefined,
+    githubAccessToken: githubAccessToken || undefined,
+    projectId: projectId || undefined,
+    copilotToken: psd.copilotToken || undefined,
+    copilotTokenExpiresAt: typeof psd.copilotTokenExpiresAt === "number" ? psd.copilotTokenExpiresAt : undefined,
     providerSpecificData: psd,
   };
 }
@@ -121,7 +173,7 @@ export async function ensureFreshCredentials(
   if (pId === "github") {
     try {
       const refreshed = await refreshCopilotToken({
-        githubAccessToken: creds.providerSpecificData.githubAccessToken,
+        githubAccessToken: creds.githubAccessToken || creds.providerSpecificData.githubAccessToken,
         rawApiKey,
         refreshToken: creds.refreshToken,
         copilotToken: creds.providerSpecificData.copilotToken,
@@ -129,11 +181,12 @@ export async function ensureFreshCredentials(
       });
 
       if (refreshed) {
+        const ghToken = refreshed.githubAccessToken || creds.githubAccessToken || creds.providerSpecificData.githubAccessToken;
         const updatedPsd = {
           ...creds.providerSpecificData,
           copilotToken: refreshed.copilotToken,
           copilotTokenExpiresAt: refreshed.copilotTokenExpiresAt,
-          ...(refreshed.githubAccessToken ? { githubAccessToken: refreshed.githubAccessToken } : {}),
+          ...(ghToken ? { githubAccessToken: ghToken } : {}),
           ...(refreshed.refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
         };
 
@@ -147,6 +200,7 @@ export async function ensureFreshCredentials(
           accessToken: refreshed.copilotToken,
           apiKey: refreshed.copilotToken,
           expiresAt: newExpiresAt,
+          githubAccessToken: ghToken || undefined,
           providerSpecificData: updatedPsd,
         };
       }

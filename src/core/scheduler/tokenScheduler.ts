@@ -6,6 +6,7 @@ import {
   normalizeExpiryMs,
 } from "../auth/copilotToken.js";
 import { ensureFreshCredentials } from "../usage/tokenHelper.js";
+import { logger, LogSymbol } from "../../shared/logger.js";
 
 /** Default periodic check interval: 5 minutes */
 export const DEFAULT_SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
@@ -65,13 +66,13 @@ export class TokenScheduler {
     // Optional immediate execution
     if (options.runImmediately) {
       this.runTick().catch((err) => {
-        console.warn("[TokenScheduler] Immediate tick error:", err);
+        logger.warn("SCHEDULER", "Immediate tick error:", err);
       });
     }
 
     this.timer = setInterval(() => {
       this.runTick().catch((err) => {
-        console.warn("[TokenScheduler] Periodic tick error:", err);
+        logger.warn("SCHEDULER", "Periodic tick error:", err);
       });
     }, this.intervalMs);
 
@@ -80,8 +81,9 @@ export class TokenScheduler {
       this.timer.unref();
     }
 
-    console.log(
-      `⏰ [TokenScheduler] Started background token refresh worker (interval: ${Math.round(
+    logger.info(
+      "SCHEDULER",
+      `Started background token refresh worker (interval: ${Math.round(
         this.intervalMs / 1000
       )}s, lead: ${Math.round(this.leadMs / 1000)}s)`
     );
@@ -96,7 +98,7 @@ export class TokenScheduler {
       this.timer = null;
     }
     this.isRunningState = false;
-    console.log("🛑 [TokenScheduler] Background token refresh worker stopped");
+    logger.info("SCHEDULER", "Background token refresh worker stopped");
   }
 
   /**
@@ -161,8 +163,9 @@ export class TokenScheduler {
           }
         } catch (accountErr) {
           failed++;
-          console.warn(
-            `[TokenScheduler] Failed checking/refreshing account ${account.id} (${account.providerId}):`,
+          logger.warn(
+            "SCHEDULER",
+            `Failed checking/refreshing account ${account.id} (${account.providerId}):`,
             accountErr
           );
         }
@@ -201,8 +204,10 @@ export class TokenScheduler {
           bufferMs: this.leadMs,
         });
         if (result?.copilotToken) {
-          console.log(
-            `🔄 [TokenScheduler] Refreshed GitHub Copilot token for account ${account.id} (${account.name})`
+          logger.line(
+            "⏰",
+            LogSymbol.KEY,
+            `Refreshed GitHub Copilot token for account ${account.id} (${account.name})`
           );
           return true;
         }
@@ -257,8 +262,10 @@ export class TokenScheduler {
             },
           });
 
-          console.log(
-            `🔄 [TokenScheduler] Refreshed Google OAuth token for account ${account.id} (${account.name})`
+          logger.line(
+            "⏰",
+            LogSymbol.KEY,
+            `Refreshed Google OAuth token for account ${account.id} (${account.name})`
           );
           return true;
         }

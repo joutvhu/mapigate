@@ -30,6 +30,7 @@ import {
 } from "../../core/router/comboEngine.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { logger, tagForSession, LogSymbol, formatDoneLine } from "../../shared/logger.js";
 
 const MAX_PROXY_DISPATCHERS = 50;
 const proxyDispatchers = new Map<string, ProxyAgent>();
@@ -81,6 +82,7 @@ interface ExecuteSingleModelOptions {
   rawModel: string;
   rtkStats: { compressedTokens: number; tokensSaved: number };
   is1mContext?: boolean;
+  reqTag?: string;
 }
 
 async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<ModelCallResult> {
@@ -97,6 +99,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     rawModel,
     rtkStats,
     is1mContext: optionIs1m,
+    reqTag = options.req.reqTag || tagForSession(options.requestId),
   } = options;
 
   let targetModel = modelStr;
@@ -132,6 +135,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
   }
 
   if (!providerId) {
+    logger.errorLine(reqTag, LogSymbol.ERROR, `No active provider configured for model '${modelStr}'`);
     return {
       ok: false,
       status: 503,
@@ -144,6 +148,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     ProviderRepository.getProviderById(providerId);
 
   if (!provider) {
+    logger.errorLine(reqTag, LogSymbol.ERROR, `Provider '${providerId}' not found`);
     return {
       ok: false,
       status: 502,
@@ -224,6 +229,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       if (triedAccountIds.size > 0 && lastFailureResult) {
         return lastFailureResult;
       }
+      logger.errorLine(
+        reqTag,
+        LogSymbol.ERROR,
+        `No active API key account found for provider '${provider.name}'`
+      );
       return {
         ok: false,
         status: 503,
@@ -234,6 +244,26 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     if (account) {
       triedAccountIds.add(account.id);
     }
+
+    const msgN = Array.isArray(baseUpstreamBody?.messages)
+      ? baseUpstreamBody.messages.length
+      : Array.isArray(baseUpstreamBody?.contents)
+      ? baseUpstreamBody.contents.length
+      : 0;
+    const toolN = Array.isArray(baseUpstreamBody?.tools)
+      ? baseUpstreamBody.tools.length
+      : 0;
+    const isStreamingReq = baseUpstreamBody?.stream !== false;
+    const accName = account?.name || (account?.id ? account.id.slice(0, 8) : "-");
+    const dispatchParts = [
+      `POST ${rawModel} → ${provider.id}/${targetModel}`,
+      `FMT: ${clientFormat}→${targetFormat}`,
+      isStreamingReq ? "STREAM" : "JSON",
+      `${msgN} MSG`,
+    ];
+    if (toolN) dispatchParts.push(`${toolN} TOOL`);
+    dispatchParts.push(`ACC:${accName}`);
+    logger.line(reqTag, LogSymbol.DISPATCH, dispatchParts.join(" · "));
 
     let promptTokens = rtkStats.compressedTokens || 0;
     let completionTokens = 0;
@@ -273,6 +303,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         try {
           const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
           if (refreshed?.accessToken) {
+            logger.line(reqTag, LogSymbol.KEY, `Google OAuth token refreshed · ${provider.id}/${targetModel}`);
             bearerToken = refreshed.accessToken;
             oauthJson.accessToken = refreshed.accessToken;
             if (refreshed.refreshToken) oauthJson.refreshToken = refreshed.refreshToken;
@@ -447,6 +478,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         try {
           const refreshed = await refreshGoogleOAuthToken(oauthJson.refreshToken);
           if (refreshed?.accessToken) {
+            logger.line(reqTag, LogSymbol.KEY, `Google OAuth token refreshed on 401 retry · ${provider.id}/${targetModel}`);
             bearerToken = refreshed.accessToken;
             outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
             fetchOptions.headers = outgoingHeaders;
@@ -470,6 +502,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         try {
           const fresh = await ensureFreshCopilotCredentials(account, { force: true });
           if (fresh?.copilotToken) {
+            logger.line(reqTag, LogSymbol.KEY, `GitHub Copilot token refreshed on 401 retry · ${provider.id}/${targetModel}`);
             bearerToken = fresh.copilotToken;
             outgoingHeaders["Authorization"] = `Bearer ${bearerToken}`;
             fetchOptions.headers = outgoingHeaders;
@@ -496,8 +529,10 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
 
         const nextAccount = LoadBalancer.pickAccount(provider.id, triedAccountIds);
         if (nextAccount) {
-          console.warn(
-            `[chatProxy] Account '${account.name || account.id}' for provider '${provider.id}' hit ${upstreamRes.status} (rate-limit/quota). Cooldown: ${cooldownMs}ms. Failing over to next account '${nextAccount.name || nextAccount.id}'...`
+          logger.line(
+            reqTag,
+            LogSymbol.FAILOVER,
+            `Account '${account.name || account.id}' hit ${upstreamRes.status} (rate-limit/quota) · failing over to '${nextAccount.name || nextAccount.id}' (cooldown: ${cooldownMs}ms)`
           );
           lastFailureResult = {
             ok: false,
@@ -508,6 +543,13 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
           continue;
         }
       }
+
+      const durationMs = Date.now() - startTime;
+      logger.errorLine(
+        reqTag,
+        LogSymbol.ERROR,
+        `ERROR ${upstreamRes.status} · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${errText.slice(0, 500)}`
+      );
 
       return {
         ok: false,
@@ -651,6 +693,21 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       });
 
       UsageRepository.endPendingRequest(requestId, false);
+
+      logger.line(
+        reqTag,
+        LogSymbol.USAGE,
+        formatDoneLine({
+          durationMs,
+          promptTokens: finalPromptTokens,
+          completionTokens: finalCompletionTokens,
+          cachedTokens: finalCachedTokens,
+          cacheCreationTokens: finalCacheCreationTokens,
+          tokensSaved: rtkStats.tokensSaved,
+          cost: calculatedCost,
+        })
+      );
+
       return { ok: true, status: 200, json: isJson ? responseBody : undefined, text: !isJson ? responseBody : undefined, modelUsed: targetModel };
     }
 
@@ -685,6 +742,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
 
         if (!ttftMs) {
           ttftMs = Date.now() - startTime;
+          logger.line(reqTag, LogSymbol.STREAM, `TTFT ${ttftMs}ms · streaming chunks...`);
         }
 
         const { frames, remainder } = decodeEventStreamChunk(value, residualBuffer);
@@ -795,6 +853,22 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       });
 
       UsageRepository.endPendingRequest(requestId, false);
+
+      logger.line(
+        reqTag,
+        LogSymbol.USAGE,
+        formatDoneLine({
+          durationMs: totalDuration,
+          ttftMs,
+          promptTokens,
+          completionTokens,
+          cachedTokens,
+          cacheCreationTokens,
+          tokensSaved: rtkStats.tokensSaved,
+          cost: calculatedCost,
+        })
+      );
+
       return { ok: true, status: 200, modelUsed: targetModel };
     }
 
@@ -827,6 +901,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
 
       if (!ttftMs) {
         ttftMs = Date.now() - startTime;
+        logger.line(reqTag, LogSymbol.STREAM, `TTFT ${ttftMs}ms · streaming chunks...`);
       }
 
       buffer += decoder.decode(value, { stream: true });
@@ -991,11 +1066,33 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     });
 
     UsageRepository.endPendingRequest(requestId, false);
+
+    logger.line(
+      reqTag,
+      LogSymbol.USAGE,
+      formatDoneLine({
+        durationMs: totalDuration,
+        ttftMs,
+        promptTokens,
+        completionTokens,
+        cachedTokens,
+        cacheCreationTokens,
+        tokensSaved: rtkStats.tokensSaved,
+        cost: calculatedCost,
+      })
+    );
+
     return { ok: true, status: 200, modelUsed: targetModel };
   } catch (err: any) {
     if (triedAccountIds.size > 0 && lastFailureResult) {
       return lastFailureResult;
     }
+    const durationMs = Date.now() - startTime;
+    logger.errorLine(
+      reqTag,
+      LogSymbol.ERROR,
+      `ERROR 500 · ${provider?.id || providerId || "unknown"}/${targetModel} · ${durationMs}ms\n    ${err.message || "Upstream request failed"}`
+    );
     return {
       ok: false,
       status: 500,
@@ -1040,7 +1137,10 @@ export async function handleProxyRequest(
   }
 
   const startTime = Date.now();
-  const requestId = crypto.randomUUID();
+  const requestId = req.reqId || crypto.randomUUID();
+  const reqTag = req.reqTag || tagForSession(requestId);
+  req.reqId = requestId;
+  req.reqTag = reqTag;
   const body = req.body || {};
   const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "unknown";
 
@@ -1055,6 +1155,15 @@ export async function handleProxyRequest(
 
   // 1. RTK compression
   const rtkStats = RtkCompressor.compressPayloadInPlace(body);
+  if (rtkStats.tokensSaved > 0) {
+    const orig = rtkStats.originalTokens || (rtkStats.compressedTokens + rtkStats.tokensSaved);
+    const pct = orig > 0 ? Math.round((rtkStats.tokensSaved / orig) * 100) : 0;
+    logger.line(
+      reqTag,
+      LogSymbol.SAVER,
+      `RTK: saved ${rtkStats.tokensSaved} tokens (-${pct}%)`
+    );
+  }
 
   // 2. Combo Detection
   const allCombos = ComboRepository.getAllCombos();
@@ -1074,6 +1183,11 @@ export async function handleProxyRequest(
     candidateModels = [...activeCombo.models];
     comboStrategy = activeCombo.strategy;
     comboName = activeCombo.name;
+    logger.line(
+      reqTag,
+      LogSymbol.COMBO,
+      `COMBO "${comboName}" (${comboStrategy}) · candidates: [${candidateModels.join(", ")}]`
+    );
   } else {
     candidateModels = [cleanModel];
   }
@@ -1083,6 +1197,11 @@ export async function handleProxyRequest(
   if (requiredCaps.size > 0) {
     const adapterSettings = SettingsRepository.getCapacityAdapterSettings();
     candidateModels = augmentModelsWithCapacityAdapter(candidateModels, requiredCaps, adapterSettings);
+    logger.line(
+      reqTag,
+      LogSymbol.COMBO,
+      `CAPACITY ADAPTER: required [${[...requiredCaps].join(", ")}] · models: [${candidateModels.join(", ")}]`
+    );
   }
 
   // Track in-flight request
@@ -1106,6 +1225,7 @@ export async function handleProxyRequest(
       rawModel,
       rtkStats,
       is1mContext,
+      reqTag,
     });
   };
 
@@ -1142,6 +1262,12 @@ export async function handleProxyRequest(
       const durationMs = Date.now() - startTime;
       const status = result.status || 503;
       const errMsg = result.error || "All combo models failed";
+
+      logger.errorLine(
+        reqTag,
+        LogSymbol.ERROR,
+        `REQUEST FAILED ${status} · ${comboName || candidateModels[0] || rawModel} · ${durationMs}ms\n    ${errMsg}`
+      );
 
       UsageRepository.endPendingRequest(requestId, true);
 
@@ -1192,6 +1318,11 @@ export async function handleProxyRequest(
     }
   } catch (err: any) {
     const totalDuration = Date.now() - startTime;
+    logger.errorLine(
+      reqTag,
+      LogSymbol.ERROR,
+      `REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms\n    ${err.stack || err.message}`
+    );
     UsageRepository.endPendingRequest(requestId, true);
 
     if (!res.headersSent) {

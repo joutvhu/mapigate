@@ -7,6 +7,12 @@
 
 import { getCapabilitiesForModel } from "../capabilities/index.js";
 import { HARD_CAPS, detectRequiredCapabilities } from "./capacityAdapter.js";
+import { logger } from "../../shared/logger.js";
+
+const defaultComboLogger = {
+  info: (msg: string, ...args: any[]) => logger.info("COMBO", msg, ...args),
+  warn: (msg: string, ...args: any[]) => logger.warn("COMBO", msg, ...args),
+};
 
 const TOOL_CALL_PREFIX = "[Called tools: ";
 const TOOL_RESULT_PREFIX = "[Tool result: ";
@@ -377,7 +383,7 @@ export async function handleFallbackChat(options: {
     body,
     models,
     handleSingleModel,
-    log = console,
+    log = defaultComboLogger,
     comboName = "",
     comboStrategy = "fallback",
     comboStickyLimit = 1,
@@ -453,7 +459,7 @@ export async function handleFusionChat(options: {
     body,
     models,
     handleSingleModel,
-    log = console,
+    log = defaultComboLogger,
     comboName = "",
     judgeModel,
     tuning,

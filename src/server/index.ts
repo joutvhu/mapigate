@@ -3,6 +3,8 @@ import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
 import { initConsoleLogCapture } from "./utils/consoleLogBuffer.js";
+import { logger } from "../shared/logger.js";
+import { requestLogger } from "./middlewares/requestLogger.js";
 
 // Initialize console log capture before any other modules log to console
 initConsoleLogCapture();
@@ -33,6 +35,7 @@ const host = process.env.HOST || DEFAULT_HOST;
 
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
+app.use(requestLogger);
 
 // Health check endpoint
 app.get("/health", (_req, res) => {
@@ -204,12 +207,12 @@ if (!isTest) {
 
   server = app.listen(port, host, () => {
     serverLifecycle.setServer(server);
-    console.log(`[${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
+    logger.info("SERVER", `[${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
     try {
       const dnsStatus = MitmRepository.getAllToolDnsStatus();
-      console.log(`[MITM] Inspecting tool-level DNS isolation on boot:`, dnsStatus);
+      logger.info("MITM", "Inspecting tool-level DNS isolation on boot:", dnsStatus);
     } catch (err) {
-      console.warn(`[MITM] Could not inspect cold boot tool DNS status:`, err);
+      logger.warn("MITM", "Could not inspect cold boot tool DNS status:", err);
     }
 
     // Initialize system tray if running in background daemon mode or tray explicitly requested

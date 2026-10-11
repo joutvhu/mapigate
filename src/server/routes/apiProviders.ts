@@ -326,7 +326,7 @@ providerRouter.post("/:id/accounts", (req, res) => {
       return;
     }
 
-    const ensured = ProviderRepository.ensureProviderExists(providerId, name);
+    const ensured = ProviderRepository.ensureProviderExists(providerId);
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
     ProviderRepository.addAccount({
       id: accountId,
