@@ -40,9 +40,11 @@ program
 program
   .command("stop")
   .description(`Stop running ${APP_NAME} daemon`)
-  .action(() => {
+  .option("-p, --port <number>", "Port to check and stop", String(DEFAULT_PORT))
+  .action((options) => {
+    const port = Number(options?.port) || DEFAULT_PORT;
     const spinner = ora(`Stopping ${APP_NAME} daemon...`).start();
-    const res = ProcessManager.stopDaemon();
+    const res = ProcessManager.stopDaemon(port);
     if (res.success) {
       spinner.succeed(chalk.green(res.message));
     } else {
