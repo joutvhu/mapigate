@@ -20,7 +20,11 @@ import { PortalModal } from "./PortalModal.js";
 import { CapacityBadges } from "./CapacityBadges.js";
 import { Select } from "./Select.js";
 import { PROVIDER_REGISTRY } from "../../../shared/constants/providerRegistry.js";
-import { getCapabilitiesForModel, type ModelCapabilities } from "../../../core/capabilities/index.js";
+import {
+  getCapabilitiesForModel,
+  aggregateComboCapabilities,
+  type ModelCapabilities,
+} from "../../../core/capabilities/index.js";
 import { getAvailableModelsCached, type AvailableModelItem } from "./ModelAutocompleteInput.js";
 
 export interface ModelOption {
@@ -59,12 +63,16 @@ export interface ModelSelectModalProps {
   capFilter?: "vision" | "audio" | "pdf" | "thinking" | string | null;
   addedModelValues?: string[];
   closeOnSelect?: boolean;
+  excludeModelIds?: string[];
+  allowCombos?: boolean;
 }
 
 interface ComboSummary {
   id: string;
   name: string;
   models: string[];
+  strategy?: "round-robin" | "fallback" | "fusion" | string;
+  isActive?: boolean;
 }
 
 interface SortableModelItemProps {
@@ -188,6 +196,8 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   capFilter = null,
   addedModelValues,
   closeOnSelect = false,
+  excludeModelIds,
+  allowCombos = true,
 }) => {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -339,9 +349,16 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     return list;
   }, [modelAliases]);
 
+  const excludeSet = useMemo(() => {
+    return new Set((excludeModelIds || []).map((x) => x.toLowerCase()));
+  }, [excludeModelIds]);
+
   // Distinct providers list
   const providerOptions = useMemo(() => {
     const map = new Map<string, string>();
+    if (allowCombos !== false && combos.length > 0) {
+      map.set("combo", "Combos");
+    }
     for (const m of allModels) {
       if (connectedOnly && hasConnectedAccounts && !connectedProviderIds.has(m.providerId)) {
         continue;
@@ -351,23 +368,41 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       }
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [allModels, connectedOnly, hasConnectedAccounts, connectedProviderIds]);
+  }, [allModels, connectedOnly, hasConnectedAccounts, connectedProviderIds, allowCombos, combos]);
 
   // Filter combos by search query (hidden if modality filter active)
   const filteredCombos = useMemo(() => {
+    if (allowCombos === false) return [];
     if (activeModalityFilter !== "all" || kindFilter) return [];
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return combos;
-    return combos.filter(
+    const pool = combos.filter(
+      (c) =>
+        !excludeSet.has(c.id.toLowerCase()) &&
+        !excludeSet.has(c.name.toLowerCase()) &&
+        !excludeSet.has(`combo/${c.name}`.toLowerCase())
+    );
+    if (!q) return pool;
+    return pool.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
+        (c.strategy && c.strategy.toLowerCase().includes(q)) ||
         c.models.some((m) => m.toLowerCase().includes(q))
     );
-  }, [combos, searchQuery, activeModalityFilter, kindFilter]);
+  }, [combos, searchQuery, activeModalityFilter, kindFilter, allowCombos, excludeSet]);
 
   // Filtered available models
   const filteredModels = useMemo(() => {
+    if (selectedProvider === "combo") return [];
+
     return allModels.filter((item) => {
+      // Exclude filtered IDs
+      if (
+        excludeSet.has(item.id.toLowerCase()) ||
+        excludeSet.has(item.value.toLowerCase())
+      ) {
+        return false;
+      }
+
       // Connected only filter
       if (connectedOnly && hasConnectedAccounts) {
         if (!connectedProviderIds.has(item.providerId)) {
@@ -420,6 +455,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     connectedOnly,
     hasConnectedAccounts,
     connectedProviderIds,
+    excludeSet,
   ]);
 
   const handleToggleModel = (item: ModelOption) => {
@@ -451,13 +487,14 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     const val = combo.name;
     const isCurrentlySelected = selectedModels.includes(val);
 
+    const comboCaps = aggregateComboCapabilities(combo.models);
     const comboOption: ModelOption = {
       id: combo.name,
       value: combo.name,
       name: combo.name,
       providerId: "combo",
       providerName: "Combos",
-      caps: getCapabilitiesForModel(null, combo.name),
+      caps: comboCaps || getCapabilitiesForModel(null, combo.name),
     };
 
     if (isCurrentlySelected) {
@@ -603,6 +640,26 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                 ]}
                 className="shrink-0 min-w-[150px]"
               />
+
+              {/* Combos Filter Button */}
+              {allowCombos !== false && combos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvider(selectedProvider === "combo" ? "all" : "combo")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    selectedProvider === "combo"
+                      ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                      : "bg-[#0A0D14] text-slate-400 border-[#1E293B] hover:text-cyan-300"
+                  }`}
+                  title="Filter by Smart Combos"
+                >
+                  <span className="material-symbols-outlined text-[13px]">layers</span>
+                  Combos
+                  <span className="text-[9.5px] px-1 rounded bg-cyan-500/30 text-cyan-300 font-mono">
+                    {combos.length}
+                  </span>
+                </button>
+              )}
 
               {/* Connected Only Filter Button */}
               <button
