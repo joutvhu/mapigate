@@ -34,6 +34,10 @@ export const MODEL_PRICING: Record<string, ModelPricingRates> = {
   "claude-sonnet-4-20250514":     { input: 3.00,  output: 15.00, cached: 1.50,  reasoning: 15.00,  cache_creation: 3.00  },
   "claude-opus-4-20250514":       { input: 15.00, output: 25.00, cached: 7.50,  reasoning: 112.50, cache_creation: 15.00 },
   "claude-3-7-sonnet-20250219":   { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
+  "claude-3-7-sonnet":            { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
+  "claude-3-5-sonnet":            { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
+  "anthropic/claude-3-7-sonnet":  { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
+  "anthropic/claude-3-5-sonnet":  { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
   "claude-3-5-sonnet-20241022":   { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
   "claude-3-5-sonnet-20240620":   { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  },
   "claude-3-5-haiku-20241022":    { input: 0.80,  output: 4.00,  cached: 0.08,  reasoning: 4.00,   cache_creation: 1.00  },
@@ -46,6 +50,7 @@ export const MODEL_PRICING: Record<string, ModelPricingRates> = {
 
   // === OpenAI / GPT ===
   "gpt-4o":                       { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
+  "openai/gpt-4o":                { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
   "gpt-4o-mini":                  { input: 0.15,  output: 0.60,  cached: 0.075, reasoning: 0.90,   cache_creation: 0.15  },
   "gpt-4.1":                      { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  },
   "gpt-5":                        { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  },
@@ -63,10 +68,13 @@ export const MODEL_PRICING: Record<string, ModelPricingRates> = {
   "o1":                           { input: 15.00, output: 60.00, cached: 7.50,  reasoning: 90.00,  cache_creation: 15.00 },
   "o1-mini":                      { input: 3.00,  output: 12.00, cached: 1.50,  reasoning: 18.00,  cache_creation: 3.00  },
   "o3-mini":                      { input: 1.10,  output: 4.40,  cached: 0.55,  reasoning: 4.40,   cache_creation: 1.10  },
+  "openai/o3-mini":               { input: 1.10,  output: 4.40,  cached: 0.55,  reasoning: 4.40,   cache_creation: 1.10  },
 
   // === Google / Gemini ===
   "gemini-2.5-pro":               { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  },
+  "google/gemini-2.5-pro":        { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  },
   "gemini-2.5-flash":             { input: 0.15,  output: 0.60,  cached: 0.0375, reasoning: 0.60,  cache_creation: 0.15  },
+  "google/gemini-2.5-flash":      { input: 0.15,  output: 0.60,  cached: 0.0375, reasoning: 0.60,  cache_creation: 0.15  },
   "gemini-3-flash":               { input: 0.50,  output: 3.00,  cached: 0.03,  reasoning: 4.50,   cache_creation: 0.50  },
   "gemini-3-pro":                 { input: 2.00,  output: 12.00, cached: 0.25,  reasoning: 18.00,  cache_creation: 2.00  },
   "gemini-3.7-flash":              { input: 1.50,  output: 7.50,  cached: 0.15,  reasoning: 11.25,  cache_creation: 1.875 },
@@ -76,7 +84,9 @@ export const MODEL_PRICING: Record<string, ModelPricingRates> = {
   "deepseek-chat":                { input: 0.14,  output: 0.28,  cached: 0.014, reasoning: 0.28,   cache_creation: 0.14  },
   "deepseek-reasoner":            { input: 0.55,  output: 2.19,  cached: 0.14,  reasoning: 2.19,   cache_creation: 0.55  },
   "deepseek-r1":                  { input: 0.55,  output: 2.19,  cached: 0.14,  reasoning: 2.19,   cache_creation: 0.55  },
+  "deepseek/deepseek-r1":         { input: 0.55,  output: 2.19,  cached: 0.14,  reasoning: 2.19,   cache_creation: 0.55  },
   "deepseek-v3":                  { input: 0.14,  output: 0.28,  cached: 0.014, reasoning: 0.28,   cache_creation: 0.14  },
+  "deepseek/deepseek-v3":         { input: 0.14,  output: 0.28,  cached: 0.014, reasoning: 0.28,   cache_creation: 0.14  },
 
   // === Qwen ===
   "qwen-2.5-coder-32b":           { input: 0.07,  output: 0.20,  cached: 0.01,  reasoning: 0.20,   cache_creation: 0.07  },

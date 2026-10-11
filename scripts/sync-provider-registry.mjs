@@ -247,7 +247,15 @@ export interface ProviderRegistryItem {
 export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = ${JSON.stringify(registryMap, null, 2)};
 
 export function getRegistryProvider(id: string): ProviderRegistryItem | undefined {
-  return PROVIDER_REGISTRY[id];
+  if (PROVIDER_REGISTRY[id]) return PROVIDER_REGISTRY[id];
+  const lower = id.toLowerCase();
+  for (const item of Object.values(PROVIDER_REGISTRY)) {
+    if (item.id.toLowerCase() === lower) return item;
+    if (item.alias?.toLowerCase() === lower) return item;
+    if (item.uiAlias?.toLowerCase() === lower) return item;
+    if (item.aliases?.some((a) => a.toLowerCase() === lower)) return item;
+  }
+  return undefined;
 }
 
 export function getAllRegistryProviders(): ProviderRegistryItem[] {
