@@ -32,6 +32,7 @@ test("Mapigate Rename - Data Directory Resolution", () => {
   const origNodeEnv = process.env.NODE_ENV;
   const origMapigateDev = process.env.MAPIGATE_DEV;
   const origMapigateProd = process.env.MAPIGATE_PROD;
+  const origNpmLifecycle = process.env.npm_lifecycle_event;
 
   try {
     // 1. MAPIGATE_DATA_DIR takes highest precedence
@@ -41,27 +42,50 @@ test("Mapigate Rename - Data Directory Resolution", () => {
     // 2. Clear MAPIGATE_DATA_DIR to test environment-based resolution
     delete process.env.MAPIGATE_DATA_DIR;
 
-    // 2a. Development mode resolution (in repo root)
+    // 2a. NODE_ENV="development" ALONE does not activate dev mode
+    delete process.env.MAPIGATE_DEV;
     delete process.env.MAPIGATE_PROD;
+    delete process.env.npm_lifecycle_event;
     process.env.NODE_ENV = "development";
-    assert.equal(isDevelopmentMode(), true);
-    assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
+    assert.equal(isDevelopmentMode(), false);
+    assert.equal(getDefaultDataDir(), path.join(os.homedir(), ".mapigate"));
 
-    // 2b. MAPIGATE_DEV flag
+    // 2b. MAPIGATE_DEV flag activates dev mode
     delete process.env.NODE_ENV;
     process.env.MAPIGATE_DEV = "1";
     assert.equal(isDevelopmentMode(), true);
     assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
+
+    process.env.MAPIGATE_DEV = "true";
+    assert.equal(isDevelopmentMode(), true);
+    assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
     delete process.env.MAPIGATE_DEV;
 
-    // 2c. Production mode resolution (NODE_ENV=production)
-    process.env.NODE_ENV = "production";
+    // 2c. npm_lifecycle_event activates dev mode
+    process.env.npm_lifecycle_event = "dev";
+    assert.equal(isDevelopmentMode(), true);
+    assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
+
+    process.env.npm_lifecycle_event = "dev:server";
+    assert.equal(isDevelopmentMode(), true);
+    assert.equal(getDefaultDataDir(), path.resolve(process.cwd(), ".mapigate"));
+    delete process.env.npm_lifecycle_event;
+
+    // 2d. MAPIGATE_PROD overrides dev flags
+    process.env.MAPIGATE_DEV = "1";
+    process.env.npm_lifecycle_event = "dev";
+    process.env.MAPIGATE_PROD = "1";
     assert.equal(isDevelopmentMode(), false);
     assert.equal(getDefaultDataDir(), path.join(os.homedir(), ".mapigate"));
 
-    // 2d. Production mode resolution (MAPIGATE_PROD=1)
-    delete process.env.NODE_ENV;
-    process.env.MAPIGATE_PROD = "1";
+    process.env.MAPIGATE_PROD = "true";
+    assert.equal(isDevelopmentMode(), false);
+    assert.equal(getDefaultDataDir(), path.join(os.homedir(), ".mapigate"));
+
+    // 2e. Default environment without flags resolves to ~/.mapigate
+    delete process.env.MAPIGATE_DEV;
+    delete process.env.npm_lifecycle_event;
+    delete process.env.MAPIGATE_PROD;
     assert.equal(isDevelopmentMode(), false);
     assert.equal(getDefaultDataDir(), path.join(os.homedir(), ".mapigate"));
   } finally {
@@ -76,6 +100,9 @@ test("Mapigate Rename - Data Directory Resolution", () => {
 
     if (origMapigateProd !== undefined) process.env.MAPIGATE_PROD = origMapigateProd;
     else delete process.env.MAPIGATE_PROD;
+
+    if (origNpmLifecycle !== undefined) process.env.npm_lifecycle_event = origNpmLifecycle;
+    else delete process.env.npm_lifecycle_event;
   }
 });
 
