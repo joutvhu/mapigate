@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
+import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput.js";
 
 interface MitmMappingRow {
   sourceModel: string;
@@ -696,7 +697,7 @@ export const MitmTab: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-[#1E293B] overflow-hidden bg-[#0A0D14]">
+                    <div className="rounded-xl border border-[#1E293B] overflow-visible bg-[#0A0D14]">
                       {toolMappings.length === 0 ? (
                         <div className="p-4 text-xs text-slate-500 italic text-center">
                           No model mappings configured for {tool.name}. Click 'Add Mapping' or 'Reset to Default'.
@@ -716,22 +717,14 @@ export const MitmTab: React.FC = () => {
                                   </td>
                                   <td className="p-3 text-blue-400">
                                     {isEditing ? (
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 w-full max-w-sm">
                                         <span className="text-blue-400 font-mono">→</span>
-                                        <input
-                                          type="text"
+                                        <ModelAutocompleteInput
                                           value={targetInput}
-                                          onChange={(e) => setTargetInput(e.target.value)}
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") handleUpdateMapping(tool.id);
-                                            if (e.key === "Escape") {
-                                              setEditingSource(null);
-                                              setEditingTool(null);
-                                              setTargetInput("");
-                                            }
-                                          }}
-                                          placeholder="e.g. ag/gemini-3.8-flash"
-                                          className="bg-[#080B11] border border-blue-500/60 focus:border-blue-400 rounded-lg px-2.5 py-1 text-xs text-white font-mono w-full max-w-xs focus:outline-none"
+                                          onChange={setTargetInput}
+                                          onEnter={() => handleUpdateMapping(tool.id)}
+                                          placeholder="Search connected model..."
+                                          className="bg-[#080B11] border border-blue-500/60 focus:border-blue-400 rounded-lg px-2.5 py-1 text-xs text-white font-mono w-full focus:outline-none"
                                           autoFocus
                                         />
                                       </div>
@@ -841,12 +834,10 @@ export const MitmTab: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Target Upstream Model ID (Mapigate Provider Model)
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. ag/gemini-3.8-flash or claude/claude-sonnet-4-6"
+                <ModelAutocompleteInput
                   value={newTargetModel}
-                  onChange={(e) => setNewTargetModel(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  onChange={setNewTargetModel}
+                  placeholder="Search connected model..."
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   Supports slash / formats, e.g. provider/model-name.
