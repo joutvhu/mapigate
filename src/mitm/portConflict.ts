@@ -48,7 +48,7 @@ const SYSTEM_PROCESS_NAMES = new Set([
 ]);
 
 const SYSTEM_REMEDIATION_HINT =
-  "Chạy 'iisreset /stop' hoặc 'net stop w3svc' bằng quyền Administrator để giải phóng port.";
+  "Run 'iisreset /stop' or 'net stop w3svc' in an Administrator terminal to release port 443.";
 
 /**
  * Check if a process by PID or process name is a protected system service.
