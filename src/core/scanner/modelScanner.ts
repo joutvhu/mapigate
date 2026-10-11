@@ -12,7 +12,7 @@ export function resolveCandidateUrls(
   providerId?: string,
   registryItem?: ProviderRegistryItem
 ): string[] {
-  const cleanBase = (baseUrl || "").trim().replace(/\/+$/, "");
+  let cleanBase = (baseUrl || "").trim().replace(/\/+$/, "");
   if (!cleanBase) return [];
 
   const candidates: string[] = [];
@@ -23,7 +23,7 @@ export function resolveCandidateUrls(
     }
   };
 
-  const lowerBase = cleanBase.toLowerCase();
+  let lowerBase = cleanBase.toLowerCase();
   const isOllama =
     format === "ollama" ||
     lowerBase.includes(":11434") ||
@@ -35,13 +35,15 @@ export function resolveCandidateUrls(
     return candidates;
   }
 
-  // 2. BaseUrl ends with /chat/completions or /messages
+  // 2. BaseUrl ends with /chat/completions or /messages -> strip path segment
   if (lowerBase.endsWith("/chat/completions")) {
-    const parent = cleanBase.slice(0, cleanBase.length - "/chat/completions".length);
-    add(`${parent}/models`);
+    cleanBase = cleanBase.slice(0, cleanBase.length - "/chat/completions".length).replace(/\/+$/, "");
+    lowerBase = cleanBase.toLowerCase();
+    add(`${cleanBase}/models`);
   } else if (lowerBase.endsWith("/messages")) {
-    const parent = cleanBase.slice(0, cleanBase.length - "/messages".length);
-    add(`${parent}/models`);
+    cleanBase = cleanBase.slice(0, cleanBase.length - "/messages".length).replace(/\/+$/, "");
+    lowerBase = cleanBase.toLowerCase();
+    add(`${cleanBase}/models`);
   }
 
   // 3. Ollama special endpoints
@@ -253,6 +255,12 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       ...(customHeaders || {}),
     };
 
+    const isGemini =
+      format === "gemini" ||
+      (providerId && (providerId.toLowerCase().includes("gemini") || providerId.toLowerCase().includes("google"))) ||
+      baseUrl.toLowerCase().includes("googleapis.com") ||
+      baseUrl.toLowerCase().includes("generativelanguage");
+
     if (apiKey) {
       const token = apiKey.trim();
       if (!reqHeaders["Authorization"] && !reqHeaders["authorization"]) {
@@ -260,6 +268,9 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       }
       if (!reqHeaders["x-api-key"] && !reqHeaders["X-API-KEY"]) {
         reqHeaders["x-api-key"] = token;
+      }
+      if (isGemini && !reqHeaders["x-goog-api-key"] && !reqHeaders["X-GOOG-API-KEY"]) {
+        reqHeaders["x-goog-api-key"] = token;
       }
     }
 
@@ -269,9 +280,19 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
     // Probe candidate URLs in order
     for (const url of candidateUrls) {
       try {
+        const headersForUrl = { ...reqHeaders };
+        if (
+          apiKey &&
+          (url.toLowerCase().includes("googleapis.com") || url.toLowerCase().includes("generativelanguage")) &&
+          !headersForUrl["x-goog-api-key"] &&
+          !headersForUrl["X-GOOG-API-KEY"]
+        ) {
+          headersForUrl["x-goog-api-key"] = apiKey.trim();
+        }
+
         const response = await fetch(url, {
           method: "GET",
-          headers: reqHeaders,
+          headers: headersForUrl,
           signal: AbortSignal.timeout(timeoutMs),
         });
 

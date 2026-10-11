@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ScanModelsModal } from "../components/ScanModelsModal";
+import { saveProviderModels } from "../services/providerService";
 import {
   OAUTH_PROVIDERS_LIST,
   FREE_TIER_PROVIDERS_LIST,
@@ -464,17 +465,22 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                 : [...currentModels, ...newModelIds.filter((m) => !currentModels.includes(m))];
 
             try {
-              await fetch("/api/providers", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  id: scanningProvider.id,
-                  name: scanningProvider.name,
-                  baseUrl: current?.baseUrl || scanningProvider.baseUrl || "https://api.openai.com",
-                  format: current?.format || scanningProvider.format || "openai",
-                  models: nextModels,
-                }),
-              });
+              const saved = await saveProviderModels(scanningProvider.id, nextModels);
+              if (!saved) {
+                // Fallback in case provider is not yet persisted in SQLite
+                await fetch("/api/providers", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ...(current || {}),
+                    id: scanningProvider.id,
+                    name: current?.name || scanningProvider.name,
+                    baseUrl: current?.baseUrl || scanningProvider.baseUrl || "https://api.openai.com",
+                    format: current?.format || scanningProvider.format || "openai",
+                    models: nextModels,
+                  }),
+                });
+              }
               await loadBackendProviders();
             } catch (err) {
               console.error("Failed to save scanned models:", err);

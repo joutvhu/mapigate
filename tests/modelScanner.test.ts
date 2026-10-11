@@ -37,11 +37,13 @@ describe("Model Scanner - Candidate URL Resolution", () => {
   test("strips /chat/completions suffix to find /models", () => {
     const urls = resolveCandidateUrls("https://apihub.agnes-ai.com/v1/chat/completions");
     assert.ok(urls.includes("https://apihub.agnes-ai.com/v1/models"));
+    assert.ok(!urls.some((u) => u.includes("/chat/completions/")));
   });
 
   test("strips /messages suffix to find /models", () => {
     const urls = resolveCandidateUrls("https://api.anthropic.com/v1/messages");
     assert.ok(urls.includes("https://api.anthropic.com/v1/models"));
+    assert.ok(!urls.some((u) => u.includes("/messages/")));
   });
 
   test("includes /api/tags for Ollama format", () => {
@@ -159,6 +161,24 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
         return;
       }
 
+      if (url === "/v1beta/gemini-probe/models") {
+        const googKey = req.headers["x-goog-api-key"];
+        if (googKey !== "gemini-secret-456") {
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing or invalid x-goog-api-key" }));
+          return;
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            models: [
+              { name: "models/gemini-2.0-flash", displayName: "Gemini 2.0 Flash" },
+            ],
+          })
+        );
+        return;
+      }
+
       res.writeHead(404, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Not Found" }));
     });
@@ -212,6 +232,18 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.equal(result.success, true);
     assert.equal(result.count, 1);
     assert.equal(result.models[0].id, "fallback-model");
+  });
+
+  test("sends x-goog-api-key when scanning Gemini endpoints", async () => {
+    const result = await scanProviderModels({
+      baseUrl: `http://127.0.0.1:${serverPort}/v1beta/gemini-probe`,
+      format: "gemini",
+      apiKey: "gemini-secret-456",
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.count, 1);
+    assert.equal(result.models[0].id, "gemini-2.0-flash");
   });
 
   test("returns clean error on unreachable host", async () => {

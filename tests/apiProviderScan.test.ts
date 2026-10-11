@@ -185,4 +185,47 @@ describe("API Provider Scan Endpoints", () => {
     assert.equal(body.success, false);
     assert.ok(body.error?.includes("not found"));
   });
+
+  test("preserving provider configuration when updating models", async () => {
+    const providerId = `preserve-prov-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Preserved Provider",
+      baseUrl: "https://api.custom.com/v1",
+      format: "openai",
+      isActive: true,
+      priority: 42,
+      customHeaders: { "X-Custom-Routing": "route-1" },
+      proxyUrl: "http://127.0.0.1:8080",
+      models: ["old-model"],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Simulate saveProviderModels pattern
+    const getRes = await fetch(`http://127.0.0.1:${apiPort}/api/providers/${providerId}`);
+    assert.equal(getRes.status, 200);
+    const current = (await getRes.json()) as any;
+    assert.equal(current.priority, 42);
+    assert.equal(current.customHeaders["X-Custom-Routing"], "route-1");
+    assert.equal(current.proxyUrl, "http://127.0.0.1:8080");
+
+    const updateRes = await fetch(`http://127.0.0.1:${apiPort}/api/providers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...current,
+        id: providerId,
+        models: ["scanned-model-1", "scanned-model-2"],
+      }),
+    });
+    assert.equal(updateRes.status, 200);
+
+    const saved = ProviderRepository.getProviderById(providerId);
+    assert.ok(saved);
+    assert.equal(saved.priority, 42);
+    assert.equal(saved.customHeaders?.["X-Custom-Routing"], "route-1");
+    assert.equal(saved.proxyUrl, "http://127.0.0.1:8080");
+    assert.deepEqual(saved.models, ["scanned-model-1", "scanned-model-2"]);
+  });
 });
