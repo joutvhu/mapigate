@@ -27,7 +27,6 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   isOpen,
   providerId,
   providerName,
-  preOpenedPopup,
   onSuccess,
   onClose,
 }) => {
@@ -36,7 +35,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   );
   const [redirectUri, setRedirectUri] = useState("http://localhost:20127/callback");
   const [callbackUrl, setCallbackUrl] = useState("");
-  const [status, setStatus] = useState<"waiting" | "processing" | "success" | "error">("waiting");
+  const [status, setStatus] = useState<"loading" | "waiting" | "processing" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -80,7 +79,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok || data.error) {
           throw new Error(data.error || "Token exchange failed");
         }
@@ -99,144 +98,122 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     [providerId, redirectUri, onSuccess, onClose, stopPolling]
   );
 
-  // Initialize and trigger OAuth flow
-  useEffect(() => {
-    if (!isOpen) {
-      callbackHandledRef.current = false;
-      stopPolling();
-      setStatus("waiting");
-      setErrorMessage(null);
-      setCallbackUrl("");
-      setIsDeviceCode(false);
-      setDeviceData(null);
-      setPopupBlocked(false);
-      codeVerifierRef.current = undefined;
-      stateRef.current = undefined;
-      return;
-    }
+  const loadOAuth = useCallback(async () => {
+    callbackHandledRef.current = false;
+    stopPolling();
+    setStatus("loading");
+    setErrorMessage(null);
+    setCallbackUrl("");
+    setIsDeviceCode(false);
+    setDeviceData(null);
+    setPopupBlocked(false);
 
     const currentRedirect = `${window.location.origin}/callback`;
     setRedirectUri(currentRedirect);
 
-    // If pre-opened popup was provided from user click gesture, attach it
-    if (preOpenedPopup && !preOpenedPopup.closed) {
-      popupRef.current = preOpenedPopup;
-    }
+    try {
+      const res = await fetch(`/api/oauth/${providerId}/authorize?redirect_uri=${encodeURIComponent(currentRedirect)}`);
+      const data = await res.json().catch(() => ({}));
 
-    // Fetch authorization URL or detect device code flow
-    fetch(`/api/oauth/${providerId}/authorize?redirect_uri=${encodeURIComponent(currentRedirect)}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.flowType === "device_code" || (!data.authUrl && data.flowType)) {
-          // Switch to Device Code Flow
-          setIsDeviceCode(true);
-          if (popupRef.current && !popupRef.current.closed) {
-            try {
-              popupRef.current.close();
-            } catch {}
-          }
-          fetch(`/api/oauth/${providerId}/device-code`)
-            .then((res) => res.json())
-            .then((dData) => {
-              if (dData.device_code) {
-                setDeviceData(dData);
-                // Open verification URL in new tab if available
-                const targetUrl = dData.verification_uri_complete || dData.verification_uri;
-                if (targetUrl) {
-                  try {
-                    window.open(targetUrl, "_blank", "noopener,noreferrer");
-                  } catch {}
-                }
-                // Start polling
-                const intervalSec = Number(dData.interval) || 5;
-                pollIntervalRef.current = setInterval(async () => {
-                  try {
-                    const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        device_code: dData.device_code,
-                        extraData: { _zcodePollToken: dData._zcodePollToken },
-                      }),
-                    });
-                    const pollData = await pollRes.json();
-                    if (pollData.ok && pollData.success) {
-                      stopPolling();
-                      setStatus("success");
-                      setTimeout(() => {
-                        onSuccess();
-                        onClose();
-                      }, 1200);
-                    }
-                  } catch {}
-                }, intervalSec * 1000);
-              }
-            })
-            .catch((err) => {
-              setStatus("error");
-              setErrorMessage(err.message || "Failed to initiate device code flow");
+      if (!res.ok || data.error) {
+        throw new Error(data.error || `Authorization error (HTTP ${res.status})`);
+      }
+
+      if (data.flowType === "device_code" || (!data.authUrl && data.flowType)) {
+        setIsDeviceCode(true);
+        setStatus("waiting");
+
+        const dRes = await fetch(`/api/oauth/${providerId}/device-code`);
+        const dData = await dRes.json().catch(() => ({}));
+        if (!dRes.ok || !dData.device_code) {
+          throw new Error(dData.error || "Failed to initiate device code flow");
+        }
+
+        setDeviceData(dData);
+        const targetUrl = dData.verification_uri_complete || dData.verification_uri;
+        if (targetUrl) {
+          try {
+            window.open(targetUrl, "_blank", "noopener,noreferrer");
+          } catch {}
+        }
+
+        const intervalSec = Number(dData.interval) || 5;
+        pollIntervalRef.current = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                device_code: dData.device_code,
+                extraData: { _zcodePollToken: dData._zcodePollToken },
+              }),
             });
-          return;
-        }
-
-        if (data.authUrl) {
-          setAuthUrl(data.authUrl);
-          if (data.redirectUri) setRedirectUri(data.redirectUri);
-          if (data.codeVerifier) codeVerifierRef.current = data.codeVerifier;
-          if (data.state) stateRef.current = data.state;
-
-          // Navigate the pre-opened popup window
-          if (popupRef.current && !popupRef.current.closed) {
-            try {
-              popupRef.current.location.href = data.authUrl;
-            } catch {
-              setPopupBlocked(true);
+            const pollData = await pollRes.json();
+            if (pollData.ok && pollData.success) {
+              stopPolling();
+              setStatus("success");
+              setTimeout(() => {
+                onSuccess();
+                onClose();
+              }, 1200);
             }
+          } catch {}
+        }, intervalSec * 1000);
+        return;
+      }
+
+      if (data.authUrl) {
+        setAuthUrl(data.authUrl);
+        if (data.redirectUri) setRedirectUri(data.redirectUri);
+        if (data.codeVerifier) codeVerifierRef.current = data.codeVerifier;
+        if (data.state) stateRef.current = data.state;
+        setStatus("waiting");
+
+        // Open popup window to authorization URL
+        try {
+          const opened = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
+          if (opened && !opened.closed) {
+            popupRef.current = opened;
           } else {
-            // Attempt opening popup directly
-            try {
-              const opened = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
-              if (opened) {
-                popupRef.current = opened;
-              } else {
-                setPopupBlocked(true);
-              }
-            } catch {
-              setPopupBlocked(true);
-            }
+            setPopupBlocked(true);
           }
+        } catch {
+          setPopupBlocked(true);
         }
-      })
-      .catch(() => {
-        // Fallback for antigravity if network error occurs
-        const fallbackUrl = providerId === "antigravity" ? DEFAULT_ANTIGRAVITY_AUTH_URL : "";
-        if (fallbackUrl) {
-          setAuthUrl(fallbackUrl);
-          if (popupRef.current && !popupRef.current.closed) {
-            try {
-              popupRef.current.location.href = fallbackUrl;
-            } catch {
-              setPopupBlocked(true);
-            }
-          } else {
-            try {
-              const opened = window.open(fallbackUrl, "oauth_popup", "width=600,height=700");
-              if (opened) {
-                popupRef.current = opened;
-              } else {
-                setPopupBlocked(true);
-              }
-            } catch {
-              setPopupBlocked(true);
-            }
-          }
-        }
-      });
+        return;
+      }
 
+      throw new Error("No authorization URL returned from provider");
+    } catch (err: any) {
+      if (providerId === "antigravity" && DEFAULT_ANTIGRAVITY_AUTH_URL) {
+        setAuthUrl(DEFAULT_ANTIGRAVITY_AUTH_URL);
+        setStatus("waiting");
+        try {
+          const opened = window.open(DEFAULT_ANTIGRAVITY_AUTH_URL, "oauth_popup", "width=600,height=700");
+          if (opened) popupRef.current = opened;
+          else setPopupBlocked(true);
+        } catch {
+          setPopupBlocked(true);
+        }
+      } else {
+        setStatus("error");
+        setErrorMessage(err.message || "Failed to initialize authorization endpoint");
+      }
+    }
+  }, [providerId, stopPolling, onSuccess, onClose]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopPolling();
+      setStatus("loading");
+      setErrorMessage(null);
+      return;
+    }
+    loadOAuth();
     return () => {
       stopPolling();
     };
-  }, [isOpen, providerId, preOpenedPopup, stopPolling, onSuccess, onClose]);
+  }, [isOpen, loadOAuth, stopPolling]);
 
   // Listen for callback across postMessage, BroadcastChannel, and localStorage
   useEffect(() => {
@@ -308,10 +285,12 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   const handleOpenAuthWindow = () => {
     if (!authUrl) return;
     setPopupBlocked(false);
-    const opened = window.open(authUrl, "oauth_popup", "width=600,height=700");
-    if (opened) {
-      popupRef.current = opened;
-    }
+    try {
+      const opened = window.open(authUrl, "oauth_popup", "width=600,height=700");
+      if (opened) {
+        popupRef.current = opened;
+      }
+    } catch {}
   };
 
   const handleManualSubmit = () => {
@@ -331,6 +310,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             </h3>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
           >
@@ -339,6 +319,15 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         </div>
 
         {/* Status indicators */}
+        {status === "loading" && (
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 border border-blue-500/20 rounded-xl bg-blue-500/10 text-xs text-blue-300">
+            <span className="material-symbols-outlined text-[16px] text-blue-400 animate-spin">
+              progress_activity
+            </span>
+            <span>Initializing authorization for {providerName}...</span>
+          </div>
+        )}
+
         {status === "waiting" && (
           <div className="flex items-center gap-2.5 px-3.5 py-2.5 border border-blue-500/20 rounded-xl bg-blue-500/10 text-xs text-blue-300">
             <span className="material-symbols-outlined text-[16px] text-blue-400 animate-spin">
@@ -347,7 +336,9 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             <span>
               {isDeviceCode
                 ? "Waiting for device authorization in browser..."
-                : "Waiting for popup authorization..."}
+                : popupBlocked
+                ? "Authorization link ready. Click button below to open login window."
+                : "Popup window opened. Complete authorization in browser..."}
             </span>
           </div>
         )}
@@ -371,11 +362,24 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         )}
 
         {status === "error" && errorMessage && (
-          <div className="flex items-start gap-2.5 px-3.5 py-2.5 border border-red-500/30 rounded-xl bg-red-500/10 text-xs text-red-300">
-            <span className="material-symbols-outlined text-[16px] text-red-400 mt-0.5 shrink-0">
-              error
-            </span>
-            <p className="flex-1">{errorMessage}</p>
+          <div className="space-y-3">
+            <div className="flex items-start gap-2.5 px-3.5 py-2.5 border border-red-500/30 rounded-xl bg-red-500/10 text-xs text-red-300">
+              <span className="material-symbols-outlined text-[16px] text-red-400 mt-0.5 shrink-0">
+                error
+              </span>
+              <div className="flex-1 space-y-1">
+                <p className="font-semibold">Connection Failed</p>
+                <p className="text-red-200">{errorMessage}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={loadOAuth}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 border border-[#1E293B] cursor-pointer transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">refresh</span>
+              Retry Authorization
+            </button>
           </div>
         )}
 
@@ -409,7 +413,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                 const url = deviceData.verification_uri_complete || deviceData.verification_uri;
                 if (url) window.open(url, "_blank", "noopener,noreferrer");
               }}
-              className="rt-btn rt-btn--primary w-full flex items-center justify-center gap-2 py-2.5"
+              className="rt-btn rt-btn--primary w-full flex items-center justify-center gap-2 py-2.5 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">open_in_new</span>
               Open Verification Page
@@ -441,8 +445,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
               <button
                 type="button"
                 onClick={handleOpenAuthWindow}
-                disabled={!authUrl}
-                className="rt-btn rt-btn--primary w-full flex items-center justify-center gap-2 py-2.5 cursor-pointer disabled:opacity-50"
+                disabled={!authUrl || status === "loading"}
+                className="rt-btn rt-btn--primary w-full flex items-center justify-center gap-2 py-2.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-[18px]">open_in_new</span>
                 <span>Open Authorization Window</span>
@@ -450,7 +454,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
               {popupBlocked && (
                 <p className="text-[11px] text-amber-400 text-center flex items-center justify-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">info</span>
-                  Browser blocked popup. Click above to open the authorization window.
+                  Browser blocked popup window. Click above to open the login window directly.
                 </p>
               )}
             </div>
@@ -475,7 +479,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                 <input
                   type="text"
                   readOnly
-                  value={authUrl || "Generating authorization link..."}
+                  value={authUrl || (status === "loading" ? "Initializing link..." : "Generating authorization link...")}
                   className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs font-mono text-slate-300 focus:outline-none focus:border-blue-500 select-all"
                 />
                 <button
@@ -535,7 +539,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             disabled={!callbackUrl.trim() || status === "processing"}
             className="rt-btn rt-btn--primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Connect
+            {status === "processing" ? "Exchanging..." : "Connect"}
           </button>
         </div>
       </div>

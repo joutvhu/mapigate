@@ -18,5 +18,12 @@ export const ROUTEN_PID_FILE = "routen.pid";
 export const ROUTEN_DB_FILE = "routen.sqlite";
 export const ROUTEN_LOG_FILE = "server.log";
 
+export const CONSOLE_LOG_CONFIG = {
+  maxLines: 300,
+  flushIntervalMs: 100,
+  maxBatchLines: 50,
+  keepaliveIntervalMs: 25000,
+} as const;
+
 export * from "./providerRegistry.js";
 export * from "./cliTools.js";

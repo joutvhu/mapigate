@@ -10,6 +10,7 @@ import { CliToolsTab } from "./pages/CliToolsTab";
 import { MitmTab } from "./pages/MitmTab";
 import { EndpointTab } from "./pages/EndpointTab";
 import { TokenSaverTab } from "./pages/TokenSaverTab";
+import { ConsoleLogTab } from "./pages/ConsoleLogTab";
 import type { ProviderItem } from "./constants/providersData";
 
 export default function App() {
@@ -61,6 +62,7 @@ export default function App() {
           {currentTab === "tokensaver" && <TokenSaverTab />}
           {currentTab === "clitools" && <CliToolsTab />}
           {currentTab === "mitm" && <MitmTab />}
+          {currentTab === "consolelog" && <ConsoleLogTab />}
 
           {currentTab === "settings" && (
             <div className="w-full px-2 sm:px-4 rt-card p-6 space-y-6 animate-rt-fade-in">

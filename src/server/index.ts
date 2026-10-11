@@ -2,6 +2,11 @@ import express from "express";
 import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
+import { initConsoleLogCapture } from "./utils/consoleLogBuffer.js";
+
+// Initialize console log capture before any other modules log to console
+initConsoleLogCapture();
+
 import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, APP_VERSION } from "../shared/constants/index.js";
 import { handleProxyRequest } from "./proxy/chatProxy.js";
 import { providerRouter } from "./routes/apiProviders.js";
@@ -11,6 +16,7 @@ import { comboRouter } from "./routes/apiCombos.js";
 import { mitmRouter } from "./routes/apiMitm.js";
 import { oauthRouter } from "./routes/apiOAuth.js";
 import { cliToolsRouter } from "./routes/apiCliTools.js";
+import { consoleLogsRouter } from "./routes/apiConsoleLogs.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 
 const app = express();
@@ -47,6 +53,7 @@ app.use("/api/combos", comboRouter);
 app.use("/api/mitm", mitmRouter);
 app.use("/api/oauth", oauthRouter);
 app.use("/api/cli-tools", cliToolsRouter);
+app.use("/api/console-logs", consoleLogsRouter);
 
 // OAuth Callback Relay Endpoint
 app.get("/callback", (_req, res) => {
@@ -165,22 +172,30 @@ if (fs.existsSync(webDistPath)) {
   });
 }
 
-const server = app.listen(port, host, () => {
-  console.log(`🚀 [${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
-  try {
-    const dnsStatus = MitmRepository.getAllToolDnsStatus();
-    console.log(`📡 [MITM] Inspecting tool-level DNS isolation on boot:`, dnsStatus);
-  } catch (err) {
-    console.warn(`[MITM] Could not inspect cold boot tool DNS status:`, err);
-  }
-});
+const isTest =
+  process.env.NODE_ENV === "test" ||
+  Boolean(process.env.NODE_TEST_CONTEXT) ||
+  process.argv.some((arg) => arg.includes("test"));
 
-process.on("SIGINT", () => {
-  server.close(() => process.exit(0));
-});
+let server: any = null;
+if (!isTest) {
+  server = app.listen(port, host, () => {
+    console.log(`🚀 [${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
+    try {
+      const dnsStatus = MitmRepository.getAllToolDnsStatus();
+      console.log(`📡 [MITM] Inspecting tool-level DNS isolation on boot:`, dnsStatus);
+    } catch (err) {
+      console.warn(`[MITM] Could not inspect cold boot tool DNS status:`, err);
+    }
+  });
 
-process.on("SIGTERM", () => {
-  server.close(() => process.exit(0));
-});
+  process.on("SIGINT", () => {
+    server?.close(() => process.exit(0));
+  });
+
+  process.on("SIGTERM", () => {
+    server?.close(() => process.exit(0));
+  });
+}
 
 export default app;

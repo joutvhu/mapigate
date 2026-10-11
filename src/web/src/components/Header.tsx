@@ -51,6 +51,11 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
     subtitle: "Intercept CLI & IDE tool traffic (Antigravity, Kiro, Copilot) via local Root CA",
     icon: "security",
   },
+  consolelog: {
+    title: "Console Log",
+    subtitle: "Live gateway server stdout, request streaming events, and system logs",
+    icon: "terminal",
+  },
   settings: {
     title: "Settings & Storage",
     subtitle: "Local SQLite database, hardware encryption vault, and system preferences",

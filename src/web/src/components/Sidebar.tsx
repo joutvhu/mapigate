@@ -9,6 +9,7 @@ export type NavTab =
   | "tokensaver"
   | "clitools"
   | "mitm"
+  | "consolelog"
   | "settings";
 
 interface SidebarProps {
@@ -74,6 +75,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
         </div>
 
         <nav className="px-3 space-y-1">
+          <button
+            onClick={() => onSelectTab("consolelog")}
+            className={`rt-sidebar__nav-item ${
+              currentTab === "consolelog" ? "rt-sidebar__nav-item--active" : ""
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              terminal
+            </span>
+            <span>Console Log</span>
+          </button>
           <button
             onClick={() => onSelectTab("settings")}
             className={`rt-sidebar__nav-item ${

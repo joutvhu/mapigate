@@ -38,7 +38,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [customHeaders, setCustomHeaders] = useState<{ key: string; value: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showOAuthModal, setShowOAuthModal] = useState(false);
-  const [preOpenedPopup, setPreOpenedPopup] = useState<Window | null>(null);
   const [showCopilotModal, setShowCopilotModal] = useState(false);
   const [showCursorModal, setShowCursorModal] = useState(false);
   const [showKiroModal, setShowKiroModal] = useState(false);
@@ -73,12 +72,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       setShowKiroModal(true);
       return;
     }
-    // Synchronously open blank popup window in direct user click gesture to prevent browser popup blocker
-    let popup: Window | null = null;
-    try {
-      popup = window.open("about:blank", "oauth_popup", "width=600,height=700");
-    } catch {}
-    setPreOpenedPopup(popup);
     setShowOAuthModal(true);
   };
 
@@ -833,12 +826,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         isOpen={showOAuthModal}
         providerId={provider.id}
         providerName={provider.name}
-        preOpenedPopup={preOpenedPopup}
         onSuccess={loadProviderDetails}
-        onClose={() => {
-          setShowOAuthModal(false);
-          setPreOpenedPopup(null);
-        }}
+        onClose={() => setShowOAuthModal(false)}
       />
 
       {/* Add Custom Model Modal */}
