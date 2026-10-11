@@ -55,9 +55,14 @@ export class ServerLifecycle {
 
     if (this.server) {
       await new Promise<void>((resolve) => {
+        const timer = setTimeout(() => resolve(), 1000);
         try {
-          this.server?.close(() => resolve());
+          this.server?.close(() => {
+            clearTimeout(timer);
+            resolve();
+          });
         } catch {
+          clearTimeout(timer);
           resolve();
         }
       });

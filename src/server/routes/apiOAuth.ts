@@ -526,11 +526,7 @@ oauthRouter.post("/:provider/poll", async (req, res) => {
           expiresAt: Date.now() + (Number(data.expires_in) || 2592000) * 1000,
         });
 
-        const existingProvider = ProviderRepository.getProviderById("kimi");
-        if (!existingProvider) {
-          const defaults = ProviderRepository.getProviderWithDefaults("kimi");
-          if (defaults) ProviderRepository.saveProvider(defaults);
-        }
+        ProviderRepository.ensureProviderExists("kimi");
 
         ProviderRepository.addAccount({
           id: accountId,
@@ -565,11 +561,7 @@ oauthRouter.post("/:provider/poll", async (req, res) => {
         const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
         const accountName = data.user?.email || data.user?.name || "Z.AI GLM Account";
 
-        const existingProvider = ProviderRepository.getProviderById("glm");
-        if (!existingProvider) {
-          const defaults = ProviderRepository.getProviderWithDefaults("glm");
-          if (defaults) ProviderRepository.saveProvider(defaults);
-        }
+        ProviderRepository.ensureProviderExists("glm");
 
         ProviderRepository.addAccount({
           id: accountId,
@@ -632,11 +624,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
     const accountName = payload?.email || payload?.name || `${provider} Account`;
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
 
-    const existingProvider = ProviderRepository.getProviderById(pId);
-    if (!existingProvider) {
-      const defaults = ProviderRepository.getProviderWithDefaults(pId);
-      if (defaults) ProviderRepository.saveProvider(defaults);
-    }
+    ProviderRepository.ensureProviderExists(pId);
 
     ProviderRepository.addAccount({
       id: accountId,
@@ -705,11 +693,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         console.warn("Failed to fetch Google userinfo:", err);
       }
 
-      const existingProvider = ProviderRepository.getProviderById("antigravity");
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults("antigravity");
-        if (defaults) ProviderRepository.saveProvider(defaults);
-      }
+      ProviderRepository.ensureProviderExists("antigravity");
 
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
       const refreshToken = tokenData.refresh_token || undefined;
@@ -787,11 +771,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         }
       } catch {}
 
-      const existingProvider = ProviderRepository.getProviderById(pId);
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults(pId);
-        if (defaults) ProviderRepository.saveProvider(defaults);
-      }
+      ProviderRepository.ensureProviderExists(pId);
 
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
       const refreshToken = tokenData.refresh_token || undefined;
@@ -865,11 +845,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         if (payload?.email) accountName = payload.email;
       }
 
-      const existingProvider = ProviderRepository.getProviderById("claude");
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults("claude");
-        if (defaults) ProviderRepository.saveProvider(defaults);
-      }
+      ProviderRepository.ensureProviderExists("claude");
 
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
       const refreshToken = tokenData.refresh_token || undefined;
@@ -949,11 +925,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         chatgptPlanType = payload?.["https://api.openai.com/auth"]?.chatgpt_plan_type;
       }
 
-      const existingProvider = ProviderRepository.getProviderById("codex");
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults("codex");
-        if (defaults) ProviderRepository.saveProvider(defaults);
-      }
+      ProviderRepository.ensureProviderExists("codex");
 
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
       const refreshToken = tokenData.refresh_token || undefined;
@@ -1070,11 +1042,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
       const expiresInSec = expiresAt ? Math.max(60, Math.floor((expiresAt - Date.now()) / 1000)) : 3600;
 
-      const existingProvider = ProviderRepository.getProviderById(pId);
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults(pId);
-        if (defaults) ProviderRepository.saveProvider(defaults);
-      }
+      ProviderRepository.ensureProviderExists(pId);
 
       const storedToken = JSON.stringify({
         accessToken,
@@ -1173,11 +1141,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         expiresAt,
       });
 
-      const existingProvider = ProviderRepository.getProviderById(pId);
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults(pId);
-        if (defaults) ProviderRepository.saveProvider(defaults);
-      }
+      ProviderRepository.ensureProviderExists(pId);
 
       ProviderRepository.addAccount({
         id: accountId,
@@ -1304,13 +1268,7 @@ oauthRouter.post("/github/poll", async (req, res) => {
         console.warn("Failed to fetch GitHub user info:", err);
       }
 
-      const existingProvider = ProviderRepository.getProviderById("github");
-      if (!existingProvider) {
-        const defaults = ProviderRepository.getProviderWithDefaults("github");
-        if (defaults) {
-          ProviderRepository.saveProvider(defaults);
-        }
-      }
+      ProviderRepository.ensureProviderExists("github");
 
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
       ProviderRepository.addAccount({
@@ -1366,13 +1324,7 @@ oauthRouter.post("/github/token", async (req, res) => {
     }
   } catch {}
 
-  const existingProvider = ProviderRepository.getProviderById("github");
-  if (!existingProvider) {
-    const defaults = ProviderRepository.getProviderWithDefaults("github");
-    if (defaults) {
-      ProviderRepository.saveProvider(defaults);
-    }
-  }
+  ProviderRepository.ensureProviderExists("github");
 
   const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
   ProviderRepository.addAccount({
@@ -1519,13 +1471,7 @@ oauthRouter.post("/cursor/import", (req, res) => {
     return;
   }
 
-  const existingProvider = ProviderRepository.getProviderById("cursor");
-  if (!existingProvider) {
-    const defaults = ProviderRepository.getProviderWithDefaults("cursor");
-    if (defaults) {
-      ProviderRepository.saveProvider(defaults);
-    }
-  }
+  ProviderRepository.ensureProviderExists("cursor");
 
   const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
   const accountName = name || "Cursor Desktop Account";
@@ -1655,13 +1601,7 @@ oauthRouter.post("/kiro/import", (req, res) => {
     return;
   }
 
-  const existingProvider = ProviderRepository.getProviderById("kiro");
-  if (!existingProvider) {
-    const defaults = ProviderRepository.getProviderWithDefaults("kiro");
-    if (defaults) {
-      ProviderRepository.saveProvider(defaults);
-    }
-  }
+  ProviderRepository.ensureProviderExists("kiro");
 
   const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
   const accountName = name || (clientId ? "Kiro Enterprise (IDC)" : "Kiro AWS Builder ID");
@@ -1691,13 +1631,7 @@ oauthRouter.post("/kiro/api-key", (req, res) => {
     return;
   }
 
-  const existingProvider = ProviderRepository.getProviderById("kiro");
-  if (!existingProvider) {
-    const defaults = ProviderRepository.getProviderWithDefaults("kiro");
-    if (defaults) {
-      ProviderRepository.saveProvider(defaults);
-    }
-  }
+  ProviderRepository.ensureProviderExists("kiro");
 
   const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
   const accountName = name || "Kiro Headless API Key";

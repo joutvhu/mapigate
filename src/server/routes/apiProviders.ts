@@ -309,54 +309,64 @@ providerRouter.delete("/:id", (req, res) => {
 
 // POST add account to provider
 providerRouter.post("/:id/accounts", (req, res) => {
-  const { name, apiKey, providerSpecificData } = req.body;
-  const providerId = req.params.id;
+  try {
+    const { name, apiKey, providerSpecificData } = req.body;
+    const providerId = req.params.id;
 
-  const isOllamaLocal = providerId === "ollama-local";
-  const hasProfile = Boolean(providerSpecificData?.profile);
+    const isOllamaLocal = providerId === "ollama-local";
+    const hasProfile = Boolean(providerSpecificData?.profile);
 
-  if (!name && !isOllamaLocal) {
-    res.status(400).json({ error: "Account name is required." });
-    return;
+    if (!name && !isOllamaLocal) {
+      res.status(400).json({ error: "Account name is required." });
+      return;
+    }
+
+    if (!apiKey && !isOllamaLocal && !hasProfile) {
+      res.status(400).json({ error: "API key or credential profile is required." });
+      return;
+    }
+
+    const ensured = ProviderRepository.ensureProviderExists(providerId, name);
+    const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+    ProviderRepository.addAccount({
+      id: accountId,
+      providerId: ensured.id,
+      name: name || (isOllamaLocal ? "Ollama Local" : "Account"),
+      rawApiKey: apiKey || "",
+      providerSpecificData,
+    });
+
+    res.json({ id: accountId, success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to add account" });
   }
-
-  if (!apiKey && !isOllamaLocal && !hasProfile) {
-    res.status(400).json({ error: "API key or credential profile is required." });
-    return;
-  }
-
-  const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
-  ProviderRepository.addAccount({
-    id: accountId,
-    providerId,
-    name: name || (isOllamaLocal ? "Ollama Local" : "Account"),
-    rawApiKey: apiKey || "",
-    providerSpecificData,
-  });
-
-  res.json({ id: accountId, success: true });
 });
 
 // POST bulk add accounts
 providerRouter.post("/:id/accounts/bulk", (req, res) => {
-  const { accounts } = req.body;
-  const providerId = req.params.id;
+  try {
+    const { accounts } = req.body;
+    const providerId = req.params.id;
 
-  if (!Array.isArray(accounts) || accounts.length === 0) {
-    res.status(400).json({ error: "Accounts array is required." });
-    return;
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      res.status(400).json({ error: "Accounts array is required." });
+      return;
+    }
+
+    const ensured = ProviderRepository.ensureProviderExists(providerId);
+    const planned = accounts.map((item) => ({
+      id: `acc_${crypto.randomUUID().slice(0, 8)}`,
+      providerId: ensured.id,
+      name: item.name || "Account",
+      rawApiKey: item.apiKey || "",
+      providerSpecificData: item.providerSpecificData,
+    }));
+
+    ProviderRepository.bulkAddAccounts(planned);
+    res.json({ success: true, count: planned.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to bulk add accounts" });
   }
-
-  const planned = accounts.map((item) => ({
-    id: `acc_${crypto.randomUUID().slice(0, 8)}`,
-    providerId,
-    name: item.name || "Account",
-    rawApiKey: item.apiKey || "",
-    providerSpecificData: item.providerSpecificData,
-  }));
-
-  ProviderRepository.bulkAddAccounts(planned);
-  res.json({ success: true, count: planned.length });
 });
 
 // POST test provider connection

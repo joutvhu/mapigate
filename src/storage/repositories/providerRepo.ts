@@ -128,36 +128,108 @@ export class ProviderRepository {
     );
   }
 
+  public static ensureProviderExists(providerId: string, fallbackName?: string): ProviderConfig {
+    const rawId = (providerId || "").trim();
+    if (!rawId) {
+      throw new Error("Provider ID cannot be empty");
+    }
+
+    // 1. Direct DB lookup
+    const existing = this.getProviderById(rawId);
+    if (existing) {
+      return existing;
+    }
+
+    // 2. Registry lookup (supports exact id, aliases, case-insensitivity)
+    const reg = getRegistryProvider(rawId);
+    if (reg) {
+      // Check if canonical registry ID already exists in DB (e.g. if rawId was an alias)
+      const existingCanonical = this.getProviderById(reg.id);
+      if (existingCanonical) {
+        return existingCanonical;
+      }
+
+      const defaults = this.getProviderWithDefaults(reg.id);
+      const now = Date.now();
+      const config: ProviderConfig = {
+        id: reg.id,
+        name: defaults?.name || reg.name || fallbackName || reg.id,
+        baseUrl: defaults?.baseUrl || reg.baseUrl || "https://api.openai.com",
+        format: (defaults?.format || reg.format || "openai") as any,
+        isActive: true,
+        priority: defaults?.priority ?? 10,
+        models: defaults?.models && defaults.models.length > 0
+          ? defaults.models
+          : (reg.models?.map((m) => m.id) || []),
+        customHeaders: defaults?.customHeaders && Object.keys(defaults.customHeaders).length > 0
+          ? defaults.customHeaders
+          : { ...(reg.defaultHeaders || {}) },
+        proxyUrl: defaults?.proxyUrl || undefined,
+        thinkingMode: defaults?.thinkingMode || reg.thinkingMode || "auto",
+        strategy: defaults?.strategy || null,
+        stickyLimit: defaults?.stickyLimit != null ? defaults.stickyLimit : 1,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      this.saveProvider(config);
+      return config;
+    }
+
+    // 3. Fallback for custom / unregistered provider
+    const now = Date.now();
+    const fallbackConfig: ProviderConfig = {
+      id: rawId,
+      name: fallbackName || rawId,
+      baseUrl: "https://api.openai.com",
+      format: "openai",
+      isActive: true,
+      priority: 10,
+      models: [],
+      customHeaders: {},
+      proxyUrl: undefined,
+      thinkingMode: "auto",
+      strategy: null,
+      stickyLimit: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.saveProvider(fallbackConfig);
+    return fallbackConfig;
+  }
+
+  public static seedDefaultProviders(): void {
+    const coreProviders = [
+      "claude",
+      "cursor",
+      "codex",
+      "kiro",
+      "antigravity",
+      "github",
+      "openai",
+      "deepseek",
+      "gemini",
+    ];
+    for (const pId of coreProviders) {
+      try {
+        this.ensureProviderExists(pId);
+      } catch {
+        // Fail-open
+      }
+    }
+  }
+
   public static updateProviderStrategy(id: string, strategy: string | null, stickyLimit: number | null): void {
     const db = getDatabase();
-    const existing = this.getProviderById(id);
-    if (existing) {
-      db.run(
-        `UPDATE providers SET strategy = ?, sticky_limit = ?, updated_at = ? WHERE id = ?`,
-        strategy,
-        stickyLimit,
-        Date.now(),
-        id
-      );
-    } else {
-      const reg = getRegistryProvider(id);
-      const now = Date.now();
-      db.run(
-        `INSERT INTO providers (id, name, base_url, format, is_active, priority, models, custom_headers, proxy_url, thinking_mode, strategy, sticky_limit, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 1, 10, ?, ?, NULL, ?, ?, ?, ?, ?)`,
-        id,
-        reg?.name || id,
-        reg?.baseUrl || "https://api.openai.com",
-        reg?.format || "openai",
-        JSON.stringify(reg?.models.map((m) => m.id) || []),
-        JSON.stringify(reg?.defaultHeaders || {}),
-        reg?.thinkingMode || "auto",
-        strategy,
-        stickyLimit,
-        now,
-        now
-      );
-    }
+    const provider = this.ensureProviderExists(id);
+    db.run(
+      `UPDATE providers SET strategy = ?, sticky_limit = ?, updated_at = ? WHERE id = ?`,
+      strategy,
+      stickyLimit,
+      Date.now(),
+      provider.id
+    );
   }
 
   public static deleteProvider(id: string): void {
@@ -256,6 +328,7 @@ export class ProviderRepository {
     rawApiKey?: string;
     providerSpecificData?: Record<string, any>;
   }): void {
+    const provider = this.ensureProviderExists(account.providerId, account.name);
     const db = getDatabase();
     const rawKey = account.rawApiKey || "";
     const encryptedKey = CryptoVault.encrypt(rawKey);
@@ -266,7 +339,7 @@ export class ProviderRepository {
       `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at, provider_specific_data)
        VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
       account.id,
-      account.providerId,
+      provider.id,
       account.name,
       encryptedKey,
       now,
@@ -286,6 +359,7 @@ export class ProviderRepository {
     const db = getDatabase();
     const now = Date.now();
     for (const acc of accounts) {
+      const provider = this.ensureProviderExists(acc.providerId, acc.name);
       const rawKey = acc.rawApiKey || "";
       const encryptedKey = CryptoVault.encrypt(rawKey);
       const psdJson = acc.providerSpecificData ? JSON.stringify(acc.providerSpecificData) : null;
@@ -293,7 +367,7 @@ export class ProviderRepository {
         `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at, provider_specific_data)
          VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
         acc.id,
-        acc.providerId,
+        provider.id,
         acc.name,
         encryptedKey,
         now,

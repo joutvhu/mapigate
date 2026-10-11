@@ -24,6 +24,7 @@ import { serverRouter, handleShutdownRequest } from "./routes/apiServer.js";
 import { serverLifecycle } from "./lifecycle.js";
 import { initTray } from "../cli/tray/tray.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
+import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 
 const app = express();
@@ -193,6 +194,13 @@ let server: any = null;
 if (!isTest) {
   // Start background token refresh scheduler
   tokenScheduler.start();
+
+  // Ensure core providers are pre-seeded on boot
+  try {
+    ProviderRepository.seedDefaultProviders();
+  } catch (err) {
+    console.warn(`[Providers] Could not seed default providers on boot:`, err);
+  }
 
   server = app.listen(port, host, () => {
     serverLifecycle.setServer(server);
