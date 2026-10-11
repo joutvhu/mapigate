@@ -26,6 +26,8 @@ const PROVIDER_COLORS: Record<string, string> = {
   "minimax-cn": "#7C3AED",
   qoder: "#EC4899",
   "qoder-cn": "#EC4899",
+  glm: "#0055FF",
+  "glm-cn": "#0055FF",
 };
 
 export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
@@ -165,7 +167,11 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
           </div>
         ) : (
           <div className="py-4 text-center text-xs text-slate-400 bg-[#0A0D14]/50 rounded-xl border border-[#1E293B]/50 px-3">
-            {account.message || account.error || "No quota data available."}
+            {account.error ? (
+              <span className="text-red-400/90">{account.error}</span>
+            ) : (
+              account.message || "No quota data available."
+            )}
           </div>
         )}
       </div>

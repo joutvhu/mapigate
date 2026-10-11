@@ -1,19 +1,66 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../types.js";
 import { parseResetTime } from "../utils.js";
 
-const GITHUB_COPILOT_USER_URL = "https://api.github.com/copilot_internal/user";
+export const GITHUB_COPILOT_USER_URL = "https://api.github.com/copilot_internal/user";
+
+export function formatGitHubQuotaSnapshot(
+  quota: any,
+  label: string,
+  resetAt: number | null
+): RawQuotaBucket {
+  if (!quota) {
+    return {
+      displayName: label,
+      used: 0,
+      total: 0,
+      remaining: 0,
+      remainingPercentage: 100,
+      resetAt,
+      unlimited: true,
+      recurring: true,
+    };
+  }
+
+  const total = Number(quota.entitlement) || 0;
+  const remaining = Number(quota.remaining) || 0;
+  const used = Math.max(0, total - remaining);
+  const remainingPercentage =
+    total > 0 ? Math.max(0, Math.min(100, Math.round((remaining / total) * 100))) : quota.unlimited ? 100 : 0;
+
+  return {
+    displayName: label,
+    used,
+    total,
+    remaining,
+    remainingPercentage,
+    resetAt,
+    unlimited: Boolean(quota.unlimited),
+    recurring: true,
+  };
+}
 
 export async function getGitHubUsage(
   accessToken: string,
-  providerSpecificData?: Record<string, any>
+  providerSpecificData?: Record<string, any>,
+  options?: { fetchFn?: typeof fetch }
 ): Promise<RawProviderQuotaResult> {
-  const token = providerSpecificData?.githubAccessToken || accessToken;
+  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const token = (providerSpecificData?.githubAccessToken || accessToken || "").trim();
+
   if (!token) {
     return { plan: "Copilot", message: "GitHub access token not available." };
   }
 
+  // copilot_internal/user API requires GitHub OAuth token, not copilot internal JWT
+  if (token.startsWith("tid=") && !providerSpecificData?.githubAccessToken) {
+    return {
+      plan: "Copilot",
+      message: "GitHub OAuth token required for quota tracking. Please re-authenticate GitHub Copilot.",
+    };
+  }
+
   try {
-    const res = await fetch(GITHUB_COPILOT_USER_URL, {
+    const res = await fetchFn(GITHUB_COPILOT_USER_URL, {
       method: "GET",
       headers: {
         Authorization: `token ${token}`,
@@ -25,6 +72,13 @@ export async function getGitHubUsage(
       },
       signal: AbortSignal.timeout(10000),
     });
+
+    if (res.status === 401 || res.status === 403) {
+      return {
+        plan: "Copilot",
+        message: "GitHub authentication expired or unauthorized for Copilot quota.",
+      };
+    }
 
     if (!res.ok) {
       return {
@@ -41,44 +95,21 @@ export async function getGitHubUsage(
       const snapshots = data.quota_snapshots;
       const resetAt = parseResetTime(data.quota_reset_date);
 
-      const formatSnapshot = (s: any, label: string): RawQuotaBucket => {
-        if (!s) {
-          return {
-            displayName: label,
-            used: 0,
-            total: 0,
-            remainingPercentage: 100,
-            resetAt,
-            unlimited: true,
-          };
-        }
-        const total = s.entitlement || 0;
-        const remaining = s.remaining || 0;
-        const used = Math.max(0, total - remaining);
-        const fraction = total > 0 ? (remaining / total) * 100 : 100;
-
-        return {
-          displayName: label,
-          used,
-          total,
-          remaining,
-          remainingPercentage: Math.round(fraction),
-          resetAt,
-          unlimited: Boolean(s.unlimited),
-          recurring: true,
-        };
-      };
-
       if (snapshots.chat) {
-        quotas["chat"] = formatSnapshot(snapshots.chat, "Chat Messages");
+        quotas["chat"] = formatGitHubQuotaSnapshot(snapshots.chat, "Chat Messages", resetAt);
       }
       if (snapshots.completions) {
-        quotas["completions"] = formatSnapshot(snapshots.completions, "Code Completions");
+        quotas["completions"] = formatGitHubQuotaSnapshot(
+          snapshots.completions,
+          "Code Completions",
+          resetAt
+        );
       }
       if (snapshots.premium_interactions) {
-        quotas["premium_interactions"] = formatSnapshot(
+        quotas["premium_interactions"] = formatGitHubQuotaSnapshot(
           snapshots.premium_interactions,
-          "Premium Interactions"
+          "Premium Interactions",
+          resetAt
         );
       }
 
@@ -94,12 +125,12 @@ export async function getGitHubUsage(
       const usedMap = data.limited_user_quotas || {};
       const resetAt = parseResetTime(data.limited_user_reset_date);
 
-      const chatTotal = monthly.chat || 0;
-      const chatUsed = usedMap.chat || 0;
+      const chatTotal = Number(monthly.chat) || 0;
+      const chatUsed = Number(usedMap.chat) || 0;
       const chatRemaining = Math.max(0, chatTotal - chatUsed);
 
-      const compTotal = monthly.completions || 0;
-      const compUsed = usedMap.completions || 0;
+      const compTotal = Number(monthly.completions) || 0;
+      const compUsed = Number(usedMap.completions) || 0;
       const compRemaining = Math.max(0, compTotal - compUsed);
 
       quotas["chat"] = {
@@ -132,7 +163,7 @@ export async function getGitHubUsage(
 
     return {
       plan: data.copilot_plan || "Copilot",
-      message: "GitHub Copilot connected, but no quota snapshot format recognized.",
+      message: "GitHub Copilot connected. Unable to parse quota data.",
     };
   } catch (err: any) {
     return {

@@ -21,6 +21,17 @@ import {
   ANTIGRAVITY_USER_AGENT,
   ANTIGRAVITY_IDE_VERSION,
 } from "../src/core/usage/handlers/antigravity.js";
+import { getGitHubUsage, formatGitHubQuotaSnapshot } from "../src/core/usage/handlers/github.js";
+import { getGeminiUsage, normalizeCloudCodeProjectId } from "../src/core/usage/handlers/gemini.js";
+import { _clearClaudeCache, parseClaudeResetGrants } from "../src/core/usage/handlers/claude.js";
+import { getCodexUsage, getCodexReviewRateLimit, getCodexSparkRateLimit, formatCodexWindow } from "../src/core/usage/handlers/codex.js";
+import { getKiroUsage, parseKiroQuotaData } from "../src/core/usage/handlers/kiro.js";
+import { getQoderUsage } from "../src/core/usage/handlers/qoder.js";
+import { getMiniMaxUsage, formatMiniMaxQuotaName } from "../src/core/usage/handlers/minimax.js";
+import { getGrokUsage, unwrapVal, detectGrokTier } from "../src/core/usage/handlers/grok.js";
+import { getDeepseekUsage, sanitizeApiKey, parseBalanceInfos } from "../src/core/usage/handlers/deepseek.js";
+import { getGlmUsage, parseGlmQuotaResponse } from "../src/core/usage/handlers/glm.js";
+import { fetchRawQuotaForProvider } from "../src/core/usage/handlers/index.js";
 
 test("utils - parseResetTime correctly handles varied date formats", () => {
   assert.equal(parseResetTime(null), null);
@@ -559,3 +570,536 @@ test("QuotaService - error resilience: batch operations isolate account failures
   ProviderRepository.deleteAccount(accBadId);
   ProviderRepository.deleteProvider(pId);
 });
+
+test("GitHub Copilot Handler - formats paid snapshot, free quotas, and requires oauth token", async () => {
+  // 1. Paid plan with quota_snapshots
+  const mockPaidFetch: typeof fetch = (async (url: any, opts: any) => {
+    assert.equal(String(url), "https://api.github.com/copilot_internal/user");
+    assert.equal(opts.headers["Authorization"], "token gho_valid_oauth");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        copilot_plan: "business",
+        quota_reset_date: "2026-04-01T00:00:00Z",
+        quota_snapshots: {
+          chat: { entitlement: 1000, remaining: 800, unlimited: false },
+          completions: { entitlement: 0, remaining: 0, unlimited: true },
+          premium_interactions: { entitlement: 50, remaining: 25, unlimited: false },
+        },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const paidResult = await getGitHubUsage("gho_valid_oauth", {}, { fetchFn: mockPaidFetch });
+  assert.equal(paidResult.plan, "business");
+  assert.ok(paidResult.quotas);
+  assert.equal(paidResult.quotas.chat.used, 200);
+  assert.equal(paidResult.quotas.chat.total, 1000);
+  assert.equal(paidResult.quotas.chat.remainingPercentage, 80);
+  assert.equal(paidResult.quotas.completions.unlimited, true);
+  assert.equal(paidResult.quotas.premium_interactions.remainingPercentage, 50);
+
+  // 2. Free / limited plan
+  const mockFreeFetch: typeof fetch = (async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      copilot_plan: "free",
+      limited_user_reset_date: "2026-04-01T00:00:00Z",
+      monthly_quotas: { chat: 50, completions: 2000 },
+      limited_user_quotas: { chat: 10, completions: 500 },
+    }),
+  })) as any as typeof fetch;
+
+  const freeResult = await getGitHubUsage("gho_free", {}, { fetchFn: mockFreeFetch });
+  assert.equal(freeResult.plan, "free");
+  assert.ok(freeResult.quotas);
+  assert.equal(freeResult.quotas.chat.used, 10);
+  assert.equal(freeResult.quotas.chat.total, 50);
+  assert.equal(freeResult.quotas.chat.remainingPercentage, 80);
+
+  // 3. Rejects internal copilot JWT (tid=...) without githubAccessToken
+  const tidResult = await getGitHubUsage("tid=copilot_jwt_internal");
+  assert.ok(tidResult.message?.includes("OAuth token required"));
+
+  // 4. 401 unauthorized
+  const mock401: typeof fetch = (async () => ({
+    ok: false,
+    status: 401,
+  })) as any as typeof fetch;
+  const authErr = await getGitHubUsage("gho_expired", {}, { fetchFn: mock401 });
+  assert.ok(authErr.message?.includes("expired or unauthorized"));
+});
+
+test("Gemini Handler - handles API key notice, normalizes project id, and parses buckets", async () => {
+  // 1. Google AI Studio API key notice
+  const apiKeyResult = await getGeminiUsage("AIzaSyDummyApiKey123");
+  assert.ok(apiKeyResult.message?.includes("Quota tracking requires Google OAuth"));
+
+  // 2. Normalizes project ID
+  assert.equal(normalizeCloudCodeProjectId("  my-project  "), "my-project");
+  assert.equal(normalizeCloudCodeProjectId({ id: " project-obj " }), "project-obj");
+  assert.equal(normalizeCloudCodeProjectId(null), null);
+
+  // 3. Successful quota retrieval using loadCodeAssist and retrieveUserQuota
+  const mockFetch: typeof fetch = (async (url: any, opts: any) => {
+    const urlStr = String(url);
+    if (urlStr.includes("loadCodeAssist")) {
+      const body = JSON.parse(opts.body);
+      assert.ok(body.metadata);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          cloudaicompanionProject: "cloud-project-123",
+          currentTier: { name: "Gemini Advanced" },
+        }),
+      } as any;
+    }
+    if (urlStr.includes("retrieveUserQuota")) {
+      const body = JSON.parse(opts.body);
+      assert.equal(body.project, "cloud-project-123");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          buckets: [
+            {
+              modelId: "gemini-2.5-pro",
+              displayName: "Gemini 2.5 Pro",
+              remainingFraction: 0.85,
+              resetTime: "2026-04-01T12:00:00Z",
+            },
+          ],
+        }),
+      } as any;
+    }
+    throw new Error(`Unexpected: ${urlStr}`);
+  }) as typeof fetch;
+
+  const result = await getGeminiUsage("valid_google_oauth_token", {}, { fetchFn: mockFetch });
+  assert.equal(result.plan, "Gemini Advanced");
+  assert.ok(result.quotas);
+  assert.ok(result.quotas["gemini-2.5-pro"]);
+  assert.equal(result.quotas["gemini-2.5-pro"].remainingPercentage, 85);
+  assert.equal(result.quotas["gemini-2.5-pro"].used, 150);
+});
+
+test("Claude Handler - handles non-OAuth tokens, parses model-scoped weekly limits and reset grants", async () => {
+  _clearClaudeCache();
+
+  // 1. Non-OAuth API key
+  const apiKeyRes = await getClaudeUsage("sk-ant-api03-test-key");
+  assert.ok(apiKeyRes.message?.includes("Quota tracking is available for Claude Code OAuth"));
+
+  // 2. Weekly scoped limits (e.g. Fable) and Cedar Ember reset credits
+  const mockFetch: typeof fetch = (async (url: any, opts: any) => {
+    assert.ok(String(url).includes("cedar_ember=1"));
+    assert.equal(opts.headers["Authorization"], "Bearer cl_oauth_token");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        five_hour: { utilization: 45, resets_at: "2026-04-01T15:00:00Z" },
+        seven_day: { utilization: 60, resets_at: "2026-04-05T00:00:00Z" },
+        limits: [
+          {
+            kind: "weekly_scoped",
+            percent: 30,
+            resets_at: "2026-04-05T00:00:00Z",
+            scope: { model: { display_name: "Fable" } },
+          },
+        ],
+        cedar_ember: {
+          eligible: true,
+          next_grant_id: "grant-1",
+          grants: [
+            { id: "grant-1", resets_left: 2, ends_at: "2026-04-02T00:00:00Z" },
+          ],
+        },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const result = await getClaudeUsage("cl_oauth_token", { force: true, fetchFn: mockFetch });
+  assert.equal(result.plan, "Claude Code");
+  assert.ok(result.quotas);
+  assert.equal(result.quotas.session.remainingPercentage, 55);
+  assert.equal(result.quotas.weekly.remainingPercentage, 40);
+  assert.ok(result.quotas.weekly_fable);
+  assert.equal(result.quotas.weekly_fable.remainingPercentage, 70);
+  assert.ok(result.quotas.reset_credits);
+  assert.equal(result.quotas.reset_credits.total, 2);
+
+  _clearClaudeCache();
+});
+
+test("Codex Handler - sends account ID header and parses review/spark rate limits", async () => {
+  let capturedHeaders: Record<string, string> = {};
+
+  const mockFetch: typeof fetch = (async (url: any, opts: any) => {
+    capturedHeaders = opts.headers;
+    const urlStr = String(url);
+    if (urlStr.includes("/backend-api/wham/usage")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          plan_type: "team",
+          rate_limit: {
+            primary_window: { used_percent: 25, reset_at: "2026-04-01T12:00:00Z" },
+            secondary_window: { used_percent: 40, reset_at: "2026-04-07T00:00:00Z" },
+          },
+          code_review_rate_limit: {
+            primary_window: { used_percent: 10, reset_at: "2026-04-01T12:00:00Z" },
+          },
+          spark_rate_limit: {
+            primary_window: { used_percent: 50, reset_at: "2026-04-01T12:00:00Z" },
+          },
+          rate_limit_reset_credits: {
+            available_count: 3,
+          },
+        }),
+      } as any;
+    }
+    throw new Error(`Unexpected: ${urlStr}`);
+  }) as typeof fetch;
+
+  const psd = { workspaceId: "workspace-org-999" };
+  const result = await getCodexUsage("codex_token_123", psd, { fetchFn: mockFetch });
+
+  assert.equal(capturedHeaders["ChatGPT-Account-Id"], "workspace-org-999");
+  assert.equal(result.plan, "team");
+  assert.ok(result.quotas);
+  assert.equal(result.quotas.session.remainingPercentage, 75);
+  assert.equal(result.quotas.weekly.remainingPercentage, 60);
+  assert.ok(result.quotas.review_session);
+  assert.equal(result.quotas.review_session.remainingPercentage, 90);
+  assert.ok(result.quotas.spark_session);
+  assert.equal(result.quotas.spark_session.remainingPercentage, 50);
+  assert.ok(result.quotas.reset_credits);
+  assert.equal(result.quotas.reset_credits.total, 3);
+});
+
+test("Kiro Handler - executes 4-tier fallback cascade with tokentype and profileArn", async () => {
+  const attemptsSeen: string[] = [];
+  let capturedHeaders: Record<string, string> = {};
+
+  const mockFetch: typeof fetch = (async (url: any, opts: any) => {
+    capturedHeaders = opts.headers;
+    const urlStr = String(url);
+    if (urlStr.includes("codewhisperer") && opts.method === "GET") {
+      attemptsSeen.push("codewhisperer-get");
+      return { ok: false, status: 404 } as any;
+    }
+    if (urlStr.includes("codewhisperer") && opts.method === "POST") {
+      attemptsSeen.push("codewhisperer-post");
+      return { ok: false, status: 500 } as any;
+    }
+    if (urlStr.includes("q.us-east-1") && opts.method === "GET") {
+      attemptsSeen.push("q-get");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          subscriptionInfo: { subscriptionTitle: "Kiro Pro Developer" },
+          nextDateReset: "2026-04-01T00:00:00Z",
+          usageBreakdownList: [
+            {
+              resourceType: "agentic_request",
+              currentUsageWithPrecision: 120,
+              usageLimitWithPrecision: 600,
+              freeTrialInfo: {
+                currentUsageWithPrecision: 5,
+                usageLimitWithPrecision: 50,
+                freeTrialExpiry: "2026-04-15T00:00:00Z",
+              },
+            },
+          ],
+        }),
+      } as any;
+    }
+    throw new Error(`Unexpected: ${urlStr}`);
+  }) as typeof fetch;
+
+  const psd = { authMethod: "api_key", profileArn: "arn:aws:kiro:profile-1" };
+  const result = await getKiroUsage("kiro_token", psd, { fetchFn: mockFetch });
+
+  assert.deepEqual(attemptsSeen, ["codewhisperer-get", "codewhisperer-post", "q-get"]);
+  assert.equal(capturedHeaders["tokentype"], "API_KEY");
+  assert.equal(result.plan, "Kiro Pro Developer");
+  assert.ok(result.quotas);
+  assert.ok(result.quotas.agentic_request);
+  assert.equal(result.quotas.agentic_request.used, 120);
+  assert.equal(result.quotas.agentic_request.total, 600);
+  assert.equal(result.quotas.agentic_request.remainingPercentage, 80);
+  assert.ok(result.quotas.agentic_request_freetrial);
+  assert.equal(result.quotas.agentic_request_freetrial.used, 5);
+});
+
+test("Qoder Handler - parses real user and organization packages for global and CN endpoints", async () => {
+  // 1. Global endpoint
+  const mockGlobalFetch: typeof fetch = (async (url: any) => {
+    assert.equal(String(url), "https://openapi.qoder.sh/api/v2/quota/usage");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        plan: "Qoder Enterprise",
+        expiresAt: 1775000000000,
+        userQuota: { total: 1000, used: 250, remaining: 750, unit: "credits" },
+        orgResourcePackage: { total: 50000, used: 10000, remaining: 40000, unit: "credits" },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const globalRes = await getQoderUsage("qd_global_token", "qoder", { fetchFn: mockGlobalFetch });
+  assert.equal(globalRes.plan, "Qoder Enterprise");
+  assert.ok(globalRes.quotas);
+  assert.equal(globalRes.quotas.user.used, 250);
+  assert.equal(globalRes.quotas.user.total, 1000);
+  assert.equal(globalRes.quotas.user.remainingPercentage, 75);
+  assert.equal(globalRes.quotas.organization.remainingPercentage, 80);
+
+  // 2. CN endpoint
+  const mockCnFetch: typeof fetch = (async (url: any) => {
+    assert.equal(String(url), "https://openapi.qoder.com.cn/api/v2/quota/usage");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        userQuota: { total: 500, used: 100, remaining: 400 },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const cnRes = await getQoderUsage("qd_cn_token", "qoder-cn", { fetchFn: mockCnFetch });
+  assert.equal(cnRes.plan, "Qoder CN");
+  assert.ok(cnRes.quotas?.user);
+  assert.equal(cnRes.quotas.user.remainingPercentage, 80);
+});
+
+test("MiniMax Handler - tests URL fallback and M-series percent-only normalization", async () => {
+  const triedUrls: string[] = [];
+
+  const mockFetch: typeof fetch = (async (url: any) => {
+    const urlStr = String(url);
+    triedUrls.push(urlStr);
+    if (urlStr.includes("token_plan/remains")) {
+      return { ok: false, status: 404, text: async () => "Not found" } as any;
+    }
+    if (urlStr.includes("coding_plan/remains")) {
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            base_resp: { status_code: 0, status_msg: "success" },
+            model_remains: [
+              {
+                model_name: "MiniMax-M*",
+                current_interval_total_count: 0,
+                current_interval_remaining_percent: 78,
+                remains_time: 1800000,
+                current_weekly_total_count: 0,
+                current_weekly_remaining_percent: 92,
+                weekly_remains_time: 86400000,
+              },
+            ],
+          }),
+      } as any;
+    }
+    throw new Error(`Unexpected: ${urlStr}`);
+  }) as typeof fetch;
+
+  const result = await getMiniMaxUsage("mm_test_key", "minimax", { fetchFn: mockFetch });
+  assert.equal(triedUrls.length, 2);
+  assert.ok(result.quotas);
+  assert.ok(result.quotas["m_series_5h"]);
+  assert.equal(result.quotas["m_series_5h"].displayName, "M-series (5h)");
+  assert.equal(result.quotas["m_series_5h"].remainingPercentage, 78);
+  assert.equal(result.quotas["m_series_5h"].total, 100);
+  assert.ok(result.quotas["m_series_7d"]);
+  assert.equal(result.quotas["m_series_7d"].remainingPercentage, 92);
+});
+
+test("Grok Handler - unwraps protobuf-json and parses tiers, included, and on-demand limits", async () => {
+  let capturedHeaders: Record<string, string> = {};
+
+  const mockFetch: typeof fetch = (async (url: any, opts: any) => {
+    capturedHeaders = opts.headers;
+    const urlStr = String(url);
+    if (urlStr.includes("/v1/user")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ subscriptionTier: "SuperGrok" }),
+      } as any;
+    }
+    if (urlStr.includes("/v1/billing")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          config: {
+            monthlyLimit: { val: 200 },
+            includedUsed: { val: 40 },
+            onDemandCap: { val: 100 },
+            onDemandUsed: { val: 25 },
+            prepaidBalance: { val: 50 },
+            creditUsagePercent: { val: 35 },
+            billingPeriodEnd: "2026-04-10T00:00:00Z",
+          },
+        }),
+      } as any;
+    }
+    throw new Error(`Unexpected: ${urlStr}`);
+  }) as typeof fetch;
+
+  const result = await getGrokUsage("grok_jwt_token", { email: "dev@grok.com" }, { fetchFn: mockFetch });
+
+  assert.equal(capturedHeaders["x-grok-client-identifier"], "grok-cli");
+  assert.equal(capturedHeaders["x-email"], "dev@grok.com");
+  assert.equal(result.plan, "SuperGrok");
+  assert.ok(result.quotas);
+  assert.equal(result.quotas.monthly_included.used, 40);
+  assert.equal(result.quotas.monthly_included.total, 200);
+  assert.equal(result.quotas.monthly_included.remainingPercentage, 80);
+  assert.equal(result.quotas.on_demand.remainingPercentage, 75);
+  assert.equal(result.quotas.prepaid.total, 50);
+  assert.equal(result.quotas.weekly_supergrok.remainingPercentage, 65);
+});
+
+test("DeepSeek Handler - sanitizes API key and parses multi-currency balances", async () => {
+  // 1. Sanitizes API key
+  assert.equal(sanitizeApiKey('  "sk-deepseek-key"  '), "sk-deepseek-key");
+  assert.equal(sanitizeApiKey(" 'sk-deepseek-key' "), "sk-deepseek-key");
+
+  // 2. Multi-currency balance parsing
+  const mockFetch: typeof fetch = (async (url: any, opts: any) => {
+    assert.equal(opts.headers["Authorization"], "Bearer sk-deepseek-key");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        is_available: true,
+        balance_infos: [
+          { currency: "CNY", total_balance: "150.50", granted_balance: "50.00", topped_up_balance: "100.50" },
+          { currency: "USD", total_balance: "25.00", granted_balance: "0.00", topped_up_balance: "25.00" },
+        ],
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const result = await getDeepseekUsage(' "sk-deepseek-key" ', { fetchFn: mockFetch });
+  assert.equal(result.plan, "DeepSeek");
+  assert.ok(result.quotas);
+  assert.ok(result.quotas.balance_cny);
+  assert.equal(result.quotas.balance_cny.total, 150.5);
+  assert.ok(result.quotas.balance_usd);
+  assert.equal(result.quotas.balance_usd.total, 25);
+});
+
+test("GLM Handler - parses token and credit limits across dynamic intervals and regions", async () => {
+  // 1. International parsing
+  const mockIntlFetch: typeof fetch = (async (url: any, opts: any) => {
+    assert.equal(String(url), "https://api.z.ai/api/monitor/usage/quota/limit");
+    assert.equal(opts.headers["Authorization"], "Bearer glm_intl_key");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          level: "PRO",
+          limits: [
+            { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 30, nextResetTime: 1775000000000 },
+            { type: "CREDIT_LIMIT", unit: 6, number: 1, percentage: 55, nextResetTime: 1775500000000 },
+          ],
+        },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const intlResult = await getGlmUsage("glm_intl_key", "glm", { fetchFn: mockIntlFetch });
+  assert.equal(intlResult.plan, "Pro");
+  assert.ok(intlResult.quotas);
+  assert.ok(intlResult.quotas.session_5h);
+  assert.equal(intlResult.quotas.session_5h.used, 30);
+  assert.equal(intlResult.quotas.session_5h.remainingPercentage, 70);
+  assert.ok(intlResult.quotas.weekly);
+  assert.equal(intlResult.quotas.weekly.remainingPercentage, 45);
+
+  // 2. CN region parsing
+  const mockCnFetch: typeof fetch = (async (url: any) => {
+    assert.equal(String(url), "https://open.bigmodel.cn/api/monitor/usage/quota/limit");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          level: "FREE",
+          limits: [
+            { type: "TOKENS_LIMIT", unit: 3, number: 3, percentage: 90, nextResetTime: 1775000000000 },
+          ],
+        },
+      }),
+    } as any;
+  }) as typeof fetch;
+
+  const cnResult = await getGlmUsage("glm_cn_key", "glm-cn", { fetchFn: mockCnFetch });
+  assert.equal(cnResult.plan, "Free");
+  assert.ok(cnResult.quotas?.session_3h);
+  assert.equal(cnResult.quotas.session_3h.remainingPercentage, 10);
+});
+
+test("fetchRawQuotaForProvider - dispatches correctly across all registered providers", async () => {
+  // 1. Dispatch to GLM
+  const glmRes = await fetchRawQuotaForProvider({
+    providerId: "glm",
+    account: {
+      id: "acc_glm",
+      providerId: "glm",
+      name: "GLM Dev",
+      rawApiKey: "",
+      isActive: true,
+      priority: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+  assert.ok(glmRes.message?.includes("GLM API key not available"));
+
+  // 2. Dispatch to DeepSeek
+  const dsRes = await fetchRawQuotaForProvider({
+    providerId: "deepseek",
+    account: {
+      id: "acc_ds",
+      providerId: "deepseek",
+      name: "DeepSeek Dev",
+      rawApiKey: "",
+      isActive: true,
+      priority: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+  assert.ok(dsRes.message?.includes("DeepSeek API key not available"));
+
+  // 3. Dispatch to unknown provider
+  const unkRes = await fetchRawQuotaForProvider({
+    providerId: "some_unsupported_provider",
+    account: {
+      id: "acc_unk",
+      providerId: "some_unsupported_provider",
+      name: "Unknown",
+      rawApiKey: "key",
+      isActive: true,
+      priority: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+  assert.ok(unkRes.message?.includes("Quota tracking is not supported"));
+});
+

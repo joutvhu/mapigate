@@ -51,10 +51,14 @@ export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
     <div className="space-y-1.5 py-1">
       {/* Label and Percentage */}
       <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-200 truncate pr-2">{label}</span>
+        <span className="font-medium text-slate-200 truncate pr-2" title={label}>
+          {label}
+        </span>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="text-[10px]">{colors.emoji}</span>
-          <span className={`font-semibold ${colors.text}`}>{percentage}%</span>
+          <span className={`font-semibold ${colors.text}`}>
+            {unlimited ? "100%" : `${percentage}%`}
+          </span>
         </div>
       </div>
 
@@ -71,7 +75,11 @@ export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
       {/* Usage details and countdown */}
       <div className="flex items-center justify-between text-[11px] text-slate-400">
         <span>
-          {used.toLocaleString()} / {total.toLocaleString()} {total <= 100 ? "%" : "reqs"}
+          {unlimited
+            ? "Unlimited"
+            : total === 100
+            ? `${used}% used`
+            : `${used.toLocaleString()} / ${total.toLocaleString()} ${total <= 100 ? "%" : "reqs"}`}
         </span>
         {resetInText && resetInText !== "-" && (
           <div className="flex items-center gap-1 font-mono text-[10px] text-slate-400">

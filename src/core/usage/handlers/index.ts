@@ -9,6 +9,7 @@ import { getDeepseekUsage } from "./deepseek.js";
 import { getGrokUsage } from "./grok.js";
 import { getMiniMaxUsage } from "./minimax.js";
 import { getQoderUsage } from "./qoder.js";
+import { getGlmUsage } from "./glm.js";
 
 export async function fetchRawQuotaForProvider(
   context: ProviderUsageContext
@@ -16,7 +17,11 @@ export async function fetchRawQuotaForProvider(
   const pId = context.providerId.toLowerCase();
   const { account, force } = context;
   const token = account.rawApiKey;
-  const psd = account.providerSpecificData;
+  const psd = {
+    ...account.providerSpecificData,
+    ...(account.githubAccessToken ? { githubAccessToken: account.githubAccessToken } : {}),
+    ...(account.projectId ? { projectId: account.projectId } : {}),
+  };
 
   switch (pId) {
     case "antigravity":
@@ -33,7 +38,7 @@ export async function fetchRawQuotaForProvider(
       return await getCodexUsage(token, psd);
 
     case "github":
-      return await getGitHubUsage(psd?.githubAccessToken || token, psd);
+      return await getGitHubUsage(psd.githubAccessToken || token, psd);
 
     case "kiro":
       return await getKiroUsage(token, psd);
@@ -52,6 +57,10 @@ export async function fetchRawQuotaForProvider(
     case "qoder":
     case "qoder-cn":
       return await getQoderUsage(token, pId);
+
+    case "glm":
+    case "glm-cn":
+      return await getGlmUsage(token, pId);
 
     default:
       return {

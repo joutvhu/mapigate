@@ -1,34 +1,56 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../types.js";
 import { parseResetTime } from "../utils.js";
+import { CLIENT_METADATA } from "./antigravity.js";
 
-const GEMINI_CLI_BASE_URL = "https://cloudcode-pa.googleapis.com";
+export const GEMINI_CLI_BASE_URL = "https://cloudcode-pa.googleapis.com";
+
+export function normalizeCloudCodeProjectId(project: any): string | null {
+  if (typeof project === "string") return project.trim() || null;
+  if (project && typeof project === "object" && typeof project.id === "string") {
+    return project.id.trim() || null;
+  }
+  return null;
+}
 
 export async function getGeminiUsage(
   accessToken: string,
-  providerSpecificData?: Record<string, any>
+  providerSpecificData?: Record<string, any>,
+  options?: { fetchFn?: typeof fetch }
 ): Promise<RawProviderQuotaResult> {
-  if (!accessToken) {
-    return { plan: "Free", message: "Gemini access token not available." };
+  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const token = (accessToken || "").trim();
+
+  if (!token) {
+    return { plan: "Free", message: "Gemini CLI access token not available." };
+  }
+
+  // Google AI Studio API key (starts with AIza) doesn't have Cloud Code Assist quota endpoint
+  if (token.startsWith("AIza")) {
+    return {
+      plan: "Gemini API",
+      message: "Gemini API key connected. Quota tracking requires Google OAuth (Gemini CLI / Cloud Code).",
+    };
   }
 
   try {
-    let projectId = providerSpecificData?.projectId || null;
+    let projectId = normalizeCloudCodeProjectId(providerSpecificData?.projectId);
     let plan = "Free";
 
     if (!projectId) {
       try {
-        const subRes = await fetch(`${GEMINI_CLI_BASE_URL}/v1internal:loadCodeAssist`, {
+        const subRes = await fetchFn(`${GEMINI_CLI_BASE_URL}/v1internal:loadCodeAssist`, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ metadata: { ide: "gemini-cli" } }),
+          body: JSON.stringify({ metadata: CLIENT_METADATA }),
           signal: AbortSignal.timeout(8000),
         });
+
         if (subRes.ok) {
           const subData: any = await subRes.json();
-          projectId = subData?.cloudaicompanionProject || null;
+          projectId = normalizeCloudCodeProjectId(subData?.cloudaicompanionProject);
           plan = subData?.currentTier?.name || plan;
         }
       } catch {}
@@ -37,14 +59,15 @@ export async function getGeminiUsage(
     if (!projectId) {
       return {
         plan,
-        message: "Gemini Cloud project ID not found. Configure a Google Cloud project.",
+        message:
+          "Gemini CLI project ID not available. Reconnect Gemini CLI, or configure a Google Cloud project with Gemini Code Assist access before checking quota.",
       };
     }
 
-    const res = await fetch(`${GEMINI_CLI_BASE_URL}/v1internal:retrieveUserQuota`, {
+    const res = await fetchFn(`${GEMINI_CLI_BASE_URL}/v1internal:retrieveUserQuota`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ project: projectId }),
@@ -52,7 +75,7 @@ export async function getGeminiUsage(
     });
 
     if (!res.ok) {
-      return { plan, message: `Gemini quota API error (${res.status}).` };
+      return { plan, message: `Gemini CLI quota error (${res.status}).` };
     }
 
     const data: any = await res.json();
@@ -70,9 +93,11 @@ export async function getGeminiUsage(
           displayName: bucket.displayName || bucket.modelId,
           used,
           total,
-          remainingPercentage: remainingFraction * 100,
+          remaining,
+          remainingPercentage: Math.max(0, Math.min(100, Math.round(remainingFraction * 100))),
           resetAt: parseResetTime(bucket.resetTime),
           unlimited: false,
+          recurring: true,
         };
       }
     }
