@@ -8,18 +8,24 @@ export class LogRepository {
       `INSERT INTO request_logs (
         id, timestamp, client_tool, requested_model, actual_model,
         provider_id, prompt_tokens, completion_tokens, tokens_saved_by_rtk,
+        cached_tokens, cache_creation_tokens, cost, account_id, account_name,
         duration_ms, status, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       log.id,
       log.timestamp,
       log.clientTool,
       log.requestedModel,
       log.actualModel,
       log.providerId,
-      log.promptTokens,
-      log.completionTokens,
-      log.tokensSavedByRtk,
-      log.durationMs,
+      log.promptTokens || 0,
+      log.completionTokens || 0,
+      log.tokensSavedByRtk || 0,
+      log.cachedTokens || 0,
+      log.cacheCreationTokens || 0,
+      log.cost || 0,
+      log.accountId || null,
+      log.accountName || null,
+      log.durationMs || 0,
       log.status,
       log.errorMessage || null
     );
@@ -42,6 +48,11 @@ export class LogRepository {
       promptTokens: r.prompt_tokens,
       completionTokens: r.completion_tokens,
       tokensSavedByRtk: r.tokens_saved_by_rtk,
+      cachedTokens: r.cached_tokens || 0,
+      cacheCreationTokens: r.cache_creation_tokens || 0,
+      cost: r.cost || 0,
+      accountId: r.account_id || undefined,
+      accountName: r.account_name || undefined,
       durationMs: r.duration_ms,
       status: r.status,
       errorMessage: r.error_message,
@@ -55,7 +66,9 @@ export class LogRepository {
         COUNT(*) as total_requests,
         COALESCE(SUM(prompt_tokens), 0) as total_prompt,
         COALESCE(SUM(completion_tokens), 0) as total_completion,
-        COALESCE(SUM(tokens_saved_by_rtk), 0) as total_saved
+        COALESCE(SUM(tokens_saved_by_rtk), 0) as total_saved,
+        COALESCE(SUM(cached_tokens), 0) as total_cached,
+        COALESCE(SUM(cost), 0) as total_cost
       FROM request_logs
     `);
 
@@ -69,6 +82,8 @@ export class LogRepository {
       totalCompletionTokens: Number(row?.total_completion || 0),
       totalTokensSaved: totalSaved,
       estimatedCostSavedUsd,
+      totalCachedTokens: Number(row?.total_cached || 0),
+      totalCost: Number(row?.total_cost || 0),
     };
   }
 }

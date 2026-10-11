@@ -9,6 +9,9 @@ import { decodeEventStreamChunk } from "../../core/adapters/awsEventStream.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { LogRepository } from "../../storage/repositories/logRepo.js";
+import { UsageRepository } from "../../storage/repositories/usageRepo.js";
+import { RequestDetailsRepository } from "../../storage/repositories/requestDetailsRepo.js";
+import { calculateCostFromTokens } from "../../core/usage/pricing.js";
 import { refreshGoogleOAuthToken } from "../routes/apiOAuth.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
@@ -43,6 +46,7 @@ export async function handleProxyRequest(
   const startTime = Date.now();
   const requestId = crypto.randomUUID();
   const body = req.body || {};
+  const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "unknown";
 
   const rawModel = body.model || "default";
   const rules = ModelRepository.getAllRules();
@@ -103,6 +107,22 @@ export async function handleProxyRequest(
     });
     return;
   }
+
+  // Register in-flight request for real-time telemetry
+  UsageRepository.startPendingRequest({
+    id: requestId,
+    model: targetModel,
+    provider: provider.id,
+    account: account?.name,
+  });
+
+  let promptTokens = rtkStats.compressedTokens || 0;
+  let completionTokens = 0;
+  let cachedTokens = 0;
+  let cacheCreationTokens = 0;
+  let reasoningTokens = 0;
+  let ttftMs: number | undefined = undefined;
+  let capturedResponseText = "";
 
   const targetFormat = provider.format || "openai";
   const isBedrock = provider.id.startsWith("bedrock") || provider.credentialForm === "aws";
@@ -312,18 +332,61 @@ export async function handleProxyRequest(
       const errText = await upstreamRes.text();
       res.status(upstreamRes.status).send(errText);
 
+      const durationMs = Date.now() - startTime;
+      const statusStr = upstreamRes.status === 429 ? "rate_limited" : "error";
+
+      UsageRepository.endPendingRequest(requestId, true, provider.id);
+
       LogRepository.saveLog({
         id: requestId,
         timestamp: startTime,
-        clientTool: (req.headers["user-agent"] as string) || "unknown",
+        clientTool,
         requestedModel: rawModel,
         actualModel: targetModel,
         providerId: provider.id,
         promptTokens: 0,
         completionTokens: 0,
         tokensSavedByRtk: rtkStats.tokensSaved,
-        durationMs: Date.now() - startTime,
-        status: upstreamRes.status === 429 ? "rate_limited" : "error",
+        cachedTokens: 0,
+        cacheCreationTokens: 0,
+        cost: 0,
+        accountId: account?.id,
+        accountName: account?.name,
+        durationMs,
+        status: statusStr,
+        errorMessage: errText.slice(0, 500),
+      });
+
+      RequestDetailsRepository.saveRequestDetail({
+        id: requestId,
+        timestamp: new Date(startTime).toISOString(),
+        provider: provider.id,
+        model: targetModel,
+        connectionId: account?.id,
+        accountName: account?.name,
+        clientTool,
+        status: upstreamRes.status,
+        latency: { totalMs: durationMs },
+        tokens: {
+          promptTokens: 0,
+          completionTokens: 0,
+          cachedTokens: 0,
+          tokensSavedByRtk: rtkStats.tokensSaved,
+        },
+        cost: 0,
+        request: {
+          headers: req.headers as Record<string, string>,
+          body,
+        },
+        providerRequest: {
+          url: upstreamUrl,
+          headers: outgoingHeaders,
+          body: upstreamBody,
+        },
+        providerResponse: {
+          status: upstreamRes.status,
+          body: errText.slice(0, 2000),
+        },
         errorMessage: errText.slice(0, 500),
       });
       return;
@@ -337,6 +400,7 @@ export async function handleProxyRequest(
     // 5. Bidirectional Stream Translation & Dispatch
     const reader = upstreamRes.body?.getReader();
     if (!reader) {
+      UsageRepository.endPendingRequest(requestId, false);
       res.end();
       return;
     }
@@ -350,6 +414,10 @@ export async function handleProxyRequest(
         if (done) break;
         if (!value) continue;
 
+        if (!ttftMs) {
+          ttftMs = Date.now() - startTime;
+        }
+
         const { frames, remainder } = decodeEventStreamChunk(value, residualBuffer);
         residualBuffer = remainder;
 
@@ -358,6 +426,21 @@ export async function handleProxyRequest(
           try {
             const rawEventString = Buffer.from(frame.payload.bytes, "base64").toString("utf8");
             const eventObj = JSON.parse(rawEventString);
+
+            if (eventObj.type === "message_start" && eventObj.message?.usage) {
+              const u = eventObj.message.usage;
+              if (u.input_tokens) promptTokens = u.input_tokens;
+              if (u.cache_read_input_tokens) cachedTokens = u.cache_read_input_tokens;
+              if (u.cache_creation_input_tokens) cacheCreationTokens = u.cache_creation_input_tokens;
+            } else if (eventObj.type === "message_delta" && eventObj.usage) {
+              if (eventObj.usage.output_tokens) completionTokens = eventObj.usage.output_tokens;
+            }
+
+            if (eventObj.delta?.text) {
+              if (capturedResponseText.length < 4000) {
+                capturedResponseText += eventObj.delta.text;
+              }
+            }
 
             if (clientFormat === "anthropic") {
               res.write(`event: ${eventObj.type || "content_block_delta"}\ndata: ${rawEventString}\n\n`);
@@ -377,6 +460,64 @@ export async function handleProxyRequest(
         res.write("data: [DONE]\n\n");
       }
       res.end();
+
+      if (completionTokens === 0 && capturedResponseText.length > 0) {
+        completionTokens = Math.max(1, Math.round(capturedResponseText.length / 4));
+      }
+
+      const calculatedCost = calculateCostFromTokens(
+        { promptTokens, completionTokens, cachedTokens, cacheCreationTokens, reasoningTokens },
+        targetModel,
+        provider.id
+      );
+      const totalDuration = Date.now() - startTime;
+
+      LogRepository.saveLog({
+        id: requestId,
+        timestamp: startTime,
+        clientTool,
+        requestedModel: rawModel,
+        actualModel: targetModel,
+        providerId: provider.id,
+        promptTokens,
+        completionTokens,
+        tokensSavedByRtk: rtkStats.tokensSaved,
+        cachedTokens,
+        cacheCreationTokens,
+        cost: calculatedCost,
+        accountId: account?.id,
+        accountName: account?.name,
+        durationMs: totalDuration,
+        status: "success",
+      });
+
+      RequestDetailsRepository.saveRequestDetail({
+        id: requestId,
+        timestamp: new Date(startTime).toISOString(),
+        provider: provider.id,
+        model: targetModel,
+        connectionId: account?.id,
+        accountName: account?.name,
+        clientTool,
+        status: 200,
+        latency: { totalMs: totalDuration, ttftMs },
+        tokens: {
+          promptTokens,
+          completionTokens,
+          cachedTokens,
+          cacheCreationTokens,
+          tokensSavedByRtk: rtkStats.tokensSaved,
+        },
+        cost: calculatedCost,
+        request: { headers: req.headers as Record<string, string>, body },
+        providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
+        response: {
+          status: 200,
+          body: { text: capturedResponseText ? capturedResponseText.slice(0, 2000) : "Stream completed" },
+        },
+      });
+
+      UsageRepository.endPendingRequest(requestId, false);
       return;
     }
 
@@ -403,6 +544,10 @@ export async function handleProxyRequest(
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+
+      if (!ttftMs) {
+        ttftMs = Date.now() - startTime;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
@@ -432,6 +577,34 @@ export async function handleProxyRequest(
 
         try {
           const jsonChunk = JSON.parse(dataStr);
+
+          // Track usage details
+          if (jsonChunk.usage) {
+            if (jsonChunk.usage.prompt_tokens) promptTokens = jsonChunk.usage.prompt_tokens;
+            if (jsonChunk.usage.completion_tokens) completionTokens = jsonChunk.usage.completion_tokens;
+            if (jsonChunk.usage.prompt_tokens_details?.cached_tokens) {
+              cachedTokens = jsonChunk.usage.prompt_tokens_details.cached_tokens;
+            }
+            if (jsonChunk.usage.completion_tokens_details?.reasoning_tokens) {
+              reasoningTokens = jsonChunk.usage.completion_tokens_details.reasoning_tokens;
+            }
+          }
+
+          if (jsonChunk.type === "message_start" && jsonChunk.message?.usage) {
+            const u = jsonChunk.message.usage;
+            if (u.input_tokens) promptTokens = u.input_tokens;
+            if (u.cache_read_input_tokens) cachedTokens = u.cache_read_input_tokens;
+            if (u.cache_creation_input_tokens) cacheCreationTokens = u.cache_creation_input_tokens;
+          } else if (jsonChunk.type === "message_delta" && jsonChunk.usage) {
+            if (jsonChunk.usage.output_tokens) completionTokens = jsonChunk.usage.output_tokens;
+          }
+
+          const deltaText = jsonChunk.choices?.[0]?.delta?.content || jsonChunk.delta?.text || "";
+          if (typeof deltaText === "string" && deltaText) {
+            if (capturedResponseText.length < 4000) {
+              capturedResponseText += deltaText;
+            }
+          }
 
           if (clientFormat === "anthropic" && targetFormat === "openai") {
             const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(jsonChunk, requestId);
@@ -463,21 +636,109 @@ export async function handleProxyRequest(
 
     res.end();
 
+    if (completionTokens === 0 && capturedResponseText.length > 0) {
+      completionTokens = Math.max(1, Math.round(capturedResponseText.length / 4));
+    }
+
+    const calculatedCost = calculateCostFromTokens(
+      { promptTokens, completionTokens, cachedTokens, cacheCreationTokens, reasoningTokens },
+      targetModel,
+      provider.id
+    );
+    const totalDuration = Date.now() - startTime;
+
     // Record success log
     LogRepository.saveLog({
       id: requestId,
       timestamp: startTime,
-      clientTool: (req.headers["user-agent"] as string) || "unknown",
+      clientTool,
       requestedModel: rawModel,
       actualModel: targetModel,
       providerId: provider.id,
-      promptTokens: rtkStats.compressedTokens,
-      completionTokens: 0,
+      promptTokens,
+      completionTokens,
       tokensSavedByRtk: rtkStats.tokensSaved,
-      durationMs: Date.now() - startTime,
+      cachedTokens,
+      cacheCreationTokens,
+      cost: calculatedCost,
+      accountId: account?.id,
+      accountName: account?.name,
+      durationMs: totalDuration,
       status: "success",
     });
+
+    RequestDetailsRepository.saveRequestDetail({
+      id: requestId,
+      timestamp: new Date(startTime).toISOString(),
+      provider: provider.id,
+      model: targetModel,
+      connectionId: account?.id,
+      accountName: account?.name,
+      clientTool,
+      status: 200,
+      latency: { totalMs: totalDuration, ttftMs },
+      tokens: {
+        promptTokens,
+        completionTokens,
+        cachedTokens,
+        cacheCreationTokens,
+        tokensSavedByRtk: rtkStats.tokensSaved,
+      },
+      cost: calculatedCost,
+      request: { headers: req.headers as Record<string, string>, body },
+      providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
+      response: {
+        status: 200,
+        body: { text: capturedResponseText ? capturedResponseText.slice(0, 2000) : "Stream completed" },
+      },
+    });
+
+    UsageRepository.endPendingRequest(requestId, false);
   } catch (err: any) {
+    const totalDuration = Date.now() - startTime;
+    UsageRepository.endPendingRequest(requestId, true, provider?.id);
+
+    LogRepository.saveLog({
+      id: requestId,
+      timestamp: startTime,
+      clientTool,
+      requestedModel: rawModel,
+      actualModel: targetModel,
+      providerId: provider?.id || "unknown",
+      promptTokens: 0,
+      completionTokens: 0,
+      tokensSavedByRtk: rtkStats.tokensSaved,
+      cachedTokens: 0,
+      cacheCreationTokens: 0,
+      cost: 0,
+      accountId: account?.id,
+      accountName: account?.name,
+      durationMs: totalDuration,
+      status: "error",
+      errorMessage: err.message?.slice(0, 500),
+    });
+
+    RequestDetailsRepository.saveRequestDetail({
+      id: requestId,
+      timestamp: new Date(startTime).toISOString(),
+      provider: provider?.id || null,
+      model: targetModel,
+      connectionId: account?.id,
+      accountName: account?.name,
+      clientTool,
+      status: 500,
+      latency: { totalMs: totalDuration },
+      tokens: {
+        promptTokens: 0,
+        completionTokens: 0,
+        cachedTokens: 0,
+        tokensSavedByRtk: rtkStats.tokensSaved,
+      },
+      cost: 0,
+      request: { headers: req.headers as Record<string, string>, body },
+      errorMessage: err.message,
+    });
+
     res.status(500).json({ error: { message: err.message || "Upstream request failed" } });
   }
 }

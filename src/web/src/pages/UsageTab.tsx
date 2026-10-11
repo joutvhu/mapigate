@@ -1,367 +1,298 @@
-import React, { useState, useEffect } from "react";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import {
-  SEED_HOURLY_USAGE as HOURLY_METRICS_DATA,
-  SEED_REQUESTS,
-  TOPOLOGY_NODES,
-} from "../constants/mockData";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import type {
+  UsageStatsResult,
+  ChartDataPoint,
+  ActiveRequestItem,
+  RecentRequestItem,
+} from "../../../shared/types/index.js";
+import { OverviewCards } from "../components/usage/OverviewCards.js";
+import { ProviderTopology } from "../components/usage/ProviderTopology.js";
+import { UsageChart } from "../components/usage/UsageChart.js";
+import { TopModelsChart } from "../components/usage/TopModelsChart.js";
+import { ProviderBarChart } from "../components/usage/ProviderBarChart.js";
+import { UsageTable } from "../components/usage/UsageTable.js";
+import { RequestDetailsView } from "../components/usage/RequestDetailsView.js";
+import { Activity, LayoutDashboard, ListFilter, RefreshCw } from "lucide-react";
 
 export const UsageTab: React.FC = () => {
-  const [chartMetric, setChartMetric] = useState<"tokens" | "requests" | "cost">("tokens");
-  const [timePeriod, setTimePeriod] = useState("today");
-  const [realStats, setRealStats] = useState<any>(null);
-  const [recentLogs, setRecentLogs] = useState<any[]>(SEED_REQUESTS);
-  const [activeNodeId, setActiveNodeId] = useState<string>("antigravity");
+  const [viewMode, setViewMode] = useState<"overview" | "details">("overview");
+  const [period, setPeriod] = useState<string>("7d");
+  const [stats, setStats] = useState<UsageStatsResult | null>(null);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [activeRequests, setActiveRequests] = useState<ActiveRequestItem[]>([]);
+  const [recentRequests, setRecentRequests] = useState<RecentRequestItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingChart, setLoadingChart] = useState<boolean>(true);
+  const [sseConnected, setSseConnected] = useState<boolean>(false);
 
-  useEffect(() => {
-    fetch("/api/stats")
-      .then((r) => r.json())
-      .then((d) => setRealStats(d))
-      .catch(() => {});
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-    fetch("/api/stats/logs?limit=15")
-      .then((r) => r.json())
-      .then((logs) => {
-        if (Array.isArray(logs) && logs.length > 0) {
-          setRecentLogs(
-            logs.map((l: any) => ({
-              model: l.actualModel || l.requestedModel,
-              inTok: (l.promptTokens || 0).toLocaleString(),
-              outTok: (l.completionTokens || 0).toLocaleString(),
-              when: new Date(l.timestamp).toLocaleTimeString(),
-              ok: l.status === "success",
-            }))
-          );
-        }
-      })
-      .catch(() => {});
+  // Fetch static usage stats for selected period
+  const fetchStats = useCallback(async (p: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/usage/stats?period=${p}`);
+      if (res.ok) {
+        const data: UsageStatsResult = await res.json();
+        setStats(data);
+        if (data.activeRequests) setActiveRequests(data.activeRequests);
+        if (data.recentRequests) setRecentRequests(data.recentRequests);
+      }
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  // Fetch chart data for selected period
+  const fetchChart = useCallback(async (p: string) => {
+    try {
+      setLoadingChart(true);
+      const res = await fetch(`/api/usage/chart?period=${p}`);
+      if (res.ok) {
+        const data: ChartDataPoint[] = await res.json();
+        setChartData(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch chart data:", err);
+    } finally {
+      setLoadingChart(false);
+    }
+  }, []);
+
+  // Initial fetch and on period change
+  useEffect(() => {
+    fetchStats(period);
+    fetchChart(period);
+  }, [period, fetchStats, fetchChart]);
+
+  // Connect to SSE stream for real-time telemetry
+  useEffect(() => {
+    let sse: EventSource | null = null;
+    let retryTimer: NodeJS.Timeout | null = null;
+
+    const connectSSE = () => {
+      try {
+        sse = new EventSource("/api/usage/stream");
+        eventSourceRef.current = sse;
+
+        sse.onopen = () => {
+          setSseConnected(true);
+        };
+
+        sse.addEventListener("stats", (e: MessageEvent) => {
+          try {
+            const newStats: UsageStatsResult = JSON.parse(e.data);
+            setStats(newStats);
+            if (newStats.activeRequests) setActiveRequests(newStats.activeRequests);
+            if (newStats.recentRequests) setRecentRequests(newStats.recentRequests);
+          } catch {}
+        });
+
+        sse.addEventListener("pending", (e: MessageEvent) => {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.activeRequests) setActiveRequests(data.activeRequests);
+          } catch {}
+        });
+
+        sse.onerror = () => {
+          setSseConnected(false);
+          sse?.close();
+          eventSourceRef.current = null;
+          // Reconnect with backoff
+          retryTimer = setTimeout(connectSSE, 5000);
+        };
+      } catch {
+        setSseConnected(false);
+      }
+    };
+
+    connectSSE();
+
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      if (sse) sse.close();
+      eventSourceRef.current = null;
+    };
+  }, []);
+
+  const providerNames = Object.keys(stats?.byProvider || {});
+
   return (
-    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
-      {/* Top Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="bg-[#0E1320] p-1 rounded-xl border border-[#1E293B] flex items-center">
-          <button className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow-xs">
+    <div className="w-full min-w-0 space-y-6 px-2 sm:px-4 lg:px-6 pb-20 animate-rt-fade-in">
+      {/* Top Filter and Navigation Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0B0F19] border border-[#1E293B] rounded-2xl p-2 sm:p-2.5 shadow-sm">
+        {/* Main Segmented Control: Overview / Details */}
+        <div className="bg-[#151C2C] p-1 rounded-xl border border-[#243048] flex items-center">
+          <button
+            onClick={() => setViewMode("overview")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+              viewMode === "overview"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
             Overview
           </button>
-          <button className="px-3.5 py-1.5 rounded-lg text-xs text-slate-400 hover:text-white transition-colors">
-            Details
+          <button
+            onClick={() => setViewMode("details")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all ${
+              viewMode === "details"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <ListFilter className="w-3.5 h-3.5" />
+            Details (Inspector)
           </button>
         </div>
 
-        <div className="bg-[#0E1320] p-1 rounded-xl border border-[#1E293B] flex items-center text-xs">
-          {["today", "24h", "7d", "30d", "60d", "all"].map((p) => (
-            <button
-              key={p}
-              onClick={() => setTimePeriod(p)}
-              className={`px-3 py-1 rounded-lg uppercase font-semibold transition-all ${
-                timePeriod === p
-                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30"
-                  : "text-slate-400 hover:text-white"
+        {/* Right side controls: Period selector & Live Indicator */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Live telemetry status beacon */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#151C2C] border border-slate-800 text-[11px] text-slate-400">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                sseConnected ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-amber-400"
               }`}
-            >
-              {p}
-            </button>
-          ))}
+            />
+            <span className="font-mono text-[10px]">
+              {sseConnected ? "LIVE TELEMETRY" : "POLLING"}
+            </span>
+          </div>
+
+          {/* Period selector */}
+          {viewMode === "overview" && (
+            <div className="bg-[#151C2C] p-1 rounded-xl border border-[#243048] flex items-center text-xs">
+              {(["today", "24h", "7d", "30d", "60d", "all"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`px-2.5 sm:px-3 py-1 rounded-lg uppercase font-semibold transition-all ${
+                    period === p
+                      ? "bg-blue-600/30 text-blue-400 border border-blue-500/40 shadow-xs"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              fetchStats(period);
+              fetchChart(period);
+            }}
+            className="p-2 rounded-xl bg-[#151C2C] border border-[#243048] text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+            title="Refresh statistics"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-blue-400" : ""}`} />
+          </button>
         </div>
       </div>
 
-      {/* 5 KPI Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
-        <div className="rt-card text-center p-4">
-          <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-            TOTAL REQUESTS
-          </span>
-          <p className="text-2xl font-black text-white mt-1.5">
-            {realStats?.totalRequests || 290}
-          </p>
-        </div>
+      {/* VIEW MODE 1: OVERVIEW */}
+      {viewMode === "overview" && (
+        <div className="space-y-6 w-full">
+          {/* 5 KPI Metric Cards + RTK Tokens Saved */}
+          <OverviewCards stats={stats} loading={loading} />
 
-        <div className="rt-card text-center p-4">
-          <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase">
-            INPUT TOKENS
-          </span>
-          <p className="text-2xl font-black text-blue-400 mt-1.5">
-            {realStats?.totalPromptTokens ? realStats.totalPromptTokens.toLocaleString() : "25,716,174"}
-          </p>
-        </div>
-
-        <div className="rt-card text-center p-4">
-          <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase">
-            RTK TOKENS SAVED
-          </span>
-          <p className="text-2xl font-black text-cyan-400 mt-1.5">
-            {realStats?.totalTokensSaved ? realStats.totalTokensSaved.toLocaleString() : "23,332,740"}
-          </p>
-        </div>
-
-        <div className="rt-card text-center p-4">
-          <span className="text-[10px] font-bold text-emerald-400 tracking-wider uppercase">
-            OUTPUT TOKENS
-          </span>
-          <p className="text-2xl font-black text-emerald-400 mt-1.5">
-            {realStats?.totalCompletionTokens ? realStats.totalCompletionTokens.toLocaleString() : "183,873"}
-          </p>
-        </div>
-
-        <div className="rt-card text-center p-4">
-          <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase">
-            EST. COST SAVED
-          </span>
-          <p className="text-2xl font-black text-white mt-1.5">
-            ${realStats?.estimatedCostSavedUsd || "8.45"}
-          </p>
-          <span className="text-[10px] text-slate-500 block">via RTK compression</span>
-        </div>
-      </div>
-
-      {/* Middle Section: Radiating Topology Graph + Live Requests Stream */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Topology Diagram */}
-        <div className="lg:col-span-7 rt-card p-4.5 flex flex-col justify-between overflow-hidden">
-          <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
-            <span className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
-              <span className="material-symbols-outlined text-blue-400 text-[18px]">hub</span>
-              Active Routing Topology
-            </span>
-            <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1.5">
-              <span className="rt-beacon size-2 bg-emerald-400" />
-              12 Nodes Operational
-            </span>
-          </div>
-
-          <div className="relative h-[320px] w-full flex items-center justify-center">
-            <svg className="w-full h-full" viewBox="0 0 540 380">
-              <defs>
-                <linearGradient id="streamEnergyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#10B981" />
-                  <stop offset="50%" stopColor="#06B6D4" />
-                  <stop offset="100%" stopColor="#3B82F6" />
-                </linearGradient>
-              </defs>
-
-              {/* Passive lines to all nodes */}
-              {TOPOLOGY_NODES.map((node) => {
-                const isActive = activeNodeId === node.id;
-                if (isActive) return null;
-                return (
-                  <line
-                    key={node.id}
-                    x1="270"
-                    y1="190"
-                    x2={node.x}
-                    y2={node.y}
-                    stroke={node.color}
-                    strokeWidth="1.2"
-                    strokeOpacity="0.25"
-                    strokeDasharray="4 4"
-                  />
-                );
-              })}
-
-              {/* Active streaming curved flow if node is selected (like Screenshot 1!) */}
-              {(() => {
-                const activeNode = TOPOLOGY_NODES.find((n) => n.id === activeNodeId);
-                if (!activeNode) return null;
-                const midX = (270 + activeNode.x) / 2;
-                const midY = (190 + activeNode.y) / 2 - 25;
-                const pathD = `M 270 190 Q ${midX} ${midY} ${activeNode.x} ${activeNode.y}`;
-                return (
-                  <g>
-                    {/* Glowing under-stroke */}
-                    <path
-                      d={pathD}
-                      fill="none"
-                      stroke="#06B6D4"
-                      strokeWidth="7"
-                      strokeOpacity="0.3"
-                      strokeLinecap="round"
-                    />
-                    {/* Animated dashed stream */}
-                    <path
-                      d={pathD}
-                      fill="none"
-                      stroke="url(#streamEnergyGradient)"
-                      strokeWidth="3.5"
-                      strokeDasharray="8 6"
-                      strokeLinecap="round"
-                      style={{ animation: "rtFlowLine 1.2s linear infinite" }}
-                    />
-                    {/* Moving energy beads */}
-                    <circle cx={midX} cy={midY + 5} r="3" fill="#FDE047" />
-                  </g>
-                );
-              })()}
-
-              {/* Center Gateway Node with Glow */}
-              <circle cx="270" cy="190" r="34" fill="#0E1320" stroke="#F59E0B" strokeWidth="2.5" />
-              <circle cx="270" cy="190" r="40" fill="none" stroke="#F59E0B" strokeWidth="1" strokeOpacity="0.2" className="animate-pulse" />
-              <text x="270" y="187" textAnchor="middle" fill="#FFFFFF" fontSize="11" fontWeight="bold">
-                Routen
-              </text>
-              <text x="270" y="202" textAnchor="middle" fill="#F59E0B" fontSize="9" fontWeight="bold">
-                1 Gateway
-              </text>
-
-              {/* Provider Nodes */}
-              {TOPOLOGY_NODES.map((node) => {
-                const isActive = activeNodeId === node.id;
-                return (
-                  <g
-                    key={node.id}
-                    onClick={() => setActiveNodeId(node.id)}
-                    className="cursor-pointer transition-transform hover:scale-105"
-                  >
-                    <rect
-                      x={node.x - 38}
-                      y={node.y - 12}
-                      width="76"
-                      height="24"
-                      rx="8"
-                      fill="#0F1420"
-                      stroke={isActive ? "#F59E0B" : node.color}
-                      strokeWidth={isActive ? 2 : 1.2}
-                      className={isActive ? "filter drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]" : ""}
-                    />
-                    <text
-                      x={node.x}
-                      y={node.y + 4}
-                      textAnchor="middle"
-                      fill={isActive ? "#FFFFFF" : "#E2E8F0"}
-                      fontSize="9.5"
-                      fontWeight={isActive ? "bold" : "600"}
-                    >
-                      {node.name}
-                    </text>
-                    {isActive && (
-                      <circle cx={node.x + 32} cy={node.y - 6} r="2.5" fill="#F59E0B" className="animate-ping" />
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-          </div>
-        </div>
-
-        {/* Live Requests Stream */}
-        <div className="lg:col-span-5 rt-card p-4.5 flex flex-col h-[380px]">
-          <div className="flex items-center justify-between pb-3 border-b border-[#1E293B] shrink-0">
-            <span className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-blue-400 text-[18px]">history</span>
-              Recent Requests
-            </span>
-            <span className="text-[10px] text-blue-400 font-mono bg-blue-500/10 px-2 py-0.5 rounded">
-              Live Stream
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto mt-2 space-y-1">
-            <table className="w-full text-left text-xs font-mono">
-              <thead>
-                <tr className="text-slate-500 text-[10px] uppercase border-b border-[#1E293B]">
-                  <th className="pb-1.5 font-semibold">Model</th>
-                  <th className="pb-1.5 font-semibold text-right">In / Out</th>
-                  <th className="pb-1.5 font-semibold text-right">When</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1E293B]/60">
-                {recentLogs.map((r, i) => (
-                  <tr key={i} className="hover:bg-white/5 transition-colors">
-                    <td className="py-2 flex items-center gap-1.5 truncate max-w-[130px]">
-                      <span
-                        className={`size-1.5 rounded-full shrink-0 ${
-                          r.ok ? "bg-emerald-400" : "bg-red-400"
-                        }`}
-                      />
-                      <span className="text-white text-[11px] truncate font-medium">{r.model}</span>
-                    </td>
-                    <td className="py-2 text-right whitespace-nowrap text-[11px]">
-                      <span className="text-blue-400">{r.inTok}↑</span>{" "}
-                      <span className="text-emerald-400">{r.outTok}↓</span>
-                    </td>
-                    <td className="py-2 text-right text-[10px] text-slate-400 whitespace-nowrap">
-                      {r.when}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Area Chart: Blue Gradient & Interactive Tabs */}
-      <div className="rt-card p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="bg-[#0A0D14] p-1 rounded-xl border border-[#1E293B] flex items-center text-xs">
-            <button
-              onClick={() => setChartMetric("tokens")}
-              className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                chartMetric === "tokens" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Tokens Volume
-            </button>
-            <button
-              onClick={() => setChartMetric("requests")}
-              className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                chartMetric === "requests" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Requests Count
-            </button>
-            <button
-              onClick={() => setChartMetric("cost")}
-              className={`px-3 py-1 rounded-lg font-bold transition-all ${
-                chartMetric === "cost" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
-              }`}
-            >
-              Cost Projection
-            </button>
-          </div>
-          <span className="text-xs text-slate-400 font-mono">24h Timeline Distribution</span>
-        </div>
-
-        <div className="h-52 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={HOURLY_METRICS_DATA}>
-              <defs>
-                <linearGradient id="cyberBlueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="time" stroke="#475569" fontSize={11} tickLine={false} />
-              <YAxis stroke="#475569" fontSize={11} tickLine={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0F1420",
-                  borderColor: "#1E293B",
-                  borderRadius: "10px",
-                  fontSize: "12px",
-                  color: "#fff",
-                }}
+          {/* Middle Row: Active Routing Topology + Live Recent Requests */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 w-full">
+            {/* Real-time Topology Graph */}
+            <div className="lg:col-span-7 w-full flex">
+              <ProviderTopology
+                providers={providerNames}
+                activeRequests={activeRequests}
               />
-              <Area
-                type="monotone"
-                dataKey={chartMetric}
-                stroke="#3B82F6"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#cyberBlueGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+            </div>
+
+            {/* Live Recent Requests Stream Feed */}
+            <div className="lg:col-span-5 w-full bg-[#0E1320] border border-[#1E293B] rounded-xl p-4 sm:p-5 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-[#1E293B] shrink-0">
+                <span className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-blue-400" />
+                  Recent Requests
+                </span>
+                <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  Live Stream
+                </span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto mt-2 min-h-[220px] max-h-[300px]">
+                {recentRequests.length === 0 ? (
+                  <div className="py-16 text-center text-slate-500 text-xs">
+                    No recent proxy requests yet. Call /v1/messages or /v1/chat/completions to see live logs.
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-xs font-mono border-collapse">
+                    <thead>
+                      <tr className="text-slate-500 text-[10px] uppercase border-b border-[#1E293B]">
+                        <th className="pb-2 font-semibold">Model</th>
+                        <th className="pb-2 font-semibold text-right">In / Out</th>
+                        <th className="pb-2 font-semibold text-right">When</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#1E293B]/50">
+                      {recentRequests.slice(0, 15).map((r, i) => {
+                        const isOk = r.status === "success" || r.status === "ok";
+                        return (
+                          <tr key={r.id || i} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="py-2 flex items-center gap-1.5 truncate max-w-[140px]">
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  isOk ? "bg-emerald-400" : "bg-red-400"
+                                }`}
+                              />
+                              <span className="text-slate-200 text-xs truncate font-medium" title={r.model}>
+                                {r.model}
+                              </span>
+                            </td>
+                            <td className="py-2 text-right whitespace-nowrap text-[11px]">
+                              <span className="text-blue-400">{r.promptTokens.toLocaleString()}↑</span>{" "}
+                              <span className="text-emerald-400">{r.completionTokens.toLocaleString()}↓</span>
+                            </td>
+                            <td className="py-2 text-right text-[10px] text-slate-400 whitespace-nowrap">
+                              {typeof r.timestamp === "number"
+                                ? new Date(r.timestamp).toLocaleTimeString()
+                                : new Date(String(r.timestamp)).toLocaleTimeString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Time Series Recharts Area Chart */}
+          <UsageChart data={chartData} period={period} loading={loadingChart} />
+
+          {/* 2-Column Row: Top Models Chart + Provider Allocation Bar Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full">
+            <TopModelsChart byModel={stats?.byModel || {}} />
+            <ProviderBarChart byProvider={stats?.byProvider || {}} />
+          </div>
+
+          {/* Multi-level Usage Table with Group By (Model / Provider / Account) */}
+          <UsageTable
+            byProvider={stats?.byProvider || {}}
+            byModel={stats?.byModel || {}}
+            byAccount={stats?.byAccount || {}}
+          />
         </div>
-      </div>
+      )}
+
+      {/* VIEW MODE 2: DETAILS (REQUEST INSPECTOR) */}
+      {viewMode === "details" && <RequestDetailsView />}
     </div>
   );
 };

@@ -147,9 +147,24 @@ function initSchema(db: DatabaseDriver) {
       prompt_tokens INTEGER NOT NULL DEFAULT 0,
       completion_tokens INTEGER NOT NULL DEFAULT 0,
       tokens_saved_by_rtk INTEGER NOT NULL DEFAULT 0,
+      cached_tokens INTEGER NOT NULL DEFAULT 0,
+      cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
+      cost REAL NOT NULL DEFAULT 0,
+      account_id TEXT,
+      account_name TEXT,
       duration_ms INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL,
       error_message TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS request_details (
+      id TEXT PRIMARY KEY,
+      timestamp TEXT NOT NULL,
+      provider TEXT,
+      model TEXT,
+      connection_id TEXT,
+      status TEXT,
+      data TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS combos (
@@ -176,6 +191,10 @@ function initSchema(db: DatabaseDriver) {
 
     CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_logs_provider ON request_logs(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_request_details_timestamp ON request_details(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_request_details_provider ON request_details(provider);
+    CREATE INDEX IF NOT EXISTS idx_request_details_model ON request_details(model);
+    CREATE INDEX IF NOT EXISTS idx_request_details_status ON request_details(status);
   `);
 
   // Safe migrations for newly added columns
@@ -185,4 +204,9 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE providers ADD COLUMN strategy TEXT;"); } catch {}
   try { db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER;"); } catch {}
   try { db.exec("ALTER TABLE provider_accounts ADD COLUMN provider_specific_data TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN cost REAL NOT NULL DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN account_id TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN account_name TEXT;"); } catch {}
 }
