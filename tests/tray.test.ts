@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { isTraySupported, buildTrayItems, resolveIconPath, resolveScriptPath } from "../src/cli/tray/trayWin.js";
+import { resolveIconPath, resolveScriptPath } from "../src/cli/tray/trayWin.js";
 import { isTraySupported as isGeneralTraySupported, buildTrayItems as buildGeneralItems, killTray } from "../src/cli/tray/tray.js";
 
 test("Tray - buildTrayItems returns structured items with headers and actions", () => {

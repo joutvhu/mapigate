@@ -1,3 +1,4 @@
-export { MitmTab as MitmPage, MitmTab } from "./MitmTab";
-export default MitmTab;
 import { MitmTab } from "./MitmTab";
+
+export { MitmTab as MitmPage, MitmTab };
+export default MitmTab;

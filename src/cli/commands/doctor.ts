@@ -16,7 +16,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<void> {
   const port = Number(options.port) || DEFAULT_PORT;
   ApiClient.configure({ port });
 
-  console.log(`\n${chalk.bold(`🩺 ${APP_NAME} v${APP_VERSION} System Doctor`)}`);
+  console.log(`\n${chalk.bold(`[Doctor] ${APP_NAME} v${APP_VERSION} System Doctor`)}`);
   console.log(`──────────────────────────────────────────`);
 
   let allGood = true;
