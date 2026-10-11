@@ -115,6 +115,18 @@ export const MitmTab: React.FC = () => {
   const [newSourceModel, setNewSourceModel] = useState("");
   const [newTargetModel, setNewTargetModel] = useState("");
 
+  const [comboNames, setComboNames] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/combos")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : data.combos || [];
+        setComboNames(new Set(list.map((c: any) => (c.name || "").toLowerCase())));
+      })
+      .catch(() => {});
+  }, []);
+
   const copyText = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -737,9 +749,16 @@ export const MitmTab: React.FC = () => {
                                         />
                                       </div>
                                     ) : m.targetModel ? (
-                                      <>
-                                        → <span className="text-emerald-300 ml-1 font-mono">{m.targetModel}</span>
-                                      </>
+                                      <span className="inline-flex items-center gap-1.5 font-mono text-xs">
+                                        <span className="text-slate-500">→</span>
+                                        {(m.targetModel.startsWith("combo/") ||
+                                          comboNames.has(m.targetModel.toLowerCase())) && (
+                                          <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 text-[9.5px] font-mono text-cyan-300 font-semibold tracking-wide">
+                                            COMBO
+                                          </span>
+                                        )}
+                                        <span className="text-emerald-300">{m.targetModel}</span>
+                                      </span>
                                     ) : (
                                       <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
                                         (unmapped)
