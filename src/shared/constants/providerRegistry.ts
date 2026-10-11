@@ -11177,6 +11177,1593 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
       }
     ],
     "passthroughModels": true
+  },
+"yi": {
+    "id": "yi",
+    "name": "Yi (01.AI)",
+    "alias": "yi",
+    "aliases": [
+      "yi"
+    ],
+    "uiAlias": "yi",
+    "color": "#10B981",
+    "image": "/providers/yi.svg",
+    "website": "https://01.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Yi (01.AI) provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.lingyiwanwu.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.lingyiwanwu.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "yi-default",
+        "name": "Yi (01.AI) Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "baichuan": {
+    "id": "baichuan",
+    "name": "Baichuan",
+    "alias": "baichuan",
+    "aliases": [
+      "baichuan"
+    ],
+    "uiAlias": "baichuan",
+    "color": "#6366F1",
+    "image": "/providers/baichuan.svg",
+    "website": "https://www.baichuan-ai.com/",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Baichuan provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.baichuan-ai.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.baichuan-ai.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "baichuan-default",
+        "name": "Baichuan Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "stepfun": {
+    "id": "stepfun",
+    "name": "StepFun",
+    "alias": "stepfun",
+    "aliases": [
+      "stepfun"
+    ],
+    "uiAlias": "stepfun",
+    "color": "#8B5CF6",
+    "image": "/providers/stepfun.svg",
+    "website": "https://stepfun.com",
+    "notice": {
+      "apiKeyUrl": "https://platform.stepfun.ai",
+      "text": "This connects to StepFun's China platform (platform.stepfun.com), whose sign-up appears to require a Chinese phone number. Users outside mainland China can instead register at the global StepFun Open Platform (platform.stepfun.ai, operated by Sparkling AI Pte. Ltd., Singapore) with email/Google/Discord login."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.stepfun.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.stepfun.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "stepfun-default",
+        "name": "StepFun Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "internlm": {
+    "id": "internlm",
+    "name": "InternLM (Intern-S1)",
+    "alias": "internlm",
+    "aliases": [
+      "internlm"
+    ],
+    "uiAlias": "internlm",
+    "color": "#4F46E5",
+    "image": "/providers/internlm.svg",
+    "website": "https://internlm.intern-ai.org.cn/",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "InternLM (Intern-S1) provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://chat.intern-ai.org.cn/api/v1/chat/completions",
+    "baseUrls": [
+      "https://chat.intern-ai.org.cn/api/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "internlm-default",
+        "name": "InternLM (Intern-S1) Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "sensenova": {
+    "id": "sensenova",
+    "name": "SenseNova",
+    "alias": "sensenova",
+    "aliases": [
+      "sensenova"
+    ],
+    "uiAlias": "sensenova",
+    "color": "#0066FF",
+    "image": "/providers/sensenova.svg",
+    "website": "https://platform.sensenova.cn",
+    "notice": {
+      "apiKeyUrl": "https://platform.sensenova.cn/console",
+      "text": "SenseNova registration appears to require a Chinese (+86) phone number for SMS verification — no international sign-up path is documented, so users outside mainland China may be unable to obtain an API key."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://token.sensenova.cn/v1/chat/completions",
+    "baseUrls": [
+      "https://token.sensenova.cn/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "sensenova-default",
+        "name": "SenseNova Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "sparkdesk": {
+    "id": "sparkdesk",
+    "name": "SparkDesk",
+    "alias": "sparkdesk",
+    "aliases": [
+      "sparkdesk"
+    ],
+    "uiAlias": "sparkdesk",
+    "color": "#0066FF",
+    "image": "/providers/sparkdesk.svg",
+    "website": "https://xinghuo.xfyun.cn",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "SparkDesk provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://spark-api-open.xf-yun.com/v1/chat/completions",
+    "baseUrls": [
+      "https://spark-api-open.xf-yun.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "sparkdesk-default",
+        "name": "SparkDesk Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "moonshot": {
+    "id": "moonshot",
+    "name": "Kimi",
+    "alias": "moonshot",
+    "aliases": [
+      "moonshot"
+    ],
+    "uiAlias": "moonshot",
+    "color": "#1E40AF",
+    "image": "/providers/moonshot.svg",
+    "website": "https://platform.kimi.ai?aff=omniroute",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Kimi provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.moonshot.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.moonshot.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "moonshot-default",
+        "name": "Kimi Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "zai": {
+    "id": "zai",
+    "name": "Z.AI",
+    "alias": "zai",
+    "aliases": [
+      "zai"
+    ],
+    "uiAlias": "zai",
+    "color": "#2563EB",
+    "image": "/providers/zai.svg",
+    "website": "https://open.bigmodel.cn",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Z.AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.z.ai/api/anthropic/v1/messages",
+    "baseUrls": [
+      "https://api.z.ai/api/anthropic/v1/messages"
+    ],
+    "validateUrl": "",
+    "format": "claude",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "zai-default",
+        "name": "Z.AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "ant-ling": {
+    "id": "ant-ling",
+    "name": "Ant Ling / Ring (inclusionAI)",
+    "alias": "ling",
+    "aliases": [
+      "ant-ling"
+    ],
+    "uiAlias": "ant-ling",
+    "color": "#1677FF",
+    "image": "/providers/ant-ling.svg",
+    "website": "https://developer.ant-ling.com/en/docs/",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Ant Ling / Ring (inclusionAI) provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.ant-ling.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.ant-ling.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "ant-ling-default",
+        "name": "Ant Ling / Ring (inclusionAI) Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "360ai": {
+    "id": "360ai",
+    "name": "360 AI",
+    "alias": "360ai",
+    "aliases": [
+      "360ai"
+    ],
+    "uiAlias": "360ai",
+    "color": "#00B96B",
+    "image": "/providers/360ai.svg",
+    "website": "https://ai.360.cn",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "360 AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "",
+    "baseUrls": [],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "360ai-default",
+        "name": "360 AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "doubao": {
+    "id": "doubao",
+    "name": "Doubao",
+    "alias": "doubao",
+    "aliases": [
+      "doubao"
+    ],
+    "uiAlias": "doubao",
+    "color": "#FE2C55",
+    "image": "/providers/doubao.svg",
+    "website": "https://doubao.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Doubao provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    "baseUrls": [
+      "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "doubao-default",
+        "name": "Doubao Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "scaleway": {
+    "id": "scaleway",
+    "name": "Scaleway AI",
+    "alias": "scw",
+    "aliases": [
+      "scaleway"
+    ],
+    "uiAlias": "scaleway",
+    "color": "#4F0599",
+    "image": "/providers/scaleway.svg",
+    "website": "https://www.scaleway.com/en/docs/ai-data/generative-apis/",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Scaleway AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.scaleway.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.scaleway.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "scaleway-default",
+        "name": "Scaleway AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "ovhcloud": {
+    "id": "ovhcloud",
+    "name": "OVHcloud AI",
+    "alias": "ovh",
+    "aliases": [
+      "ovhcloud"
+    ],
+    "uiAlias": "ovhcloud",
+    "color": "#2563EB",
+    "image": "/providers/ovhcloud.svg",
+    "website": "https://www.ovhcloud.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "OVHcloud AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
+    "baseUrls": [
+      "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "ovhcloud-default",
+        "name": "OVHcloud AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "lambda-ai": {
+    "id": "lambda-ai",
+    "name": "Lambda AI",
+    "alias": "lambda",
+    "aliases": [
+      "lambda-ai"
+    ],
+    "uiAlias": "lambda-ai",
+    "color": "#7C3AED",
+    "image": "/providers/lambda-ai.svg",
+    "website": "https://lambda.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Lambda AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.lambda.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.lambda.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "lambda-ai-default",
+        "name": "Lambda AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "nscale": {
+    "id": "nscale",
+    "name": "nScale",
+    "alias": "nscale",
+    "aliases": [
+      "nscale"
+    ],
+    "uiAlias": "nscale",
+    "color": "#0891B2",
+    "image": "/providers/nscale.svg",
+    "website": "https://nscale.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "nScale provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://inference.api.nscale.com/v1/chat/completions",
+    "baseUrls": [
+      "https://inference.api.nscale.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "nscale-default",
+        "name": "nScale Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "nube": {
+    "id": "nube",
+    "name": "Nube.sh",
+    "alias": "nube",
+    "aliases": [
+      "nube"
+    ],
+    "uiAlias": "nube",
+    "color": "#2563EB",
+    "image": "/providers/nube.svg",
+    "website": "https://nube.sh",
+    "notice": {
+      "apiKeyUrl": "https://nube.sh/dashboard/api-keys",
+      "text": "OpenAI-compatible gateway (LiteLLM). Bring your own API key — models are resolved live from the account (passthrough)."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://ai.nube.sh/api/v1/chat/completions",
+    "baseUrls": [
+      "https://ai.nube.sh/api/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "nube-default",
+        "name": "Nube.sh Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "baseten": {
+    "id": "baseten",
+    "name": "Baseten",
+    "alias": "baseten",
+    "aliases": [
+      "baseten"
+    ],
+    "uiAlias": "baseten",
+    "color": "#111827",
+    "image": "/providers/baseten.svg",
+    "website": "https://baseten.co",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Baseten provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://inference.baseten.co/v1/chat/completions",
+    "baseUrls": [
+      "https://inference.baseten.co/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "baseten-default",
+        "name": "Baseten Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "modal": {
+    "id": "modal",
+    "name": "Modal",
+    "alias": "mdl",
+    "aliases": [
+      "modal"
+    ],
+    "uiAlias": "modal",
+    "color": "#7C3AED",
+    "image": "/providers/modal.svg",
+    "website": "https://modal.com/docs",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Modal provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.modal.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.modal.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "modal-default",
+        "name": "Modal Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "synthetic": {
+    "id": "synthetic",
+    "name": "Synthetic",
+    "alias": "synthetic",
+    "aliases": [
+      "synthetic"
+    ],
+    "uiAlias": "synthetic",
+    "color": "#6366F1",
+    "image": "/providers/synthetic.svg",
+    "website": "https://synthetic.new",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Synthetic provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.synthetic.new/openai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.synthetic.new/openai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "synthetic-default",
+        "name": "Synthetic Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "predibase": {
+    "id": "predibase",
+    "name": "Predibase",
+    "alias": "predibase",
+    "aliases": [
+      "predibase"
+    ],
+    "uiAlias": "predibase",
+    "color": "#0F766E",
+    "image": "/providers/predibase.svg",
+    "website": "https://predibase.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Predibase provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://serving.app.predibase.com/v1/chat/completions",
+    "baseUrls": [
+      "https://serving.app.predibase.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "predibase-default",
+        "name": "Predibase Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "friendliai": {
+    "id": "friendliai",
+    "name": "FriendliAI",
+    "alias": "friendli",
+    "aliases": [
+      "friendliai"
+    ],
+    "uiAlias": "friendliai",
+    "color": "#EC4899",
+    "image": "/providers/friendliai.svg",
+    "website": "https://friendli.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "FriendliAI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.friendli.ai/serverless/v1/chat/completions",
+    "baseUrls": [
+      "https://api.friendli.ai/serverless/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "friendliai-default",
+        "name": "FriendliAI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "openference-api": {
+    "id": "openference-api",
+    "name": "Openference API",
+    "alias": "ofa",
+    "aliases": [
+      "openference-api"
+    ],
+    "uiAlias": "openference-api",
+    "color": "#6366F1",
+    "image": "/providers/openference-api.svg",
+    "website": "https://openference.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Openference API provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.openference.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.openference.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "openference-api-default",
+        "name": "Openference API Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "clova-studio": {
+    "id": "clova-studio",
+    "name": "Naver CLOVA Studio",
+    "alias": "clova",
+    "aliases": [
+      "clova-studio"
+    ],
+    "uiAlias": "clova-studio",
+    "color": "#03C75A",
+    "image": "/providers/clova-studio.svg",
+    "website": "https://api.ncloud-docs.com/docs/en/ai-naver-clovastudio-summary",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Naver CLOVA Studio provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://clovastudio.stream.ntruss.com/v3/chat-completions",
+    "baseUrls": [
+      "https://clovastudio.stream.ntruss.com/v3/chat-completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "clova-studio-default",
+        "name": "Naver CLOVA Studio Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "typhoon": {
+    "id": "typhoon",
+    "name": "Typhoon",
+    "alias": "typhoon",
+    "aliases": [
+      "typhoon"
+    ],
+    "uiAlias": "typhoon",
+    "color": "#7C3AED",
+    "image": "/providers/typhoon.svg",
+    "website": "https://docs.opentyphoon.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Typhoon provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.opentyphoon.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.opentyphoon.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "typhoon-default",
+        "name": "Typhoon Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "sealion": {
+    "id": "sealion",
+    "name": "SEA-LION",
+    "alias": "sealion",
+    "aliases": [
+      "sealion"
+    ],
+    "uiAlias": "sealion",
+    "color": "#0D9488",
+    "image": "/providers/sealion.svg",
+    "website": "https://sea-lion.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "SEA-LION provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.sea-lion.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.sea-lion.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "sealion-default",
+        "name": "SEA-LION Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "sarvam": {
+    "id": "sarvam",
+    "name": "Sarvam AI",
+    "alias": "sarvam",
+    "aliases": [
+      "sarvam"
+    ],
+    "uiAlias": "sarvam",
+    "color": "#0EA5E9",
+    "image": "/providers/sarvam.svg",
+    "website": "https://docs.sarvam.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Sarvam AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.sarvam.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.sarvam.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "sarvam-default",
+        "name": "Sarvam AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "plamo": {
+    "id": "plamo",
+    "name": "PLaMo",
+    "alias": "plamo",
+    "aliases": [
+      "plamo"
+    ],
+    "uiAlias": "plamo",
+    "color": "#DC2626",
+    "image": "/providers/plamo.svg",
+    "website": "https://plamo.preferredai.jp/api",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "PLaMo provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.platform.preferredai.jp/v1/chat/completions",
+    "baseUrls": [
+      "https://api.platform.preferredai.jp/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "plamo-default",
+        "name": "PLaMo Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "maritalk": {
+    "id": "maritalk",
+    "name": "Maritalk",
+    "alias": "maritalk",
+    "aliases": [
+      "maritalk"
+    ],
+    "uiAlias": "maritalk",
+    "color": "#1D4ED8",
+    "image": "/providers/maritalk.svg",
+    "website": "https://www.maritaca.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Maritalk provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "",
+    "baseUrls": [],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "maritalk-default",
+        "name": "Maritalk Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "gigachat": {
+    "id": "gigachat",
+    "name": "GigaChat (Sber)",
+    "alias": "gigachat",
+    "aliases": [
+      "gigachat"
+    ],
+    "uiAlias": "gigachat",
+    "color": "#10B981",
+    "image": "/providers/gigachat.svg",
+    "website": "https://developers.sber.ru",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "GigaChat (Sber) provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://gigachat.devices.sberbank.ru/api/v1",
+    "baseUrls": [
+      "https://gigachat.devices.sberbank.ru/api/v1"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "gigachat-default",
+        "name": "GigaChat (Sber) Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "snowflake": {
+    "id": "snowflake",
+    "name": "Snowflake Cortex",
+    "alias": "snowflake",
+    "aliases": [
+      "snowflake"
+    ],
+    "uiAlias": "snowflake",
+    "color": "#29B5E8",
+    "image": "/providers/snowflake.svg",
+    "website": "https://www.snowflake.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Snowflake Cortex provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://{account}.snowflakecomputing.com/api/v2",
+    "baseUrls": [
+      "https://{account}.snowflakecomputing.com/api/v2"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "snowflake-default",
+        "name": "Snowflake Cortex Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "aimlapi": {
+    "id": "aimlapi",
+    "name": "AI/ML API",
+    "alias": "aiml",
+    "aliases": [
+      "aimlapi"
+    ],
+    "uiAlias": "aimlapi",
+    "color": "#6366F1",
+    "image": "/providers/aimlapi.svg",
+    "website": "https://aimlapi.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "AI/ML API provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.aimlapi.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.aimlapi.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "aimlapi-default",
+        "name": "AI/ML API Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "ai21": {
+    "id": "ai21",
+    "name": "AI21 Labs",
+    "alias": "ai21",
+    "aliases": [
+      "ai21"
+    ],
+    "uiAlias": "ai21",
+    "color": "#0284C7",
+    "image": "/providers/ai21.svg",
+    "website": "https://www.ai21.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "AI21 Labs provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.ai21.com/studio/v1/chat/completions",
+    "baseUrls": [
+      "https://api.ai21.com/studio/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "ai21-default",
+        "name": "AI21 Labs Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "upstage": {
+    "id": "upstage",
+    "name": "Upstage",
+    "alias": "upstage",
+    "aliases": [
+      "upstage"
+    ],
+    "uiAlias": "upstage",
+    "color": "#0F766E",
+    "image": "/providers/upstage.svg",
+    "website": "https://www.upstage.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Upstage provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.upstage.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.upstage.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "upstage-default",
+        "name": "Upstage Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "meta-llama": {
+    "id": "meta-llama",
+    "name": "Meta Llama API",
+    "alias": "meta",
+    "aliases": [
+      "meta-llama"
+    ],
+    "uiAlias": "meta-llama",
+    "color": "#0F766E",
+    "image": "/providers/meta-llama.svg",
+    "website": "https://llama.developer.meta.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Meta Llama API provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.llama.com/compat/v1/chat/completions",
+    "baseUrls": [
+      "https://api.llama.com/compat/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "meta-llama-default",
+        "name": "Meta Llama API Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "nous-research": {
+    "id": "nous-research",
+    "name": "Nous Research",
+    "alias": "nous",
+    "aliases": [
+      "nous-research"
+    ],
+    "uiAlias": "nous-research",
+    "color": "#2563EB",
+    "image": "/providers/nous-research.svg",
+    "website": "https://portal.nousresearch.com/help",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Nous Research provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://inference-api.nousresearch.com/v1/chat/completions",
+    "baseUrls": [
+      "https://inference-api.nousresearch.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "nous-research-default",
+        "name": "Nous Research Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "reka": {
+    "id": "reka",
+    "name": "Reka",
+    "alias": "reka",
+    "aliases": [
+      "reka"
+    ],
+    "uiAlias": "reka",
+    "color": "#111827",
+    "image": "/providers/reka.svg",
+    "website": "https://docs.reka.ai/chat/overview",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Reka provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.reka.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.reka.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "reka-default",
+        "name": "Reka Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "coze": {
+    "id": "coze",
+    "name": "Coze",
+    "alias": "coze",
+    "aliases": [
+      "coze"
+    ],
+    "uiAlias": "coze",
+    "color": "#3B82F6",
+    "image": "/providers/coze.svg",
+    "website": "https://coze.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Coze provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.coze.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.coze.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "coze-default",
+        "name": "Coze Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "writer": {
+    "id": "writer",
+    "name": "Writer",
+    "alias": "writer",
+    "aliases": [
+      "writer"
+    ],
+    "uiAlias": "writer",
+    "color": "#111827",
+    "image": "/providers/writer.svg",
+    "website": "https://dev.writer.com",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Writer provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.writer.com/v1/chat/completions",
+    "baseUrls": [
+      "https://api.writer.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "writer-default",
+        "name": "Writer Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "arcee-ai": {
+    "id": "arcee-ai",
+    "name": "Arcee AI",
+    "alias": "arcee",
+    "aliases": [
+      "arcee-ai"
+    ],
+    "uiAlias": "arcee-ai",
+    "color": "#8B5CF6",
+    "image": "/providers/arcee-ai.svg",
+    "website": "https://arcee.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Arcee AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.arcee.ai/api/v1/chat/completions",
+    "baseUrls": [
+      "https://api.arcee.ai/api/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "arcee-ai-default",
+        "name": "Arcee AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "liquid": {
+    "id": "liquid",
+    "name": "Liquid AI",
+    "alias": "liquid",
+    "aliases": [
+      "liquid"
+    ],
+    "uiAlias": "liquid",
+    "color": "#06B6D4",
+    "image": "/providers/liquid.svg",
+    "website": "https://liquid.ai",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Liquid AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://inference.liquid.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://inference.liquid.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "liquid-default",
+        "name": "Liquid AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "pioneer": {
+    "id": "pioneer",
+    "name": "Pioneer AI",
+    "alias": "pn",
+    "aliases": [
+      "pioneer"
+    ],
+    "uiAlias": "pioneer",
+    "color": "#7C5CFF",
+    "image": "/providers/pioneer.svg",
+    "website": "https://pioneer.ai",
+    "notice": {
+      "apiKeyUrl": "https://agent.pioneer.ai/settings/api-keys",
+      "text": "Pioneer AI by Fastino Labs. Use API key auth with a pio_sk_... key. Only open-tier models (Qwen3, Llama, Gemma, SmolLM) work directly — gated models (Claude/GPT/Gemini) require prior fine-tuning via the Pioneer platform. No free tier — paid plans start with $40 of platform credits."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.pioneer.ai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.pioneer.ai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "pioneer-default",
+        "name": "Pioneer AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "longcat": {
+    "id": "longcat",
+    "name": "LongCat AI",
+    "alias": "lc",
+    "aliases": [
+      "longcat"
+    ],
+    "uiAlias": "longcat",
+    "color": "#FF6B9D",
+    "image": "/providers/longcat.svg",
+    "website": "https://longcat.chat/platform/docs",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "LongCat AI provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://api.longcat.chat/openai/v1/chat/completions",
+    "baseUrls": [
+      "https://api.longcat.chat/openai/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "longcat-default",
+        "name": "LongCat AI Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
+  },
+  "ollama-cloud": {
+    "id": "ollama-cloud",
+    "name": "Ollama Cloud",
+    "alias": "ollamacloud",
+    "aliases": [
+      "ollama-cloud"
+    ],
+    "uiAlias": "ollama-cloud",
+    "color": "#58A6FF",
+    "image": "/providers/ollama-cloud.svg",
+    "website": "https://ollama.com/settings/keys",
+    "notice": {
+      "apiKeyUrl": "",
+      "text": "Ollama Cloud provider endpoint."
+    },
+    "category": "apikey",
+    "authType": "apikey",
+    "baseUrl": "https://ollama.com/v1/chat/completions",
+    "baseUrls": [
+      "https://ollama.com/v1/chat/completions"
+    ],
+    "validateUrl": "",
+    "format": "openai",
+    "defaultHeaders": {
+      "content-type": "application/json"
+    },
+    "thinkingMode": "auto",
+    "models": [
+      {
+        "id": "ollama-cloud-default",
+        "name": "Ollama Cloud Default",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ],
+    "passthroughModels": true
   }
 };
 
