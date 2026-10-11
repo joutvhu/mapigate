@@ -1,0 +1,61 @@
+import fs from "node:fs";
+import path from "node:path";
+import chalk from "chalk";
+import { getDefaultDataDir, MAPIGATE_LOG_FILE, DEFAULT_PORT } from "../../shared/constants/index.js";
+import { ApiClient } from "../client/apiClient.js";
+
+export interface LogsOptions {
+  lines?: string | number;
+  follow?: boolean;
+  port?: string | number;
+}
+
+export async function runLogs(options: LogsOptions = {}): Promise<void> {
+  const lineCount = Number(options.lines) || 50;
+  const port = Number(options.port) || DEFAULT_PORT;
+  const dataDir = getDefaultDataDir();
+  const logFile = path.join(dataDir, MAPIGATE_LOG_FILE);
+
+  ApiClient.configure({ port });
+
+  if (fs.existsSync(logFile)) {
+    try {
+      const content = fs.readFileSync(logFile, "utf8");
+      const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      const tail = lines.slice(-lineCount);
+      tail.forEach((line) => console.log(line));
+
+      if (options.follow) {
+        console.log(chalk.gray("\n--- Following logs (Ctrl+C to stop) ---"));
+        let currentSize = fs.statSync(logFile).size;
+        setInterval(() => {
+          try {
+            const stats = fs.statSync(logFile);
+            if (stats.size > currentSize) {
+              const stream = fs.createReadStream(logFile, { start: currentSize, end: stats.size });
+              stream.on("data", (chunk) => process.stdout.write(chunk));
+              currentSize = stats.size;
+            }
+          } catch {
+            // ignore
+          }
+        }, 1000);
+      }
+      return;
+    } catch {
+      // Fall through to API
+    }
+  }
+
+  // Fallback to API /api/console-logs
+  const res = await ApiClient.getConsoleLogs();
+  if (res.success && Array.isArray(res.data?.logs)) {
+    const logs = res.data.logs.slice(-lineCount);
+    logs.forEach((item: any) => {
+      const msg = typeof item === "string" ? item : item.message || JSON.stringify(item);
+      console.log(msg);
+    });
+  } else {
+    console.log(chalk.yellow(`No log records available at ${logFile}.`));
+  }
+}

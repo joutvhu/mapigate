@@ -5,7 +5,7 @@ export const APP_NAME = "Mapigate";
 export const APP_VERSION = "0.1.0";
 
 export const DEFAULT_PORT = 20127;
-export const DEFAULT_HOST = "127.0.0.1";
+export const DEFAULT_HOST: string = "127.0.0.1";
 
 export function isDevelopmentMode(): boolean {
   if (
