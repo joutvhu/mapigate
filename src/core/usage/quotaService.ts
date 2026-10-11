@@ -45,7 +45,7 @@ export class QuotaService {
       };
     }
 
-    // Check cache unless force
+    // 1. Check in-memory cache unless force
     const cached = this.cache.get(accountId);
     if (!force && cached && cached.expiresAt > Date.now()) {
       // Keep isActive in sync with database in case user toggled it
@@ -53,6 +53,25 @@ export class QuotaService {
         ...cached.data,
         isActive: account.isActive,
       };
+    }
+
+    // 2. Check DB cached quotas unless force
+    if (!force && account.cachedQuotas) {
+      try {
+        const dbCached = JSON.parse(account.cachedQuotas) as AccountQuotaResult;
+        if (dbCached && Array.isArray(dbCached.quotas)) {
+          this.cache.set(accountId, {
+            data: { ...dbCached, isActive: account.isActive },
+            expiresAt: Date.now() + DEFAULT_CACHE_TTL_MS,
+          });
+          return {
+            ...dbCached,
+            isActive: account.isActive,
+          };
+        }
+      } catch {
+        // Fallback to fresh network fetch
+      }
     }
 
     const fetchCore = async (): Promise<AccountQuotaResult> => {
@@ -85,11 +104,52 @@ export class QuotaService {
       };
 
       // 2. Query provider quota handler
-      const rawResult = await fetchRawQuotaForProvider({
+      let rawResult = await fetchRawQuotaForProvider({
         providerId: account.providerId,
         account: resolvedAccount,
         force,
       });
+
+      // If provider returned auth-expired / rejected, force refresh credentials once and retry
+      const isAuthError = Boolean(
+        rawResult.error?.includes("401") ||
+        rawResult.error?.includes("403") ||
+        rawResult.message?.toLowerCase().includes("expired") ||
+        rawResult.message?.toLowerCase().includes("unauthorized") ||
+        rawResult.message?.toLowerCase().includes("rejected")
+      );
+
+      if (isAuthError && (freshCreds.refreshToken || account.providerSpecificData?.refreshToken)) {
+        try {
+          const retriedCreds = await ensureFreshCredentials(
+            account.id,
+            account.providerId,
+            account.rawApiKey,
+            account.providerSpecificData,
+            true // force refresh!
+          );
+          const retriedEffectiveToken =
+            isGitHubOrCopilot && retriedCreds.githubAccessToken
+              ? retriedCreds.githubAccessToken
+              : (retriedCreds.accessToken || retriedCreds.apiKey || resolvedAccount.rawApiKey);
+
+          if (retriedEffectiveToken) {
+            resolvedAccount.rawApiKey = retriedEffectiveToken;
+            resolvedAccount.githubAccessToken = retriedCreds.githubAccessToken;
+            resolvedAccount.providerSpecificData = {
+              ...resolvedAccount.providerSpecificData,
+              ...retriedCreds.providerSpecificData,
+            };
+            rawResult = await fetchRawQuotaForProvider({
+              providerId: account.providerId,
+              account: resolvedAccount,
+              force: true,
+            });
+          }
+        } catch {
+          // Keep original rawResult
+        }
+      }
 
       // 3. Normalize quota buckets into UI-friendly list
       const quotas: NormalizedQuotaItem[] = [];
@@ -170,6 +230,17 @@ export class QuotaService {
         expiresAt: Date.now() + ttl,
       });
 
+      // Persist to SQLite database for instant retrieval on next startup
+      try {
+        ProviderRepository.updateCachedQuota(
+          accountId,
+          JSON.stringify(result),
+          result.lastFetchedAt
+        );
+      } catch (err) {
+        console.warn(`[QuotaService] Failed to persist cached quota for ${accountId}:`, err);
+      }
+
       return result;
     };
 
@@ -204,11 +275,56 @@ export class QuotaService {
   }
 
   /**
-   * Fetches quotas for all accounts in SQLite with isolated error boundaries
+   * Immediately returns all cached quota results from SQLite / memory for all accounts without waiting for network.
+   */
+  public getCachedQuotasForAllAccounts(): AccountQuotaResult[] {
+    const accounts = ProviderRepository.getAllAccounts();
+    return accounts.map((acc) => {
+      const memoryHit = this.cache.get(acc.id);
+      if (memoryHit?.data) {
+        return { ...memoryHit.data, isActive: acc.isActive };
+      }
+      if (acc.cachedQuotas) {
+        try {
+          const parsed = JSON.parse(acc.cachedQuotas) as AccountQuotaResult;
+          if (parsed && Array.isArray(parsed.quotas)) {
+            return { ...parsed, isActive: acc.isActive };
+          }
+        } catch {}
+      }
+      return {
+        accountId: acc.id,
+        providerId: acc.providerId,
+        accountName: acc.name,
+        plan: "Standard",
+        isActive: acc.isActive,
+        quotas: [],
+        lastFetchedAt: acc.quotaFetchedAt || Date.now(),
+      };
+    });
+  }
+
+  /**
+   * Fetches quotas for all accounts in SQLite with isolated error boundaries.
+   * If force=false and cached results exist, returns them immediately (0ms) and revalidates in the background.
    */
   public async fetchQuotaForAllAccounts(force = false): Promise<AccountQuotaResult[]> {
     const accounts = ProviderRepository.getAllAccounts();
     if (accounts.length === 0) return [];
+
+    // Stale-While-Revalidate: return SQLite cached results immediately if available
+    if (!force) {
+      const cachedList = this.getCachedQuotasForAllAccounts();
+      const hasAnyQuotas = cachedList.some((c) => c.quotas && c.quotas.length > 0);
+      if (hasAnyQuotas) {
+        // Asynchronously revalidate in background without blocking response
+        Promise.all(
+          accounts.map((acc) => this.fetchQuotaForAccount(acc.id, true).catch(() => null))
+        ).catch(() => {});
+
+        return cachedList;
+      }
+    }
 
     const promises = accounts.map((acc) =>
       this.fetchQuotaForAccount(acc.id, force).catch((err) => ({

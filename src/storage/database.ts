@@ -130,6 +130,8 @@ function initSchema(db: DatabaseDriver) {
       last_used_at INTEGER,
       created_at INTEGER NOT NULL,
       provider_specific_data TEXT,
+      cached_quotas TEXT,
+      quota_fetched_at INTEGER,
       FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
     );
 
@@ -211,6 +213,8 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE providers ADD COLUMN strategy TEXT;"); } catch {}
   try { db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER;"); } catch {}
   try { db.exec("ALTER TABLE provider_accounts ADD COLUMN provider_specific_data TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN cached_quotas TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN quota_fetched_at INTEGER;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cost REAL NOT NULL DEFAULT 0;"); } catch {}

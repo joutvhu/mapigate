@@ -10,6 +10,7 @@ import { getGrokUsage } from "./grok.js";
 import { getMiniMaxUsage } from "./minimax.js";
 import { getQoderUsage } from "./qoder.js";
 import { getGlmUsage } from "./glm.js";
+import { getXKiroUsage } from "./xkiro.js";
 
 export async function fetchRawQuotaForProvider(
   context: ProviderUsageContext
@@ -62,6 +63,9 @@ export async function fetchRawQuotaForProvider(
     case "glm":
     case "glm-cn":
       return await getGlmUsage(token, pId);
+
+    case "xkiro":
+      return await getXKiroUsage(token, psd);
 
     default:
       return {

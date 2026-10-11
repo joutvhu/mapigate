@@ -27,6 +27,8 @@ export interface ProviderAccount {
   rateLimitHits: number;
   lastUsedAt?: number;
   providerSpecificData?: Record<string, any>;
+  cachedQuotas?: string;
+  quotaFetchedAt?: number;
 }
 
 export interface ModelMappingRule {

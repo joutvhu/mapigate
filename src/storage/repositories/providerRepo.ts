@@ -253,6 +253,8 @@ export class ProviderRepository {
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+      cachedQuotas: r.cached_quotas || undefined,
+      quotaFetchedAt: r.quota_fetched_at || undefined,
     }));
   }
 
@@ -262,6 +264,20 @@ export class ProviderRepository {
     for (const id of accountIds) {
       db.run("UPDATE provider_accounts SET is_active = ? WHERE id = ?", isActive ? 1 : 0, id);
     }
+  }
+
+  public static updateCachedQuota(
+    accountId: string,
+    cachedQuotas: string | null,
+    quotaFetchedAt: number = Date.now()
+  ): void {
+    const db = getDatabase();
+    db.run(
+      "UPDATE provider_accounts SET cached_quotas = ?, quota_fetched_at = ? WHERE id = ?",
+      cachedQuotas,
+      quotaFetchedAt,
+      accountId
+    );
   }
 
   public static getAllAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
@@ -281,6 +297,8 @@ export class ProviderRepository {
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+      cachedQuotas: r.cached_quotas || undefined,
+      quotaFetchedAt: r.quota_fetched_at || undefined,
     }));
   }
 
@@ -301,6 +319,8 @@ export class ProviderRepository {
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+      cachedQuotas: r.cached_quotas || undefined,
+      quotaFetchedAt: r.quota_fetched_at || undefined,
     }));
   }
 
@@ -318,6 +338,8 @@ export class ProviderRepository {
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+      cachedQuotas: r.cached_quotas || undefined,
+      quotaFetchedAt: r.quota_fetched_at || undefined,
     };
   }
 

@@ -32,6 +32,7 @@ import { getMiniMaxUsage, formatMiniMaxQuotaName } from "../src/core/usage/handl
 import { getGrokUsage, unwrapVal, detectGrokTier } from "../src/core/usage/handlers/grok.js";
 import { getDeepseekUsage, sanitizeApiKey, parseBalanceInfos } from "../src/core/usage/handlers/deepseek.js";
 import { getGlmUsage, parseGlmQuotaResponse } from "../src/core/usage/handlers/glm.js";
+import { getXKiroUsage, parseXKiroUsageData } from "../src/core/usage/handlers/xkiro.js";
 import { fetchRawQuotaForProvider } from "../src/core/usage/handlers/index.js";
 
 test("utils - parseResetTime correctly handles varied date formats", () => {
@@ -1226,5 +1227,183 @@ test("QuotaService - Antigravity account normalizes to only the 4 summary bucket
   ProviderRepository.deleteAccount(accId);
   ProviderRepository.deleteProvider(pId);
 });
+
+test("xKiro Handler - parses windows, free tokens, and wallet according to docs.xkiro.com/api/usage", async () => {
+  const samplePayload = {
+    object: "usage",
+    plan: "ultra",
+    user: {
+      name: "Developer",
+      email: "dev@example.com",
+      avatar_url: "https://example.com/avatar.png",
+    },
+    windows: [
+      {
+        kind: "short",
+        window_sec: 18000,
+        spent_usd: "0.500000",
+        cap_usd: "5.000000",
+        remaining_usd: "4.500000",
+        resets_in_sec: 7200,
+      },
+      {
+        kind: "long",
+        window_sec: 604800,
+        spent_usd: "1.250000",
+        cap_usd: "20.000000",
+        remaining_usd: "18.750000",
+        resets_in_sec: 180000,
+      },
+    ],
+    free_tokens: {
+      used_today: 15000,
+      limit_per_day: 100000,
+      remaining: 85000,
+    },
+    wallet: {
+      balance_usd: "25.000000",
+      held_usd: "0.200000",
+    },
+  };
+
+  const parsed = parseXKiroUsageData(samplePayload);
+  assert.equal(parsed.plan, "Ultra");
+  assert.ok(parsed.quotas);
+
+  // 1. Session 5h window
+  assert.ok(parsed.quotas.session_5h);
+  assert.equal(parsed.quotas.session_5h.displayName, "Session (5h)");
+  assert.equal(parsed.quotas.session_5h.used, 0.5);
+  assert.equal(parsed.quotas.session_5h.total, 5.0);
+  assert.equal(parsed.quotas.session_5h.remainingPercentage, 90);
+
+  // 2. Weekly 7d window
+  assert.ok(parsed.quotas.weekly_7d);
+  assert.equal(parsed.quotas.weekly_7d.displayName, "Weekly (7d)");
+  assert.equal(parsed.quotas.weekly_7d.used, 1.25);
+  assert.equal(parsed.quotas.weekly_7d.total, 20.0);
+  assert.equal(parsed.quotas.weekly_7d.remainingPercentage, 94);
+
+  // 3. Free tokens
+  assert.ok(parsed.quotas.free_tokens);
+  assert.equal(parsed.quotas.free_tokens.displayName, "Free Tokens (Daily)");
+  assert.equal(parsed.quotas.free_tokens.used, 15000);
+  assert.equal(parsed.quotas.free_tokens.total, 100000);
+  assert.equal(parsed.quotas.free_tokens.remainingPercentage, 85);
+
+  // 4. Wallet
+  assert.ok(parsed.quotas.wallet);
+  assert.equal(parsed.quotas.wallet.displayName, "Wallet Balance");
+  assert.equal(parsed.quotas.wallet.total, 25.0);
+  assert.equal(parsed.quotas.wallet.unlimited, true);
+
+  // 5. Live dispatch through fetchRawQuotaForProvider
+  const mockFetch: typeof fetch = (async (url: any) => {
+    assert.equal(String(url), "https://api.xkiro.com/v1/usage");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => samplePayload,
+    } as any;
+  }) as typeof fetch;
+
+  const rawRes = await getXKiroUsage("sk-xt-test", {}, { fetchFn: mockFetch });
+  assert.equal(rawRes.plan, "Ultra");
+  assert.ok(rawRes.quotas?.session_5h);
+
+  const dispatchRes = await fetchRawQuotaForProvider({
+    providerId: "xkiro",
+    account: {
+      id: "acc_xk",
+      providerId: "xkiro",
+      name: "xKiro Account",
+      rawApiKey: "sk-xt-key",
+      isActive: true,
+      priority: 1,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+  // Since dispatchRes uses live or mock, it dispatches cleanly to xkiro without "not supported"
+  assert.notEqual(dispatchRes.message, "Quota tracking is not supported for provider 'xkiro'.");
+});
+
+test("Database Quota Persistence & SWR Instant Retrieval", async () => {
+  const pId = "db_test_prov_" + Date.now();
+  const accId = "db_test_acc_" + Date.now();
+
+  ProviderRepository.saveProvider({
+    id: pId,
+    name: "DB Test Provider",
+    baseUrl: "https://api.example.com",
+    format: "openai",
+    isActive: true,
+    priority: 1,
+    models: ["gpt-4o"],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  ProviderRepository.addAccount({
+    id: accId,
+    providerId: pId,
+    name: "DB Account",
+    rawApiKey: "sk-test-db-key",
+  });
+
+  const quotaService = QuotaService.getInstance();
+
+  // 1. Persist mock quota to SQLite database
+  const mockPersistedResult = {
+    accountId: accId,
+    providerId: pId,
+    accountName: "DB Account",
+    plan: "Pro Plan",
+    isActive: true,
+    quotas: [
+      {
+        label: "Primary Window",
+        used: 10,
+        total: 100,
+        remainingPercentage: 90,
+        resetAt: Date.now() + 3600000,
+        resetInText: "1h 0m",
+      },
+    ],
+    lastFetchedAt: Date.now() - 5000,
+  };
+
+  ProviderRepository.updateCachedQuota(accId, JSON.stringify(mockPersistedResult), mockPersistedResult.lastFetchedAt);
+
+  // 2. getCachedQuotasForAllAccounts immediately returns from SQLite without network delay
+  const cachedList = quotaService.getCachedQuotasForAllAccounts();
+  const found = cachedList.find((c) => c.accountId === accId);
+  assert.ok(found);
+  assert.equal(found.plan, "Pro Plan");
+  assert.equal(found.quotas.length, 1);
+  assert.equal(found.quotas[0].label, "Primary Window");
+  assert.equal(found.quotas[0].remainingPercentage, 90);
+
+  // 3. fetchQuotaForAccount with force=false returns DB cached quota directly
+  const cachedDirect = await quotaService.fetchQuotaForAccount(accId, false);
+  assert.equal(cachedDirect.plan, "Pro Plan");
+  assert.equal(cachedDirect.quotas[0].label, "Primary Window");
+
+  ProviderRepository.deleteAccount(accId);
+  ProviderRepository.deleteProvider(pId);
+});
+
+test("tokenHelper - extracts GitHub OAuth token when wrapped in JSON accessToken", () => {
+  const jsonWithGhu = JSON.stringify({
+    accessToken: "ghu_RUwHDYSampleToken123",
+    refreshToken: "ghr_sample",
+    expiresAt: Date.now() + 3600000,
+  });
+
+  const creds = extractCredentials(jsonWithGhu, {}, "github");
+  assert.equal(creds.githubAccessToken, "ghu_RUwHDYSampleToken123");
+  assert.equal(creds.providerSpecificData.githubAccessToken, "ghu_RUwHDYSampleToken123");
+});
+
 
 

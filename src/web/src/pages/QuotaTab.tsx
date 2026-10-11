@@ -10,10 +10,23 @@ import { EditAccountModal, type EditAccountData } from "../components/EditAccoun
 import { ConfirmModal } from "../components/ConfirmModal.js";
 
 const AUTO_REFRESH_INTERVAL_SEC = 60;
+const LOCAL_STORAGE_QUOTA_KEY = "mapigate_cached_quota_accounts";
 
 export const QuotaTab: React.FC = () => {
-  const [accounts, setAccounts] = useState<AccountQuotaResult[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Initialize from localStorage for instantaneous 0ms display on entry
+  const [accounts, setAccounts] = useState<AccountQuotaResult[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_QUOTA_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return [];
+  });
+  const [loading, setLoading] = useState<boolean>(() => accounts.length === 0);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState("all");
   const [statusFilter, setStatusFilter] = useState<AccountStatusFilter>("all");
@@ -34,11 +47,17 @@ export const QuotaTab: React.FC = () => {
   // Fetch all accounts and quotas
   const fetchAllQuotas = useCallback(async (force = false) => {
     try {
+      if (force) {
+        setRefreshingAll(true);
+      }
       const url = force ? "/api/quota?force=true" : "/api/quota";
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data: AccountQuotaResult[] = await res.json();
       setAccounts(data);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_QUOTA_KEY, JSON.stringify(data));
+      } catch {}
     } catch (err: any) {
       console.error("[QuotaTab] Failed to fetch quotas:", err);
     } finally {
@@ -47,9 +66,12 @@ export const QuotaTab: React.FC = () => {
     }
   }, []);
 
-  // Initial load
+  // Initial load: show cached results immediately, then revalidate in background
   useEffect(() => {
-    fetchAllQuotas();
+    fetchAllQuotas(false).then(() => {
+      // Revalidate in background to fetch fresh quotas without showing empty state
+      fetchAllQuotas(true);
+    });
   }, [fetchAllQuotas]);
 
   // Auto-refresh countdown effect (respects Page Visibility API)

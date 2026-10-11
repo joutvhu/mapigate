@@ -31,9 +31,11 @@ export interface ResolvedCredentials {
  */
 export function extractCredentials(
   rawApiKey: string,
-  providerSpecificData?: Record<string, any>
+  providerSpecificData?: Record<string, any>,
+  providerId?: string
 ): ResolvedCredentials {
   const psd: Record<string, any> = { ...(providerSpecificData || {}) };
+  const pId = (providerId || psd.providerId || psd.provider || "").toLowerCase();
   let accessToken = "";
   let refreshToken = psd.refreshToken || "";
   let expiresAt = typeof psd.expiresAt === "number" ? psd.expiresAt : undefined;
@@ -83,9 +85,17 @@ export function extractCredentials(
     apiKey = trimmedKey;
   }
 
-  // Preserve githubAccessToken if present in rawApiKey
-  if (!githubAccessToken && trimmedKey) {
+  // Preserve githubAccessToken if present in rawApiKey or parsed JSON
+  if (!githubAccessToken) {
     if (
+      accessToken.startsWith("gho_") ||
+      accessToken.startsWith("ghu_") ||
+      accessToken.startsWith("ghp_") ||
+      accessToken.startsWith("github_pat_") ||
+      ((pId === "github" || pId === "copilot") && accessToken && !accessToken.startsWith("tid="))
+    ) {
+      githubAccessToken = accessToken;
+    } else if (
       trimmedKey.startsWith("gho_") ||
       trimmedKey.startsWith("ghu_") ||
       trimmedKey.startsWith("ghp_") ||
@@ -95,12 +105,32 @@ export function extractCredentials(
     } else if (
       !trimmedKey.startsWith("{") &&
       !trimmedKey.startsWith("tid=") &&
-      !trimmedKey.startsWith("token ")
+      !trimmedKey.startsWith("token ") &&
+      (pId === "github" || pId === "copilot")
     ) {
       // If copilotToken is in PSD, trimmedKey was the original OAuth token
       if (psd.copilotToken && trimmedKey !== psd.copilotToken) {
         githubAccessToken = trimmedKey;
       }
+    }
+  }
+
+  if (!githubAccessToken && psd.githubAccessToken) {
+    githubAccessToken = psd.githubAccessToken;
+  }
+
+  if (githubAccessToken && !psd.githubAccessToken) {
+    psd.githubAccessToken = githubAccessToken;
+  }
+
+  // Kiro: if accessToken starts with "aor" (AWS OIDC refresh token), treat it as refreshToken
+  if (pId === "kiro") {
+    if (accessToken.startsWith("aor")) {
+      if (!refreshToken) refreshToken = accessToken;
+      accessToken = psd.accessToken || "";
+    }
+    if (trimmedKey.startsWith("aor") && !refreshToken) {
+      refreshToken = trimmedKey;
     }
   }
 
@@ -159,13 +189,16 @@ export async function ensureFreshCredentials(
   accountId: string,
   providerId: string,
   rawApiKey: string,
-  providerSpecificData?: Record<string, any>
+  providerSpecificData?: Record<string, any>,
+  forceRefresh = false
 ): Promise<ResolvedCredentials> {
-  const creds = extractCredentials(rawApiKey, providerSpecificData);
+  const creds = extractCredentials(rawApiKey, providerSpecificData, providerId);
   const pId = providerId.toLowerCase();
 
-  // If not expired and access token is present, return as is
-  if (!isTokenExpired(creds.expiresAt) && creds.accessToken) {
+  const isKiroPlaceholder = pId === "kiro" && creds.accessToken?.startsWith("aor");
+
+  // If not force refresh, not expired, and valid access token is present, return as is
+  if (!forceRefresh && !isTokenExpired(creds.expiresAt) && creds.accessToken && !isKiroPlaceholder) {
     return creds;
   }
 
@@ -298,18 +331,26 @@ export async function ensureFreshCredentials(
     }
 
     // 5. Kiro Code
-    else if (pId === "kiro") {
-      const tokenUrl = "https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken";
+    else if (pId === "kiro" && creds.refreshToken) {
       const clientId = creds.providerSpecificData.clientId;
       const clientSecret = creds.providerSpecificData.clientSecret;
+      const authMethod = creds.providerSpecificData.authMethod || "builder-id";
+      const region = creds.providerSpecificData.region || "us-east-1";
+
       if (clientId && clientSecret) {
-        const res = await fetch(tokenUrl, {
+        const isIDC = authMethod === "idc";
+        const endpoint = isIDC && region
+          ? `https://oidc.${region}.amazonaws.com/token`
+          : "https://oidc.us-east-1.amazonaws.com/token";
+
+        const res = await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({
             refreshToken: creds.refreshToken,
             clientId,
             clientSecret,
+            grantType: "refresh_token",
           }),
         });
         if (res.ok) {
@@ -317,6 +358,32 @@ export async function ensureFreshCredentials(
           newAccessToken = data.accessToken || data.access_token;
           if (data.refreshToken) newRefreshToken = data.refreshToken;
           if (data.expiresIn) expiresInSec = Number(data.expiresIn);
+          if (data.profileArn && !creds.providerSpecificData.profileArn) {
+            creds.providerSpecificData.profileArn = data.profileArn;
+          }
+        }
+      } else {
+        // Builder ID & Social Kiro accounts refresh via auth.desktop.kiro.dev
+        const tokenUrl = "https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken";
+        const res = await fetch(tokenUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            "User-Agent": "kiro-cli/1.0.0",
+          },
+          body: JSON.stringify({
+            refreshToken: creds.refreshToken,
+          }),
+        });
+        if (res.ok) {
+          const data: any = await res.json();
+          newAccessToken = data.accessToken || data.access_token;
+          if (data.refreshToken) newRefreshToken = data.refreshToken;
+          if (data.expiresIn) expiresInSec = Number(data.expiresIn);
+          if (data.profileArn && !creds.providerSpecificData.profileArn) {
+            creds.providerSpecificData.profileArn = data.profileArn;
+          }
         }
       }
     }

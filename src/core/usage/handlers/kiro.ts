@@ -5,24 +5,37 @@ export const CW_HOST = "https://codewhisperer.us-east-1.amazonaws.com";
 export const Q_HOST = "https://q.us-east-1.amazonaws.com";
 export const LIMITS_PATH = "/getUsageLimits";
 
+export const KIRO_DEFAULT_PROFILE_ARNS: Record<string, string> = {
+  "builder-id": "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX",
+  social: "arn:aws:codewhisperer:us-east-1:699475941385:profile/EHGA3GRVQMUK",
+};
+
+export function resolveDefaultProfileArn(authMethod?: string): string {
+  const social = authMethod === "google" || authMethod === "github";
+  return social ? KIRO_DEFAULT_PROFILE_ARNS.social : KIRO_DEFAULT_PROFILE_ARNS["builder-id"];
+}
+
 export function parseKiroQuotaData(data: any): RawProviderQuotaResult {
   const quotas: Record<string, RawQuotaBucket> = {};
   const usageList = Array.isArray(data?.usageBreakdownList) ? data.usageBreakdownList : [];
   const resetAt = parseResetTime(data?.nextDateReset || data?.resetDate);
 
   for (const breakdown of usageList) {
-    const resourceType = String(breakdown?.resourceType || "agentic_request").toLowerCase();
-    const used = Number(breakdown?.currentUsageWithPrecision) || 0;
-    const total = Number(breakdown?.usageLimitWithPrecision) || 0;
+    const resourceType = String(breakdown?.resourceType || "credit").toLowerCase();
+    const used = Number(breakdown?.currentUsageWithPrecision ?? breakdown?.currentUsage) || 0;
+    const total = Number(breakdown?.usageLimitWithPrecision ?? breakdown?.usageLimit) || 0;
     const remaining = Math.max(0, total - used);
     const remainingPercentage = total > 0 ? Math.round((remaining / total) * 100) : 0;
 
     const label =
-      resourceType === "agentic_request"
+      breakdown?.displayName ||
+      (resourceType === "agentic_request"
         ? "Agentic Requests"
+        : resourceType === "credit"
+        ? "Credits"
         : resourceType
             .replace(/_/g, " ")
-            .replace(/\b\w/g, (c) => c.toUpperCase());
+            .replace(/\b\w/g, (c) => c.toUpperCase()));
 
     quotas[resourceType] = {
       displayName: label,
@@ -36,30 +49,33 @@ export function parseKiroQuotaData(data: any): RawProviderQuotaResult {
     };
 
     if (breakdown.freeTrialInfo) {
-      const ftUsed = Number(breakdown.freeTrialInfo.currentUsageWithPrecision) || 0;
-      const ftTotal = Number(breakdown.freeTrialInfo.usageLimitWithPrecision) || 0;
-      const ftRemaining = Math.max(0, ftTotal - ftUsed);
-      const ftExpiry = parseResetTime(breakdown.freeTrialInfo.freeTrialExpiry || resetAt);
+      const ftStatus = breakdown.freeTrialInfo.freeTrialStatus;
+      if (ftStatus !== "EXPIRED") {
+        const ftUsed = Number(breakdown.freeTrialInfo.currentUsageWithPrecision ?? breakdown.freeTrialInfo.currentUsage) || 0;
+        const ftTotal = Number(breakdown.freeTrialInfo.usageLimitWithPrecision ?? breakdown.freeTrialInfo.usageLimit) || 0;
+        const ftRemaining = Math.max(0, ftTotal - ftUsed);
+        const ftExpiry = parseResetTime(breakdown.freeTrialInfo.freeTrialExpiry || resetAt);
 
-      quotas[`${resourceType}_freetrial`] = {
-        displayName: `${label} (Free Trial)`,
-        used: ftUsed,
-        total: ftTotal,
-        remaining: ftRemaining,
-        remainingPercentage: ftTotal > 0 ? Math.round((ftRemaining / ftTotal) * 100) : 0,
-        resetAt: ftExpiry,
-        unlimited: false,
-        recurring: false,
-      };
+        quotas[`${resourceType}_freetrial`] = {
+          displayName: `${label} (Free Trial)`,
+          used: ftUsed,
+          total: ftTotal,
+          remaining: ftRemaining,
+          remainingPercentage: ftTotal > 0 ? Math.round((ftRemaining / ftTotal) * 100) : 0,
+          resetAt: ftExpiry,
+          unlimited: false,
+          recurring: false,
+        };
+      }
     }
   }
 
   if (Object.keys(quotas).length === 0) {
-    quotas["agentic_request"] = {
-      displayName: "Agentic Requests",
+    quotas["credit"] = {
+      displayName: "Credits",
       used: 0,
-      total: 500,
-      remaining: 500,
+      total: 50,
+      remaining: 50,
       remainingPercentage: 100,
       resetAt,
       unlimited: false,
@@ -68,7 +84,7 @@ export function parseKiroQuotaData(data: any): RawProviderQuotaResult {
   }
 
   return {
-    plan: data?.subscriptionInfo?.subscriptionTitle || "Kiro Pro",
+    plan: data?.subscriptionInfo?.subscriptionTitle || "Kiro",
     quotas,
   };
 }
@@ -91,7 +107,9 @@ export async function getKiroUsage(
 
   const apiKeyHeaders: Record<string, string> = isApiKey ? { tokentype: "API_KEY" } : {};
   const externalIdpHeaders: Record<string, string> = isExternalIdp ? { TokenType: "EXTERNAL_IDP" } : {};
-  const profileArn = providerSpecificData?.profileArn || "";
+  const profileArn = isApiKey
+    ? (providerSpecificData?.profileArn || "")
+    : (providerSpecificData?.profileArn || resolveDefaultProfileArn(authMethod));
 
   const attempts = [
     {

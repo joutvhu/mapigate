@@ -103,6 +103,12 @@ export const PROVIDER_QUOTA_ORDER_MAP: Record<string, string[]> = {
     "Monthly",
     "Balance",
   ],
+  xkiro: [
+    "Session (5h)",
+    "Weekly (7d)",
+    "Free Tokens (Daily)",
+    "Wallet Balance",
+  ],
 };
 
 /**

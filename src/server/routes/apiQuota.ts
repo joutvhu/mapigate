@@ -8,7 +8,13 @@ const quotaService = QuotaService.getInstance();
 // GET /api/quota - List cached/current quota for all accounts
 quotaRouter.get("/", async (req, res) => {
   const force = req.query.force === "true";
+  const cachedOnly = req.query.cached === "true";
   try {
+    if (cachedOnly) {
+      const cached = quotaService.getCachedQuotasForAllAccounts();
+      res.json(cached);
+      return;
+    }
     const results = await quotaService.fetchQuotaForAllAccounts(force);
     res.json(results);
   } catch (err: any) {
