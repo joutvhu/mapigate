@@ -741,119 +741,210 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
 
             {/* Models Scrollable List */}
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-              {/* Combos section at top if any */}
-              {filteredCombos.length > 0 && (
-                <div className="p-2.5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 space-y-1.5">
-                  <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-semibold">
-                    <span className="material-symbols-outlined text-[15px]">layers</span>
-                    <span>Smart Combos ({filteredCombos.length})</span>
+              {/* Dedicated Combos View when Combos is selected */}
+              {selectedProvider === "combo" ? (
+                filteredCombos.length === 0 ? (
+                  <div className="py-10 text-center text-slate-500 text-xs space-y-2">
+                    <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
+                      layers_clear
+                    </span>
+                    <p className="max-w-xs mx-auto">
+                      No combos found matching your search or filters.
+                    </p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {filteredCombos.map((combo) => {
-                      const isSelected = selectedModels.includes(combo.name);
-                      return (
-                        <button
-                          key={combo.id}
-                          type="button"
-                          onClick={() => handleToggleCombo(combo)}
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                            isSelected
-                              ? "bg-cyan-600 text-white border-cyan-500"
-                              : "bg-[#0A0D14] text-slate-300 border-[#1E293B] hover:border-cyan-500/40 hover:text-white"
-                          }`}
-                        >
-                          {isSelected && (
-                            <span className="material-symbols-outlined text-[12px] text-cyan-200">
-                              check
-                            </span>
-                          )}
-                          <span>{combo.name}</span>
-                          <span className="text-[10px] opacity-60">({combo.models.length})</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                ) : (
+                  filteredCombos.map((combo) => {
+                    const isSelected = selectedModels.includes(combo.name);
+                    const comboCaps = aggregateComboCapabilities(combo.models);
 
-              {filteredModels.length === 0 ? (
-                <div className="py-10 text-center text-slate-500 text-xs space-y-2">
-                  <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
-                    search_off
-                  </span>
-                  <p className="max-w-xs mx-auto">
-                    {connectedOnly && !hasConnectedAccounts
-                      ? "No accounts connected yet. All models are currently hidden by 'Connected Only'."
-                      : connectedOnly
-                      ? "No models found from connected accounts matching your search/filters."
-                      : "No models matched your filter. Try clearing filters or enter a custom model below."}
-                  </p>
-                  {connectedOnly && (
-                    <button
-                      type="button"
-                      onClick={() => setConnectedOnly(false)}
-                      className="px-3 py-1 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium cursor-pointer transition-colors"
-                    >
-                      Show All Registry Models
-                    </button>
-                  )}
-                </div>
-              ) : (
-                filteredModels.map((item) => {
-                  const isSelected = selectedModels.includes(item.value) || selectedModel === item.value;
-                  const ctxBadge = formatContextLength(item.contextLength);
-
-                  return (
-                    <div
-                      key={item.value}
-                      onClick={() => handleToggleModel(item)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-blue-600/10 border-blue-500/40 text-white"
-                          : "bg-[#0A0D14]/70 border-[#1E293B] hover:border-slate-700 text-slate-300"
-                      }`}
-                    >
-                      <div className="min-w-0 pr-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-white truncate">
-                            {item.name}
-                          </span>
-                          <span className="px-1.5 py-0.2 rounded bg-[#141B2D] border border-[#1E293B] text-[10px] text-slate-400 shrink-0 font-mono">
-                            {item.providerName}
-                          </span>
-                          {ctxBadge && (
-                            <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
-                              {ctxBadge}
-                            </span>
-                          )}
-                        </div>
-                        <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
-                          {item.value}
-                        </div>
-                        <div className="mt-1">
-                          <CapacityBadges caps={item.caps} size="xs" />
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleModel(item);
-                        }}
-                        className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                    return (
+                      <div
+                        key={combo.id}
+                        onClick={() => handleToggleCombo(combo)}
+                        className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                           isSelected
-                            ? "bg-blue-600 border-blue-500 text-white"
-                            : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
+                            ? "bg-cyan-950/30 border-cyan-500/50 text-white"
+                            : "bg-[#0A0D14]/70 border-[#1E293B] hover:border-slate-700 text-slate-300"
                         }`}
                       >
-                        <span className="material-symbols-outlined text-[16px]">
-                          {isSelected ? "check" : "add"}
-                        </span>
-                      </button>
+                        <div className="min-w-0 pr-2 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 font-mono text-[9.5px] text-cyan-300 font-semibold tracking-wide">
+                              COMBO
+                            </span>
+                            <span className="text-xs font-semibold text-white truncate">
+                              {combo.name}
+                            </span>
+                            {combo.strategy && (
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-sans text-[9px] font-medium border ${
+                                  combo.strategy === "round-robin"
+                                    ? "bg-cyan-950/40 text-cyan-300 border-cyan-500/30"
+                                    : combo.strategy === "fusion"
+                                    ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
+                                    : "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                                }`}
+                              >
+                                {combo.strategy === "round-robin"
+                                  ? "Round Robin"
+                                  : combo.strategy === "fusion"
+                                  ? "Fusion"
+                                  : "Fallback"}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="font-mono text-[11px] text-slate-400 truncate">
+                            <span className="text-cyan-400 font-semibold">
+                              {combo.models.length} model{combo.models.length > 1 ? "s" : ""}:
+                            </span>{" "}
+                            <span className="text-slate-300">{combo.models.join(", ")}</span>
+                          </div>
+
+                          {comboCaps && (
+                            <div className="pt-0.5">
+                              <CapacityBadges caps={comboCaps} size="xs" />
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleCombo(combo);
+                          }}
+                          className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                            isSelected
+                              ? "bg-cyan-600 border-cyan-500 text-white"
+                              : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            {isSelected ? "check" : "add"}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })
+                )
+              ) : (
+                <>
+                  {/* Combos section at top if any */}
+                  {filteredCombos.length > 0 && (
+                    <div className="p-2.5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-semibold">
+                        <span className="material-symbols-outlined text-[15px]">layers</span>
+                        <span>Smart Combos ({filteredCombos.length})</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {filteredCombos.map((combo) => {
+                          const isSelected = selectedModels.includes(combo.name);
+                          return (
+                            <button
+                              key={combo.id}
+                              type="button"
+                              onClick={() => handleToggleCombo(combo)}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                                isSelected
+                                  ? "bg-cyan-600 text-white border-cyan-500"
+                                  : "bg-[#0A0D14] text-slate-300 border-[#1E293B] hover:border-cyan-500/40 hover:text-white"
+                              }`}
+                            >
+                              {isSelected && (
+                                <span className="material-symbols-outlined text-[12px] text-cyan-200">
+                                  check
+                                </span>
+                              )}
+                              <span>{combo.name}</span>
+                              <span className="text-[10px] opacity-60">({combo.models.length})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  );
-                })
+                  )}
+
+                  {filteredModels.length === 0 ? (
+                    <div className="py-10 text-center text-slate-500 text-xs space-y-2">
+                      <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
+                        search_off
+                      </span>
+                      <p className="max-w-xs mx-auto">
+                        {connectedOnly && !hasConnectedAccounts
+                          ? "No accounts connected yet. All models are currently hidden by 'Connected Only'."
+                          : connectedOnly
+                          ? "No models found from connected accounts matching your search/filters."
+                          : "No models matched your filter. Try clearing filters or enter a custom model below."}
+                      </p>
+                      {connectedOnly && (
+                        <button
+                          type="button"
+                          onClick={() => setConnectedOnly(false)}
+                          className="px-3 py-1 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium cursor-pointer transition-colors"
+                        >
+                          Show All Registry Models
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    filteredModels.map((item) => {
+                      const isSelected = selectedModels.includes(item.value) || selectedModel === item.value;
+                      const ctxBadge = formatContextLength(item.contextLength);
+
+                      return (
+                        <div
+                          key={item.value}
+                          onClick={() => handleToggleModel(item)}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-blue-600/10 border-blue-500/40 text-white"
+                              : "bg-[#0A0D14]/70 border-[#1E293B] hover:border-slate-700 text-slate-300"
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-white truncate">
+                                {item.name}
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded bg-[#141B2D] border border-[#1E293B] text-[10px] text-slate-400 shrink-0 font-mono">
+                                {item.providerName}
+                              </span>
+                              {ctxBadge && (
+                                <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
+                                  {ctxBadge}
+                                </span>
+                              )}
+                            </div>
+                            <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
+                              {item.value}
+                            </div>
+                            <div className="mt-1">
+                              <CapacityBadges caps={item.caps} size="xs" />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleModel(item);
+                            }}
+                            className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                              isSelected
+                                ? "bg-blue-600 border-blue-500 text-white"
+                                : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[16px]">
+                              {isSelected ? "check" : "add"}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
               )}
             </div>
 

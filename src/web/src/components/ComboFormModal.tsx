@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
@@ -20,7 +20,7 @@ import { PortalModal } from "./PortalModal.js";
 import { CapacityBadges } from "./CapacityBadges.js";
 import { ModelSelectModal } from "./ModelSelectModal.js";
 import { Select } from "./Select.js";
-import { ModelAutocompleteInput } from "./ModelAutocompleteInput.js";
+import { ModelAutocompleteInput, invalidateAvailableModelsCache } from "./ModelAutocompleteInput.js";
 
 export interface ComboItem {
   id: string;
@@ -287,10 +287,41 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     }
   };
 
+  const excludedComboValues = useMemo(() => {
+    const list: string[] = [];
+    if (combo?.id) list.push(combo.id);
+    if (combo?.name) {
+      list.push(combo.name);
+      list.push(`combo/${combo.name}`);
+    }
+    const currentName = name.trim();
+    if (currentName) {
+      list.push(currentName);
+      list.push(`combo/${currentName}`);
+    }
+    return list;
+  }, [combo, name]);
+
+  const isCircularReference = (val: string): boolean => {
+    const v = val.trim().toLowerCase();
+    const stripped = v.startsWith("combo/") ? v.slice(6) : v;
+    return excludedComboValues.some((ex) => {
+      const exLower = ex.toLowerCase();
+      const exStripped = exLower.startsWith("combo/") ? exLower.slice(6) : exLower;
+      return v === exLower || stripped === exStripped;
+    });
+  };
+
   const handleEditModel = (index: number, newModel: string) => {
+    const val = newModel.trim();
+    if (isCircularReference(val)) {
+      setModelsError("A combo cannot bundle itself (circular reference).");
+      return;
+    }
     const updated = [...models];
-    updated[index] = newModel;
+    updated[index] = val;
     setModels(updated);
+    setModelsError("");
   };
 
   const handleRemoveModel = (index: number) => {
@@ -334,6 +365,12 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     if (e) e.preventDefault();
     const val = quickInputModel.trim();
     if (!val) return;
+
+    if (isCircularReference(val)) {
+      setModelsError("A combo cannot bundle itself (circular reference).");
+      return;
+    }
+
     if (!models.includes(val)) {
       setModels([...models, val]);
       setModelsError("");
@@ -349,6 +386,11 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
       return;
     }
 
+    if (models.some(isCircularReference)) {
+      setModelsError("A combo cannot bundle itself (circular reference).");
+      return;
+    }
+
     try {
       setSaving(true);
       await onSave({
@@ -358,6 +400,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
         strategy,
         isActive: combo ? combo.isActive : true,
       });
+      invalidateAvailableModelsCache();
       onClose();
     } catch (err: any) {
       setNameError(err?.message || "Failed to save combo.");
@@ -528,6 +571,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                     value={quickInputModel}
                     onChange={setQuickInputModel}
                     onEnter={() => handleAddQuickModel()}
+                    excludeValues={excludedComboValues}
                     className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -580,6 +624,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
           onClose={() => setShowModelPicker(false)}
           addedModelValues={models}
           initialSelectedModels={models}
+          excludeModelIds={excludedComboValues}
           onSelect={(m) => {
             if (!models.includes(m.value)) {
               setModels((prev) => [...prev, m.value]);
