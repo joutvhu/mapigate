@@ -215,25 +215,36 @@ async function showAddAccountCatalog(breadcrumb: string[]): Promise<void> {
 }
 
 async function promptAddAccount(providerId: string): Promise<void> {
+  const isNoAuth = providerId === "opencode" || providerId === "oc";
   console.log(`\n${COLORS.bold}Add Account for ${providerId}:${COLORS.reset}`);
-  const name = await prompt("Account Name (e.g. Work, Personal): ");
-  if (!name) {
+  if (isNoAuth) {
+    console.log(`${COLORS.dim}OpenCode Free is 100% free and does not require an API key.${COLORS.reset}`);
+  }
+  const name =
+    (await prompt(`Account Name (default: ${isNoAuth ? "OpenCode Free" : "Work"}): `)) ||
+    (isNoAuth ? "OpenCode Free" : "");
+  if (!name && !isNoAuth) {
     showStatus("Account creation cancelled (empty name).", "warning");
     await pause();
     return;
   }
 
-  const apiKey = await prompt("API Key: ");
-  if (!apiKey && providerId !== "ollama-local") {
-    showStatus("API Key is required.", "error");
-    await pause();
-    return;
+  let apiKey = "";
+  if (!isNoAuth) {
+    apiKey = await prompt("API Key: ");
+    if (!apiKey && providerId !== "ollama-local") {
+      showStatus("API Key is required.", "error");
+      await pause();
+      return;
+    }
+  } else {
+    apiKey = "public";
   }
 
   console.log("Saving account...");
-  const res = await ApiClient.addAccount(providerId, { name, apiKey });
+  const res = await ApiClient.addAccount(providerId, { name: name || "OpenCode Free", apiKey });
   if (res.success) {
-    showStatus(`Account "${name}" added successfully!`, "success");
+    showStatus(`Account "${name || "OpenCode Free"}" added successfully!`, "success");
   } else {
     showStatus(res.error || "Failed to add account.", "error");
   }

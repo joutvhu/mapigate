@@ -41,16 +41,23 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
     loadBackendProviders();
   }, []);
 
+  const isFreeNoAuth = (p: ProviderItem) => {
+    return (p as any).noAuth || p.id === "opencode" || p.id === "oc";
+  };
+
   const getAccountCount = (providerId: string) => {
     const found = backendProviders.find((p) => p.id === providerId);
+    if (providerId === "opencode" || providerId === "oc" || (found as any)?.noAuth) {
+      return Math.max(1, found?.accountsCount ?? 0);
+    }
     return found?.accountsCount ?? 0;
   };
 
   const filterItem = (item: ProviderItem) => {
     const matchesSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const count = getAccountCount(item.id);
-    if (filterMode === "connected") return matchesSearch && count > 0;
-    if (filterMode === "not_connected") return matchesSearch && count === 0;
+    if (filterMode === "connected") return matchesSearch && (count > 0 || isFreeNoAuth(item));
+    if (filterMode === "not_connected") return matchesSearch && count === 0 && !isFreeNoAuth(item);
     return matchesSearch;
   };
 
@@ -137,7 +144,12 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
               {p.name}
             </h4>
             <div className="mt-1 flex items-center gap-1.5">
-              {count > 0 ? (
+              {isFreeNoAuth(p) ? (
+                <span className="rt-badge rt-badge--success">
+                  <span className="size-1.5 rounded-full bg-emerald-400" />
+                  Ready (Free)
+                </span>
+              ) : count > 0 ? (
                 <span className="rt-badge rt-badge--success">
                   <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   {count} Connected

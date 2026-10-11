@@ -31,6 +31,12 @@ providerRouter.post("/validate", async (req, res) => {
     return;
   }
 
+  const reg = getRegistryProvider(pId);
+  if (pId === "opencode" || pId === "oc" || reg?.noAuth) {
+    res.json({ valid: true });
+    return;
+  }
+
   // Ollama local check
   if (pId === "ollama-local" || pId.includes("ollama")) {
     const host = (providerSpecificData?.baseUrl || "http://127.0.0.1:11434").replace(/\/+$/, "");
@@ -140,7 +146,6 @@ providerRouter.post("/validate", async (req, res) => {
     return;
   }
 
-  const reg = getRegistryProvider(pId);
   const dbProv = ProviderRepository.getProviderById(pId);
   const baseUrl = (dbProv?.baseUrl || reg?.baseUrl || "https://api.openai.com").replace(/\/+$/, "");
   const format = dbProv?.format || reg?.format || "openai";
@@ -376,15 +381,17 @@ providerRouter.post("/:id/accounts", (req, res) => {
     const { name, apiKey, providerSpecificData } = req.body;
     const providerId = req.params.id;
 
+    const reg = getRegistryProvider(providerId);
+    const isNoAuth = reg?.noAuth || providerId === "opencode" || providerId === "oc";
     const isOllamaLocal = providerId === "ollama-local";
     const hasProfile = Boolean(providerSpecificData?.profile);
 
-    if (!name && !isOllamaLocal) {
+    if (!name && !isOllamaLocal && !isNoAuth) {
       res.status(400).json({ error: "Account name is required." });
       return;
     }
 
-    if (!apiKey && !isOllamaLocal && !hasProfile) {
+    if (!apiKey && !isOllamaLocal && !hasProfile && !isNoAuth) {
       res.status(400).json({ error: "API key or credential profile is required." });
       return;
     }
@@ -394,8 +401,8 @@ providerRouter.post("/:id/accounts", (req, res) => {
     ProviderRepository.addAccount({
       id: accountId,
       providerId: ensured.id,
-      name: name || (isOllamaLocal ? "Ollama Local" : "Account"),
-      rawApiKey: apiKey || "",
+      name: name || (isNoAuth ? "OpenCode Free" : isOllamaLocal ? "Ollama Local" : "Account"),
+      rawApiKey: apiKey || (isNoAuth ? "public" : ""),
       providerSpecificData,
     });
 
@@ -434,10 +441,39 @@ providerRouter.post("/:id/accounts/bulk", (req, res) => {
 
 // POST test provider connection
 providerRouter.post("/:id/test", async (req, res) => {
-  const provider = ProviderRepository.getProviderById(req.params.id);
+  const provider =
+    ProviderRepository.getProviderById(req.params.id) ||
+    ProviderRepository.getProviderWithDefaults(req.params.id);
   if (!provider) {
     res.status(404).json({ success: false, message: "Provider not found." });
     return;
+  }
+
+  const reg = getRegistryProvider(provider.id);
+  const isOpenCode = provider.id === "opencode" || provider.id === "oc" || Boolean(reg?.noAuth);
+
+  if (isOpenCode) {
+    try {
+      const upstream = await fetch("https://opencode.ai/zen/v1/models", {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer public",
+          "User-Agent": "opencode/1.18.31",
+          "x-opencode-client": "desktop",
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (upstream.ok || upstream.status === 200 || upstream.status === 404) {
+        res.json({ success: true, message: `Connected to ${provider.name} successfully.` });
+      } else {
+        res.json({ success: false, message: `Upstream returned status ${upstream.status}` });
+      }
+      return;
+    } catch (err: any) {
+      res.json({ success: false, message: err.message || "Connection timeout or failed" });
+      return;
+    }
   }
 
   const accounts = ProviderRepository.getAccountsByProvider(provider.id);

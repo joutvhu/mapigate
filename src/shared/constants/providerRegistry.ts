@@ -7256,6 +7256,10 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
     "id": "opencode",
     "name": "OpenCode Free",
     "alias": "oc",
+    "aliases": [
+      "oc",
+      "opencode-free"
+    ],
     "uiAlias": "oc",
     "color": "#E87040",
     "image": "/providers/opencode.png",

@@ -28,6 +28,14 @@ import {
   type ModelCallResult,
   type SingleModelHandler,
 } from "../../core/router/comboEngine.js";
+import { getRegistryProvider } from "../../shared/constants/providerRegistry.js";
+import {
+  buildOpenCodeUrl,
+  buildOpenCodeHeaders,
+  applyFingerprintTools,
+  restoreToolNames,
+  isMessagesModel,
+} from "../../core/adapters/openCodeAdapter.js";
 import crypto from "node:crypto";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { logger, tagForSession, LogSymbol, formatDoneLine, maskKey } from "../../shared/logger.js";
@@ -143,9 +151,14 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     };
   }
 
+  const regProv = providerId ? getRegistryProvider(providerId) : undefined;
+  const canonicalProviderId = regProv?.id || providerId;
+
   const provider =
-    ProviderRepository.getProviderWithDefaults(providerId) ||
-    ProviderRepository.getProviderById(providerId);
+    (canonicalProviderId ? ProviderRepository.getProviderWithDefaults(canonicalProviderId) : undefined) ||
+    (canonicalProviderId ? ProviderRepository.getProviderById(canonicalProviderId) : undefined) ||
+    (providerId ? ProviderRepository.getProviderWithDefaults(providerId) : undefined) ||
+    (providerId ? ProviderRepository.getProviderById(providerId) : undefined);
 
   if (!provider) {
     logger.errorLine(reqTag, LogSymbol.ERROR, `Provider '${providerId}' not found`);
@@ -160,7 +173,15 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
   const { contextWindow } = getCapabilitiesForModel(provider.id, targetModel);
   const adjustedBody = stripHistoryForContext(body, contextWindow);
 
-  const targetFormat = provider.format || "openai";
+  const isOpenCodeFree = provider.id === "opencode" || provider.id === "oc";
+  let targetFormat = provider.format || "openai";
+  if (isOpenCodeFree) {
+    if (isMessagesModel(targetModel)) {
+      targetFormat = "claude";
+    } else {
+      targetFormat = "openai";
+    }
+  }
   const isBedrock = provider.id.startsWith("bedrock") || provider.credentialForm === "aws";
 
   // Bidirectional request payload conversion
@@ -193,21 +214,25 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
 
   // Upstream BaseUrl Deduplication
   let defaultUpstreamUrl: string;
-  const rawBase = (provider.baseUrl || "").trim();
-  const hasTerminalPath =
-    rawBase.includes("/chat/completions") ||
-    rawBase.includes("/messages") ||
-    rawBase.includes("/responses") ||
-    rawBase.includes("/generateAssistantResponse");
-
-  if (hasTerminalPath) {
-    defaultUpstreamUrl = rawBase;
+  if (isOpenCodeFree) {
+    defaultUpstreamUrl = buildOpenCodeUrl(targetModel, provider.baseUrl);
   } else {
-    const cleanBase = rawBase.replace(/\/+$/, "");
-    if (targetFormat === "claude") {
-      defaultUpstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/messages` : `${cleanBase}/v1/messages`;
+    const rawBase = (provider.baseUrl || "").trim();
+    const hasTerminalPath =
+      rawBase.includes("/chat/completions") ||
+      rawBase.includes("/messages") ||
+      rawBase.includes("/responses") ||
+      rawBase.includes("/generateAssistantResponse");
+
+    if (hasTerminalPath) {
+      defaultUpstreamUrl = rawBase;
     } else {
-      defaultUpstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/chat/completions` : `${cleanBase}/v1/chat/completions`;
+      const cleanBase = rawBase.replace(/\/+$/, "");
+      if (targetFormat === "claude") {
+        defaultUpstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/messages` : `${cleanBase}/v1/messages`;
+      } else {
+        defaultUpstreamUrl = cleanBase.endsWith("/v1") ? `${cleanBase}/chat/completions` : `${cleanBase}/v1/chat/completions`;
+      }
     }
   }
 
@@ -220,10 +245,14 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     const hasCustomHeaders = Boolean(
       provider.customHeaders && Object.keys(provider.customHeaders).length > 0
     );
+    const reg = getRegistryProvider(provider.id);
     const isNoAuthOrProfile =
       provider.id.startsWith("bedrock") ||
       provider.id === "ollama-local" ||
-      provider.id === "devin-cli";
+      provider.id === "devin-cli" ||
+      isOpenCodeFree ||
+      Boolean((provider as any).noAuth) ||
+      Boolean(reg?.noAuth);
 
     if ((!account || !account.rawApiKey) && !hasCustomHeaders && !isNoAuthOrProfile) {
       if (triedAccountIds.size > 0 && lastFailureResult) {
@@ -366,7 +395,19 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       outgoingHeaders["anthropic-version"] = incomingVersion;
     }
 
-    if (provider.id === "xiaomi-tokenplan") {
+    let openCodeToolMap = new Map<string, string>();
+    if (isOpenCodeFree) {
+      upstreamUrl = buildOpenCodeUrl(targetModel, provider.baseUrl);
+      upstreamBody.stream = true;
+      openCodeToolMap = applyFingerprintTools(upstreamBody, false);
+      const openCodeHeaders = buildOpenCodeHeaders(
+        req.headers as Record<string, string>,
+        account?.id,
+        undefined,
+        upstreamUrl
+      );
+      Object.assign(outgoingHeaders, openCodeHeaders);
+    } else if (provider.id === "xiaomi-tokenplan") {
       const region = psd.region || "sgp";
       upstreamUrl = `https://token-plan-${region}.xiaomimimo.com/v1/chat/completions`;
     } else if (provider.id === "azure" || provider.baseUrl.includes("azure.com")) {
@@ -600,6 +641,10 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       const clientResponseHeaders: Record<string, string> = {
         "content-type": isJson ? "application/json" : "text/plain",
       };
+
+      if (isOpenCodeFree && openCodeToolMap.size > 0 && responseBody) {
+        restoreToolNames(responseBody, openCodeToolMap);
+      }
 
       if (isJson) {
         res.status(200).json(responseBody);
@@ -934,6 +979,10 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         try {
           const jsonChunk = JSON.parse(dataStr);
 
+          if (isOpenCodeFree && openCodeToolMap.size > 0) {
+            restoreToolNames(jsonChunk, openCodeToolMap);
+          }
+
           if (jsonChunk.usage) {
             if (jsonChunk.usage.prompt_tokens) promptTokens = jsonChunk.usage.prompt_tokens;
             if (jsonChunk.usage.completion_tokens) completionTokens = jsonChunk.usage.completion_tokens;
@@ -987,7 +1036,11 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
             if (currentEventName && clientFormat === "anthropic") {
               res.write(`event: ${currentEventName}\n`);
             }
-            res.write(rawLine + "\n\n");
+            if (isOpenCodeFree && openCodeToolMap.size > 0) {
+              res.write(`data: ${JSON.stringify(jsonChunk)}\n\n`);
+            } else {
+              res.write(rawLine + "\n\n");
+            }
           }
         } catch {
           res.write(rawLine + "\n\n");

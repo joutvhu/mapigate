@@ -1,4 +1,5 @@
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import type { ProviderAccount } from "../../shared/types/index.js";
 
 export interface CooldownEntry {
@@ -53,7 +54,22 @@ export class LoadBalancer {
     excludeOrOptions?: Set<string> | string[] | PickAccountOptions
   ): (ProviderAccount & { rawApiKey: string }) | undefined {
     const allAccounts = ProviderRepository.getAccountsByProvider(providerId);
-    if (allAccounts.length === 0) return undefined;
+    if (allAccounts.length === 0) {
+      const reg = getRegistryProvider(providerId);
+      if (reg?.noAuth || providerId === "opencode" || providerId === "oc") {
+        return {
+          id: "acc_opencode_free",
+          providerId: reg?.id || "opencode",
+          name: "OpenCode Free (Public)",
+          apiKeyEncrypted: "",
+          rawApiKey: "public",
+          isActive: true,
+          rateLimitHits: 0,
+          lastUsedAt: 0,
+        };
+      }
+      return undefined;
+    }
 
     let excludeSet: Set<string> | undefined;
     let healthyOnly = false;

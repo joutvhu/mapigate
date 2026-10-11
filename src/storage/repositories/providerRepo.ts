@@ -51,9 +51,10 @@ export class ProviderRepository {
     defaultHeaders: Record<string, string>;
     catalogModels: RegistryModel[];
     thinkingOptions: string[];
+    noAuth?: boolean;
   }) | undefined {
-    const dbConfig = this.getProviderById(id);
     const reg = getRegistryProvider(id);
+    const dbConfig = this.getProviderById(id) || (reg ? this.getProviderById(reg.id) : undefined);
     if (!dbConfig && !reg) return undefined;
 
     const base: ProviderConfig = dbConfig || {
@@ -69,6 +70,7 @@ export class ProviderRepository {
       thinkingMode: reg!.thinkingMode || "auto",
       strategy: null,
       stickyLimit: 1,
+      noAuth: Boolean(reg?.noAuth),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -85,6 +87,7 @@ export class ProviderRepository {
 
     return {
       ...base,
+      noAuth: base.noAuth !== undefined ? base.noAuth : Boolean(reg?.noAuth),
       customHeaders,
       models,
       defaultHeaders: reg?.defaultHeaders || {},
@@ -282,10 +285,28 @@ export class ProviderRepository {
 
   public static getAllAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
     const db = getDatabase();
+    const reg = getRegistryProvider(providerId);
+    const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE provider_id = ? ORDER BY rate_limit_hits ASC, last_used_at ASC",
-      providerId
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) ORDER BY rate_limit_hits ASC, last_used_at ASC",
+      providerId,
+      targetProviderId
     );
+
+    if (rows.length === 0 && (reg?.noAuth || targetProviderId === "opencode")) {
+      return [
+        {
+          id: "acc_opencode_free",
+          providerId: targetProviderId,
+          name: "OpenCode Free (Public)",
+          apiKeyEncrypted: "",
+          rawApiKey: "public",
+          isActive: true,
+          rateLimitHits: 0,
+          lastUsedAt: 0,
+        },
+      ];
+    }
 
     return rows.map((r) => ({
       id: r.id,
@@ -304,10 +325,28 @@ export class ProviderRepository {
 
   public static getAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
     const db = getDatabase();
+    const reg = getRegistryProvider(providerId);
+    const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE provider_id = ? AND is_active = 1 ORDER BY rate_limit_hits ASC, last_used_at ASC",
-      providerId
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY rate_limit_hits ASC, last_used_at ASC",
+      providerId,
+      targetProviderId
     );
+
+    if (rows.length === 0 && (reg?.noAuth || targetProviderId === "opencode")) {
+      return [
+        {
+          id: "acc_opencode_free",
+          providerId: targetProviderId,
+          name: "OpenCode Free (Public)",
+          apiKeyEncrypted: "",
+          rawApiKey: "public",
+          isActive: true,
+          rateLimitHits: 0,
+          lastUsedAt: 0,
+        },
+      ];
+    }
 
     return rows.map((r) => ({
       id: r.id,

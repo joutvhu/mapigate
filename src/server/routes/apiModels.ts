@@ -2,7 +2,7 @@ import { Router } from "express";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
-import { PROVIDER_REGISTRY } from "../../shared/constants/providerRegistry.js";
+import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "../../core/capabilities/index.js";
 import crypto from "node:crypto";
 
@@ -36,7 +36,7 @@ modelRouter.get("/available", (req, res) => {
 
     const getProviderAccountsCount = (pId: string): number => {
       let count = activeCounts.get(pId) || 0;
-      const reg = PROVIDER_REGISTRY[pId];
+      const reg = PROVIDER_REGISTRY[pId] || getRegistryProvider(pId);
       if (reg) {
         if (reg.alias && reg.alias !== reg.id) {
           count += activeCounts.get(reg.alias) || 0;
@@ -48,6 +48,9 @@ modelRouter.get("/available", (req, res) => {
             }
           }
         }
+      }
+      if (reg?.noAuth || pId === "opencode" || pId === "oc") {
+        return Math.max(1, count);
       }
       return count;
     };

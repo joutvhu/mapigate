@@ -30,6 +30,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   onOpenOAuth,
 }) => {
   const pId = provider.id.toLowerCase();
+  const isNoAuth = pId === "opencode" || pId === "oc" || Boolean((provider as any).noAuth);
   const isOllamaLocal = pId === "ollama-local" || pId.includes("ollama");
   const isAzure = pId === "azure" || pId.includes("azure");
   const isCloudflareAi = pId === "cloudflare-ai";
@@ -127,6 +128,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   };
 
   const isFormValid = () => {
+    if (isNoAuth) return true;
     if (isOllamaLocal) return true;
     if (isBedrock && bedrockMode === "profile") return Boolean(bedrockProfile.trim());
     if (isBedrock && bedrockMode === "static") return Boolean(apiKey.trim() && bedrockAccessKeyId.trim());
@@ -172,7 +174,9 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     setSaving(true);
     setError(null);
 
-    const defaultName = isOllamaLocal
+    const defaultName = isNoAuth
+      ? "OpenCode Free"
+      : isOllamaLocal
       ? "Ollama Local"
       : isBedrock && bedrockMode === "profile"
       ? `Bedrock (${bedrockProfile})`
@@ -189,7 +193,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          apiKey: apiKey.trim(),
+          apiKey: apiKey.trim() || (isNoAuth ? "public" : ""),
           providerSpecificData: psd,
         }),
       });
@@ -369,10 +373,18 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 type="text"
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
-                placeholder={isOllamaLocal ? "Ollama Local" : "Primary Key (Production)"}
+                placeholder={isOllamaLocal ? "Ollama Local" : isNoAuth ? "OpenCode Free" : "Primary Key (Production)"}
                 className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
+
+            {/* Zero-Auth Free Provider Notice */}
+            {isNoAuth && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-400 text-[18px]">verified</span>
+                <span>OpenCode Free requires no API key. You can add a connection label or click Add Connection directly.</span>
+              </div>
+            )}
 
             {/* Region Selector for Xiaomi Token Plan or Regional Providers */}
             {(isXiaomiTokenPlan || availableRegions.length > 0) && (

@@ -14,6 +14,7 @@ export interface ProviderConfig {
   strategy?: string | null;
   stickyLimit?: number | null;
   credentialForm?: string;
+  noAuth?: boolean;
   createdAt: number;
   updatedAt: number;
 }

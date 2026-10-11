@@ -415,6 +415,34 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       )}
 
+      {/* Zero-Auth Free Provider Banner */}
+      {(provider.id === "opencode" || (registryItem as any)?.noAuth) && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 animate-rt-scale-in">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[20px] text-emerald-400 shrink-0">check_circle</span>
+            <div>
+              <p className="font-semibold text-white">No Authentication Required (100% Free)</p>
+              <p className="text-slate-400 mt-0.5">OpenCode Free is ready to use immediately without an account or API key. Requests route automatically using the public gateway pool.</p>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/providers/${provider.id}/test`, { method: "POST" });
+                const data = await res.json();
+                alert(data.message || (data.success ? "Connection successful!" : "Connection failed."));
+              } catch (err: any) {
+                alert(`Error testing connection: ${err.message}`);
+              }
+            }}
+            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[15px]">speed</span>
+            Test Free Upstream
+          </button>
+        </div>
+      )}
+
       {/* Multi-Account Connections Box */}
       <div className="rt-card p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">

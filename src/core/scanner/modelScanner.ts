@@ -35,6 +35,20 @@ export function resolveCandidateUrls(
     return candidates;
   }
 
+  // OpenCode Free discovery endpoint
+  const isOpenCode =
+    providerId === "opencode" ||
+    providerId === "oc" ||
+    cleanBase.includes("opencode.ai") ||
+    (registryItem && (registryItem.id === "opencode" || registryItem.alias === "oc"));
+
+  if (isOpenCode) {
+    add("https://opencode.ai/zen/v1/models");
+    add(`${cleanBase}/zen/v1/models`);
+    add(`${cleanBase}/v1/models`);
+    return candidates;
+  }
+
   // 2. BaseUrl ends with /chat/completions or /messages -> strip path segment
   if (lowerBase.endsWith("/chat/completions")) {
     cleanBase = cleanBase.slice(0, cleanBase.length - "/chat/completions".length).replace(/\/+$/, "");
@@ -176,6 +190,13 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
     }
   }
 
+  const isOpenCodeFree = providerId === "opencode" || providerId === "oc";
+  if (isOpenCodeFree) {
+    const DEAD = new Set(["deepseek-v4-flash-free"]);
+    const KNOWN = new Set(["big-pickle", "union-alpha"]);
+    return results.filter((m) => (m.id.endsWith("-free") || KNOWN.has(m.id)) && !DEAD.has(m.id));
+  }
+
   return results;
 }
 
@@ -260,6 +281,21 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       (providerId && (providerId.toLowerCase().includes("gemini") || providerId.toLowerCase().includes("google"))) ||
       baseUrl.toLowerCase().includes("googleapis.com") ||
       baseUrl.toLowerCase().includes("generativelanguage");
+
+    const isOpenCode =
+      providerId === "opencode" ||
+      providerId === "oc" ||
+      baseUrl.includes("opencode.ai") ||
+      (registryItem && (registryItem.id === "opencode" || registryItem.alias === "oc"));
+
+    if (isOpenCode) {
+      if (!apiKey) {
+        apiKey = "public";
+      }
+      reqHeaders["User-Agent"] = "opencode/1.18.31";
+      reqHeaders["x-opencode-client"] = "desktop";
+      reqHeaders["Authorization"] = "Bearer public";
+    }
 
     if (apiKey) {
       const token = apiKey.trim();
