@@ -143,6 +143,8 @@ export interface RequestDetail {
   accountName?: string | null;
   clientTool?: string;
   status?: string | number | null;
+  is1mContext?: boolean;
+  contextMarker?: string | null;
   latency?: {
     totalMs?: number;
     ttftMs?: number;

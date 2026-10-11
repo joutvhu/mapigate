@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { RuleEngine } from "../../core/router/ruleEngine.js";
+import { RuleEngine, stripModelContextMarker } from "../../core/router/ruleEngine.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { RtkCompressor } from "../../core/rtk/compressor.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
@@ -52,6 +52,21 @@ function getProxyDispatcher(proxyUrl: string): ProxyAgent {
   return dispatcher;
 }
 
+export function extractHeader(req: Request, headerName: string): string | undefined {
+  const val = req.headers[headerName.toLowerCase()];
+  if (!val) return undefined;
+  if (Array.isArray(val)) return val.join(",");
+  return String(val);
+}
+
+export function mergeAnthropicBeta(...values: (string | undefined | null)[]): string {
+  const flags = values
+    .flatMap((v) => (typeof v === "string" ? v.split(",") : []))
+    .map((f) => f.trim())
+    .filter(Boolean);
+  return [...new Set(flags)].join(",");
+}
+
 interface ExecuteSingleModelOptions {
   req: Request;
   res: Response;
@@ -64,6 +79,7 @@ interface ExecuteSingleModelOptions {
   clientTool: string;
   rawModel: string;
   rtkStats: { compressedTokens: number; tokensSaved: number };
+  is1mContext?: boolean;
 }
 
 async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<ModelCallResult> {
@@ -79,21 +95,33 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
     clientTool,
     rawModel,
     rtkStats,
+    is1mContext: optionIs1m,
   } = options;
 
   let targetModel = modelStr;
   let providerId: string | undefined;
 
-  if (modelStr.includes("/")) {
-    const slash = modelStr.indexOf("/");
-    providerId = modelStr.slice(0, slash);
-    targetModel = modelStr.slice(slash + 1);
+  // Strip [1m] context marker before splitting provider/model
+  const { model: cleanModelStr, is1mContext: modelIs1m } = stripModelContextMarker(modelStr);
+  const effectiveModelStr = cleanModelStr || modelStr;
+  const is1mContext = Boolean(optionIs1m || modelIs1m);
+
+  if (effectiveModelStr.includes("/")) {
+    const slash = effectiveModelStr.indexOf("/");
+    providerId = effectiveModelStr.slice(0, slash);
+    targetModel = effectiveModelStr.slice(slash + 1);
   } else {
     const rules = ModelRepository.getAllRules();
     const ruleEngine = new RuleEngine(rules);
-    const resolved = ruleEngine.resolveModel(modelStr);
+    const resolved = ruleEngine.resolveModel(effectiveModelStr);
     targetModel = resolved.model;
     providerId = resolved.rule?.targetProviderId;
+  }
+
+  // Ensure targetModel also has any [1m] marker stripped
+  const { model: cleanTargetModel } = stripModelContextMarker(targetModel);
+  if (cleanTargetModel) {
+    targetModel = cleanTargetModel;
   }
 
   if (!providerId) {
@@ -257,6 +285,39 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
       ...(provider.customHeaders || {}),
     };
+
+    // Forward Anthropic client headers (anthropic-beta and anthropic-version)
+    const incomingBeta = extractHeader(req, "anthropic-beta");
+    const incomingVersion = extractHeader(req, "anthropic-version");
+
+    if (incomingBeta) {
+      const existingBetaKey = Object.keys(outgoingHeaders).find(
+        (k) => k.toLowerCase() === "anthropic-beta"
+      );
+      if (existingBetaKey) {
+        const merged = mergeAnthropicBeta(outgoingHeaders[existingBetaKey], incomingBeta);
+        delete outgoingHeaders[existingBetaKey];
+        outgoingHeaders["anthropic-beta"] = merged;
+      } else {
+        outgoingHeaders["anthropic-beta"] = incomingBeta;
+      }
+    }
+
+    if (is1mContext && (targetFormat === "claude" || provider.id === "anthropic" || provider.id === "claude")) {
+      const existingBeta = outgoingHeaders["anthropic-beta"] || outgoingHeaders["Anthropic-Beta"];
+      outgoingHeaders["anthropic-beta"] = mergeAnthropicBeta(existingBeta, "context-1m-2025-08-07");
+      delete outgoingHeaders["Anthropic-Beta"];
+    }
+
+    if (incomingVersion) {
+      const existingVersionKey = Object.keys(outgoingHeaders).find(
+        (k) => k.toLowerCase() === "anthropic-version"
+      );
+      if (existingVersionKey) {
+        delete outgoingHeaders[existingVersionKey];
+      }
+      outgoingHeaders["anthropic-version"] = incomingVersion;
+    }
 
     if (provider.id === "xiaomi-tokenplan") {
       const region = psd.region || "sgp";
@@ -429,6 +490,33 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
           status: "success",
         });
 
+        RequestDetailsRepository.saveRequestDetail({
+          id: requestId,
+          timestamp: new Date(startTime).toISOString(),
+          provider: provider.id,
+          model: targetModel,
+          connectionId: account?.id,
+          accountName: account?.name,
+          clientTool,
+          status: 200,
+          is1mContext,
+          latency: { totalMs: durationMs },
+          tokens: {
+            promptTokens: (json as any)?.usage?.prompt_tokens || promptTokens,
+            completionTokens: (json as any)?.usage?.completion_tokens || 0,
+            cachedTokens: 0,
+            cacheCreationTokens: 0,
+            tokensSavedByRtk: rtkStats.tokensSaved,
+          },
+          cost: 0,
+          request: { headers: req.headers as Record<string, string>, body },
+          providerRequest: { url: upstreamUrl, headers: outgoingHeaders, body: upstreamBody },
+          response: {
+            status: 200,
+            body: json,
+          },
+        });
+
         UsageRepository.endPendingRequest(requestId, false);
         return { ok: true, status: 200, json, modelUsed: targetModel };
       } catch (err: any) {
@@ -549,6 +637,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
         accountName: account?.name,
         clientTool,
         status: 200,
+        is1mContext,
         latency: { totalMs: totalDuration, ttftMs },
         tokens: {
           promptTokens,
@@ -739,6 +828,7 @@ async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<M
       accountName: account?.name,
       clientTool,
       status: 200,
+      is1mContext,
       latency: { totalMs: totalDuration, ttftMs },
       tokens: {
         promptTokens,
@@ -808,16 +898,23 @@ export async function handleProxyRequest(
 
   const rawModel = body.model || "default";
 
+  // Context Marker [1m] Stripping
+  const { model: strippedModel, contextMarker, is1mContext } = stripModelContextMarker(body.model);
+  if (contextMarker && strippedModel) {
+    body.model = strippedModel;
+  }
+  const cleanModel = strippedModel || rawModel;
+
   // 1. RTK compression
   const rtkStats = RtkCompressor.compressPayloadInPlace(body);
 
   // 2. Combo Detection
   const allCombos = ComboRepository.getAllCombos();
-  const activeCombo = !rawModel.includes("/")
+  const activeCombo = !cleanModel.includes("/")
     ? allCombos.find(
         (c) =>
           c.isActive &&
-          (c.name.toLowerCase() === rawModel.toLowerCase() || c.id.toLowerCase() === rawModel.toLowerCase())
+          (c.name.toLowerCase() === cleanModel.toLowerCase() || c.id.toLowerCase() === cleanModel.toLowerCase())
       )
     : undefined;
 
@@ -830,7 +927,7 @@ export async function handleProxyRequest(
     comboStrategy = activeCombo.strategy;
     comboName = activeCombo.name;
   } else {
-    candidateModels = [rawModel];
+    candidateModels = [cleanModel];
   }
 
   // 3. Multimodal Capacity Adapter Augmentation
@@ -860,6 +957,7 @@ export async function handleProxyRequest(
       clientTool,
       rawModel,
       rtkStats,
+      is1mContext,
     });
   };
 
@@ -924,6 +1022,7 @@ export async function handleProxyRequest(
         model: rawModel,
         clientTool,
         status,
+        is1mContext,
         latency: { totalMs: durationMs },
         tokens: {
           promptTokens: 0,
