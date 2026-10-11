@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { isOAuthProvider, type ProviderItem } from "../constants/providersData";
 import { getRegistryProvider, type RegistryModel } from "../../../shared/constants/providerRegistry";
-import { DEFAULT_ACCOUNTS_MAP } from "../constants/mockData";
 import { OAuthModal } from "../components/OAuthModal";
 import { AddAccountModal } from "../components/AddAccountModal";
 import { CopilotAuthModal } from "../components/CopilotAuthModal";
@@ -44,8 +43,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [showKiroModal, setShowKiroModal] = useState(false);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
   const [newModelInput, setNewModelInput] = useState("");
-  const [newAccountName, setNewAccountName] = useState("");
-  const [newApiKey, setNewApiKey] = useState("");
   const [testingIdx, setTestingIdx] = useState<number | null>(null);
   const [newHeaderKey, setNewHeaderKey] = useState("");
   const [newHeaderVal, setNewHeaderVal] = useState("");
@@ -131,29 +128,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             }))
           );
         } else {
-          const seed = DEFAULT_ACCOUNTS_MAP[provider.id] || [`Primary Account (${provider.name})`];
-          setConnections(
-            seed.map((name, i) => ({
-              id: `conn-${i}`,
-              name,
-              isActive: i < 5,
-              order: i,
-            }))
-          );
+          setConnections([]);
         }
       })
       .catch(() => {
         setCustomHeaders(defaultHeadersArray);
         setModels(regModels);
-        const seed = DEFAULT_ACCOUNTS_MAP[provider.id] || [`Primary Account (${provider.name})`];
-        setConnections(
-          seed.map((name, i) => ({
-            id: `conn-${i}`,
-            name,
-            isActive: i < 5,
-            order: i,
-          }))
-        );
+        setConnections([]);
       });
   }, [provider.id, provider.name, registryItem]);
 
@@ -201,44 +182,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accountIds: copy.map((c) => c.id) }),
     }).catch(() => {});
-  };
-
-  const handleAddAccount = async () => {
-    if (!newAccountName) return;
-    try {
-      const res = await fetch(`/api/providers/${provider.id}/accounts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newAccountName,
-          apiKey: newApiKey || "sk-dummy-key",
-        }),
-      });
-      const data = await res.json();
-      setConnections([
-        ...connections,
-        {
-          id: data.id || `conn-${Date.now()}`,
-          name: newAccountName,
-          isActive: true,
-          order: connections.length,
-        },
-      ]);
-    } catch {
-      setConnections([
-        ...connections,
-        {
-          id: `conn-${Date.now()}`,
-          name: newAccountName,
-          isActive: true,
-          order: connections.length,
-        },
-      ]);
-    } finally {
-      setNewAccountName("");
-      setNewApiKey("");
-      setShowAddModal(false);
-    }
   };
 
   const handleDeleteAccount = (id: string) => {
@@ -492,63 +435,79 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
 
         {/* List of Accounts */}
-        <div className="space-y-2">
-          {connections.map((conn, idx) => (
-            <div
-              key={conn.id}
-              className="flex items-center justify-between p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 transition-all text-xs"
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <input type="checkbox" className="accent-blue-600 rounded" />
-                <div className="flex flex-col text-slate-500">
-                  <button
-                    onClick={() => moveConnection(idx, "up")}
-                    disabled={idx === 0}
-                    className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
-                  >
-                    ▲
-                  </button>
-                  <button
-                    onClick={() => moveConnection(idx, "down")}
-                    disabled={idx === connections.length - 1}
-                    className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
-                  >
-                    ▼
-                  </button>
+        {connections.length === 0 ? (
+          <div className="w-full py-10 px-4 text-center text-slate-400 flex flex-col items-center justify-center gap-2.5 bg-[#0A0D14] rounded-xl border border-dashed border-[#1E293B]">
+            <span className="material-symbols-outlined text-3xl text-slate-600">
+              {isOAuth ? "vpn_key_off" : "key_off"}
+            </span>
+            <p className="text-sm font-semibold text-slate-300">
+              No accounts connected for {provider.name}
+            </p>
+            <p className="text-xs text-slate-500 max-w-sm">
+              {isOAuth
+                ? `Connect your ${provider.name} account via OAuth or add credentials to start routing.`
+                : `Add an API key or credentials to start routing requests through ${provider.name}.`}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {connections.map((conn, idx) => (
+              <div
+                key={conn.id}
+                className="flex items-center justify-between p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 transition-all text-xs"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <input type="checkbox" className="accent-blue-600 rounded" />
+                  <div className="flex flex-col text-slate-500">
+                    <button
+                      onClick={() => moveConnection(idx, "up")}
+                      disabled={idx === 0}
+                      className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      onClick={() => moveConnection(idx, "down")}
+                      disabled={idx === connections.length - 1}
+                      className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                  <span className="material-symbols-outlined text-[16px] text-slate-500">
+                    {isOAuth ? "lock" : "key"}
+                  </span>
+                  <span className="font-mono text-slate-200 truncate font-medium">{conn.name}</span>
+                  <span className={`rt-badge ${conn.isActive ? "rt-badge--success" : "rt-badge--muted"}`}>
+                    {conn.isActive ? "● active" : "disabled"} • #{idx + 1}
+                  </span>
+                  {testingIdx === idx && (
+                    <span className="text-[10px] text-blue-400 animate-pulse font-mono">Testing upstream...</span>
+                  )}
                 </div>
-                <span className="material-symbols-outlined text-[16px] text-slate-500">
-                  {isOAuth ? "lock" : "key"}
-                </span>
-                <span className="font-mono text-slate-200 truncate font-medium">{conn.name}</span>
-                <span className={`rt-badge ${conn.isActive ? "rt-badge--success" : "rt-badge--muted"}`}>
-                  {conn.isActive ? "● active" : "disabled"} • #{idx + 1}
-                </span>
-                {testingIdx === idx && (
-                  <span className="text-[10px] text-blue-400 animate-pulse font-mono">Testing upstream...</span>
-                )}
-              </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  title="Delete account"
-                  onClick={() => handleDeleteAccount(conn.id)}
-                  className="p-1 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">delete</span>
-                </button>
-                <label className="relative inline-flex items-center cursor-pointer ml-1">
-                  <input
-                    type="checkbox"
-                    checked={conn.isActive}
-                    onChange={() => toggleConnection(conn.id)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-8 h-4.5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    title="Delete account"
+                    onClick={() => handleDeleteAccount(conn.id)}
+                    className="p-1 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                  </button>
+                  <label className="relative inline-flex items-center cursor-pointer ml-1">
+                    <input
+                      type="checkbox"
+                      checked={conn.isActive}
+                      onChange={() => toggleConnection(conn.id)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-8 h-4.5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
+                  </label>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {isOAuth && supportsApiKey ? (
           <div className="flex items-center gap-2.5">
