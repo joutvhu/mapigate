@@ -8,6 +8,7 @@ import { CursorAuthModal } from "../components/CursorAuthModal";
 import { KiroAuthModal } from "../components/KiroAuthModal";
 import { PortalModal } from "../components/PortalModal";
 import { Select } from "../components/Select";
+import { ScanModelsModal } from "../components/ScanModelsModal";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -42,6 +43,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [showCursorModal, setShowCursorModal] = useState(false);
   const [showKiroModal, setShowKiroModal] = useState(false);
   const [showAddModelModal, setShowAddModelModal] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
   const [newModelInput, setNewModelInput] = useState("");
   const [testingIdx, setTestingIdx] = useState<number | null>(null);
   const [newHeaderKey, setNewHeaderKey] = useState("");
@@ -240,6 +242,48 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
   const handleRemoveModel = (modelId: string) => {
     setModels(models.filter((m) => m !== modelId));
+  };
+
+  const handleApplyScannedModels = async (selectedModelIds: string[], mode: "merge" | "replace") => {
+    let nextModels: string[];
+    if (mode === "replace") {
+      nextModels = selectedModelIds;
+    } else {
+      const existingSet = new Set(models);
+      const toAdd = selectedModelIds.filter((m) => !existingSet.has(m));
+      nextModels = [...models, ...toAdd];
+    }
+    setModels(nextModels);
+
+    const headersObj: Record<string, string> = {};
+    customHeaders.forEach((h) => {
+      if (h.key.trim()) {
+        headersObj[h.key.trim()] = h.value.trim();
+      }
+    });
+
+    try {
+      await fetch("/api/providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: provider.id,
+          name: provider.name,
+          baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl || "https://api.openai.com",
+          format: provider.format || registryItem?.format || "openai",
+          customHeaders: headersObj,
+          proxyUrl: proxyUrl.trim() || undefined,
+          thinkingMode,
+          strategy: providerStrategy,
+          stickyLimit: providerStrategy === "round-robin" ? Number(providerStickyLimit) || 1 : null,
+          models: nextModels,
+        }),
+      });
+      setHeadersSavedMsg(`Saved ${nextModels.length} models for ${provider.name}.`);
+      setTimeout(() => setHeadersSavedMsg(null), 3000);
+    } catch {
+      // Fail-open
+    }
   };
 
   const handleCopyModel = (modelId: string) => {
@@ -685,13 +729,23 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             </div>
           </div>
 
-          <button
-            onClick={() => setShowAddModelModal(true)}
-            className="rt-btn rt-btn--secondary text-xs"
-          >
-            <span className="material-symbols-outlined text-[15px]">add</span>
-            Add Custom Model
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowScanModal(true)}
+              className="rt-btn rt-btn--secondary text-xs flex items-center gap-1.5"
+              title="Scan models directly from provider API endpoint"
+            >
+              <span className="material-symbols-outlined text-[15px] text-blue-400">radar</span>
+              Scan Models from API
+            </button>
+            <button
+              onClick={() => setShowAddModelModal(true)}
+              className="rt-btn rt-btn--secondary text-xs"
+            >
+              <span className="material-symbols-outlined text-[15px]">add</span>
+              Add Custom Model
+            </button>
+          </div>
         </div>
 
         {/* Models Grid */}
@@ -818,6 +872,21 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           </div>
         </div>
       </PortalModal>
+
+      {/* Scan Models from Provider API Modal */}
+      <ScanModelsModal
+        isOpen={showScanModal}
+        provider={{
+          id: provider.id,
+          name: provider.name,
+          baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl,
+          image: provider.image,
+          format: provider.format || registryItem?.format,
+        }}
+        existingModels={models}
+        onClose={() => setShowScanModal(false)}
+        onApplyModels={handleApplyScannedModels}
+      />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
+import { ScanModelsModal } from "../components/ScanModelsModal";
 import {
   OAUTH_PROVIDERS_LIST,
   FREE_TIER_PROVIDERS_LIST,
@@ -21,6 +22,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "connected" | "not_connected">("all");
+  const [scanningProvider, setScanningProvider] = useState<ProviderItem | null>(null);
 
   const loadBackendProviders = async () => {
     try {
@@ -146,19 +148,31 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </div>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleTestProvider(p.id);
-          }}
-          disabled={isTesting}
-          title="Test Connection"
-          className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
-        >
-          <span className={`material-symbols-outlined text-[16px] ${isTesting ? "animate-spin" : ""}`}>
-            {isTesting ? "sync" : "speed"}
-          </span>
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setScanningProvider(p);
+            }}
+            title="Scan Models from API"
+            className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">radar</span>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleTestProvider(p.id);
+            }}
+            disabled={isTesting}
+            title="Test Connection"
+            className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
+          >
+            <span className={`material-symbols-outlined text-[16px] ${isTesting ? "animate-spin" : ""}`}>
+              {isTesting ? "sync" : "speed"}
+            </span>
+          </button>
+        </div>
 
         {hasTestRes && (
           <div
@@ -425,6 +439,49 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </div>
         )}
       </PortalModal>
+
+      {/* Modal Scan Models */}
+      {scanningProvider && (
+        <ScanModelsModal
+          isOpen={Boolean(scanningProvider)}
+          provider={{
+            id: scanningProvider.id,
+            name: scanningProvider.name,
+            baseUrl: scanningProvider.baseUrl,
+            image: scanningProvider.image,
+            format: scanningProvider.format,
+          }}
+          existingModels={
+            backendProviders.find((bp) => bp.id === scanningProvider.id)?.models || []
+          }
+          onClose={() => setScanningProvider(null)}
+          onApplyModels={async (newModelIds, mode) => {
+            const current = backendProviders.find((bp) => bp.id === scanningProvider.id);
+            const currentModels = Array.isArray(current?.models) ? current.models : [];
+            const nextModels =
+              mode === "replace"
+                ? newModelIds
+                : [...currentModels, ...newModelIds.filter((m) => !currentModels.includes(m))];
+
+            try {
+              await fetch("/api/providers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: scanningProvider.id,
+                  name: scanningProvider.name,
+                  baseUrl: current?.baseUrl || scanningProvider.baseUrl || "https://api.openai.com",
+                  format: current?.format || scanningProvider.format || "openai",
+                  models: nextModels,
+                }),
+              });
+              await loadBackendProviders();
+            } catch (err) {
+              console.error("Failed to save scanned models:", err);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

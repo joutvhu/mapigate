@@ -211,3 +211,34 @@ export interface RequestDetailsListResponse {
     hasPrev: boolean;
   };
 }
+
+export interface ScannedModel {
+  id: string;
+  name?: string;
+  description?: string;
+  contextLength?: number;
+  capabilities?: {
+    vision?: boolean;
+    reasoning?: boolean;
+    audio?: boolean;
+  };
+  raw?: any;
+}
+
+export interface ScanModelsResult {
+  success: boolean;
+  endpointUrl?: string;
+  models: ScannedModel[];
+  count: number;
+  error?: string;
+}
+
+export interface ScanModelsOptions {
+  providerId?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  customHeaders?: Record<string, string>;
+  format?: string;
+  timeoutMs?: number;
+}
+

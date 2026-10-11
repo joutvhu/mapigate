@@ -30,6 +30,28 @@ modelRouter.get("/available", (req, res) => {
       }
     }
 
+    const dbProviderMap = new Map<string, (typeof dbProviders)[0]>(
+      dbProviders.map((p) => [p.id, p])
+    );
+
+    const getProviderAccountsCount = (pId: string): number => {
+      let count = activeCounts.get(pId) || 0;
+      const reg = PROVIDER_REGISTRY[pId];
+      if (reg) {
+        if (reg.alias && reg.alias !== reg.id) {
+          count += activeCounts.get(reg.alias) || 0;
+        }
+        if (reg.aliases) {
+          for (const a of reg.aliases) {
+            if (a !== reg.id && a !== reg.alias) {
+              count += activeCounts.get(a) || 0;
+            }
+          }
+        }
+      }
+      return count;
+    };
+
     const availableModels: Array<{
       id: string;
       value: string;
@@ -129,19 +151,50 @@ modelRouter.get("/available", (req, res) => {
       });
     }
 
+    // 1. Prioritize models configured in SQLite (dbProviders)
+    for (const p of dbProviders) {
+      const pModels = Array.isArray(p.models) ? p.models : [];
+      if (pModels.length === 0) continue;
+
+      const accountsCount = getProviderAccountsCount(p.id);
+      const hasConnectedAccount = accountsCount > 0;
+      if (connectedOnly && !hasConnectedAccount) continue;
+
+      for (const m of pModels) {
+        const modelId = typeof m === "string" ? m : (m as any).id;
+        const modelName = typeof m === "string" ? m : ((m as any).name || (m as any).id);
+        const val = `${p.id}/${modelId}`;
+        if (seenValues.has(val)) continue;
+        seenValues.add(val);
+
+        const modelCaps = getCapabilitiesForModel(p.id, modelId);
+        availableModels.push({
+          id: modelId,
+          value: val,
+          name: modelName,
+          providerId: p.id,
+          providerName: p.name || p.id,
+          hasConnectedAccount,
+          accountsCount,
+          caps: {
+            vision: Boolean(modelCaps.vision),
+            reasoning: Boolean(modelCaps.reasoning),
+            audio: Boolean(modelCaps.audioInput || modelCaps.audioOutput),
+          },
+          contextLength: modelCaps.contextWindow || 0,
+        });
+      }
+    }
+
+    // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models
     for (const provider of Object.values(PROVIDER_REGISTRY)) {
       if (!provider || !provider.models) continue;
-      let accountsCount = activeCounts.get(provider.id) || 0;
-      if (provider.alias && provider.alias !== provider.id) {
-        accountsCount += activeCounts.get(provider.alias) || 0;
+      const dbEntry = dbProviderMap.get(provider.id);
+      if (dbEntry && Array.isArray(dbEntry.models) && dbEntry.models.length > 0) {
+        continue;
       }
-      if (provider.aliases) {
-        for (const a of provider.aliases) {
-          if (a !== provider.id && a !== provider.alias) {
-            accountsCount += activeCounts.get(a) || 0;
-          }
-        }
-      }
+
+      const accountsCount = getProviderAccountsCount(provider.id);
       const hasConnectedAccount = accountsCount > 0;
 
       if (connectedOnly && !hasConnectedAccount) {
@@ -185,40 +238,6 @@ modelRouter.get("/available", (req, res) => {
             audio,
           },
           contextLength: model.contextLength || 0,
-        });
-      }
-    }
-
-    // Also include custom providers from DB not present in PROVIDER_REGISTRY
-    for (const p of dbProviders) {
-      if (PROVIDER_REGISTRY[p.id]) continue;
-      const accountsCount = activeCounts.get(p.id) || 0;
-      const hasConnectedAccount = accountsCount > 0;
-      if (connectedOnly && !hasConnectedAccount) continue;
-
-      const pModels = Array.isArray(p.models) ? p.models : [];
-      for (const m of pModels) {
-        const modelId = typeof m === "string" ? m : (m as any).id;
-        const modelName = typeof m === "string" ? m : ((m as any).name || (m as any).id);
-        const val = `${p.id}/${modelId}`;
-        if (seenValues.has(val)) continue;
-        seenValues.add(val);
-
-        const modelCaps = getCapabilitiesForModel(p.id, modelId);
-        availableModels.push({
-          id: modelId,
-          value: val,
-          name: modelName,
-          providerId: p.id,
-          providerName: p.name || p.id,
-          hasConnectedAccount,
-          accountsCount,
-          caps: {
-            vision: Boolean(modelCaps.vision),
-            reasoning: Boolean(modelCaps.reasoning),
-            audio: Boolean(modelCaps.audioInput || modelCaps.audioOutput),
-          },
-          contextLength: 0,
         });
       }
     }
@@ -279,29 +298,38 @@ export function handleOpenAiModelsList(_req: any, res: any) {
     }
 
     const seen = new Set<string>();
-    for (const p of Object.values(PROVIDER_REGISTRY)) {
-      if (!p || !p.models) continue;
-      for (const m of p.models) {
-        const id = `${p.id}/${m.id}`;
+    const dbProviders = ProviderRepository.getAllProviders();
+    const dbProviderMap = new Map<string, (typeof dbProviders)[0]>(
+      dbProviders.map((p) => [p.id, p])
+    );
+
+    // 1. Prioritize models configured in SQLite (dbProviders)
+    for (const p of dbProviders) {
+      const pModels = Array.isArray(p.models) ? p.models : [];
+      for (const m of pModels) {
+        const mId = typeof m === "string" ? m : (m as any).id;
+        const id = `${p.id}/${mId}`;
         if (!seen.has(id)) {
           seen.add(id);
           list.push({
             id,
             object: "model",
-            created: Math.floor(Date.now() / 1000),
+            created: Math.floor(p.updatedAt / 1000) || Math.floor(Date.now() / 1000),
             owned_by: p.id,
           });
         }
       }
     }
 
-    const dbProviders = ProviderRepository.getAllProviders();
-    for (const p of dbProviders) {
-      if (PROVIDER_REGISTRY[p.id]) continue;
-      const pModels = Array.isArray(p.models) ? p.models : [];
-      for (const m of pModels) {
-        const mId = typeof m === "string" ? m : (m as any).id;
-        const id = `${p.id}/${mId}`;
+    // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models
+    for (const p of Object.values(PROVIDER_REGISTRY)) {
+      if (!p || !p.models) continue;
+      const dbEntry = dbProviderMap.get(p.id);
+      if (dbEntry && Array.isArray(dbEntry.models) && dbEntry.models.length > 0) {
+        continue;
+      }
+      for (const m of p.models) {
+        const id = `${p.id}/${m.id}`;
         if (!seen.has(id)) {
           seen.add(id);
           list.push({

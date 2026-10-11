@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
+import { scanProviderModels } from "../../core/scanner/modelScanner.js";
 import crypto from "node:crypto";
 
 export const providerRouter = Router();
@@ -195,6 +196,68 @@ providerRouter.post("/validate", async (req, res) => {
     res.json({ valid: isValid, error: isValid ? undefined : "Authentication failed" });
   } catch (err: any) {
     res.json({ valid: false, error: err.message || "Connection timeout or unreachable" });
+  }
+});
+
+// POST ad-hoc model scanning from upstream provider API
+providerRouter.post("/scan-models", async (req, res) => {
+  try {
+    const { providerId, baseUrl, apiKey, customHeaders, format, timeoutMs } = req.body || {};
+    if (!providerId && !baseUrl) {
+      res.status(400).json({ success: false, models: [], count: 0, error: "Either providerId or baseUrl is required." });
+      return;
+    }
+    const result = await scanProviderModels({
+      providerId,
+      baseUrl,
+      apiKey,
+      customHeaders,
+      format,
+      timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
+    });
+    if (!result.success) {
+      const isAuth = result.error?.includes("Authentication failed");
+      res.status(isAuth ? 401 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, models: [], count: 0, error: msg });
+  }
+});
+
+// POST scan models for a specific configured provider
+providerRouter.post("/:id/scan-models", async (req, res) => {
+  try {
+    const providerId = req.params.id;
+    const { baseUrl, apiKey, customHeaders, format, timeoutMs } = req.body || {};
+    const dbProv = ProviderRepository.getProviderById(providerId);
+    const regProv = getRegistryProvider(providerId);
+
+    if (!dbProv && !regProv && !baseUrl) {
+      res.status(404).json({ success: false, models: [], count: 0, error: `Provider "${providerId}" not found.` });
+      return;
+    }
+
+    const result = await scanProviderModels({
+      providerId,
+      baseUrl,
+      apiKey,
+      customHeaders,
+      format,
+      timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
+    });
+
+    if (!result.success) {
+      const isAuth = result.error?.includes("Authentication failed");
+      res.status(isAuth ? 401 : 400).json(result);
+      return;
+    }
+    res.json(result);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, models: [], count: 0, error: msg });
   }
 });
 
