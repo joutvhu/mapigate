@@ -908,6 +908,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           id: provider.id,
           name: provider.name,
           baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl,
+          validateUrl: provider.validateUrl || registryItem?.validateUrl,
           image: provider.image,
           format: provider.format || registryItem?.format,
         }}

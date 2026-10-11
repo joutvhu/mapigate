@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ScanModelsModal } from "../components/ScanModelsModal";
 import { saveProviderModels } from "../services/providerService";
+import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import {
   OAUTH_PROVIDERS_LIST,
   FREE_TIER_PROVIDERS_LIST,
@@ -461,6 +462,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             id: scanningProvider.id,
             name: scanningProvider.name,
             baseUrl: scanningProvider.baseUrl,
+            validateUrl: scanningProvider.validateUrl || getRegistryProvider(scanningProvider.id)?.validateUrl,
             image: scanningProvider.image,
             format: scanningProvider.format,
           }}

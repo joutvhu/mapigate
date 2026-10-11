@@ -9,6 +9,7 @@ export interface ScanModelsModalProps {
     id: string;
     name: string;
     baseUrl?: string;
+    validateUrl?: string;
     image?: string;
     format?: string;
   };
@@ -37,9 +38,19 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const resolveInitialBaseUrl = useCallback(() => {
+    if (provider.id === "xiaomi-tokenplan" || provider.id === "xmtp") {
+      if (provider.validateUrl) return provider.validateUrl;
+      if (!provider.baseUrl || provider.baseUrl.includes("xiaomimimo.com")) {
+        return "https://token-plan-sgp.xiaomimimo.com/v1/models";
+      }
+    }
+    return provider.validateUrl || provider.baseUrl || "";
+  }, [provider.id, provider.baseUrl, provider.validateUrl]);
+
   // Collapsible manual overrides (Endpoint only - credentials are taken automatically from configured accounts)
   const [showOverrides, setShowOverrides] = useState(false);
-  const [customBaseUrl, setCustomBaseUrl] = useState(provider.baseUrl || "");
+  const [customBaseUrl, setCustomBaseUrl] = useState(resolveInitialBaseUrl());
 
   const triggerScan = useCallback(async (forcedBaseUrl?: string) => {
     setIsScanning(true);
@@ -80,13 +91,14 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   // Auto scan on initial open using stored accounts
   useEffect(() => {
     if (isOpen) {
-      setCustomBaseUrl(provider.baseUrl || "");
+      const initialUrl = resolveInitialBaseUrl();
+      setCustomBaseUrl(initialUrl);
       setSearchQuery("");
       setShowOverrides(false);
       setScannedAccounts([]);
       setFailedAccounts([]);
       setNoAccountsConfigured(false);
-      triggerScan(provider.baseUrl || undefined);
+      triggerScan(initialUrl || undefined);
     } else {
       setScannedModels([]);
       setSelectedIds(new Set());

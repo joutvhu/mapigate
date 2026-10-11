@@ -411,4 +411,39 @@ describe("API Provider Scan Endpoints", () => {
       globalThis.fetch = origFetch;
     }
   });
+
+  test("POST /api/providers/scan-models unifies registry defaultRegion for xiaomi-tokenplan", async () => {
+    const origFetch = globalThis.fetch;
+    let probedUrl: string | undefined;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      probedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      if (probedUrl.includes("token-plan-sgp.xiaomimimo.com")) {
+        return new Response(JSON.stringify({ data: [{ id: "mimo-v2.6-flash" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return origFetch(input, init);
+    };
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${apiPort}/api/providers/scan-models`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId: "xiaomi-tokenplan",
+          apiKey: "tp-adhoc-api-key",
+        }),
+      });
+
+      assert.equal(res.status, 200);
+      const body = (await res.json()) as any;
+      assert.equal(body.success, true);
+      assert.equal(body.endpointUrl, "https://token-plan-sgp.xiaomimimo.com/v1/models");
+      assert.equal(body.models[0].id, "mimo-v2.6-flash");
+      assert.ok(probedUrl?.includes("token-plan-sgp.xiaomimimo.com"));
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
 });

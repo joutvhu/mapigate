@@ -212,6 +212,8 @@ providerRouter.post("/scan-models", async (req, res) => {
       res.status(400).json({ success: false, models: [], count: 0, error: "Either providerId or baseUrl is required." });
       return;
     }
+    const regProv = providerId ? getRegistryProvider(providerId) : undefined;
+    const effectiveRegion = region || regProv?.defaultRegion;
     const result = await scanProviderModels({
       providerId,
       baseUrl,
@@ -219,7 +221,7 @@ providerRouter.post("/scan-models", async (req, res) => {
       customHeaders,
       format,
       timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
-      region,
+      region: effectiveRegion,
       providerSpecificData,
     });
     if (!result.success) {

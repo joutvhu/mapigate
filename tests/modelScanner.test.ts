@@ -22,6 +22,30 @@ describe("Model Scanner - Candidate URL Resolution", () => {
     assert.ok(!urls.includes("https://api.xiaomimimo.com/v1/models"));
   });
 
+  test("retains custom reverse-proxy host for xiaomi-tokenplan without bypassing to xiaomimimo.com", () => {
+    const urls = resolveCandidateUrls(
+      "http://ai-proxy.corp/v1",
+      undefined,
+      "xiaomi-tokenplan"
+    );
+    assert.deepEqual(urls, [
+      "http://ai-proxy.corp/v1/models",
+      "http://ai-proxy.corp/models",
+    ]);
+    assert.ok(!urls.some((u) => u.includes("xiaomimimo.com")));
+
+    const urlsSuffix = resolveCandidateUrls(
+      "http://ai-proxy.corp/v1/chat/completions",
+      undefined,
+      "xiaomi-tokenplan"
+    );
+    assert.deepEqual(urlsSuffix, [
+      "http://ai-proxy.corp/v1/models",
+      "http://ai-proxy.corp/models",
+    ]);
+    assert.ok(!urlsSuffix.some((u) => u.includes("xiaomimimo.com")));
+  });
+
   test("resolves Xiaomi candidate URLs prioritizing region parameter", () => {
     const urlsCn = resolveCandidateUrls(
       "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
@@ -145,6 +169,27 @@ describe("Model Scanner - Response Payload Extraction", () => {
     assert.equal(models.length, 2);
     assert.equal(models[0].id, "model-alpha");
     assert.equal(models[1].id, "model-beta");
+  });
+
+  test("extracts models from nested { code: 0, data: [...] } and { data: { list: [...] } }", () => {
+    const payloadCode0 = {
+      code: 0,
+      data: [{ id: "mimo-v2.6-pro" }, { id: "mimo-v2.6-flash" }],
+    };
+    const models1 = extractModelsFromPayload(payloadCode0);
+    assert.equal(models1.length, 2);
+    assert.equal(models1[0].id, "mimo-v2.6-pro");
+    assert.equal(models1[1].id, "mimo-v2.6-flash");
+
+    const payloadNestedList = {
+      code: 0,
+      data: {
+        list: [{ id: "nested-mimo-pro" }],
+      },
+    };
+    const models2 = extractModelsFromPayload(payloadNestedList);
+    assert.equal(models2.length, 1);
+    assert.equal(models2[0].id, "nested-mimo-pro");
   });
 
   test("handles empty or invalid payload gracefully without throwing", () => {
@@ -425,6 +470,134 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
       assert.equal(result.models.length, 1);
       assert.equal(result.models[0].id, "mimo-v2.6-pro");
       assert.ok(probedUrl?.includes("token-plan-ams.xiaomimimo.com"));
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  test("sends Authorization Bearer and omits x-api-key for xiaomi-tokenplan", async () => {
+    const providerId = `xmtp-headers-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Xiaomi Token Plan Auth Test",
+      baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-sgp-${Date.now()}`,
+      providerId,
+      name: "SGP Account",
+      rawApiKey: "tp-sgp-secret-key",
+    });
+
+    const origFetch = globalThis.fetch;
+    let capturedHeaders: Record<string, string> = {};
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const h = init?.headers as Record<string, string> | undefined;
+      if (h) {
+        capturedHeaders = { ...h };
+      }
+      return new Response(JSON.stringify({ data: [{ id: "mimo-v2.6-flash" }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    try {
+      const result = await scanProviderModels({ providerId });
+      assert.equal(result.success, true);
+      assert.equal(capturedHeaders["Authorization"], "Bearer tp-sgp-secret-key");
+      assert.equal(capturedHeaders["x-api-key"], undefined);
+      assert.equal(capturedHeaders["X-API-KEY"], undefined);
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  test("continues probing fallback regional endpoints when primary returns 200 with 0 models or error JSON", async () => {
+    const providerId = `xmtp-fallback-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Xiaomi Token Plan Fallback Probe",
+      baseUrl: "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-fallback-${Date.now()}`,
+      providerId,
+      name: "Probe Account",
+      rawApiKey: "tp-probe-key",
+      // default region sgp will be tried first, but sgp returns cluster mismatch error code
+    });
+
+    const origFetch = globalThis.fetch;
+    const probedUrls: string[] = [];
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      probedUrls.push(url);
+      if (url.includes("token-plan-sgp.xiaomimimo.com")) {
+        // Returns 200 with error payload / 0 models
+        return new Response(JSON.stringify({ code: 10001, message: "Cluster mismatch for token" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("token-plan-cn.xiaomimimo.com")) {
+        // Fallback cluster succeeds
+        return new Response(JSON.stringify({ data: [{ id: "mimo-v2.6-pro" }] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return origFetch(input, init);
+    };
+
+    try {
+      const result = await scanProviderModels({ providerId });
+      assert.equal(result.success, true);
+      assert.equal(result.endpointUrl, "https://token-plan-cn.xiaomimimo.com/v1/models");
+      assert.equal(result.models.length, 1);
+      assert.equal(result.models[0].id, "mimo-v2.6-pro");
+      assert.ok(probedUrls.some((u) => u.includes("token-plan-sgp.xiaomimimo.com")));
+      assert.ok(probedUrls.some((u) => u.includes("token-plan-cn.xiaomimimo.com")));
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  test("unifies defaultRegion fallback when scanning xiaomi-tokenplan without explicit region", async () => {
+    const origFetch = globalThis.fetch;
+    let probedUrl: string | undefined;
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      probedUrl = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url;
+      return new Response(JSON.stringify({ data: [{ id: "mimo-v2.6-flash" }] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    try {
+      // Calling ad-hoc with providerId: "xiaomi-tokenplan" and apiKey
+      const result = await scanProviderModels({
+        providerId: "xiaomi-tokenplan",
+        apiKey: "tp-adhoc-key",
+      });
+      assert.equal(result.success, true);
+      // Registry defaultRegion is "sgp", so primary candidate is sgp
+      assert.equal(result.endpointUrl, "https://token-plan-sgp.xiaomimimo.com/v1/models");
+      assert.ok(probedUrl?.includes("token-plan-sgp.xiaomimimo.com"));
     } finally {
       globalThis.fetch = origFetch;
     }
