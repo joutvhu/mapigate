@@ -23,7 +23,7 @@ test("xKiro Provider - Registry Configuration", () => {
   assert.equal(xkiro.alias, "xk");
   assert.deepEqual(xkiro.aliases, ["xk", "xkiro"]);
   assert.equal(xkiro.uiAlias, "xk");
-  assert.equal(xkiro.color, "#7C3AED");
+  assert.equal(xkiro.color, "#16a34a");
   assert.equal(xkiro.image, "/providers/xkiro.svg");
   assert.equal(xkiro.website, "https://xkiro.com");
   assert.equal(xkiro.notice?.apiKeyUrl, "https://xkiro.com");
@@ -96,7 +96,7 @@ test("xKiro Provider - Vector Icon Exists on Disk", () => {
   assert.ok(fs.existsSync(iconPath), "src/web/public/providers/xkiro.svg must exist");
   const content = fs.readFileSync(iconPath, "utf-8");
   assert.ok(content.includes("<svg"), "Icon must be a valid SVG file");
-  assert.ok(content.includes("#7C3AED"), "Icon should use brand color #7C3AED");
+  assert.ok(content.includes("#16a34a"), "Icon should use brand color #16a34a");
 });
 
 test("xKiro Provider - Pricing and Capabilities Resolution", () => {
