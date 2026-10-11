@@ -1,0 +1,181 @@
+import type { ProviderRegistryItem } from "../types.js";
+
+export const provider: ProviderRegistryItem = {
+  "id": "gemini",
+  "name": "Gemini",
+  "alias": "gemini",
+  "color": "#4285F4",
+  "image": "/providers/gemini.png",
+  "website": "https://ai.google.dev",
+  "notice": {
+    "apiKeyUrl": "https://aistudio.google.com/app/apikey"
+  },
+  "category": "freeTier",
+  "authType": "apikey",
+  "authModes": [
+    "apikey"
+  ],
+  "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models",
+  "baseUrls": [
+    "https://generativelanguage.googleapis.com/v1beta/models"
+  ],
+  "validateUrl": "",
+  "format": "gemini",
+  "defaultHeaders": {},
+  "thinkingMode": "auto",
+  "models": [
+    {
+      "id": "gemini-3.8-flash",
+      "name": "Gemini 3.8 Flash",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-3.7-flash",
+      "name": "Gemini 3.7 Flash",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-3.6-flash",
+      "name": "Gemini 3.6 Flash",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "name": "Gemini 3.5 Flash Lite",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "name": "Gemini 3.1 Pro Preview",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-3.1-flash-lite-preview",
+      "name": "Gemini 3.1 Flash Lite Preview",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "name": "Gemini 3 Flash Preview",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "name": "Gemini 2.5 Pro",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "name": "Gemini 2.5 Flash Lite",
+      "isDefault": false
+    },
+    {
+      "id": "gemma-4-31b-it",
+      "name": "Gemma 4 31B IT",
+      "isDefault": false
+    },
+    {
+      "id": "gemini-embedding-2-preview",
+      "name": "Gemini Embedding 2 Preview",
+      "isDefault": false,
+      "kind": "embedding"
+    },
+    {
+      "id": "gemini-embedding-001",
+      "name": "Gemini Embedding 001",
+      "isDefault": false,
+      "kind": "embedding"
+    },
+    {
+      "id": "text-embedding-005",
+      "name": "Text Embedding 005",
+      "isDefault": false,
+      "kind": "embedding"
+    },
+    {
+      "id": "text-embedding-004",
+      "name": "Text Embedding 004 (Legacy)",
+      "isDefault": false,
+      "kind": "embedding"
+    },
+    {
+      "id": "gemini-3.1-flash-image-preview",
+      "name": "Gemini 3.1 Flash Image (Nano Banana 2)",
+      "isDefault": false,
+      "kind": "image"
+    },
+    {
+      "id": "gemini-3-pro-image-preview",
+      "name": "Gemini 3 Pro Image (Nano Banana Pro)",
+      "isDefault": false,
+      "kind": "image"
+    },
+    {
+      "id": "gemini-2.5-flash-image",
+      "name": "Gemini 2.5 Flash Image (Nano Banana)",
+      "isDefault": false,
+      "kind": "image"
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "name": "Gemini 2.5 Pro (Best)",
+      "isDefault": false,
+      "kind": "stt"
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "isDefault": false,
+      "kind": "stt"
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "name": "Gemini 2.5 Flash Lite (Cheapest)",
+      "isDefault": false,
+      "kind": "stt"
+    },
+    {
+      "id": "gemini-2.0-flash",
+      "name": "Gemini 2.0 Flash",
+      "isDefault": false,
+      "kind": "stt"
+    },
+    {
+      "id": "gemini-2.5-flash-native-audio-preview-09-17",
+      "name": "Gemini Live Transcription (Realtime)",
+      "isDefault": false,
+      "kind": "stt"
+    },
+    {
+      "id": "gemini-3.1-flash-tts-preview",
+      "name": "Gemini 3.1 Flash TTS",
+      "isDefault": false,
+      "kind": "tts"
+    },
+    {
+      "id": "gemini-2.5-flash-preview-tts",
+      "name": "Gemini 2.5 Flash TTS",
+      "isDefault": false,
+      "kind": "tts"
+    },
+    {
+      "id": "gemini-2.5-pro-preview-tts",
+      "name": "Gemini 2.5 Pro TTS",
+      "isDefault": false,
+      "kind": "tts"
+    },
+    {
+      "id": "embedding-001",
+      "name": "Embedding 001",
+      "isDefault": false,
+      "kind": "embedding"
+    }
+  ]
+};
+
+export default provider;
