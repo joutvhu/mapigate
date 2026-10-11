@@ -214,9 +214,12 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       registryItem = getRegistryProvider(providerId);
     }
 
+    let accountsToScan: { id: string; name: string; apiKey: string }[] = [];
+
     // Resolve missing parameters from ProviderRepository if providerId is specified
+    let dbProvider: any;
     if (providerId) {
-      const dbProvider = ProviderRepository.getProviderById(providerId);
+      dbProvider = ProviderRepository.getProviderById(providerId);
 
       if (!baseUrl) {
         baseUrl = dbProvider?.baseUrl || registryItem?.baseUrl;
@@ -239,17 +242,39 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         };
       }
 
-      if (!apiKey) {
-        const activeAccounts = ProviderRepository.getAccountsByProvider(providerId);
-        if (activeAccounts.length > 0 && activeAccounts[0].rawApiKey) {
-          apiKey = activeAccounts[0].rawApiKey;
+      if (apiKey) {
+        accountsToScan = [{ id: "explicit", name: "Custom API Key", apiKey }];
+      } else {
+        let accounts = ProviderRepository.getAccountsByProvider(providerId);
+        if (accounts.length === 0) {
+          accounts = ProviderRepository.getAllAccountsByProvider(providerId);
+        }
+        if (accounts.length > 0) {
+          accountsToScan = accounts.map((a) => ({
+            id: a.id,
+            name: a.name,
+            apiKey: a.rawApiKey || "",
+          }));
         } else {
-          const allAccounts = ProviderRepository.getAllAccountsByProvider(providerId);
-          if (allAccounts.length > 0 && allAccounts[0].rawApiKey) {
-            apiKey = allAccounts[0].rawApiKey;
+          const isZeroAuth =
+            registryItem?.noAuth ||
+            providerId === "opencode" ||
+            providerId === "oc";
+          if (isZeroAuth) {
+            accountsToScan = [{ id: "acc_opencode_free", name: "OpenCode Free (Public)", apiKey: "public" }];
+          } else {
+            return {
+              success: false,
+              models: [],
+              count: 0,
+              noAccountsConfigured: true,
+              error: `No configured accounts found for "${dbProvider?.name || registryItem?.name || providerId}". Please add an API key or account in the provider accounts section first.`,
+            };
           }
         }
       }
+    } else {
+      accountsToScan = [{ id: "ad-hoc", name: "Default", apiKey: apiKey || "" }];
     }
 
     if (!baseUrl) {
@@ -271,12 +296,6 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       };
     }
 
-    // Build headers
-    const reqHeaders: Record<string, string> = {
-      Accept: "application/json",
-      ...(customHeaders || {}),
-    };
-
     const isGemini =
       format === "gemini" ||
       (providerId && (providerId.toLowerCase().includes("gemini") || providerId.toLowerCase().includes("google"))) ||
@@ -290,70 +309,101 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       !providerId?.startsWith("opencode-go") &&
       !providerId?.startsWith("opencode-zen");
 
-    if (isOpenCodeFree) {
-      if (!apiKey) {
-        apiKey = "public";
-      }
-      reqHeaders["User-Agent"] = "opencode/1.18.31";
-      reqHeaders["x-opencode-client"] = "desktop";
-      reqHeaders["Authorization"] = "Bearer public";
-    }
-
-    if (apiKey) {
-      const token = apiKey.trim();
-      if (!reqHeaders["Authorization"] && !reqHeaders["authorization"]) {
-        reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-      }
-      if (!reqHeaders["x-api-key"] && !reqHeaders["X-API-KEY"]) {
-        reqHeaders["x-api-key"] = token;
-      }
-      if (isGemini && !reqHeaders["x-goog-api-key"] && !reqHeaders["X-GOOG-API-KEY"]) {
-        reqHeaders["x-goog-api-key"] = token;
-      }
-    }
-
+    const modelsById = new Map<string, ScannedModel>();
+    const scannedAccounts: { id: string; name: string }[] = [];
+    let discoveredEndpointUrl: string | undefined;
     let authError: string | null = null;
     let lastError: string | null = null;
 
-    // Probe candidate URLs in order
-    for (const url of candidateUrls) {
-      try {
-        const headersForUrl = { ...reqHeaders };
-        if (
-          apiKey &&
-          (url.toLowerCase().includes("googleapis.com") || url.toLowerCase().includes("generativelanguage")) &&
-          !headersForUrl["x-goog-api-key"] &&
-          !headersForUrl["X-GOOG-API-KEY"]
-        ) {
-          headersForUrl["x-goog-api-key"] = apiKey.trim();
-        }
+    // Scan using all candidate accounts
+    for (const account of accountsToScan) {
+      let token = account.apiKey.trim();
+      const reqHeaders: Record<string, string> = {
+        Accept: "application/json",
+        ...(customHeaders || {}),
+      };
 
-        const response = await fetch(url, {
-          method: "GET",
-          headers: headersForUrl,
-          signal: AbortSignal.timeout(timeoutMs),
-        });
-
-        if (response.ok || response.status === 200) {
-          const payload = await response.json();
-          const models = extractModelsFromPayload(payload, providerId);
-          return {
-            success: true,
-            endpointUrl: url,
-            models,
-            count: models.length,
-          };
+      if (isOpenCodeFree) {
+        if (!token) {
+          token = "public";
         }
-
-        if (response.status === 401 || response.status === 403) {
-          authError = `Authentication failed (HTTP ${response.status}). Please verify your API key or credentials.`;
-        } else {
-          lastError = `Endpoint ${url} returned HTTP ${response.status}: ${response.statusText}`;
+        reqHeaders["User-Agent"] = "opencode/1.18.31";
+        reqHeaders["x-opencode-client"] = "desktop";
+        reqHeaders["Authorization"] = "Bearer public";
+      } else if (token) {
+        if (!reqHeaders["Authorization"] && !reqHeaders["authorization"]) {
+          reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
         }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        lastError = `Failed to connect to ${url}: ${msg}`;
+        if (!reqHeaders["x-api-key"] && !reqHeaders["X-API-KEY"]) {
+          reqHeaders["x-api-key"] = token;
+        }
+        if (isGemini && !reqHeaders["x-goog-api-key"] && !reqHeaders["X-GOOG-API-KEY"]) {
+          reqHeaders["x-goog-api-key"] = token;
+        }
       }
+
+      let accountSucceeded = false;
+      const orderedUrls = discoveredEndpointUrl
+        ? [discoveredEndpointUrl, ...candidateUrls.filter((u) => u !== discoveredEndpointUrl)]
+        : candidateUrls;
+
+      for (const url of orderedUrls) {
+        try {
+          const headersForUrl = { ...reqHeaders };
+          if (
+            token &&
+            (url.toLowerCase().includes("googleapis.com") || url.toLowerCase().includes("generativelanguage")) &&
+            !headersForUrl["x-goog-api-key"] &&
+            !headersForUrl["X-GOOG-API-KEY"]
+          ) {
+            headersForUrl["x-goog-api-key"] = token;
+          }
+
+          const response = await fetch(url, {
+            method: "GET",
+            headers: headersForUrl,
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+
+          if (response.ok || response.status === 200) {
+            const payload = await response.json();
+            const models = extractModelsFromPayload(payload, providerId);
+            accountSucceeded = true;
+            if (!discoveredEndpointUrl) {
+              discoveredEndpointUrl = url;
+            }
+            for (const m of models) {
+              if (!modelsById.has(m.id)) {
+                modelsById.set(m.id, m);
+              }
+            }
+            break;
+          }
+
+          if (response.status === 401 || response.status === 403) {
+            authError = `Authentication failed (HTTP ${response.status}) for account "${account.name}". Please verify credentials.`;
+          } else {
+            lastError = `Endpoint ${url} returned HTTP ${response.status}: ${response.statusText}`;
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          lastError = `Failed to connect to ${url}: ${msg}`;
+        }
+      }
+
+      if (accountSucceeded) {
+        scannedAccounts.push({ id: account.id, name: account.name });
+      }
+    }
+
+    if (scannedAccounts.length > 0) {
+      return {
+        success: true,
+        endpointUrl: discoveredEndpointUrl,
+        models: Array.from(modelsById.values()),
+        count: modelsById.size,
+        scannedAccounts,
+      };
     }
 
     return {

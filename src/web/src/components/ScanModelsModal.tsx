@@ -13,6 +13,8 @@ export interface ScanModelsModalProps {
     format?: string;
   };
   existingModels: string[];
+  accountsCount?: number;
+  onAddAccount?: () => void;
   onClose: () => void;
   onApplyModels: (newModelIds: string[], mode: "merge" | "replace") => void;
 }
@@ -21,6 +23,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   isOpen,
   provider,
   existingModels,
+  onAddAccount,
   onClose,
   onApplyModels,
 }) => {
@@ -28,30 +31,39 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   const [scannedModels, setScannedModels] = useState<ScannedModel[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [endpointUrl, setEndpointUrl] = useState<string | null>(null);
+  const [scannedAccounts, setScannedAccounts] = useState<{ id: string; name: string }[]>([]);
+  const [noAccountsConfigured, setNoAccountsConfigured] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Collapsible manual overrides
+  // Collapsible manual overrides (Endpoint only - credentials are taken automatically from configured accounts)
   const [showOverrides, setShowOverrides] = useState(false);
   const [customBaseUrl, setCustomBaseUrl] = useState(provider.baseUrl || "");
-  const [customApiKey, setCustomApiKey] = useState("");
 
-  const triggerScan = useCallback(async (forcedBaseUrl?: string, forcedApiKey?: string) => {
+  const triggerScan = useCallback(async (forcedBaseUrl?: string) => {
     setIsScanning(true);
     setErrorMsg(null);
+    setNoAccountsConfigured(false);
     try {
       const result = await scanProviderModels({
         providerId: provider.id,
         baseUrl: (forcedBaseUrl !== undefined ? forcedBaseUrl : customBaseUrl).trim() || undefined,
-        apiKey: (forcedApiKey !== undefined ? forcedApiKey : customApiKey).trim() || undefined,
       });
 
       if (result.success) {
         setScannedModels(result.models);
         setEndpointUrl(result.endpointUrl || null);
+        setScannedAccounts(result.scannedAccounts || []);
+        setNoAccountsConfigured(false);
         // Default: select all discovered models
         setSelectedIds(new Set(result.models.map((m) => m.id)));
       } else {
+        setScannedModels([]);
+        setEndpointUrl(null);
+        setScannedAccounts([]);
+        if (result.noAccountsConfigured) {
+          setNoAccountsConfigured(true);
+        }
         setErrorMsg(result.error || "Failed to scan models from upstream provider.");
       }
     } catch (err: unknown) {
@@ -60,21 +72,24 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
     } finally {
       setIsScanning(false);
     }
-  }, [provider.id, customBaseUrl, customApiKey]);
+  }, [provider.id, customBaseUrl]);
 
-  // Auto scan on initial open
+  // Auto scan on initial open using stored accounts
   useEffect(() => {
     if (isOpen) {
       setCustomBaseUrl(provider.baseUrl || "");
-      setCustomApiKey("");
       setSearchQuery("");
       setShowOverrides(false);
-      triggerScan(provider.baseUrl || undefined, "");
+      setScannedAccounts([]);
+      setNoAccountsConfigured(false);
+      triggerScan(provider.baseUrl || undefined);
     } else {
       setScannedModels([]);
       setSelectedIds(new Set());
       setErrorMsg(null);
       setEndpointUrl(null);
+      setScannedAccounts([]);
+      setNoAccountsConfigured(false);
     }
   }, [isOpen, provider.id, provider.baseUrl, triggerScan]);
 
@@ -142,7 +157,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Automatically probe and import live available models from upstream API endpoints.
+                Automatically probe and import live available models using your configured accounts.
               </p>
             </div>
           </div>
@@ -160,24 +175,76 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
           </button>
         </div>
 
-        {/* Endpoint probe info */}
-        {endpointUrl && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0A0D14] border border-[#1E293B] text-[11px] font-mono text-slate-300">
-            <span className="material-symbols-outlined text-emerald-400 text-[14px]">check_circle</span>
-            <span className="text-slate-500">Discovered endpoint:</span>
-            <span className="text-emerald-400 truncate">{endpointUrl}</span>
+        {/* Scanned accounts & endpoint probe info */}
+        {(scannedAccounts.length > 0 || endpointUrl) && (
+          <div className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] text-[11px]">
+            {scannedAccounts.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 text-slate-300">
+                <span className="material-symbols-outlined text-blue-400 text-[15px]">badge</span>
+                <span className="text-slate-400 font-medium">
+                  {scannedAccounts.length === 1 ? "Scanned account:" : `Aggregated across ${scannedAccounts.length} accounts:`}
+                </span>
+                {scannedAccounts.map((acc) => (
+                  <span
+                    key={acc.id}
+                    className="px-2 py-0.5 rounded font-mono text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                  >
+                    {acc.name}
+                  </span>
+                ))}
+              </div>
+            )}
+            {endpointUrl && (
+              <div className="flex items-center gap-1.5 font-mono text-slate-400 truncate">
+                <span className="material-symbols-outlined text-emerald-400 text-[14px]">check_circle</span>
+                <span className="text-slate-500">Discovered endpoint:</span>
+                <span className="text-emerald-400 truncate">{endpointUrl}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No accounts configured warning banner */}
+        {noAccountsConfigured && (
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-[20px] text-amber-400 shrink-0 mt-0.5">key_off</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-white">No Accounts Configured</p>
+                <p className="text-[11px] text-amber-200/90 mt-1 leading-relaxed">
+                  No active account or API key is configured for <strong>{provider.name}</strong>.
+                  Model scanning automatically queries provider endpoints using your stored accounts.
+                  Please configure an account or API key in the provider settings first.
+                </p>
+              </div>
+            </div>
+            {onAddAccount && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onAddAccount();
+                  }}
+                  className="rt-btn rt-btn--primary text-xs flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white border-none cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px]">add</span>
+                  Add Account / API Key
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* Error message & retry settings */}
-        {errorMsg && (
+        {errorMsg && !noAccountsConfigured && (
           <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-300 space-y-2">
             <div className="flex items-start gap-2">
               <span className="material-symbols-outlined text-[18px] text-red-400 shrink-0 mt-0.5">error</span>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold">{errorMsg}</p>
                 <p className="text-[11px] text-red-400/80 mt-1">
-                  Ensure the provider has an active API key, or provide a custom endpoint URL below.
+                  Ensure the configured provider credentials are valid, or provide a custom endpoint URL below.
                 </p>
               </div>
             </div>
@@ -193,7 +260,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
           >
             <span className="flex items-center gap-1.5 font-medium">
               <span className="material-symbols-outlined text-[15px]">tune</span>
-              Scan Parameters & Endpoint Overrides
+              Base URL & Endpoint Override
             </span>
             <span className="material-symbols-outlined text-[16px]">
               {showOverrides ? "expand_less" : "expand_more"}
@@ -211,19 +278,6 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                   placeholder="e.g. https://api.xiaomimimo.com/v1/models or https://api.xkiro.com/v1"
                   value={customBaseUrl}
                   onChange={(e) => setCustomBaseUrl(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                  API Key Override (Optional)
-                </label>
-                <input
-                  type="password"
-                  placeholder="Leave blank to use existing stored credentials"
-                  value={customApiKey}
-                  onChange={(e) => setCustomApiKey(e.target.value)}
                   className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -251,7 +305,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
             <div>
               <p className="text-xs font-semibold text-white">Probing provider endpoints...</p>
               <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                Querying /v1/models and checking model schemas
+                Querying /v1/models with configured credentials
               </p>
             </div>
           </div>
@@ -378,7 +432,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         {/* Empty state when no models and not scanning */}
         {!isScanning && scannedModels.length === 0 && !errorMsg && (
           <div className="py-8 text-center text-xs text-slate-400">
-            Click &quot;Rescan&quot; or provide a custom endpoint URL above to scan for models.
+            Click &quot;Rescan&quot; or check provider account settings above to scan for models.
           </div>
         )}
 

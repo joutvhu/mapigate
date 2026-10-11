@@ -34,6 +34,34 @@ describe("API Provider Scan Endpoints", () => {
           return;
         }
 
+        if (auth === "Bearer token-account-a") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              object: "list",
+              data: [
+                { id: "model-account-a", object: "model" },
+                { id: "model-shared", object: "model" },
+              ],
+            })
+          );
+          return;
+        }
+
+        if (auth === "Bearer token-account-b") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              object: "list",
+              data: [
+                { id: "model-account-b", object: "model" },
+                { id: "model-shared", object: "model" },
+              ],
+            })
+          );
+          return;
+        }
+
         if (auth === "Bearer invalid-token") {
           res.writeHead(401, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: { message: "Invalid API key" } }));
@@ -256,5 +284,77 @@ describe("API Provider Scan Endpoints", () => {
       freeCandidates.includes("https://opencode.ai/zen/v1/models"),
       "opencode free must probe /zen/v1/models"
     );
+  });
+
+  test("POST /api/providers/:id/scan-models returns 400 when provider has zero configured accounts", async () => {
+    const providerId = `no-acc-prov-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "No Account Provider",
+      baseUrl: `http://127.0.0.1:${mockPort}/v1`,
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const res = await fetch(`http://127.0.0.1:${apiPort}/api/providers/${providerId}/scan-models`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    assert.equal(res.status, 400);
+    const body = (await res.json()) as any;
+    assert.equal(body.success, false);
+    assert.equal(body.noAccountsConfigured, true);
+    assert.ok(body.error?.includes("No configured accounts found"));
+  });
+
+  test("POST /api/providers/:id/scan-models aggregates models across multiple accounts and deduplicates", async () => {
+    const providerId = `multi-acc-api-prov-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Multi Account API Provider",
+      baseUrl: `http://127.0.0.1:${mockPort}/v1`,
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-a-${Date.now()}`,
+      providerId,
+      name: "Account Alpha",
+      rawApiKey: "token-account-a",
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-b-${Date.now()}`,
+      providerId,
+      name: "Account Beta",
+      rawApiKey: "token-account-b",
+    });
+
+    const res = await fetch(`http://127.0.0.1:${apiPort}/api/providers/${providerId}/scan-models`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as any;
+    assert.equal(body.success, true);
+    assert.equal(body.count, 3);
+    const ids = body.models.map((m: any) => m.id);
+    assert.ok(ids.includes("model-account-a"));
+    assert.ok(ids.includes("model-account-b"));
+    assert.ok(ids.includes("model-shared"));
+    assert.equal(body.scannedAccounts?.length, 2);
   });
 });

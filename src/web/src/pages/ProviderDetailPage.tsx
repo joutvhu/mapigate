@@ -912,6 +912,15 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           format: provider.format || registryItem?.format,
         }}
         existingModels={models}
+        accountsCount={connections.length}
+        onAddAccount={() => {
+          setShowScanModal(false);
+          if (isOAuth || ["github", "cursor", "kiro", "antigravity"].includes(provider.id)) {
+            handleConnectOAuth();
+          } else {
+            setShowAddModal(true);
+          }
+        }}
         onClose={() => setShowScanModal(false)}
         onApplyModels={handleApplyScannedModels}
       />

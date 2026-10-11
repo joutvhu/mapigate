@@ -232,6 +232,8 @@ export interface ScanModelsResult {
   models: ScannedModel[];
   count: number;
   error?: string;
+  scannedAccounts?: { id: string; name: string }[];
+  noAccountsConfigured?: boolean;
 }
 
 export interface ScanModelsOptions {

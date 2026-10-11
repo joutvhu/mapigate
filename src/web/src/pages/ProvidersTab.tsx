@@ -467,6 +467,12 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           existingModels={
             backendProviders.find((bp) => bp.id === scanningProvider.id)?.models || []
           }
+          accountsCount={getAccountsCount(scanningProvider.id)}
+          onAddAccount={() => {
+            const p = scanningProvider;
+            setScanningProvider(null);
+            onSelectProvider(p);
+          }}
           onClose={() => setScanningProvider(null)}
           onApplyModels={async (newModelIds, mode) => {
             const current = backendProviders.find((bp) => bp.id === scanningProvider.id);

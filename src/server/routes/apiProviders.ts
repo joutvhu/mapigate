@@ -221,6 +221,10 @@ providerRouter.post("/scan-models", async (req, res) => {
       timeoutMs: timeoutMs ? Number(timeoutMs) : undefined,
     });
     if (!result.success) {
+      if (result.noAccountsConfigured) {
+        res.status(400).json(result);
+        return;
+      }
       const isAuth = result.error?.includes("Authentication failed");
       res.status(isAuth ? 401 : 400).json(result);
       return;
@@ -255,6 +259,10 @@ providerRouter.post("/:id/scan-models", async (req, res) => {
     });
 
     if (!result.success) {
+      if (result.noAccountsConfigured) {
+        res.status(400).json(result);
+        return;
+      }
       const isAuth = result.error?.includes("Authentication failed");
       res.status(isAuth ? 401 : 400).json(result);
       return;

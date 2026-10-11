@@ -6,6 +6,7 @@ import {
   extractModelsFromPayload,
   scanProviderModels,
 } from "../src/core/scanner/modelScanner.js";
+import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
 
 describe("Model Scanner - Candidate URL Resolution", () => {
   test("preserves explicit /models endpoint without alteration", () => {
@@ -155,6 +156,24 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
         return;
       }
 
+      if (url === "/multi-acc/models") {
+        if (auth === "Bearer acc-good-1") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ data: [{ id: "model-from-acc-1" }, { id: "shared-model" }] }));
+          return;
+        }
+        if (auth === "Bearer acc-good-2") {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ data: [{ id: "model-from-acc-2" }, { id: "shared-model" }] }));
+          return;
+        }
+        if (auth === "Bearer acc-bad") {
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Unauthorized" }));
+          return;
+        }
+      }
+
       if (url === "/probe/fallback/models") {
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ data: [{ id: "fallback-model" }] }));
@@ -254,5 +273,78 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
 
     assert.equal(result.success, false);
     assert.ok(result.error);
+  });
+
+  test("returns noAccountsConfigured when providerId has zero accounts", async () => {
+    const providerId = `zero-acc-prov-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Zero Accounts Provider",
+      baseUrl: `http://127.0.0.1:${serverPort}/multi-acc`,
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const result = await scanProviderModels({ providerId });
+    assert.equal(result.success, false);
+    assert.equal(result.noAccountsConfigured, true);
+    assert.ok(result.error?.includes("No configured accounts found"));
+  });
+
+  test("aggregates models across multiple accounts and tolerates partial failure", async () => {
+    const providerId = `multi-acc-prov-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "Multi Account Provider",
+      baseUrl: `http://127.0.0.1:${serverPort}/multi-acc`,
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Account 1: good key, produces model-from-acc-1 and shared-model
+    ProviderRepository.addAccount({
+      id: `acc-1-${Date.now()}`,
+      providerId,
+      name: "Account 1",
+      rawApiKey: "acc-good-1",
+    });
+
+    // Account 2: bad key, fails auth
+    ProviderRepository.addAccount({
+      id: `acc-bad-${Date.now()}`,
+      providerId,
+      name: "Bad Account",
+      rawApiKey: "acc-bad",
+    });
+
+    // Account 3: good key, produces model-from-acc-2 and shared-model
+    ProviderRepository.addAccount({
+      id: `acc-2-${Date.now()}`,
+      providerId,
+      name: "Account 2",
+      rawApiKey: "acc-good-2",
+    });
+
+    const result = await scanProviderModels({ providerId });
+    assert.equal(result.success, true);
+    // Should aggregate and deduplicate: model-from-acc-1, shared-model, model-from-acc-2
+    assert.equal(result.count, 3);
+    const modelIds = result.models.map((m) => m.id);
+    assert.ok(modelIds.includes("model-from-acc-1"));
+    assert.ok(modelIds.includes("model-from-acc-2"));
+    assert.ok(modelIds.includes("shared-model"));
+    // Scanned accounts should include Account 1 and Account 2, but not Bad Account
+    assert.equal(result.scannedAccounts?.length, 2);
+    const scannedNames = result.scannedAccounts?.map((a) => a.name);
+    assert.ok(scannedNames?.includes("Account 1"));
+    assert.ok(scannedNames?.includes("Account 2"));
   });
 });
