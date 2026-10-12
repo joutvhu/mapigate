@@ -12,37 +12,32 @@ import {
 import "@xyflow/react/dist/style.css";
 import type { ActiveRequestItem } from "../../../../shared/types/index.js";
 import { Network } from "lucide-react";
+import { ToolIcon } from "../ui/ToolIcon.js";
+import {
+  getProviderMeta,
+  type ProviderTopologyMeta,
+} from "./providerTopologyHelper.js";
+
+export { getProviderMeta };
+export type { ProviderTopologyMeta };
 
 const KAME_PARTICLE_COUNT = 5;
 
-const PROVIDER_METAS: Record<string, { name: string; color: string; icon: string }> = {
-  antigravity: { name: "Antigravity", color: "#3B82F6", icon: "AG" },
-  claude: { name: "Claude Code", color: "#F97316", icon: "CL" },
-  anthropic: { name: "Anthropic", color: "#F97316", icon: "AN" },
-  openai: { name: "OpenAI", color: "#10B981", icon: "OA" },
-  github: { name: "Copilot", color: "#818CF8", icon: "CP" },
-  "github-copilot": { name: "Copilot", color: "#818CF8", icon: "CP" },
-  gemini: { name: "Gemini", color: "#38BDF8", icon: "GM" },
-  deepseek: { name: "DeepSeek", color: "#8B5CF6", icon: "DS" },
-  kiro: { name: "AWS Kiro", color: "#EAB308", icon: "KR" },
-  grok: { name: "xAI Grok", color: "#EC4899", icon: "GK" },
-  qoder: { name: "Qoder", color: "#14B8A6", icon: "QD" },
-  minimax: { name: "MiniMax", color: "#06B6D4", icon: "MM" },
-};
+interface RouterNodeData extends Record<string, unknown> {
+  activeCount?: number;
+}
 
-function getProviderMeta(providerId: string) {
-  const lower = providerId.toLowerCase();
-  return (
-    PROVIDER_METAS[lower] || {
-      name: providerId,
-      color: "#64748B",
-      icon: providerId.slice(0, 2).toUpperCase(),
-    }
-  );
+interface ProviderNodeData extends Record<string, unknown> {
+  label: string;
+  color?: string;
+  image?: string;
+  iconBg?: string;
+  active: boolean;
+  onClick?: () => void;
 }
 
 // Custom Mapigate Central Gateway Node
-function RouterNode({ data }: { data: any }) {
+function RouterNode({ data }: { data: RouterNodeData }) {
   const activeCount = data?.activeCount || 0;
   const isPowering = activeCount > 0;
 
@@ -59,14 +54,23 @@ function RouterNode({ data }: { data: any }) {
       <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      <div className="flex items-center gap-2">
-        <div
-          className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs transition-all ${
-            isPowering ? "bg-cyan-400 text-black shadow-[0_0_12px_#22d3ee]" : "bg-blue-600/30 text-blue-400"
-          }`}
-        >
-          MPG
-        </div>
+      <div className="flex items-center gap-2.5">
+        <ToolIcon
+          src="/favicon.svg"
+          name="Mapigate"
+          color="#38BDF8"
+          size="sm"
+          fallback={
+            <span className="material-symbols-outlined text-[18px] text-cyan-400">
+              graph_5
+            </span>
+          }
+          className={
+            isPowering
+              ? "shadow-[0_0_14px_rgba(34,211,238,0.7)] border-cyan-400"
+              : ""
+          }
+        />
         <div>
           <div className="text-xs font-black tracking-wide text-white">MAPIGATE</div>
           <div className="text-[9px] text-slate-400 font-mono">Gateway</div>
@@ -82,8 +86,8 @@ function RouterNode({ data }: { data: any }) {
 }
 
 // Custom Satellite Provider Node
-function ProviderNode({ data }: { data: any }) {
-  const { label, color, textIcon, active, onClick } = data;
+function ProviderNode({ data }: { data: ProviderNodeData }) {
+  const { label, color, image, iconBg, active, onClick } = data;
 
   return (
     <div
@@ -95,7 +99,7 @@ function ProviderNode({ data }: { data: any }) {
       }`}
       style={{
         borderColor: active ? color : undefined,
-        minWidth: "140px",
+        minWidth: "150px",
       }}
     >
       <Handle type="target" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -103,15 +107,13 @@ function ProviderNode({ data }: { data: any }) {
       <Handle type="target" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="target" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0"
-        style={{
-          backgroundColor: `${color}20`,
-          color: color,
-        }}
-      >
-        {textIcon}
-      </div>
+      <ToolIcon
+        src={image}
+        name={label}
+        color={color}
+        iconBg={iconBg}
+        size="sm"
+      />
 
       <div className="truncate">
         <span
@@ -252,10 +254,18 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
   const activeProviderSet = useMemo(() => {
     const set = new Set<string>();
     for (const req of activeRequests) {
-      if (req.provider) set.add(req.provider.toLowerCase());
+      if (req.provider) {
+        const raw = req.provider.toLowerCase();
+        set.add(raw);
+        const meta = getProviderMeta(raw);
+        set.add(meta.id.toLowerCase());
+      }
     }
     if (focusedProvider) {
-      set.add(focusedProvider.toLowerCase());
+      const raw = focusedProvider.toLowerCase();
+      set.add(raw);
+      const meta = getProviderMeta(raw);
+      set.add(meta.id.toLowerCase());
     }
     return set;
   }, [activeRequests, focusedProvider]);
@@ -282,7 +292,9 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 
     displayProviders.forEach((provId, i) => {
       const meta = getProviderMeta(provId);
-      const isProvActive = activeProviderSet.has(provId.toLowerCase());
+      const isProvActive =
+        activeProviderSet.has(provId.toLowerCase()) ||
+        activeProviderSet.has(meta.id.toLowerCase());
       const nodeId = `provider-${provId}`;
 
       // Distribute along ellipse around center
@@ -310,11 +322,12 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       nodesList.push({
         id: nodeId,
         type: "provider",
-        position: { x: cx - 70, y: cy - 20 },
+        position: { x: cx - 75, y: cy - 25 },
         data: {
           label: meta.name,
           color: meta.color,
-          textIcon: meta.icon,
+          image: meta.image,
+          iconBg: meta.iconBg,
           active: isProvActive,
           onClick: () => {
             setFocusedProvider((curr) => (curr === provId ? null : provId));

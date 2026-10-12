@@ -11,6 +11,10 @@ export const metadata: ProviderRegistryItem = {
   "name": "GitHub Copilot",
   "alias": "gh",
   "uiAlias": "gh",
+  "aliases": [
+    "copilot",
+    "github-copilot"
+  ],
   "color": "#333333",
   "iconBg": "#FFFFFF",
   "image": "/assets/providers/github/icon.png",
