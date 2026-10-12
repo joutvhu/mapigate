@@ -75,7 +75,7 @@ app.use("/api/server", serverRouter);
 app.post("/api/shutdown", handleShutdownRequest);
 
 // OAuth Callback Relay Endpoint
-app.get("/callback", (_req, res) => {
+app.get(["/callback", "/auth/callback"], (_req, res) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(`<!DOCTYPE html>
 <html>

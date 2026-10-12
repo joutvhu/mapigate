@@ -192,8 +192,6 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
       response_type: "code",
       redirect_uri: redirectUri,
       scope: ANTIGRAVITY_SCOPES.join(" "),
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
       state,
       access_type: "offline",
       prompt: "consent",
@@ -203,8 +201,6 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
       authUrl,
       redirectUri,
       state,
-      codeVerifier,
-      codeChallenge,
       flowType: "authorization_code",
     });
     return;
@@ -217,8 +213,6 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
       response_type: "code",
       redirect_uri: redirectUri,
       scope: GOOGLE_OAUTH_SCOPES.join(" "),
-      code_challenge: codeChallenge,
-      code_challenge_method: "S256",
       state,
       access_type: "offline",
       prompt: "consent",
@@ -228,8 +222,6 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
       authUrl,
       redirectUri,
       state,
-      codeVerifier,
-      codeChallenge,
       flowType: "authorization_code",
     });
     return;
@@ -683,7 +675,10 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       let accountName = "Antigravity Google Account";
       try {
         const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "x-request-source": "local",
+          },
         });
         if (userRes.ok) {
           const userData: any = await userRes.json();
@@ -691,6 +686,69 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         }
       } catch (err) {
         console.warn("Failed to fetch Google userinfo:", err);
+      }
+
+      // Load Code Assist to discover project ID and tier (mirroring 9router)
+      let projectId = "";
+      let tierId = "legacy-tier";
+      const loadHeaders = {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "User-Agent": "antigravity/ide/2.11.0 darwin/arm64",
+        "x-request-source": "local",
+      };
+      try {
+        const metadata = {
+          ideType: 9, // ANTIGRAVITY
+          platform: process.platform === "win32" ? 5 : (process.platform === "darwin" ? (process.arch === "arm64" ? 2 : 1) : (process.arch === "arm64" ? 4 : 3)),
+          pluginType: 2, // GEMINI
+        };
+        const loadRes = await fetch("https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist", {
+          method: "POST",
+          headers: loadHeaders,
+          body: JSON.stringify({ metadata }),
+        });
+        if (loadRes.ok) {
+          const loadData: any = await loadRes.json();
+          projectId = loadData.cloudaicompanionProject?.id || (typeof loadData.cloudaicompanionProject === "string" ? loadData.cloudaicompanionProject : "");
+          if (Array.isArray(loadData.allowedTiers)) {
+            for (const tier of loadData.allowedTiers) {
+              if (tier.isDefault && tier.id) {
+                tierId = tier.id.trim();
+                break;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load Antigravity code assist project:", err);
+      }
+
+      // Fire-and-forget onboarding if projectId is present
+      if (projectId) {
+        (async () => {
+          for (let i = 0; i < 10; i++) {
+            try {
+              const metadata = {
+                ideType: 9,
+                platform: process.platform === "win32" ? 5 : (process.platform === "darwin" ? (process.arch === "arm64" ? 2 : 1) : (process.arch === "arm64" ? 4 : 3)),
+                pluginType: 2,
+              };
+              const onboardRes = await fetch("https://cloudcode-pa.googleapis.com/v1internal:onboardUser", {
+                method: "POST",
+                headers: loadHeaders,
+                body: JSON.stringify({ tierId, metadata }),
+              });
+              if (onboardRes.ok) {
+                const resData: any = await onboardRes.json();
+                if (resData.done === true) break;
+              }
+            } catch {
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 5000));
+          }
+        })().catch(() => {});
       }
 
       ProviderRepository.ensureProviderExists("antigravity");
@@ -704,6 +762,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
         accessToken,
         refreshToken,
         expiresAt,
+        projectId: projectId || undefined,
       });
 
       ProviderRepository.addAccount({
@@ -715,6 +774,8 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
           email: accountName,
           refreshToken,
           expiresAt,
+          projectId: projectId || undefined,
+          tierId: tierId || undefined,
         },
       });
 

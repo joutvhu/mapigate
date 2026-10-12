@@ -85,6 +85,10 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         }
 
         setStatus("success");
+        try {
+          localStorage.removeItem("oauth_pending_flow");
+          localStorage.removeItem("oauth_callback");
+        } catch {}
         setTimeout(() => {
           onSuccess();
           onClose();
@@ -107,6 +111,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     setIsDeviceCode(false);
     setDeviceData(null);
     setPopupBlocked(false);
+    codeVerifierRef.current = undefined;
+    stateRef.current = undefined;
 
     const currentRedirect = `${window.location.origin}/callback`;
     setRedirectUri(currentRedirect);
@@ -169,6 +175,20 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         if (data.state) stateRef.current = data.state;
         setStatus("waiting");
 
+        // Cache pending flow info for the callback page
+        try {
+          localStorage.setItem(
+            "oauth_pending_flow",
+            JSON.stringify({
+              providerId,
+              redirectUri: data.redirectUri || currentRedirect,
+              state: data.state,
+              codeVerifier: data.codeVerifier,
+              timestamp: Date.now(),
+            })
+          );
+        } catch {}
+
         // Open popup window to authorization URL
         try {
           const opened = window.open(data.authUrl, "oauth_popup", "width=600,height=700");
@@ -221,6 +241,20 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 
     const handleCallbackData = (data: any) => {
       if (!data) return;
+      if (data.done) {
+        callbackHandledRef.current = true;
+        stopPolling();
+        setStatus("success");
+        try {
+          localStorage.removeItem("oauth_pending_flow");
+          localStorage.removeItem("oauth_callback");
+        } catch {}
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+        }, 1200);
+        return;
+      }
       if (data.error) {
         setStatus("error");
         setErrorMessage(data.errorDescription || data.error);
@@ -259,7 +293,22 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     };
     window.addEventListener("storage", onStorage);
 
+    // 4. Polling check on localStorage fallback (mirroring 9router)
+    const pollLocalInterval = setInterval(() => {
+      try {
+        const stored = localStorage.getItem("oauth_callback");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && (!parsed.timestamp || Date.now() - parsed.timestamp < 60000)) {
+            handleCallbackData(parsed);
+          }
+          localStorage.removeItem("oauth_callback");
+        }
+      } catch {}
+    }, 500);
+
     return () => {
+      clearInterval(pollLocalInterval);
       window.removeEventListener("message", onMessage);
       window.removeEventListener("storage", onStorage);
       if (channel) channel.close();

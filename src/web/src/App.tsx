@@ -12,9 +12,20 @@ import { EndpointTab } from "./pages/EndpointTab";
 import { TokenSaverTab } from "./pages/TokenSaverTab";
 import { ConsoleLogTab } from "./pages/ConsoleLogTab";
 import { SettingsTab } from "./pages/SettingsTab";
+import { CallbackPage } from "./pages/CallbackPage";
 import type { ProviderItem } from "./constants/providersData";
 
 export default function App() {
+  const isCallbackRoute =
+    typeof window !== "undefined" &&
+    (window.location.pathname === "/callback" ||
+      window.location.pathname === "/auth/callback" ||
+      window.location.pathname.startsWith("/callback"));
+
+  if (isCallbackRoute) {
+    return <CallbackPage />;
+  }
+
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
