@@ -26,7 +26,7 @@ test("Tool icon background configurations in Provider registry", () => {
     "jina-reader",
     "reka",
     "runwayml",
-    "v0-vercel",
+    "voyage-ai",
     "vercel-ai-gateway",
     "writer",
   ];
@@ -61,9 +61,13 @@ test("MITM tool configurations have iconBg properly set", () => {
   assert.ok(cursorMitm, "Cursor MITM config must exist");
   assert.equal(cursorMitm.iconBg, "#FFFFFF");
 
+  const kiroMitm = MITM_TOOLS.find((t) => t.id === "kiro");
+  assert.ok(kiroMitm, "Kiro MITM config must exist");
+  assert.equal(kiroMitm.iconBg, "#9046ff");
+
   const copilotMitm = MITM_TOOLS.find((t) => t.id === "copilot");
   assert.ok(copilotMitm, "Copilot MITM config must exist");
-  assert.equal(copilotMitm.iconBg, "#FFFFFF");
+  assert.equal(copilotMitm.iconBg, undefined);
 });
 
 test("Web providersData propagates iconBg for providers and CLI tools", () => {
