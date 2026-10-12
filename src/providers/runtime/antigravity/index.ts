@@ -3,3 +3,4 @@ export * from "./types.js";
 export * from "./weekly.js";
 export * from "./quota.js";
 export * from "./provider.js";
+export * from "./routes.js";

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type {
   ProviderOAuthHandler,
   OAuthAuthorizeParams,
@@ -106,3 +108,7 @@ export const geminiOAuthHandler: ProviderOAuthHandler = {
     };
   },
 };
+
+export function registerRoutes(_router?: Router): void {
+  OAuthHandlerRegistry.register("gemini", geminiOAuthHandler);
+}

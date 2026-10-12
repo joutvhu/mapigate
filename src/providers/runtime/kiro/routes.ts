@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type { ProviderOAuthHandler, IdeAutoImportResult } from "../../core/oauthTypes.js";
 
 export function scanAwsSsoCache(): IdeAutoImportResult {
@@ -174,3 +176,47 @@ export const kiroOAuthHandler: ProviderOAuthHandler = {
   importAccount,
   importApiKey,
 };
+
+export function registerRoutes(router: Router): void {
+  OAuthHandlerRegistry.register("kiro", kiroOAuthHandler);
+
+  router.get("/kiro/auto-import", async (_req, res) => {
+    try {
+      res.json(await kiroOAuthHandler.autoImport!());
+    } catch (err: any) {
+      res.json({ found: false, error: err.message || "Failed to scan AWS SSO cache" });
+    }
+  });
+
+  router.post("/kiro/import", async (req, res) => {
+    const { refreshToken, clientId, clientSecret, region, authMethod, profileArn, name } = req.body;
+    if (!refreshToken) return res.status(400).json({ error: "Refresh token is required" });
+    try {
+      const result = await kiroOAuthHandler.importAccount!({
+        refreshToken,
+        clientId,
+        clientSecret,
+        region,
+        authMethod,
+        profileArn,
+        name,
+      });
+      if (!result.success) return res.status(400).json({ error: result.error || "Failed to import Kiro account" });
+      res.json({ success: true, id: result.id, name: result.name });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to import Kiro account" });
+    }
+  });
+
+  router.post("/kiro/api-key", async (req, res) => {
+    const { apiKey, region, name } = req.body;
+    if (!apiKey) return res.status(400).json({ error: "API key is required" });
+    try {
+      const result = await kiroOAuthHandler.importApiKey!({ apiKey, region, name });
+      if (!result.success) return res.status(400).json({ error: result.error || "Failed to import Kiro API key" });
+      res.json({ success: true, id: result.id, name: result.name });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to import Kiro API key" });
+    }
+  });
+}

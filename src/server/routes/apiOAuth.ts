@@ -2,22 +2,22 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { OAuthHandlerRegistry } from "../../providers/core/oauthRegistry.js";
-import { githubOAuthHandler } from "../../providers/runtime/github/oauth.js";
-import { cursorOAuthHandler } from "../../providers/runtime/cursor/import.js";
-import { kiroOAuthHandler } from "../../providers/runtime/kiro/import.js";
+import { registerAllProviderRoutes } from "../../providers/generated/routesRegistry.generated.js";
 import { parseJwtPayload } from "../../shared/utils/jwt.js";
 import { generatePKCE } from "../../shared/utils/pkce.js";
 
 // Re-exports for backward compatibility
 export { generateCodeVerifier, generateCodeChallenge, generateState, generatePKCE } from "../../shared/utils/pkce.js";
-export { ANTIGRAVITY_CLIENT_ID, ANTIGRAVITY_CLIENT_SECRET, ANTIGRAVITY_SCOPES, refreshGoogleOAuthToken } from "../../providers/runtime/antigravity/oauth.js";
-export { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPES } from "../../providers/runtime/gemini/oauth.js";
-export { CLAUDE_CLIENT_ID, CLAUDE_AUTHORIZE_URL, CLAUDE_TOKEN_URL, CLAUDE_SCOPES } from "../../providers/runtime/claude/oauth.js";
-export { CODEX_CLIENT_ID, CODEX_AUTHORIZE_URL, CODEX_TOKEN_URL, CODEX_SCOPE, startCodexProxy, stopCodexProxy } from "../../providers/runtime/codex/oauth.js";
-export { KIMI_CLIENT_ID, KIMI_DEVICE_CODE_URL, KIMI_TOKEN_URL, KIMI_AUTHORIZE_DEVICE_URL } from "../../providers/runtime/kimi/oauth.js";
+export { ANTIGRAVITY_CLIENT_ID, ANTIGRAVITY_CLIENT_SECRET, ANTIGRAVITY_SCOPES, refreshGoogleOAuthToken } from "../../providers/runtime/antigravity/routes.js";
+export { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPES } from "../../providers/runtime/gemini/routes.js";
+export { CLAUDE_CLIENT_ID, CLAUDE_AUTHORIZE_URL, CLAUDE_TOKEN_URL, CLAUDE_SCOPES } from "../../providers/runtime/claude/routes.js";
+export { CODEX_CLIENT_ID, CODEX_AUTHORIZE_URL, CODEX_TOKEN_URL, CODEX_SCOPE, startCodexProxy, stopCodexProxy } from "../../providers/runtime/codex/routes.js";
+export { KIMI_CLIENT_ID, KIMI_DEVICE_CODE_URL, KIMI_TOKEN_URL, KIMI_AUTHORIZE_DEVICE_URL } from "../../providers/runtime/kimi/routes.js";
 
-OAuthHandlerRegistry.initializeBuiltins();
 export const oauthRouter = Router();
+
+// Register all provider-specific custom routes and OAuth handlers
+registerAllProviderRoutes(oauthRouter);
 
 const DEVICE_CODE_PROVIDERS = new Set([
   "kimi", "kimi-coding", "glm", "minimax-code", "minimax-code-global", "qoder", "qoder-cn", "grok-cli", "kilocode",
@@ -132,64 +132,4 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
   } catch (err: any) {
     res.status(err.message?.includes("not implemented") ? 400 : 500).json({ error: err.message || "Failed to exchange OAuth token" });
   }
-});
-
-// GitHub routes
-oauthRouter.post("/github/device-code", async (_req, res) => {
-  try { res.json(await githubOAuthHandler.deviceCode!()); }
-  catch (err: any) { res.status(500).json({ error: err.message || "Failed to initiate GitHub device code" }); }
-});
-oauthRouter.post("/github/poll", async (req, res) => {
-  const { device_code } = req.body;
-  if (!device_code) return res.status(400).json({ error: "Missing device_code" });
-  try { res.json(await githubOAuthHandler.poll!({ device_code, deviceCode: device_code })); }
-  catch (err: any) { res.status(500).json({ error: err.message || "Failed to poll GitHub token" }); }
-});
-oauthRouter.post("/github/token", async (req, res) => {
-  const { token, name } = req.body;
-  if (!token || typeof token !== "string") return res.status(400).json({ error: "Token is required" });
-  try {
-    const result = await githubOAuthHandler.importAccount!({ token, name });
-    if (!result.success) return res.status(400).json({ error: result.error || "Token is required" });
-    res.json({ success: true, id: result.id, name: result.name });
-  } catch (err: any) { res.status(500).json({ error: err.message || "Failed to import GitHub token" }); }
-});
-
-// Cursor routes
-oauthRouter.get("/cursor/auto-import", async (_req, res) => {
-  try { res.json(await cursorOAuthHandler.autoImport!()); }
-  catch (err: any) { res.json({ found: false, error: err.message || "Could not read Cursor IDE database" }); }
-});
-oauthRouter.post("/cursor/import", async (req, res) => {
-  const { accessToken, machineId, name } = req.body;
-  if (!accessToken) return res.status(400).json({ error: "Access token is required" });
-  try {
-    const result = await cursorOAuthHandler.importAccount!({ accessToken, machineId, name });
-    if (!result.success) return res.status(400).json({ error: result.error || "Failed to import Cursor account" });
-    res.json({ success: true, id: result.id, name: result.name });
-  } catch (err: any) { res.status(500).json({ error: err.message || "Failed to import Cursor account" }); }
-});
-
-// Kiro routes
-oauthRouter.get("/kiro/auto-import", async (_req, res) => {
-  try { res.json(await kiroOAuthHandler.autoImport!()); }
-  catch (err: any) { res.json({ found: false, error: err.message || "Failed to scan AWS SSO cache" }); }
-});
-oauthRouter.post("/kiro/import", async (req, res) => {
-  const { refreshToken, clientId, clientSecret, region, authMethod, profileArn, name } = req.body;
-  if (!refreshToken) return res.status(400).json({ error: "Refresh token is required" });
-  try {
-    const result = await kiroOAuthHandler.importAccount!({ refreshToken, clientId, clientSecret, region, authMethod, profileArn, name });
-    if (!result.success) return res.status(400).json({ error: result.error || "Failed to import Kiro account" });
-    res.json({ success: true, id: result.id, name: result.name });
-  } catch (err: any) { res.status(500).json({ error: err.message || "Failed to import Kiro account" }); }
-});
-oauthRouter.post("/kiro/api-key", async (req, res) => {
-  const { apiKey, region, name } = req.body;
-  if (!apiKey) return res.status(400).json({ error: "API key is required" });
-  try {
-    const result = await kiroOAuthHandler.importApiKey!({ apiKey, region, name });
-    if (!result.success) return res.status(400).json({ error: result.error || "Failed to import Kiro API key" });
-    res.json({ success: true, id: result.id, name: result.name });
-  } catch (err: any) { res.status(500).json({ error: err.message || "Failed to import Kiro API key" }); }
 });

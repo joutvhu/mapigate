@@ -1,16 +1,5 @@
 import type { ProviderOAuthHandler } from "./oauthTypes.js";
 import { GenericOAuthHandler } from "./genericOAuthHandler.js";
-import { antigravityOAuthHandler } from "../runtime/antigravity/oauth.js";
-import { geminiOAuthHandler } from "../runtime/gemini/oauth.js";
-import { claudeOAuthHandler } from "../runtime/claude/oauth.js";
-import { codexOAuthHandler } from "../runtime/codex/oauth.js";
-import { cursorOAuthHandler } from "../runtime/cursor/import.js";
-import { kiroOAuthHandler } from "../runtime/kiro/import.js";
-import { githubOAuthHandler } from "../runtime/github/oauth.js";
-import { kimiOAuthHandler } from "../runtime/kimi/oauth.js";
-import { glmOAuthHandler } from "../runtime/glm/oauth.js";
-import { minimaxOAuthHandler } from "../runtime/minimax/oauth.js";
-import { clineOAuthHandler } from "../runtime/cline/oauth.js";
 
 /**
  * Central registry for provider OAuth handlers.
@@ -83,18 +72,9 @@ export class OAuthHandlerRegistry {
 
   /**
    * Initializes built-in specialized OAuth handlers.
+   * Specialized handlers are registered via provider routes.ts (registerAllProviderRoutes).
    */
   public static initializeBuiltins(): void {
-    this.register("antigravity", antigravityOAuthHandler);
-    this.register("gemini", geminiOAuthHandler);
-    this.register("claude", claudeOAuthHandler);
-    this.register("codex", codexOAuthHandler);
-    this.register("cursor", cursorOAuthHandler);
-    this.register("kiro", kiroOAuthHandler);
-    this.register("github", githubOAuthHandler);
-    this.register("kimi", kimiOAuthHandler);
-    this.register("glm", glmOAuthHandler);
-    this.register("minimax", minimaxOAuthHandler);
-    this.register("cline", clineOAuthHandler);
+    // Built-in specialized handlers are registered dynamically via registerAllProviderRoutes(router)
   }
 }

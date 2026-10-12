@@ -1,3 +1,5 @@
+import type { Router } from "express";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type {
   ProviderOAuthHandler,
   DeviceCodeParams,
@@ -40,3 +42,7 @@ export const minimaxOAuthHandler: ProviderOAuthHandler = {
   id: "minimax",
   deviceCode: requestMinimaxDeviceCode,
 };
+
+export function registerRoutes(_router?: Router): void {
+  OAuthHandlerRegistry.register("minimax", minimaxOAuthHandler);
+}

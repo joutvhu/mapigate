@@ -3,7 +3,9 @@ import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type { ProviderOAuthHandler, IdeAutoImportResult } from "../../core/oauthTypes.js";
 
 export function getCursorCandidatePaths(): string[] {
@@ -155,3 +157,27 @@ export const cursorOAuthHandler: ProviderOAuthHandler = {
   autoImport,
   importAccount,
 };
+
+export function registerRoutes(router: Router): void {
+  OAuthHandlerRegistry.register("cursor", cursorOAuthHandler);
+
+  router.get("/cursor/auto-import", async (_req, res) => {
+    try {
+      res.json(await cursorOAuthHandler.autoImport!());
+    } catch (err: any) {
+      res.json({ found: false, error: err.message || "Could not read Cursor IDE database" });
+    }
+  });
+
+  router.post("/cursor/import", async (req, res) => {
+    const { accessToken, machineId, name } = req.body;
+    if (!accessToken) return res.status(400).json({ error: "Access token is required" });
+    try {
+      const result = await cursorOAuthHandler.importAccount!({ accessToken, machineId, name });
+      if (!result.success) return res.status(400).json({ error: result.error || "Failed to import Cursor account" });
+      res.json({ success: true, id: result.id, name: result.name });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to import Cursor account" });
+    }
+  });
+}

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type {
   ProviderOAuthHandler,
   OAuthAuthorizeParams,
@@ -189,3 +191,7 @@ export const antigravityOAuthHandler: ProviderOAuthHandler = {
     return { success: true, account: { id: accountId, name: accountName, providerId: "antigravity" } };
   },
 };
+
+export function registerRoutes(_router?: Router): void {
+  OAuthHandlerRegistry.register("antigravity", antigravityOAuthHandler);
+}

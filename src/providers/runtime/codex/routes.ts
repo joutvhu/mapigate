@@ -1,6 +1,8 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import { parseJwtPayload } from "../../../shared/utils/jwt.js";
 import { generatePKCE } from "../../../shared/utils/pkce.js";
 import type {
@@ -180,3 +182,7 @@ export const codexOAuthHandler: ProviderOAuthHandler = {
     };
   },
 };
+
+export function registerRoutes(_router?: Router): void {
+  OAuthHandlerRegistry.register("codex", codexOAuthHandler);
+}

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type {
   ProviderOAuthHandler,
   DeviceCodeParams,
@@ -69,10 +71,11 @@ export async function pollKimiToken(params: DevicePollParams): Promise<DevicePol
   }
 
   if (data.access_token) {
+    const accessToken = data.access_token;
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
     const accountName = "Kimi Account";
     const storedToken = JSON.stringify({
-      accessToken: data.access_token,
+      accessToken,
       refreshToken: data.refresh_token,
       expiresAt: Date.now() + (Number(data.expires_in) || 2592000) * 1000,
     });
@@ -101,3 +104,7 @@ export const kimiOAuthHandler: ProviderOAuthHandler = {
   deviceCode: requestKimiDeviceCode,
   poll: pollKimiToken,
 };
+
+export function registerRoutes(_router?: Router): void {
+  OAuthHandlerRegistry.register("kimi", kimiOAuthHandler);
+}

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
+import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type {
   ProviderOAuthHandler,
   DeviceCodeParams,
@@ -8,7 +10,7 @@ import type {
   DevicePollResult,
 } from "../../core/oauthTypes.js";
 
-export const GITHUB_COPILOT_CLIENT_ID = "Iv1.REDACTED_GITHUB_CLIENT_ID";
+import { GITHUB_COPILOT_CLIENT_ID } from "./auth.js";
 
 export async function requestCopilotDeviceCode(_params?: DeviceCodeParams): Promise<DeviceCodeResult> {
   const response = await fetch("https://github.com/login/device/code", {
@@ -172,3 +174,37 @@ export const githubOAuthHandler: ProviderOAuthHandler = {
   poll: pollCopilotToken,
   importAccount: importGithubToken,
 };
+
+export function registerRoutes(router: Router): void {
+  OAuthHandlerRegistry.register("github", githubOAuthHandler);
+
+  router.post("/github/device-code", async (_req, res) => {
+    try {
+      res.json(await githubOAuthHandler.deviceCode!());
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to initiate GitHub device code" });
+    }
+  });
+
+  router.post("/github/poll", async (req, res) => {
+    const { device_code } = req.body;
+    if (!device_code) return res.status(400).json({ error: "Missing device_code" });
+    try {
+      res.json(await githubOAuthHandler.poll!({ device_code, deviceCode: device_code }));
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to poll GitHub token" });
+    }
+  });
+
+  router.post("/github/token", async (req, res) => {
+    const { token, name } = req.body;
+    if (!token || typeof token !== "string") return res.status(400).json({ error: "Token is required" });
+    try {
+      const result = await githubOAuthHandler.importAccount!({ token, name });
+      if (!result.success) return res.status(400).json({ error: result.error || "Token is required" });
+      res.json({ success: true, id: result.id, name: result.name });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to import GitHub token" });
+    }
+  });
+}
