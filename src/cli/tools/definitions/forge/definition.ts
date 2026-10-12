@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "ForgeCode",
   image: "/providers/forge.png",
   color: "#EAB308",
+  iconBg: "#FFFFFF",
   description: "Antinomy HQ ForgeCode agent harness",
   configType: "custom",
   binary: "forge",

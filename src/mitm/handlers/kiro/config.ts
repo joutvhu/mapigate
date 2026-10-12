@@ -5,6 +5,7 @@ export const toolConfig: MitmToolConfig = {
   name: "Kiro IDE",
   image: "/providers/kiro.png",
   desc: "Intercept Amazon Kiro IDE requests via MITM proxy",
+  iconBg: "#9046ff",
   hosts: [
     "runtime.us-east-1.kiro.dev",
     "q.us-east-1.amazonaws.com",

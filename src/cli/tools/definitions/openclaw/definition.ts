@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Open Claw",
   image: "/providers/openclaw.png",
   color: "#FF6B35",
+  iconBg: "#FFFFFF",
   description: "Open Claw AI Assistant",
   configType: "custom",
   binary: "openclaw",

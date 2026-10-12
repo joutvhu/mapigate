@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Hermes Agent",
   image: "/providers/hermes.png",
   color: "#8B5CF6",
+  iconBg: "#FFFFFF",
   description: "Nous Research self-improving AI agent",
   configType: "custom",
   binary: "hermes",

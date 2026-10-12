@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Factory Droid",
   image: "/providers/droid.png",
   color: "#00D4FF",
+  iconBg: "#FFFFFF",
   description: "Factory Droid AI Assistant",
   configType: "custom",
   binary: "droid",

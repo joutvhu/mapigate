@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Claude Cowork",
   image: "/providers/claude.png",
   color: "#D97757",
+  iconBg: "#FFFFFF",
   description: "Claude Desktop Cowork (third-party inference)",
   configType: "custom",
   configPath: "~/.claude/cowork.json",

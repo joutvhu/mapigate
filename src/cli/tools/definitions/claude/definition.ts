@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Claude Code",
   image: "/providers/claude.png",
   color: "#D97757",
+  iconBg: "#FFFFFF",
   description: "Anthropic Claude Code CLI",
   configType: "env",
   binary: "claude",

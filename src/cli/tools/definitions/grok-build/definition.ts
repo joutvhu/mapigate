@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Grok Build",
   image: "/providers/grok-cli.png",
   color: "#1DA1F2",
+  iconBg: "#FFFFFF",
   description: "xAI Grok Build TUI coding agent",
   configType: "custom",
   binary: "grok",

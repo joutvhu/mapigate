@@ -10,7 +10,6 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "v0",
   "color": "#000000",
-  "iconBg": "#FFFFFF",
   "image": "/assets/providers/v0-vercel/icon.svg",
   "website": "https://v0.dev",
   "notice": {

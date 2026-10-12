@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "DeepSeek TUI",
   image: "/providers/deepseek-tui.png",
   color: "#4D6BFE",
+  iconBg: "#FFFFFF",
   description: "DeepSeek Terminal Coding Agent (Rust TUI)",
   configType: "file",
   binary: "deepseek",

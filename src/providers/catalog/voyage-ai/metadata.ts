@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "voyage-ai",
   "uiAlias": "voyage",
   "color": "#0EA5E9",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/voyage-ai/icon.png",
   "website": "https://www.voyageai.com",
   "notice": {

@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Jcode",
   image: "/providers/jcode.png",
   color: "#FF6B35",
+  iconBg: "#FFFFFF",
   description: "High-performance Rust-based coding agent harness",
   configType: "custom",
   binary: "jcode",
