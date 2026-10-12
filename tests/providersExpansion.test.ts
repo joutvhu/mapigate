@@ -9,11 +9,11 @@ import { ProviderRepository } from "../src/storage/repositories/providerRepo.js"
 import {
   PROVIDER_REGISTRY,
   getRegistryProvider,
-} from "../src/shared/constants/providerRegistry.js";
+} from "../src/providers/metadataRegistry.js";
 import {
   COMMUNITY_PROVIDERS_CATALOG,
   getCommunityCatalogProvider,
-} from "../src/shared/constants/communityProvidersCatalog.js";
+} from "../src/providers/catalog/index.js";
 
 const P1_PROVIDERS = [
   "deepinfra",

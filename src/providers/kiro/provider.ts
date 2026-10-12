@@ -15,3 +15,5 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     return await getKiroUsage(context.account.rawApiKey, context.account.providerSpecificData);
   }
 }
+
+export default KiroProvider;

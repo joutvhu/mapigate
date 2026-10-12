@@ -4,8 +4,8 @@ import { RtkCompressor } from "../../core/rtk/compressor.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { UsageRepository } from "../../storage/repositories/usageRepo.js";
-import { ProviderRegistry } from "../../core/providers/registry.js";
-import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../core/providers/types.js";
+import { ProviderRegistry } from "../../providers/registry.js";
+import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../providers/types.js";
 import {
   detectRequiredCapabilities,
   augmentModelsWithCapacityAdapter,

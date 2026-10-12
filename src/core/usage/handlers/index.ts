@@ -1,5 +1,5 @@
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../types.js";
-import { ProviderRegistry } from "../../providers/registry.js";
+import { ProviderRegistry } from "../../../providers/registry.js";
 
 export async function fetchRawQuotaForProvider(
   context: ProviderUsageContext
@@ -27,3 +27,4 @@ export async function fetchRawQuotaForProvider(
     message: `Quota tracking is not supported for provider '${context.providerId}'.`,
   };
 }
+

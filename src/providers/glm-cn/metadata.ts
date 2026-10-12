@@ -2,6 +2,11 @@ import type { ProviderRegistryItem } from "../types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Session",
+      "Weekly",
+      "Balance"
+  ],
   "id": "glm-cn",
   "name": "GLM (China)",
   "alias": "glm-cn",

@@ -1,17 +1,7 @@
 import type { ProviderRegistryItem } from "./types.js";
-import { metadataChunk1 } from "./metadata/chunk1.js";
-import { metadataChunk2 } from "./metadata/chunk2.js";
-import { metadataChunk3 } from "./metadata/chunk3.js";
-import { metadataChunk4 } from "./metadata/chunk4.js";
-import { metadataChunk5 } from "./metadata/chunk5.js";
+import { PROVIDER_REGISTRY as GENERATED_REGISTRY } from "./generated/metadataRegistry.generated.js";
 
-export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
-  ...metadataChunk1,
-  ...metadataChunk2,
-  ...metadataChunk3,
-  ...metadataChunk4,
-  ...metadataChunk5,
-};
+export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = GENERATED_REGISTRY;
 
 export function getRegistryProvider(id: string): ProviderRegistryItem | undefined {
   if (!id) return undefined;

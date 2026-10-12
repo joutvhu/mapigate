@@ -76,3 +76,5 @@ export class AntigravityProvider extends BaseProvider {
     return false;
   }
 }
+
+export default AntigravityProvider;

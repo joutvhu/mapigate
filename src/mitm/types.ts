@@ -13,3 +13,27 @@ export interface IMitmHandler {
   canHandle(hostname: string, url: string): boolean;
   handle(context: MitmRequestContext): Promise<void>;
 }
+
+export type MitmToolId = "antigravity" | "kiro" | "copilot" | "cursor" | string;
+
+export interface MitmToolUiConfig {
+  id: string;
+  name: string;
+  image: string;
+  desc: string;
+  defaultHost?: string;
+}
+
+export interface MitmToolConfig {
+  id: string;
+  name: string;
+  image: string;
+  desc: string;
+  hosts: string[];
+  urlPatterns: string[];
+  defaultHost?: string;
+  hostRewrite?: Record<string, string>;
+  modelSynonyms?: Record<string, string>;
+  modelPatterns?: Array<{ match: RegExp; alias: string }>;
+  modelNoMap?: RegExp[];
+}

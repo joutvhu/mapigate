@@ -15,3 +15,5 @@ export class GeminiProvider extends OpenAiCompatibleProvider {
     return await getGeminiUsage(context.account.rawApiKey, context.account.providerSpecificData);
   }
 }
+
+export default GeminiProvider;

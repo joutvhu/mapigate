@@ -15,3 +15,5 @@ export class MiniMaxProvider extends OpenAiCompatibleProvider {
     return await getMiniMaxUsage(context.account.rawApiKey, context.providerId);
   }
 }
+
+export default MiniMaxProvider;

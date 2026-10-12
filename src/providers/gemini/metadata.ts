@@ -2,6 +2,12 @@ import type { ProviderRegistryItem } from "../types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Requests (RPM)",
+      "Requests (Daily)",
+      "Tokens (TPM)",
+      "Tokens (Daily)"
+  ],
   "id": "gemini",
   "name": "Gemini",
   "alias": "gemini",

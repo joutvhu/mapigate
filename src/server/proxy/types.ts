@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import type { ModelCallResult, SingleModelHandler, ProviderRequestContext } from "../../core/providers/types.js";
+import type { ModelCallResult, SingleModelHandler, ProviderRequestContext } from "../../providers/types.js";
 
 export type { ModelCallResult, SingleModelHandler, ProviderRequestContext };
 

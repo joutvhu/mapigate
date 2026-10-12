@@ -48,3 +48,5 @@ export class GitHubProvider extends OpenAiCompatibleProvider {
     return headers;
   }
 }
+
+export default GitHubProvider;

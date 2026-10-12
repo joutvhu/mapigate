@@ -1,14 +1,86 @@
 import type { Request, Response } from "express";
 import type { ProviderConfig, ProviderAccount, ComboConfig } from "../shared/types/index.js";
 import type { RawProviderQuotaResult, ProviderUsageContext } from "../core/usage/types.js";
-import type {
-  ProviderRegistryItem,
-  RegistryModel,
-  ProviderRegion,
-  ProviderNotice,
-  ProviderOAuthConfig,
-} from "../shared/constants/providerRegistry/types.js";
 import type { ModelCapabilities } from "../core/capabilities/types.js";
+
+export interface RegistryModel {
+  id: string;
+  name: string;
+  upstreamModelId?: string;
+  isDefault?: boolean;
+  capabilities?: Partial<ModelCapabilities> | string[];
+  kind?: "llm" | "image" | "embedding" | "systemone" | "video" | string;
+  contextLength?: number;
+}
+
+export interface ProviderRegion {
+  id: string;
+  label: string;
+}
+
+export interface ProviderNotice {
+  apiKeyUrl?: string;
+  signupUrl?: string;
+  text?: string;
+}
+
+export interface ProviderOAuthConfig {
+  clientId?: string;
+  clientSecret?: string;
+  authorizeUrl?: string;
+  tokenUrl?: string;
+  deviceCodeUrl?: string;
+  scopes?: string[] | string;
+  scope?: string;
+  codeChallengeMethod?: "S256" | "plain" | string;
+  platform?: string;
+  pollInterval?: number;
+  loginGuidanceUrl?: string;
+  userInfoUrl?: string;
+  firebaseApiKey?: string;
+  firebaseSignInUrl?: string;
+  registerUrl?: string;
+  apiServerUrl?: string;
+  auth1ApiServerUrl?: string;
+  quotaUrl?: string;
+  refresh?: Record<string, any>;
+  refreshLeadMs?: number;
+  [key: string]: any;
+}
+
+export interface ProviderRegistryItem {
+  id: string;
+  name: string;
+  alias?: string;
+  aliases?: string[];
+  uiAlias?: string;
+  color?: string;
+  image?: string;
+  website?: string;
+  notice?: ProviderNotice;
+  deprecated?: boolean;
+  deprecationNotice?: string;
+  category: "oauth" | "freeTier" | "apikey" | "free" | "webCookie" | "custom" | string;
+  authType?: string;
+  authModes?: string[];
+  noAuth?: boolean;
+  baseUrl: string;
+  baseUrls?: string[];
+  validateUrl?: string;
+  format: "openai" | "claude" | "antigravity" | "kiro" | "vertex" | "grok-web" | "ollama" | string;
+  defaultHeaders: Record<string, string>;
+  thinkingMode?: string;
+  thinkingOptions?: string[];
+  regions?: ProviderRegion[];
+  defaultRegion?: string;
+  credentialForm?: "aws" | string;
+  apiKeyOptionalWith?: string;
+  hasProviderSpecificData?: boolean;
+  oauth?: ProviderOAuthConfig;
+  models: RegistryModel[];
+  passthroughModels?: boolean;
+  quotaOrder?: string[];
+}
 
 export type SingleModelHandler = (
   modelBody: any,
@@ -60,44 +132,25 @@ export interface IProvider {
   readonly id: string;
   readonly name: string;
   readonly defaultFormat: string;
-
-  /**
-   * Whether this provider requires an account configured via LoadBalancer.
-   * Defaults to true in BaseProvider. Set to false for providers that don't need accounts (e.g., Ollama, Bedrock, OpenCode).
-   */
   readonly requiresAccount?: boolean;
-
-  /**
-   * Declarative streaming response protocol:
-   * defaults to "sse" (standard OpenAI/Anthropic SSE). Bedrock uses "eventstream".
-   */
   readonly streamType?: "sse" | "eventstream" | "custom";
 
   buildUrl(context: ProviderRequestContext): string;
   buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> | Record<string, string>;
   transformRequestBody(context: ProviderRequestContext): any;
 
-  /**
-   * Optional custom execution hook.
-   * Standard providers leave execute undefined (BaseProvider does NOT implement execute).
-   * Composite providers (ComboProvider) override execute to orchestrate sub-model execution.
-   */
   execute?(
     context: ProviderRequestContext,
     dispatchSingleModel: SingleModelHandler
   ): Promise<ModelCallResult>;
 
-  /** Optional custom stream handler for non-standard streaming protocols */
   streamResponse?(
     upstreamRes: globalThis.Response,
     clientRes: Response,
     context: ProviderRequestContext
   ): Promise<StreamExecutionResult>;
 
-  /** Optional chunk post-processing hook for SSE streams (e.g. OpenCode tool name restoration) */
   transformResponseChunk?(chunk: any, context: ProviderRequestContext): any;
-
-  /** Optional response body post-processing hook for non-streaming responses */
   transformResponseBody?(body: any, context: ProviderRequestContext): any;
 
   handleAuthRefresh?(context: ProviderRequestContext, status: number): Promise<boolean>;
@@ -110,10 +163,5 @@ export interface IProvider {
 export type ProviderMetadata = ProviderRegistryItem;
 
 export type {
-  ProviderRegistryItem,
-  RegistryModel,
   ModelCapabilities,
-  ProviderRegion,
-  ProviderNotice,
-  ProviderOAuthConfig,
 };

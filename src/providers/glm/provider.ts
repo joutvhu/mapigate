@@ -15,3 +15,5 @@ export class GlmProvider extends OpenAiCompatibleProvider {
     return await getGlmUsage(context.account.rawApiKey, context.providerId);
   }
 }
+
+export default GlmProvider;

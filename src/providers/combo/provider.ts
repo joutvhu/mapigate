@@ -67,3 +67,5 @@ export class ComboProvider implements IProvider {
     });
   }
 }
+
+export default ComboProvider;

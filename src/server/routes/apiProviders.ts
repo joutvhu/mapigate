@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
+import { PROVIDER_REGISTRY, getRegistryProvider } from "../../providers/metadataRegistry.js";
 import {
   COMMUNITY_PROVIDERS_CATALOG,
   getCommunityCatalogProvider,
-} from "../../shared/constants/communityProvidersCatalog.js";
+} from "../../providers/catalog/index.js";
 import { scanProviderModels } from "../../core/scanner/modelScanner.js";
 import crypto from "node:crypto";
 

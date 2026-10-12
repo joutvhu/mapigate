@@ -1,0 +1,2695 @@
+export interface CommunityCatalogModel {
+  id: string;
+  name?: string;
+  isDefault?: boolean;
+  contextLength?: number;
+}
+
+export interface CommunityProviderItem {
+  id: string;
+  name: string;
+  baseUrl: string;
+  format: "openai" | "claude" | string;
+  category: string;
+  authType: string;
+  website?: string;
+  notice?: string;
+  models?: CommunityCatalogModel[];
+}
+
+export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
+  {
+    "id": "oci",
+    "name": "OCI Generative AI",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://www.oracle.com/artificial-intelligence/generative-ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "sap",
+    "name": "SAP Generative AI Hub",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/generative-ai-hub-in-sap-ai-core",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "heroku",
+    "name": "Heroku AI",
+    "baseUrl": "https://us.inference.heroku.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.heroku.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "datarobot",
+    "name": "DataRobot",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://docs.datarobot.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "clarifai",
+    "name": "Clarifai",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://docs.clarifai.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "uc-direct",
+    "name": "UC Direct (uncensored.com)",
+    "baseUrl": "https://api.uncensored.com/api/v1",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://uncensored.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "claude-opus-5",
+        "name": "claude-opus-5",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "galadriel",
+    "name": "Galadriel",
+    "baseUrl": "https://api.galadriel.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://galadriel.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "inception",
+    "name": "Inception",
+    "baseUrl": "https://api.inceptionlabs.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://docs.inceptionlabs.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "mercury-2",
+        "name": "mercury-2",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "oneminai",
+    "name": "1min.AI",
+    "baseUrl": "https://api.1min.ai/api/chat-with-ai",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://1min.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "gpt-4o-mini",
+        "name": "gpt-4o-mini",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "cheaperinference",
+    "name": "Cheaper Inference",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://cheaperinference.com/?utm_source=omniroute",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "freebuff",
+    "name": "Freebuff",
+    "baseUrl": "https://www.codebuff.com/api/v1",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://freebuff.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "deepseek/deepseek-v4-flash",
+        "name": "deepseek/deepseek-v4-flash",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek/deepseek-v4-pro",
+        "name": "deepseek/deepseek-v4-pro",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-5.6-luna",
+        "name": "openai/gpt-5.6-luna",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "minimax/minimax-m3",
+        "name": "minimax/minimax-m3",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mimo/mimo-v2.5",
+        "name": "mimo/mimo-v2.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "z-ai/glm-5.2",
+        "name": "z-ai/glm-5.2",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "crof/kimi-k3-eco",
+        "name": "crof/kimi-k3-eco",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "anthropic/claude-fable-5",
+        "name": "anthropic/claude-fable-5",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "charm-hyper",
+    "name": "Charm Hyper",
+    "baseUrl": "https://hyper.charm.land/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://hyper.charm.land",
+    "notice": "",
+    "models": [
+      {
+        "id": "hyper/auto",
+        "name": "hyper/auto",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "agentrouter",
+    "name": "AgentRouter",
+    "baseUrl": "https://agentrouter.org/v1/messages",
+    "format": "claude",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://agentrouter.org",
+    "notice": "",
+    "models": [
+      {
+        "id": "claude-opus-4-8",
+        "name": "claude-opus-4-8",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "unorouter",
+    "name": "UnoRouter",
+    "baseUrl": "https://api.unorouter.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://unorouter.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "opper",
+    "name": "Opper",
+    "baseUrl": "https://api.opper.ai/v3/compat/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://opper.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "requesty",
+    "name": "Requesty",
+    "baseUrl": "https://router.requesty.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://requesty.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "zylo-api",
+    "name": "Zylo API",
+    "baseUrl": "https://api.zyloai.net/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://zyloai.net",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "fastrouter",
+    "name": "FastRouter",
+    "baseUrl": "https://api.fastrouter.ai/api/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://fastrouter.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "anyapi",
+    "name": "AnyAPI AI",
+    "baseUrl": "https://api.anyapi.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://anyapi.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "electronhub",
+    "name": "Electron Hub",
+    "baseUrl": "https://api.electronhub.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.electronhub.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "llmgateway",
+    "name": "LLM Gateway",
+    "baseUrl": "https://api.llmgateway.io/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://llmgateway.io",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "lyceum",
+    "name": "Lyceum",
+    "baseUrl": "https://api.lyceum.technology/openai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://lyceum.technology",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "llm-kiwi",
+    "name": "LLM.Kiwi",
+    "baseUrl": "https://api.llm.kiwi/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://llm.kiwi",
+    "notice": "",
+    "models": [
+      {
+        "id": "auto",
+        "name": "auto",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "hrLLM",
+        "name": "hrLLM",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "literouter",
+    "name": "LiteRouter",
+    "baseUrl": "https://api.literouter.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://literouter.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "greenpt",
+    "name": "GreenPT",
+    "baseUrl": "https://api.greenpt.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://greenpt.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "eurouter",
+    "name": "EURouter",
+    "baseUrl": "https://api.eurouter.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://eurouter.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "mnn-ai",
+    "name": "MNN AI",
+    "baseUrl": "https://api.mnnai.ru/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://mnnai.ru",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "meganova-ai",
+    "name": "MegaNova AI",
+    "baseUrl": "https://api.meganova.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://meganova.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "mixlayer",
+    "name": "Mixlayer",
+    "baseUrl": "https://models.mixlayer.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.mixlayer.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "qwen/qwen3.5-4b-free",
+        "name": "qwen/qwen3.5-4b-free",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "speka",
+    "name": "Speka AI",
+    "baseUrl": "https://speka.me/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://speka.me",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "tokenreply",
+    "name": "TokenReply",
+    "baseUrl": "https://api.tokenreply.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.tokenreply.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "yolo-auto",
+    "name": "Yolo-Auto",
+    "baseUrl": "https://yolo-auto.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://yolo-auto.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "qwen3.6-35b-a3b",
+        "name": "qwen3.6-35b-a3b",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "dxnt",
+    "name": "DXNT / DX Token",
+    "baseUrl": "https://www.dxnt.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.dxnt.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "cloudcode-one",
+    "name": "CloudCode.ONE",
+    "baseUrl": "https://api.cloudcode.one/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://cloudcode.one",
+    "notice": "",
+    "models": [
+      {
+        "id": "glm-4.7-flash",
+        "name": "glm-4.7-flash",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-4.6v-flash",
+        "name": "glm-4.6v-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "ofoxai",
+    "name": "OfoxAI",
+    "baseUrl": "https://api.ofox.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://ofox.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "zerolimitai",
+    "name": "ZeroLimitAI",
+    "baseUrl": "https://www.zerolimitai.com/api/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.zerolimitai.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "chatanywhere",
+    "name": "ChatAnywhere",
+    "baseUrl": "https://api.chatanywhere.org/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://chatanywhere.tech",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "helyxai",
+    "name": "Helyx AI",
+    "baseUrl": "https://helyxai.space/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://helyxai.space",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "auriko",
+    "name": "Auriko",
+    "baseUrl": "https://api.auriko.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.auriko.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "poixe-ai",
+    "name": "Poixe AI",
+    "baseUrl": "https://api.poixe.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://poixe.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "naga-ai",
+    "name": "Naga AI",
+    "baseUrl": "https://api.naga.ac/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://naga.ac",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "chat-oripe",
+    "name": "Chat Oripe",
+    "baseUrl": "https://api.oriper.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://api.oriper.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "freeinference",
+    "name": "FreeInference",
+    "baseUrl": "https://freeinference.org/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://freeinference.org",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "free-ai",
+    "name": "Free.ai",
+    "baseUrl": "https://api.free.ai/v1/chat/",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://free.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "dgrid",
+    "name": "DGrid",
+    "baseUrl": "https://api.dgrid.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://dgrid.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "dgridai/free",
+        "name": "dgridai/free",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "qiniu",
+    "name": "Qiniu",
+    "baseUrl": "https://api.qnaigc.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.qiniu.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "orcarouter",
+    "name": "OrcaRouter",
+    "baseUrl": "https://api.orcarouter.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.orcarouter.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "orcarouter/auto",
+        "name": "orcarouter/auto",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-5.5",
+        "name": "openai/gpt-5.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "google/gemini-3.6-flash",
+        "name": "google/gemini-3.6-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "anthropic/claude-opus-4.8",
+        "name": "anthropic/claude-opus-4.8",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "crof",
+    "name": "CrofAI",
+    "baseUrl": "https://crof.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://crof.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "deepseek-v4-pro",
+        "name": "deepseek-v4-pro",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "deepseek-v4-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4-flash-0731",
+        "name": "deepseek-v4-flash-0731",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v3.2",
+        "name": "deepseek-v3.2",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k2.6",
+        "name": "kimi-k2.6",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k2.7-code",
+        "name": "kimi-k2.7-code",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k3",
+        "name": "kimi-k3",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k3-eco",
+        "name": "kimi-k3-eco",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-5.1",
+        "name": "glm-5.1",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-5.2",
+        "name": "glm-5.2",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mimo-v2.5-pro",
+        "name": "mimo-v2.5-pro",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemma-4-31b-it",
+        "name": "gemma-4-31b-it",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.6-27b",
+        "name": "qwen3.6-27b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.5-397b-a17b",
+        "name": "qwen3.5-397b-a17b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.5-9b",
+        "name": "qwen3.5-9b",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "wafer",
+    "name": "Wafer AI",
+    "baseUrl": "https://pass.wafer.ai/v1/messages",
+    "format": "claude",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://wafer.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "DeepSeek-V4-Pro",
+        "name": "DeepSeek-V4-Pro",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "MiniMax-M2.7",
+        "name": "MiniMax-M2.7",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "Qwen3.5-397B-A17B",
+        "name": "Qwen3.5-397B-A17B",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "GLM-5.1",
+        "name": "GLM-5.1",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "freetheai",
+    "name": "FreeTheAi",
+    "baseUrl": "https://api.freetheai.xyz/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://freetheai.xyz",
+    "notice": "",
+    "models": [
+      {
+        "id": "gpt-4o-mini",
+        "name": "gpt-4o-mini",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-3.3-70b-instruct",
+        "name": "llama-3.3-70b-instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-chat",
+        "name": "deepseek-chat",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "g4f-groq",
+    "name": "g4f.space — Groq",
+    "baseUrl": "https://g4f.space/api/groq/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://g4f.space",
+    "notice": "Remote third-party gateway: prompts and request metadata leave OmniRoute and are handled by g4f.space. Its Terms and Privacy links were unavailable when last verified on 2026-08-27.",
+    "models": [
+      {
+        "id": "llama-3.3-70b-versatile",
+        "name": "llama-3.3-70b-versatile",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-3.1-8b-instant",
+        "name": "llama-3.1-8b-instant",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "g4f-gemini",
+    "name": "g4f.space — Gemini",
+    "baseUrl": "https://g4f.space/api/gemini/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://g4f.space",
+    "notice": "Remote third-party gateway: prompts and request metadata leave OmniRoute and are handled by g4f.space. Its Terms and Privacy links were unavailable when last verified on 2026-08-27.",
+    "models": [
+      {
+        "id": "models/gemini-2.5-flash",
+        "name": "models/gemini-2.5-flash",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "models/gemini-2.5-pro",
+        "name": "models/gemini-2.5-pro",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "g4f-pollinations",
+    "name": "g4f.space — Pollinations",
+    "baseUrl": "https://g4f.space/api/pollinations/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://g4f.space",
+    "notice": "Remote third-party gateway: prompts and request metadata leave OmniRoute and are handled by g4f.space. Its Terms and Privacy links were unavailable when last verified on 2026-08-27.",
+    "models": [
+      {
+        "id": "openai",
+        "name": "openai",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai-fast",
+        "name": "openai-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "g4f-ollama",
+    "name": "g4f.space — Ollama",
+    "baseUrl": "https://g4f.space/api/ollama/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://g4f.space",
+    "notice": "Remote third-party gateway: prompts and request metadata leave OmniRoute and are handled by g4f.space. Its Terms and Privacy links were unavailable when last verified on 2026-08-27.",
+    "models": [
+      {
+        "id": "gemma3:4b",
+        "name": "gemma3:4b",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "g4f-nvidia",
+    "name": "g4f.space — NVIDIA",
+    "baseUrl": "https://g4f.space/api/nvidia/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://g4f.space",
+    "notice": "Remote third-party gateway: prompts and request metadata leave OmniRoute and are handled by g4f.space. Its Terms and Privacy links were unavailable when last verified on 2026-08-27.",
+    "models": [
+      {
+        "id": "nvidia/nemotron-3-nano-30b-a3b",
+        "name": "nvidia/nemotron-3-nano-30b-a3b",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "z-ai/glm-5.2",
+        "name": "z-ai/glm-5.2",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "minimaxai/minimax-m2.7",
+        "name": "minimaxai/minimax-m2.7",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "llamagate",
+    "name": "LlamaGate",
+    "baseUrl": "https://llamagate.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://llamagate.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "gitlawb",
+    "name": "Gitlawb Opengateway (MiMo)",
+    "baseUrl": "https://opengateway.gitlawb.com/v1/xiaomi-mimo",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://opengateway.gitlawb.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "gitlawb-gmi",
+    "name": "Gitlawb Opengateway (GMI Cloud)",
+    "baseUrl": "https://opengateway.gitlawb.com/v1/gmi-cloud",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://opengateway.gitlawb.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "piapi",
+    "name": "PiAPI",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://piapi.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "getgoapi",
+    "name": "GoAPI",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://api.getgoapi.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "laozhang",
+    "name": "LaoZhang AI",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://api.laozhang.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "thebai",
+    "name": "TheB.AI",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://theb.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "fenayai",
+    "name": "FenayAI",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://fenayai.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "empower",
+    "name": "Empower",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://docs.empower.dev",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "poe",
+    "name": "Poe",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://creator.poe.com/api-reference",
+    "notice": "",
+    "models": [
+      {
+        "id": "gpt-5.2",
+        "name": "gpt-5.2",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude-opus-4.8",
+        "name": "claude-opus-4.8",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "factory",
+    "name": "Factory",
+    "baseUrl": "https://api.factory.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://factory.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "auto",
+        "name": "auto",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "freemodel-dev",
+    "name": "FreeModel.dev",
+    "baseUrl": "https://api.freemodel.dev/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://freemodel.dev",
+    "notice": "",
+    "models": [
+      {
+        "id": "gpt-5.5",
+        "name": "gpt-5.5",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "gpt-5.4",
+        "name": "gpt-5.4",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gpt-5.4-mini",
+        "name": "gpt-5.4-mini",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gpt-5.3-codex",
+        "name": "gpt-5.3-codex",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "freeaiapikey",
+    "name": "FreeAIAPIKey",
+    "baseUrl": "https://api.freeaiapikey.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://freeaiapikey.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "openai/gpt-4o",
+        "name": "openai/gpt-4o",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-5.4",
+        "name": "openai/gpt-5.4",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-5.5",
+        "name": "openai/gpt-5.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-5.6-sol",
+        "name": "openai/gpt-5.6-sol",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "anthropic/claude-opus-4.6",
+        "name": "anthropic/claude-opus-4.6",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "zenmux",
+    "name": "ZenMux",
+    "baseUrl": "https://zenmux.ai/api/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://zenmux.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "google/gemini-3.1-pro-preview",
+        "name": "google/gemini-3.1-pro-preview",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "google/gemini-3-flash-preview",
+        "name": "google/gemini-3-flash-preview",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-5",
+        "name": "openai/gpt-5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "anthropic/claude-sonnet-4.5",
+        "name": "anthropic/claude-sonnet-4.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "anthropic/claude-opus-4.5",
+        "name": "anthropic/claude-opus-4.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek/deepseek-chat",
+        "name": "deepseek/deepseek-chat",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "x-ai/grok-4.1-fast",
+        "name": "x-ai/grok-4.1-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistralai/mistral-large-2512",
+        "name": "mistralai/mistral-large-2512",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "z-ai/glm-4.6v-flash",
+        "name": "z-ai/glm-4.6v-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "openadapter",
+    "name": "OpenAdapter",
+    "baseUrl": "https://api.openadapter.in/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://openadapter.dev",
+    "notice": "",
+    "models": [
+      {
+        "id": "glm-4.7",
+        "name": "glm-4.7",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "dit",
+    "name": "DIT.ai",
+    "baseUrl": "https://api.dit.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://dit.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "gpt-5.4",
+        "name": "gpt-5.4",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude-sonnet-4-6",
+        "name": "claude-sonnet-4-6",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "token-kiosk",
+    "name": "Token Kiosk",
+    "baseUrl": "https://agent-router.gaib.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://agent-router.gaib.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "claude-3-5-sonnet",
+        "name": "claude-3-5-sonnet",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v3",
+        "name": "deepseek-v3",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-r1",
+        "name": "deepseek-r1",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k1.5",
+        "name": "kimi-k1.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "minimax-m6",
+        "name": "minimax-m6",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "sumopod",
+    "name": "SumoPod",
+    "baseUrl": "https://ai.sumopod.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://ai.sumopod.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "x5lab",
+    "name": "X5Lab",
+    "baseUrl": "https://api.x5lab.dev/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://x5lab.dev",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "chenzk",
+    "name": "Chenzk API",
+    "baseUrl": "https://chenzk.top/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://chenzk.top",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "kenari",
+    "name": "Kenari",
+    "baseUrl": "https://kenari.id/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://kenari.id",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "navy",
+    "name": "NavyAI",
+    "baseUrl": "https://api.navy/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://api.navy",
+    "notice": "",
+    "models": [
+      {
+        "id": "llama-3.3-70b-instruct",
+        "name": "llama-3.3-70b-instruct",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemma-4-31b-it",
+        "name": "gemma-4-31b-it",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "deepseek-v4-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-chat",
+        "name": "deepseek-chat",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistral-small-latest",
+        "name": "mistral-small-latest",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-4-scout",
+        "name": "llama-4-scout",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "ainative",
+    "name": "AINative Studio",
+    "baseUrl": "https://api.ainative.studio/api/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://ainative.studio",
+    "notice": "",
+    "models": [
+      {
+        "id": "qwen3-235b-cerebras",
+        "name": "qwen3-235b-cerebras",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3-32b",
+        "name": "qwen3-32b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3-14b",
+        "name": "qwen3-14b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3-8b",
+        "name": "qwen3-8b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-4-maverick",
+        "name": "llama-4-maverick",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama3.1-8b-cerebras",
+        "name": "llama3.1-8b-cerebras",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-r1",
+        "name": "deepseek-r1",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nous-coder",
+        "name": "nous-coder",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemini-flash",
+        "name": "gemini-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "aion",
+    "name": "Aion Labs",
+    "baseUrl": "https://api.aionlabs.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.aionlabs.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "aion-labs/aion-3.0",
+        "name": "aion-labs/aion-3.0",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "aion-labs/aion-3.0-mini",
+        "name": "aion-labs/aion-3.0-mini",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "aion-labs/aion-2.5",
+        "name": "aion-labs/aion-2.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "aion-labs/aion-2.0",
+        "name": "aion-labs/aion-2.0",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "aion-labs/aion-rp-llama-3.1-8b",
+        "name": "aion-labs/aion-rp-llama-3.1-8b",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "routeway",
+    "name": "Routeway",
+    "baseUrl": "https://api.routeway.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://routeway.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "llama-3.3-70b-instruct:free",
+        "name": "llama-3.3-70b-instruct:free",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "nemotron-3-nano-30b-a3b:free",
+        "name": "nemotron-3-nano-30b-a3b:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nemotron-nano-9b-v2:free",
+        "name": "nemotron-nano-9b-v2:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "step-3.7-flash:free",
+        "name": "step-3.7-flash:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "step-3.5-flash:free",
+        "name": "step-3.5-flash:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "laguna-m.1:free",
+        "name": "laguna-m.1:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "laguna-xs.2:free",
+        "name": "laguna-xs.2:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-3.2-3b-instruct:free",
+        "name": "llama-3.2-3b-instruct:free",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "nara",
+    "name": "NaraRouter",
+    "baseUrl": "https://router.bynara.id/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://bynara.id",
+    "notice": "",
+    "models": [
+      {
+        "id": "agnes-2.0-flash",
+        "name": "agnes-2.0-flash",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "agnes-2.5-flash",
+        "name": "agnes-2.5-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "laguna-s-2.1",
+        "name": "laguna-s-2.1",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "minimax-m3-free",
+        "name": "minimax-m3-free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistral-large",
+        "name": "mistral-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistral-medium-3-5",
+        "name": "mistral-medium-3-5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.8-27b",
+        "name": "qwen3.8-27b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "stepfun-3.7-flash",
+        "name": "stepfun-3.7-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "regolo",
+    "name": "Regolo AI",
+    "baseUrl": "https://api.regolo.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://regolo.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "naga-ac",
+    "name": "Naga.ac",
+    "baseUrl": "https://api.naga.ac/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://naga.ac",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "void-ai",
+    "name": "Void AI",
+    "baseUrl": "https://api.voidai.app/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://voidai.app",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "helixmind",
+    "name": "HelixMind",
+    "baseUrl": "https://helixmind.online/v1/chat/completions",
+    "format": "claude",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://helixmind.online",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "logfare",
+    "name": "Logfare",
+    "baseUrl": "https://logfare.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://logfare.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "tabitoken",
+    "name": "TabiToken",
+    "baseUrl": "https://tabitoken.com/v1/messages",
+    "format": "claude",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://tabitoken.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "claude-opus-5",
+        "name": "claude-opus-5",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "seekai",
+    "name": "SeekAi",
+    "baseUrl": "https://seekai.cc/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://seekai.cc",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "openvecta",
+    "name": "OpenVecta",
+    "baseUrl": "https://api.openvecta.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://openvecta.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "glm-4.7-flash",
+        "name": "glm-4.7-flash",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude-sonnet-4.6",
+        "name": "claude-sonnet-4.6",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4-flash",
+        "name": "deepseek-v4-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gpt-oss-120b",
+        "name": "gpt-oss-120b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemma-4-31b",
+        "name": "gemma-4-31b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k2.6",
+        "name": "kimi-k2.6",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-3.3-70b-instruct",
+        "name": "llama-3.3-70b-instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-4-maverick",
+        "name": "llama-4-maverick",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nemotron-3-super-120b",
+        "name": "nemotron-3-super-120b",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "publicai",
+    "name": "PublicAI",
+    "baseUrl": "https://api.publicai.co/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://publicai.co",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "wandb",
+    "name": "Weights & Biases Inference",
+    "baseUrl": "https://api.inference.wandb.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://wandb.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "inference-net",
+    "name": "Inference.net",
+    "baseUrl": "https://api.inference.net/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://inference.net",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "bytez",
+    "name": "Bytez",
+    "baseUrl": "https://api.bytez.com/models/v2/openai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://bytez.com",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "monsterapi",
+    "name": "MonsterAPI",
+    "baseUrl": "https://api.monsterapi.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://monsterapi.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "name": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "meta-llama/Llama-3.3-70B-Instruct",
+        "name": "meta-llama/Llama-3.3-70B-Instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "modelscope",
+    "name": "ModelScope",
+    "baseUrl": "https://api-inference.modelscope.cn/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://modelscope.cn",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "digitalocean",
+    "name": "DigitalOcean",
+    "baseUrl": "https://inference.do-ai.run/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://docs.digitalocean.com/products/ai-platform/",
+    "notice": "Use a DigitalOcean Personal Access Token (dop_v1_...) or a Model Access Key from the Inference console. OAuth tokens (doo_v1_...) may not have the required scopes.",
+    "models": []
+  },
+  {
+    "id": "glmt",
+    "name": "GLM Thinking",
+    "baseUrl": "https://api.z.ai/api/coding/paas/v4/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://open.bigmodel.cn",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "qwen-cloud",
+    "name": "Qwen Cloud",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://www.qwencloud.com/",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "qwen-cloud-token-plan",
+    "name": "Qwen Cloud Token Plan",
+    "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.qwencloud.com/pricing/token-plan",
+    "notice": "",
+    "models": [
+      {
+        "id": "qwen3.8-max",
+        "name": "qwen3.8-max",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.7-max",
+        "name": "qwen3.7-max",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.7-plus",
+        "name": "qwen3.7-plus",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.8-flash",
+        "name": "qwen3.8-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen3.6-flash",
+        "name": "qwen3.6-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-5.2",
+        "name": "glm-5.2",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4-pro",
+        "name": "deepseek-v4-pro",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4.1-flash",
+        "name": "deepseek-v4.1-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-v4-flash-0731",
+        "name": "deepseek-v4-flash-0731",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "kimi-coding-apikey",
+    "name": "Kimi Code API Key",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://www.kimi.ai/code?aff=omniroute",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "iflytek",
+    "name": "iFlytek Spark",
+    "baseUrl": "https://spark-api-open.xf-yun.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://xinghuo.xfyun.cn",
+    "notice": "",
+    "models": [
+      {
+        "id": "4.0Ultra",
+        "name": "4.0Ultra",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "generalv3.5",
+        "name": "generalv3.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "max-32k",
+        "name": "max-32k",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "generalv3",
+        "name": "generalv3",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "pro-128k",
+        "name": "pro-128k",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "lite",
+        "name": "lite",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "hcnsec",
+    "name": "Huancheng Public API",
+    "baseUrl": "https://api.hcnsec.cn/v1/chat/completions",
+    "format": "claude",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://api.hcnsec.cn",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "agnes-cn",
+    "name": "Agnes AI (China)",
+    "baseUrl": "https://api.agnes-ai.cn/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://api.agnes-ai.cn",
+    "notice": "",
+    "models": [
+      {
+        "id": "agnes-2.0-flash",
+        "name": "agnes-2.0-flash",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "nlpcloud",
+    "name": "NLP Cloud",
+    "baseUrl": "https://api.nlpcloud.io/v1/gpu",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://docs.nlpcloud.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "chatdolphin",
+        "name": "chatdolphin",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "dolphin",
+        "name": "dolphin",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "finetuned-llama-3-70b",
+        "name": "finetuned-llama-3-70b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-3-1-405b",
+        "name": "llama-3-1-405b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "llama-3-8b-instruct",
+        "name": "llama-3-8b-instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "pollinations",
+    "name": "Pollinations AI",
+    "baseUrl": "https://gen.pollinations.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "optional",
+    "authType": "optional",
+    "website": "https://pollinations.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "openai",
+        "name": "openai",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai-fast",
+        "name": "openai-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai-large",
+        "name": "openai-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen-coder",
+        "name": "qwen-coder",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistral",
+        "name": "mistral",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemini",
+        "name": "gemini",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemini-flash-lite-3.1",
+        "name": "gemini-flash-lite-3.1",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemini-fast",
+        "name": "gemini-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek",
+        "name": "deepseek",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "grok",
+        "name": "grok",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "grok-large",
+        "name": "grok-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemini-search",
+        "name": "gemini-search",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "midijourney",
+        "name": "midijourney",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "midijourney-large",
+        "name": "midijourney-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude-fast",
+        "name": "claude-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude",
+        "name": "claude",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "claude-large",
+        "name": "claude-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "perplexity-fast",
+        "name": "perplexity-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "perplexity-reasoning",
+        "name": "perplexity-reasoning",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi",
+        "name": "kimi",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gemini-large",
+        "name": "gemini-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nova-fast",
+        "name": "nova-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nova",
+        "name": "nova",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm",
+        "name": "glm",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "minimax",
+        "name": "minimax",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistral-large",
+        "name": "mistral-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "polly",
+        "name": "polly",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen-coder-large",
+        "name": "qwen-coder-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen-large",
+        "name": "qwen-large",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen-vision",
+        "name": "qwen-vision",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen-safety",
+        "name": "qwen-safety",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "dify",
+    "name": "Dify",
+    "baseUrl": "https://api.dify.ai",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://dify.ai",
+    "notice": "",
+    "models": [
+      {
+        "id": "auto",
+        "name": "auto",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "cursor-api",
+    "name": "Cursor API",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://cursor.com/dashboard/api",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "jules",
+    "name": "Google Jules",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://jules.google",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "codex-cloud",
+    "name": "Codex Cloud",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://openai.com/codex",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "cloudflare-playground",
+    "name": "Cloudflare AI Playground",
+    "baseUrl": "https://playground.ai.cloudflare.com",
+    "format": "openai",
+    "category": "none",
+    "authType": "none",
+    "website": "https://playground.ai.cloudflare.com",
+    "notice": "Cloudflare AI Playground uses a reverse-engineered anonymous WebSocket protocol (no official API). Requires Playwright with a Chromium browser on first request. Rate limits apply per IP (error 3021).",
+    "models": [
+      {
+        "id": "zai-org/glm-5.2",
+        "name": "zai-org/glm-5.2",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "moonshotai/kimi-k2.7-code",
+        "name": "moonshotai/kimi-k2.7-code",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "moonshotai/kimi-k2.6",
+        "name": "moonshotai/kimi-k2.6",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-ai/deepseek-v4-pro-0813",
+        "name": "deepseek-ai/deepseek-v4-pro-0813",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-ai/deepseek-v4-flash-0731",
+        "name": "deepseek-ai/deepseek-v4-flash-0731",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "zai-org/glm-4.7-flash",
+        "name": "zai-org/glm-4.7-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-oss-120b",
+        "name": "openai/gpt-oss-120b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "openai/gpt-oss-20b",
+        "name": "openai/gpt-oss-20b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "meta-llama/llama-3.3-70b-instruct-fp8-fast",
+        "name": "meta-llama/llama-3.3-70b-instruct-fp8-fast",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "meta/llama-3.1-8b-instruct-fp8",
+        "name": "meta/llama-3.1-8b-instruct-fp8",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "meta/llama-4-scout-17b-16e-instruct",
+        "name": "meta/llama-4-scout-17b-16e-instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nvidia/nemotron-3-120b-a12b",
+        "name": "nvidia/nemotron-3-120b-a12b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen/qwen2.5-coder-32b-instruct",
+        "name": "qwen/qwen2.5-coder-32b-instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen/qwen3-30b-a3b-fp8",
+        "name": "qwen/qwen3-30b-a3b-fp8",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "qwen/qwq-32b",
+        "name": "qwen/qwq-32b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "deepseek-ai/deepseek-r1-distill-qwen-32b",
+        "name": "deepseek-ai/deepseek-r1-distill-qwen-32b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "google/gemma-4-26b-a4b-it",
+        "name": "google/gemma-4-26b-a4b-it",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "mistralai/mistral-small-3.1-24b-instruct",
+        "name": "mistralai/mistral-small-3.1-24b-instruct",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "ibm-granite/granite-4.0-h-micro",
+        "name": "ibm-granite/granite-4.0-h-micro",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "aisingapore/gemma-sea-lion-v4-27b-it",
+        "name": "aisingapore/gemma-sea-lion-v4-27b-it",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "aihorde",
+    "name": "AI Horde",
+    "baseUrl": "https://oai.aihorde.net/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://aihorde.net",
+    "notice": "AI Horde routes to volunteer-run workers, so chat and image jobs can take minutes and tool calling is unavailable. Chat models come from the live oai.aihorde.net catalog. Image models are listed only while Horde reports at least one worker. An optional aihorde.net API key raises queue priority (kudos).",
+    "models": [
+      {
+        "id": "aphrodite/TheDrummer/Cydonia-24B-v4.3",
+        "name": "aphrodite/TheDrummer/Cydonia-24B-v4.3",
+        "isDefault": true,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "xai-oauth",
+    "name": "xAI OAuth (Grok)",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://x.ai",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "openference",
+    "name": "Openference",
+    "baseUrl": "https://api.openference.com/v1/chat/completions",
+    "format": "openai",
+    "category": "oauth",
+    "authType": "oauth",
+    "website": "https://openference.com",
+    "notice": "",
+    "models": [
+      {
+        "id": "GLM-5.2",
+        "name": "GLM-5.2",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "Qwen3.8 27b",
+        "name": "Qwen3.8 27b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "Llama 3.2 3B",
+        "name": "Llama 3.2 3B",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
+  },
+  {
+    "id": "agy",
+    "name": "Antigravity CLI",
+    "baseUrl": "",
+    "format": "antigravity",
+    "category": "oauth",
+    "authType": "oauth",
+    "website": "https://antigravity.google",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "zed",
+    "name": "Zed IDE",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://zed.dev",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "zed-hosted",
+    "name": "Zed Hosted Models",
+    "baseUrl": "https://cloud.zed.dev/completions",
+    "format": "openai",
+    "category": "oauth",
+    "authType": "oauth",
+    "website": "https://zed.dev",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "perplexity-search",
+    "name": "Perplexity Search",
+    "baseUrl": "",
+    "format": "openai",
+    "category": "unknown",
+    "authType": "apikey",
+    "website": "https://docs.perplexity.ai/guides/search-quickstart",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "qwen3.8-max",
+    "name": "Qwen3.8 Max",
+    "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "qwen3.8-max-preview",
+    "name": "Qwen3.8 Max Preview",
+    "baseUrl": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1",
+    "format": "claude",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "aion-labs.aion-2-0",
+    "name": "Aion 2.0",
+    "baseUrl": "https://api.cheaperinference.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "k3",
+    "name": "K3",
+    "baseUrl": "https://www.kimi.ai",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "kimi-k3",
+    "name": "Kimi K3",
+    "baseUrl": "https://api.moonshot.ai/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "doubao-seed-evolving",
+    "name": "Doubao Seed Evolving (Agent Plan)",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  },
+  {
+    "id": "doubao-seed-2-1-turbo",
+    "name": "Doubao Seed 2.1 Turbo (Coding Plan)",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "",
+    "notice": "",
+    "models": []
+  }
+];
+
+export function getCommunityCatalogProvider(id: string): CommunityProviderItem | undefined {
+  const lower = id.toLowerCase();
+  return COMMUNITY_PROVIDERS_CATALOG.find((p) => p.id.toLowerCase() === lower);
+}

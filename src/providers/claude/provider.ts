@@ -15,3 +15,5 @@ export class ClaudeProvider extends AnthropicCompatibleProvider {
     return await getClaudeUsage(context.account.rawApiKey, { force: context.force });
   }
 }
+
+export default ClaudeProvider;

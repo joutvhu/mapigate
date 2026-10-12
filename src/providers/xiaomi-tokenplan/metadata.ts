@@ -2,6 +2,10 @@ import type { ProviderRegistryItem } from "../types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Monthly Tokens",
+      "Weekly Quota"
+  ],
   "id": "xiaomi-tokenplan",
   "name": "Xiaomi MiMo (Token Plan)",
   "alias": "xiaomi-tokenplan",

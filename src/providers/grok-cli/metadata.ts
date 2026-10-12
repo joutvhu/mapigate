@@ -1,6 +1,13 @@
 import type { ProviderRegistryItem } from "../types.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Session",
+      "Weekly",
+      "Requests",
+      "Tokens",
+      "Balance"
+  ],
   "id": "grok-cli",
   "name": "Grok CLI (Grok Build)",
   "alias": "gcli",

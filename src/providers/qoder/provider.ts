@@ -15,3 +15,5 @@ export class QoderProvider extends OpenAiCompatibleProvider {
     return await getQoderUsage(context.account.rawApiKey, context.providerId);
   }
 }
+
+export default QoderProvider;

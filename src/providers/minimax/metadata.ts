@@ -2,6 +2,11 @@ import type { ProviderRegistryItem } from "../types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Coding Tokens",
+      "Standard Tokens",
+      "Balance"
+  ],
   "id": "minimax",
   "name": "Minimax Coding",
   "alias": "minimax",

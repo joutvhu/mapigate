@@ -1,6 +1,11 @@
 import type { ProviderRegistryItem } from "../types.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Balance",
+      "Total Grants",
+      "Topped-up Balance"
+  ],
   "id": "deepseek",
   "name": "DeepSeek",
   "alias": "deepseek",

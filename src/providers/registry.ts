@@ -2,27 +2,7 @@ import type { IProvider } from "./types.js";
 import { getRegistryProvider } from "./metadataRegistry.js";
 import { OpenAiCompatibleProvider } from "./base/openAiProvider.js";
 import { AnthropicCompatibleProvider } from "./base/anthropicProvider.js";
-
-import { AntigravityProvider } from "./antigravity/index.js";
-import { AzureProvider } from "./azure/index.js";
-import { BedrockProvider } from "./bedrock/index.js";
-import { ClaudeProvider } from "./claude/index.js";
-import { CloudflareProvider } from "./cloudflare/index.js";
-import { CodexProvider } from "./codex/index.js";
-import { ComboProvider } from "./combo/index.js";
-import { DeepSeekProvider } from "./deepseek/index.js";
-import { GeminiProvider } from "./gemini/index.js";
-import { GitHubProvider } from "./github/index.js";
-import { GlmProvider } from "./glm/index.js";
-import { GrokProvider } from "./grok/index.js";
-import { KiroProvider } from "./kiro/index.js";
-import { MimoProvider } from "./mimo/index.js";
-import { MiniMaxProvider } from "./minimax/index.js";
-import { OllamaProvider } from "./ollama/index.js";
-import { OpenCodeProvider } from "./opencode/index.js";
-import { OpenAiProvider } from "./openai/index.js";
-import { QoderProvider } from "./qoder/index.js";
-import { XKiroProvider } from "./xkiro/index.js";
+import { registerAllGeneratedProviders } from "./generated/providersRegistry.js";
 
 export class ProviderRegistry {
   private static initialized = false;
@@ -47,26 +27,7 @@ export class ProviderRegistry {
     if (this.initialized) return;
     this.initialized = true;
 
-    this.register(new ComboProvider());
-    this.register(new AntigravityProvider());
-    this.register(new AzureProvider());
-    this.register(new BedrockProvider());
-    this.register(new ClaudeProvider(), ["anthropic"]);
-    this.register(new CloudflareProvider(), ["cloudflare-ai"]);
-    this.register(new CodexProvider());
-    this.register(new DeepSeekProvider());
-    this.register(new GeminiProvider(), ["gemini-cli"]);
-    this.register(new GitHubProvider(), ["copilot"]);
-    this.register(new GlmProvider(), ["glm-cn"]);
-    this.register(new GrokProvider(), ["grok-cli"]);
-    this.register(new KiroProvider());
-    this.register(new MimoProvider(), ["xiaomi-tokenplan", "xmtp", "xiaomi-mimo"]);
-    this.register(new MiniMaxProvider(), ["minimax-cn"]);
-    this.register(new OllamaProvider(), ["ollama-local"]);
-    this.register(new OpenCodeProvider(), ["oc"]);
-    this.register(new OpenAiProvider());
-    this.register(new QoderProvider(), ["qoder-cn"]);
-    this.register(new XKiroProvider());
+    registerAllGeneratedProviders(this);
   }
 
   public static register(provider: IProvider, aliases: string[] = []): void {

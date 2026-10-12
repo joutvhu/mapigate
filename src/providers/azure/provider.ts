@@ -37,3 +37,5 @@ export class AzureProvider extends BaseProvider {
     return { ...context.body, model: context.targetModel };
   }
 }
+
+export default AzureProvider;

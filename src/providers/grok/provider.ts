@@ -15,3 +15,5 @@ export class GrokProvider extends OpenAiCompatibleProvider {
     return await getGrokUsage(context.account.rawApiKey, context.account.providerSpecificData);
   }
 }
+
+export default GrokProvider;

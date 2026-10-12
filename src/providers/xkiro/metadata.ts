@@ -1,6 +1,12 @@
 import type { ProviderRegistryItem } from "../types.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Session (5h)",
+      "Weekly (7d)",
+      "Free Tokens (Daily)",
+      "Wallet Balance"
+  ],
   "id": "xkiro",
   "name": "xKiro",
   "alias": "xk",

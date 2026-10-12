@@ -6,11 +6,7 @@ import { ROOT_CA_KEY_PATH, ROOT_CA_CERT_PATH, generateRootCA } from "./cert/root
 import { getCertForDomain } from "./cert/generate.js";
 import {
   passthroughHttps,
-  CursorMitmHandler,
-  CopilotMitmHandler,
-  KiroMitmHandler,
-  AntigravityMitmHandler,
-  DefaultPassthroughMitmHandler,
+  registerAllMitmHandlers,
 } from "./handlers/index.js";
 import { MitmHandlerRegistry } from "./registry.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
@@ -22,14 +18,10 @@ import {
   MODEL_PATTERNS,
   MODEL_NO_MAP,
   type MitmToolId,
-} from "../shared/constants/mitmToolHosts.js";
+} from "./config.js";
 import { removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 
-MitmHandlerRegistry.register(new CursorMitmHandler());
-MitmHandlerRegistry.register(new CopilotMitmHandler());
-MitmHandlerRegistry.register(new KiroMitmHandler());
-MitmHandlerRegistry.register(new AntigravityMitmHandler());
-MitmHandlerRegistry.register(new DefaultPassthroughMitmHandler());
+registerAllMitmHandlers(MitmHandlerRegistry);
 
 const DEFAULT_PRIMARY_PORT = 443;
 

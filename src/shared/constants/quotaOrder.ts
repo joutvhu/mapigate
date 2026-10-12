@@ -1,4 +1,9 @@
-export const PROVIDER_QUOTA_ORDER_MAP: Record<string, string[]> = {
+import { getRegistryProvider, PROVIDER_REGISTRY } from "../../providers/metadataRegistry.js";
+
+/**
+ * Fallback static map for common providers if accessed outside registered providers context.
+ */
+const FALLBACK_QUOTA_ORDER_MAP: Record<string, string[]> = {
   antigravity: [
     "Gemini (5h)",
     "Gemini (Weekly)",
@@ -128,7 +133,31 @@ export const PROVIDER_QUOTA_ORDER_MAP: Record<string, string[]> = {
 };
 
 /**
+ * Proxy that pulls quotaOrder dynamically from provider metadata in metadataRegistry,
+ * falling back to static constants if not yet found.
+ */
+export const PROVIDER_QUOTA_ORDER_MAP: Record<string, string[]> = new Proxy(
+  FALLBACK_QUOTA_ORDER_MAP,
+  {
+    get(target, prop: string) {
+      if (typeof prop !== "string") return undefined;
+      const lower = prop.toLowerCase();
+      const item = getRegistryProvider(lower);
+      if (item?.quotaOrder) return item.quotaOrder;
+      return target[lower];
+    },
+    has(target, prop: string) {
+      if (typeof prop !== "string") return false;
+      const lower = prop.toLowerCase();
+      const item = getRegistryProvider(lower);
+      return Boolean(item?.quotaOrder) || lower in target;
+    },
+  }
+);
+
+/**
  * Sorts normalized quota items into a fixed, deterministic order per provider.
+ * Reads preferred order directly from provider metadata if available.
  */
 export function sortNormalizedQuotas<T extends { label: string }>(
   providerId: string,
@@ -137,7 +166,8 @@ export function sortNormalizedQuotas<T extends { label: string }>(
   if (!items || items.length <= 1) return items ? [...items] : [];
 
   const normProvider = (providerId || "").toLowerCase();
-  const preferredOrder = PROVIDER_QUOTA_ORDER_MAP[normProvider] || [];
+  const providerItem = getRegistryProvider(normProvider);
+  const preferredOrder = providerItem?.quotaOrder || PROVIDER_QUOTA_ORDER_MAP[normProvider] || [];
 
   return [...items].sort((a, b) => {
     const getPriority = (label: string): number => {

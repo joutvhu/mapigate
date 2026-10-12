@@ -4,8 +4,8 @@ import { LoadBalancer, isRateLimitOrQuotaError } from "../../core/router/loadBal
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
-import { ProviderRegistry } from "../../core/providers/registry.js";
-import { getRegistryProvider } from "../../shared/constants/providerRegistry.js";
+import { ProviderRegistry } from "../../providers/registry.js";
+import { getRegistryProvider } from "../../providers/metadataRegistry.js";
 import { getCapabilitiesForModel } from "../../core/capabilities/index.js";
 import { stripHistoryForContext } from "../../core/router/capacityAdapter.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";

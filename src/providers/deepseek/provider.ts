@@ -15,3 +15,5 @@ export class DeepSeekProvider extends OpenAiCompatibleProvider {
     return await getDeepseekUsage(context.account.rawApiKey);
   }
 }
+
+export default DeepSeekProvider;

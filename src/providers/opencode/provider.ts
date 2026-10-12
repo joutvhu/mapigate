@@ -111,3 +111,5 @@ export class OpenCodeProvider extends BaseProvider {
     return body;
   }
 }
+
+export default OpenCodeProvider;

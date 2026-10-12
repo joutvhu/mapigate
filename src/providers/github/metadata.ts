@@ -2,6 +2,11 @@ import type { ProviderRegistryItem } from "../types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Chat",
+      "Completions",
+      "Premium Interactions"
+  ],
   "id": "github",
   "name": "GitHub Copilot",
   "alias": "gh",

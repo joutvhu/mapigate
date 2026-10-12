@@ -15,3 +15,5 @@ export class XKiroProvider extends OpenAiCompatibleProvider {
     return await getXKiroUsage(context.account.rawApiKey, context.account.providerSpecificData);
   }
 }
+
+export default XKiroProvider;

@@ -16,15 +16,9 @@ import {
   convertOpenAIToKiro,
 } from "../src/mitm/handlers/kiro/index.js";
 
-// Facades imports for backward-compatibility verification
-import * as cursorFacade from "../src/mitm/handlers/cursor.js";
-import * as cursorHandlerFacade from "../src/mitm/handlers/cursorHandler.js";
-import * as copilotFacade from "../src/mitm/handlers/copilot.js";
-import * as copilotHandlerFacade from "../src/mitm/handlers/copilotHandler.js";
-import * as antigravityFacade from "../src/mitm/handlers/antigravity.js";
-import * as antigravityHandlerFacade from "../src/mitm/handlers/antigravityHandler.js";
-import * as kiroFacade from "../src/mitm/handlers/kiro.js";
-import * as kiroHandlerFacade from "../src/mitm/handlers/kiroHandler.js";
+// Generated registry and tool modular imports
+import { registerAllMitmHandlers } from "../src/mitm/handlers/generated/handlersRegistry.js";
+import * as handlersIndex from "../src/mitm/handlers/index.js";
 
 // Central barrel and root imports
 import {
@@ -207,28 +201,29 @@ describe("MITM Modular Tool Handlers", () => {
     });
   });
 
-  describe("Backward-Compatibility Facades", () => {
-    it("re-exports cursor symbols identically", () => {
-      assert.equal(cursorFacade.interceptCursor, interceptCursor);
-      assert.equal(cursorHandlerFacade.CursorMitmHandler, CursorMitmHandler);
+  describe("Generated Registry and Central Handlers Exports", () => {
+    it("registerAllMitmHandlers populates registry with all handlers", () => {
+      MitmHandlerRegistry.clear();
+      registerAllMitmHandlers(MitmHandlerRegistry);
+      assert.ok(MitmHandlerRegistry.get("cursor"));
+      assert.ok(MitmHandlerRegistry.get("copilot"));
+      assert.ok(MitmHandlerRegistry.get("antigravity"));
+      assert.ok(MitmHandlerRegistry.get("kiro"));
+      assert.ok(MitmHandlerRegistry.get("passthrough"));
     });
 
-    it("re-exports copilot symbols identically", () => {
-      assert.equal(copilotFacade.interceptCopilot, interceptCopilot);
-      assert.equal(copilotFacade.resolveRouterPath, resolveRouterPath);
-      assert.equal(copilotHandlerFacade.CopilotMitmHandler, CopilotMitmHandler);
-    });
-
-    it("re-exports antigravity symbols identically", () => {
-      assert.equal(antigravityFacade.interceptAntigravity, interceptAntigravity);
-      assert.equal(antigravityHandlerFacade.AntigravityMitmHandler, AntigravityMitmHandler);
-    });
-
-    it("re-exports kiro symbols identically", () => {
-      assert.equal(kiroFacade.interceptKiro, interceptKiro);
-      assert.equal(kiroFacade.crc32, crc32);
-      assert.equal(kiroFacade.buildEventStreamFrame, buildEventStreamFrame);
-      assert.equal(kiroHandlerFacade.KiroMitmHandler, KiroMitmHandler);
+    it("re-exports tool symbols from central handlers index", () => {
+      assert.equal(handlersIndex.interceptCursor, interceptCursor);
+      assert.equal(handlersIndex.CursorMitmHandler, CursorMitmHandler);
+      assert.equal(handlersIndex.interceptCopilot, interceptCopilot);
+      assert.equal(handlersIndex.resolveRouterPath, resolveRouterPath);
+      assert.equal(handlersIndex.CopilotMitmHandler, CopilotMitmHandler);
+      assert.equal(handlersIndex.interceptAntigravity, interceptAntigravity);
+      assert.equal(handlersIndex.AntigravityMitmHandler, AntigravityMitmHandler);
+      assert.equal(handlersIndex.interceptKiro, interceptKiro);
+      assert.equal(handlersIndex.crc32, crc32);
+      assert.equal(handlersIndex.buildEventStreamFrame, buildEventStreamFrame);
+      assert.equal(handlersIndex.KiroMitmHandler, KiroMitmHandler);
     });
 
     it("re-exports base utilities from root mitm index", () => {

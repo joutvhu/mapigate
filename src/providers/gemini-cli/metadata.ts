@@ -1,6 +1,12 @@
 import type { ProviderRegistryItem } from "../types.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Requests (RPM)",
+      "Requests (Daily)",
+      "Tokens (TPM)",
+      "Tokens (Daily)"
+  ],
   "id": "gemini-cli",
   "name": "Gemini CLI",
   "alias": "gc",

@@ -25,3 +25,5 @@ export class CloudflareProvider extends BaseProvider {
     return { ...context.body, model: context.targetModel };
   }
 }
+
+export default CloudflareProvider;

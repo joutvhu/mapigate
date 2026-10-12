@@ -2,6 +2,12 @@ import type { ProviderRegistryItem } from "../types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: [
+      "Daily",
+      "Weekly",
+      "Monthly",
+      "Balance"
+  ],
   "id": "qoder-cn",
   "name": "Qoder CN",
   "alias": "qdcn",

@@ -32,3 +32,5 @@ export class OllamaProvider extends BaseProvider {
     return { ...context.body, model: context.targetModel };
   }
 }
+
+export default OllamaProvider;

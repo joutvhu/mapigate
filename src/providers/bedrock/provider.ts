@@ -52,3 +52,5 @@ export class BedrockProvider extends BaseProvider {
     });
   }
 }
+
+export default BedrockProvider;

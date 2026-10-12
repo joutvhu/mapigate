@@ -7,46 +7,7 @@ interface MitmMappingRow {
   targetModel: string;
 }
 
-type MitmToolId = "antigravity" | "kiro" | "copilot" | "cursor";
-
-interface MitmToolConfig {
-  id: MitmToolId;
-  name: string;
-  image: string;
-  desc: string;
-  defaultHost: string;
-}
-
-const MITM_TOOLS: MitmToolConfig[] = [
-  {
-    id: "antigravity",
-    name: "Antigravity IDE",
-    image: "/providers/antigravity.png",
-    desc: "Intercept Google Antigravity IDE requests via MITM proxy",
-    defaultHost: "127.0.0.1 daily-cloudcode-pa.googleapis.com\n127.0.0.1 cloudcode-pa.googleapis.com",
-  },
-  {
-    id: "kiro",
-    name: "Kiro IDE",
-    image: "/providers/kiro.png",
-    desc: "Intercept Amazon Kiro IDE requests via MITM proxy",
-    defaultHost: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
-  },
-  {
-    id: "copilot",
-    name: "GitHub Copilot",
-    image: "/providers/copilot.png",
-    desc: "Intercept GitHub Copilot requests in VS Code via MITM proxy",
-    defaultHost: "127.0.0.1 api.individual.githubcopilot.com",
-  },
-  {
-    id: "cursor",
-    name: "Cursor",
-    image: "/providers/cursor.png",
-    desc: "Intercept Cursor IDE requests via MITM proxy (Coming Soon)",
-    defaultHost: "127.0.0.1 api2.cursor.sh",
-  },
-];
+import { MITM_TOOLS, type MitmToolConfig, type MitmToolId } from "../../../mitm/config.js";
 
 interface MitmStatusData {
   running: boolean;

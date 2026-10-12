@@ -9,4 +9,4 @@ export * from "./adapters/anthropicAdapter.js";
 export * from "./adapters/openAiAdapter.js";
 export * from "./auth/index.js";
 export * from "./scheduler/tokenScheduler.js";
-export * from "./providers/index.js";
+export * from "../providers/index.js";

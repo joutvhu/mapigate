@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
-import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../core/providers/types.js";
+import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
 import { createStreamTrackingState, extractTokensFromChunk } from "./streamState.js";
 
 export async function pipeSseStream(

@@ -31,3 +31,5 @@ export class MimoProvider extends OpenAiCompatibleProvider {
     return super.buildUrl(context);
   }
 }
+
+export default MimoProvider;

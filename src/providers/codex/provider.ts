@@ -15,3 +15,5 @@ export class CodexProvider extends OpenAiCompatibleProvider {
     return await getCodexUsage(context.account.rawApiKey, context.account.providerSpecificData);
   }
 }
+
+export default CodexProvider;
