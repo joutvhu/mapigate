@@ -1,26 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/mmf/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "mmf",
-  "name": "MMF",
-  "color": "#6366F1",
-  "image": "/providers/mmf.png",
-  "category": "apikey",
-  "baseUrl": "https://api.xiaomimimo.com/api/free-ai/openai/chat",
-  "baseUrls": [
-    "https://api.xiaomimimo.com/api/free-ai/openai/chat"
-  ],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": [
-    {
-      "id": "mimo-auto",
-      "name": "MiMo Auto",
-      "isDefault": false
-    }
-  ]
-};
+export const provider = p;
+export default p;
 
-export default provider;

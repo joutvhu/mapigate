@@ -1,21 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/local-device/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "local-device",
-  "name": "Local Device",
-  "alias": "local-device",
-  "color": "#64748B",
-  "image": "/providers/local-device.png",
-  "category": "freeTier",
-  "authType": "none",
-  "noAuth": true,
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

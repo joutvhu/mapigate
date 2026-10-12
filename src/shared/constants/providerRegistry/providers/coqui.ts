@@ -1,22 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/coqui/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "coqui",
-  "name": "Coqui TTS",
-  "alias": "coqui",
-  "color": "#10B981",
-  "image": "/providers/coqui.png",
-  "website": "https://github.com/coqui-ai/TTS",
-  "category": "freeTier",
-  "authType": "none",
-  "noAuth": true,
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

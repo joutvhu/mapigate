@@ -1,41 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/longcat/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "longcat",
-  "name": "LongCat AI",
-  "alias": "lc",
-  "aliases": [
-    "longcat"
-  ],
-  "uiAlias": "longcat",
-  "color": "#FF6B9D",
-  "image": "/providers/longcat.svg",
-  "website": "https://longcat.chat/platform/docs",
-  "notice": {
-    "apiKeyUrl": "",
-    "text": "LongCat AI provider endpoint."
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "https://api.longcat.chat/openai/v1/chat/completions",
-  "baseUrls": [
-    "https://api.longcat.chat/openai/v1/chat/completions"
-  ],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {
-    "content-type": "application/json"
-  },
-  "thinkingMode": "auto",
-  "models": [
-    {
-      "id": "longcat-default",
-      "name": "LongCat AI Default",
-      "isDefault": true,
-      "contextLength": 128000
-    }
-  ],
-  "passthroughModels": true
-};
+export const provider = p;
+export default p;
 
-export default provider;

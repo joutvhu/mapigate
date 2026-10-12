@@ -1,29 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/chutes/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "chutes",
-  "name": "Chutes AI",
-  "alias": "chutes",
-  "aliases": [
-    "ch"
-  ],
-  "uiAlias": "ch",
-  "color": "#ffffffff",
-  "image": "/providers/chutes.png",
-  "website": "https://chutes.ai",
-  "notice": {
-    "apiKeyUrl": "https://chutes.ai/app/api"
-  },
-  "category": "apikey",
-  "baseUrl": "https://llm.chutes.ai/v1/chat/completions",
-  "baseUrls": [
-    "https://llm.chutes.ai/v1/chat/completions"
-  ],
-  "validateUrl": "https://llm.chutes.ai/v1/models",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

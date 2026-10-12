@@ -1,24 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/firecrawl/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "firecrawl",
-  "name": "Firecrawl",
-  "alias": "firecrawl",
-  "color": "#F59E0B",
-  "image": "/providers/firecrawl.png",
-  "website": "https://firecrawl.dev",
-  "notice": {
-    "apiKeyUrl": "https://www.firecrawl.dev/app/api-keys"
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

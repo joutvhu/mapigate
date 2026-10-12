@@ -1,22 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/tortoise/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "tortoise",
-  "name": "Tortoise TTS",
-  "alias": "tortoise",
-  "color": "#7C3AED",
-  "image": "/providers/tortoise.png",
-  "website": "https://github.com/neonbjb/tortoise-tts",
-  "category": "freeTier",
-  "authType": "none",
-  "noAuth": true,
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

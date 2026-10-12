@@ -1,24 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/topaz/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "topaz",
-  "name": "Topaz",
-  "alias": "topaz",
-  "color": "#059669",
-  "image": "/providers/topaz.png",
-  "website": "https://topazlabs.com",
-  "notice": {
-    "apiKeyUrl": "https://topazlabs.com/account"
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

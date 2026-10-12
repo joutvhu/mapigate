@@ -1,27 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/selfhosted-embedding/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "selfhosted-embedding",
-  "name": "Self-hosted Embedding",
-  "alias": "selfhosted-embedding",
-  "color": "#ffffffff",
-  "image": "/providers/selfhosted-embedding.png",
-  "website": "https://github.com/ggml-org/llama.cpp",
-  "category": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": [
-    {
-      "id": "embedding",
-      "name": "Self-hosted embedding model",
-      "isDefault": false,
-      "kind": "embedding"
-    }
-  ]
-};
+export const provider = p;
+export default p;
 
-export default provider;

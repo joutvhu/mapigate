@@ -1,24 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/serper/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "serper",
-  "name": "Serper",
-  "alias": "serper",
-  "color": "#4F46E5",
-  "image": "/providers/serper.png",
-  "website": "https://serper.dev",
-  "notice": {
-    "apiKeyUrl": "https://serper.dev/api-key"
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

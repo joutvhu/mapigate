@@ -1,21 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/google-tts/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "google-tts",
-  "name": "Google TTS",
-  "alias": "google-tts",
-  "color": "#4285F4",
-  "image": "/providers/google-tts.png",
-  "category": "freeTier",
-  "authType": "none",
-  "noAuth": true,
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

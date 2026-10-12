@@ -24,7 +24,7 @@ test("xKiro Provider - Registry Configuration", () => {
   assert.deepEqual(xkiro.aliases, ["xk", "xkiro"]);
   assert.equal(xkiro.uiAlias, "xk");
   assert.equal(xkiro.color, "#16a34a");
-  assert.equal(xkiro.image, "/providers/xkiro.svg");
+  assert.equal(xkiro.image, "/assets/providers/xkiro/icon.svg");
   assert.equal(xkiro.website, "https://xkiro.com");
   assert.equal(xkiro.notice?.apiKeyUrl, "https://xkiro.com");
   assert.equal(xkiro.category, "apikey");
@@ -83,7 +83,7 @@ test("xKiro Provider - Popular Models and Context Lengths", () => {
 test("xKiro Provider - Web Providers Data Lists", () => {
   const codingProvider = CODING_PROVIDERS_LIST.find((p) => p.id === "xkiro");
   assert.ok(codingProvider, "xkiro must be present in CODING_PROVIDERS_LIST");
-  assert.equal(codingProvider.image, "/providers/xkiro.svg");
+  assert.equal(codingProvider.image, "/assets/providers/xkiro/icon.svg");
 
   const apiKeyProvider = API_KEY_PROVIDERS_LIST.find((p) => p.id === "xkiro");
   assert.ok(apiKeyProvider, "xkiro must be present in API_KEY_PROVIDERS_LIST");
@@ -92,11 +92,17 @@ test("xKiro Provider - Web Providers Data Lists", () => {
 });
 
 test("xKiro Provider - Vector Icon Exists on Disk", () => {
-  const iconPath = path.resolve(process.cwd(), "src/web/public/providers/xkiro.svg");
-  assert.ok(fs.existsSync(iconPath), "src/web/public/providers/xkiro.svg must exist");
-  const content = fs.readFileSync(iconPath, "utf-8");
-  assert.ok(content.includes("<svg"), "Icon must be a valid SVG file");
-  assert.ok(content.includes("#16a34a"), "Icon should use brand color #16a34a");
+  const publicIconPath = path.resolve(process.cwd(), "src/web/public/providers/xkiro.svg");
+  assert.ok(fs.existsSync(publicIconPath), "src/web/public/providers/xkiro.svg must exist");
+  const publicContent = fs.readFileSync(publicIconPath, "utf-8");
+  assert.ok(publicContent.includes("<svg"), "Icon must be a valid SVG file");
+  assert.ok(publicContent.includes("#16a34a"), "Icon should use brand color #16a34a");
+
+  const moduleIconPath = path.resolve(process.cwd(), "src/providers/xkiro/assets/icon.svg");
+  assert.ok(fs.existsSync(moduleIconPath), "src/providers/xkiro/assets/icon.svg must exist");
+  const moduleContent = fs.readFileSync(moduleIconPath, "utf-8");
+  assert.ok(moduleContent.includes("<svg"), "Module icon must be a valid SVG file");
+  assert.ok(moduleContent.includes("#16a34a"), "Module icon should use brand color #16a34a");
 });
 
 test("xKiro Provider - Pricing and Capabilities Resolution", () => {

@@ -1,24 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/youcom/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "youcom",
-  "name": "You.com Search",
-  "alias": "youcom",
-  "color": "#7C3AED",
-  "image": "/providers/youcom.png",
-  "website": "https://you.com",
-  "notice": {
-    "apiKeyUrl": "https://api.you.com"
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

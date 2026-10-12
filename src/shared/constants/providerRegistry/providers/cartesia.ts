@@ -1,24 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/cartesia/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "cartesia",
-  "name": "Cartesia",
-  "alias": "cartesia",
-  "color": "#FF4F8B",
-  "image": "/providers/cartesia.png",
-  "website": "https://cartesia.ai",
-  "notice": {
-    "apiKeyUrl": "https://play.cartesia.ai/keys"
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;

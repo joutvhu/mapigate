@@ -1,24 +1,5 @@
-import type { ProviderRegistryItem } from "../types.js";
+import { metadata as p } from "../../../../providers/tavily/metadata.js";
 
-export const provider: ProviderRegistryItem = {
-  "id": "tavily",
-  "name": "Tavily",
-  "alias": "tavily",
-  "color": "#5B21B6",
-  "image": "/providers/tavily.png",
-  "website": "https://tavily.com",
-  "notice": {
-    "apiKeyUrl": "https://app.tavily.com/home"
-  },
-  "category": "apikey",
-  "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
-  "format": "openai",
-  "defaultHeaders": {},
-  "thinkingMode": "auto",
-  "models": []
-};
+export const provider = p;
+export default p;
 
-export default provider;
