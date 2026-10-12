@@ -14,7 +14,7 @@ import Prov_jina_reader from "../../catalog/jina-reader/provider.js";
 import Prov_kilo_gateway from "../../catalog/kilo-gateway/provider.js";
 import Prov_kilocode from "../../catalog/kilocode/provider.js";
 import Prov_kimchi from "../../catalog/kimchi/provider.js";
-import Prov_kimi from "../../catalog/kimi/provider.js";
+import Prov_kimi from "../../runtime/kimi/provider.js";
 import Prov_kiro from "../../runtime/kiro/provider.js";
 import Prov_lambda_ai from "../../catalog/lambda-ai/provider.js";
 import Prov_linkup from "../../catalog/linkup/provider.js";

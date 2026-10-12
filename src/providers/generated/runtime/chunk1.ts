@@ -36,7 +36,7 @@ import Prov_cartesia from "../../catalog/cartesia/provider.js";
 import Prov_cerebras from "../../catalog/cerebras/provider.js";
 import Prov_chutes from "../../catalog/chutes/provider.js";
 import Prov_claude from "../../runtime/claude/provider.js";
-import Prov_cline from "../../catalog/cline/provider.js";
+import Prov_cline from "../../runtime/cline/provider.js";
 import Prov_clinepass from "../../catalog/clinepass/provider.js";
 import Prov_cloudflare from "../../runtime/cloudflare/provider.js";
 import Prov_cloudflare_ai from "../../catalog/cloudflare-ai/provider.js";

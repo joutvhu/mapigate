@@ -13,7 +13,7 @@ import { metadata as comfyui } from "../../catalog/comfyui/metadata.js";
 import { metadata as commandcode } from "../../catalog/commandcode/metadata.js";
 import { metadata as coqui } from "../../catalog/coqui/metadata.js";
 import { metadata as coze } from "../../catalog/coze/metadata.js";
-import { metadata as cursor } from "../../catalog/cursor/metadata.js";
+import { metadata as cursor } from "../../runtime/cursor/metadata.js";
 import { metadata as dahl } from "../../catalog/dahl/metadata.js";
 import { metadata as databricks } from "../../catalog/databricks/metadata.js";
 import { metadata as deepgram } from "../../catalog/deepgram/metadata.js";

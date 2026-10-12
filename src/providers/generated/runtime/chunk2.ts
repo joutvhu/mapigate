@@ -12,7 +12,7 @@ import Prov_comfyui from "../../catalog/comfyui/provider.js";
 import Prov_commandcode from "../../catalog/commandcode/provider.js";
 import Prov_coqui from "../../catalog/coqui/provider.js";
 import Prov_coze from "../../catalog/coze/provider.js";
-import Prov_cursor from "../../catalog/cursor/provider.js";
+import Prov_cursor from "../../runtime/cursor/provider.js";
 import Prov_dahl from "../../catalog/dahl/provider.js";
 import Prov_databricks from "../../catalog/databricks/provider.js";
 import Prov_deepgram from "../../catalog/deepgram/provider.js";

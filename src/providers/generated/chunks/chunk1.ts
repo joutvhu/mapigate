@@ -37,7 +37,7 @@ import { metadata as cartesia } from "../../catalog/cartesia/metadata.js";
 import { metadata as cerebras } from "../../catalog/cerebras/metadata.js";
 import { metadata as chutes } from "../../catalog/chutes/metadata.js";
 import { metadata as claude } from "../../runtime/claude/metadata.js";
-import { metadata as cline } from "../../catalog/cline/metadata.js";
+import { metadata as cline } from "../../runtime/cline/metadata.js";
 import { metadata as clinepass } from "../../catalog/clinepass/metadata.js";
 import { metadata as cloudflare } from "../../runtime/cloudflare/metadata.js";
 import { metadata as cloudflare_ai } from "../../catalog/cloudflare-ai/metadata.js";

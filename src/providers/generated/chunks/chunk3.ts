@@ -15,7 +15,7 @@ import { metadata as jina_reader } from "../../catalog/jina-reader/metadata.js";
 import { metadata as kilo_gateway } from "../../catalog/kilo-gateway/metadata.js";
 import { metadata as kilocode } from "../../catalog/kilocode/metadata.js";
 import { metadata as kimchi } from "../../catalog/kimchi/metadata.js";
-import { metadata as kimi } from "../../catalog/kimi/metadata.js";
+import { metadata as kimi } from "../../runtime/kimi/metadata.js";
 import { metadata as kiro } from "../../runtime/kiro/metadata.js";
 import { metadata as lambda_ai } from "../../catalog/lambda-ai/metadata.js";
 import { metadata as linkup } from "../../catalog/linkup/metadata.js";
