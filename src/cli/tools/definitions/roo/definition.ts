@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Roo Code",
   image: "/providers/roo.png",
   color: "#FF6B6B",
+  iconBg: "#000000",
   description: "Roo AI Assistant",
   configType: "file",
   configPath: "~/.roo/config.json",

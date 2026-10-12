@@ -18,6 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { PortalModal } from "./PortalModal.js";
 import { CapacityBadges } from "./CapacityBadges.js";
+import { ToolIcon } from "./ui/ToolIcon.js";
 import { Select } from "./Select.js";
 import { PROVIDER_REGISTRY } from "../../../shared/constants/providerRegistry.js";
 import {
@@ -132,12 +133,12 @@ const SortableModelItem: React.FC<SortableModelItemProps> = ({
           : "border-[#1E293B] hover:border-slate-700"
       }`}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <button
           type="button"
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none"
+          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none shrink-0"
           title="Drag to reorder priority"
         >
           <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
@@ -145,10 +146,12 @@ const SortableModelItem: React.FC<SortableModelItemProps> = ({
         <span className="size-5 rounded-md bg-[#141B2D] border border-[#1E293B] text-[10px] font-mono text-blue-400 font-bold flex items-center justify-center shrink-0">
           {index + 1}
         </span>
-        <span className="font-mono text-xs text-white truncate max-w-[200px] sm:max-w-[260px]" title={id}>
-          {id}
-        </span>
-        <CapacityBadges model={id} size="xs" />
+        <div className="min-w-0 flex-1">
+          <span className="font-mono text-xs text-white truncate block" title={id}>
+            {id}
+          </span>
+          <CapacityBadges model={id} size="xs" className="mt-1" />
+        </div>
       </div>
 
       <div className="flex items-center gap-1 shrink-0">
@@ -510,6 +513,103 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     excludeSet,
   ]);
 
+  interface ProviderGroup {
+    providerId: string;
+    providerName: string;
+    color?: string;
+    iconBg?: string;
+    image?: string;
+    models: ModelOption[];
+    selectedCount: number;
+  }
+
+  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
+
+  // Group filtered models by provider
+  const providerGroups = useMemo(() => {
+    const map = new Map<string, ProviderGroup>();
+
+    for (const m of filteredModels) {
+      const pId = m.providerId;
+      let group = map.get(pId);
+      if (!group) {
+        const reg = PROVIDER_REGISTRY[pId];
+        group = {
+          providerId: pId,
+          providerName: m.providerName || reg?.name || pId,
+          color: reg?.color,
+          iconBg: reg?.iconBg,
+          image: reg?.image,
+          models: [],
+          selectedCount: 0,
+        };
+        map.set(pId, group);
+      }
+      group.models.push(m);
+      if (selectedModels.includes(m.value) || selectedModel === m.value) {
+        group.selectedCount++;
+      }
+    }
+
+    // Sort groups: providers with selected models first, then connected providers, then alphabetical
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.selectedCount > 0 && b.selectedCount === 0) return -1;
+      if (b.selectedCount > 0 && a.selectedCount === 0) return 1;
+      const aConn = connectedProviderIds.has(a.providerId) ? 1 : 0;
+      const bConn = connectedProviderIds.has(b.providerId) ? 1 : 0;
+      if (aConn !== bConn) return bConn - aConn;
+      return a.providerName.localeCompare(b.providerName);
+    });
+  }, [filteredModels, selectedModels, selectedModel, connectedProviderIds]);
+
+  // Manage accordion expansion behavior
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      // Auto-expand all matching providers when searching
+      setExpandedProviders(new Set(providerGroups.map((g) => g.providerId)));
+    } else if (selectedProvider !== "all") {
+      // Auto-expand specific selected provider
+      setExpandedProviders(new Set([selectedProvider]));
+    }
+  }, [searchQuery, selectedProvider, providerGroups]);
+
+  // Initial expansion when modal opens
+  useEffect(() => {
+    if (isOpen && !searchQuery.trim() && selectedProvider === "all" && providerGroups.length > 0) {
+      setExpandedProviders((prev) => {
+        if (prev.size > 0) return prev;
+        const initial = new Set<string>();
+        const withSelected = providerGroups.filter((g) => g.selectedCount > 0);
+        if (withSelected.length > 0) {
+          withSelected.forEach((g) => initial.add(g.providerId));
+        } else if (providerGroups[0]) {
+          initial.add(providerGroups[0].providerId);
+        }
+        return initial;
+      });
+    }
+  }, [isOpen, providerGroups, searchQuery, selectedProvider]);
+
+  const toggleProviderGroup = (pId: string) => {
+    setExpandedProviders((prev) => {
+      const next = new Set(prev);
+      if (next.has(pId)) {
+        next.delete(pId);
+      } else {
+        next.add(pId);
+      }
+      return next;
+    });
+  };
+
+  const handleExpandAll = () => {
+    setExpandedProviders(new Set(providerGroups.map((g) => g.providerId)));
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedProviders(new Set());
+  };
+
   const handleToggleModel = (item: ModelOption) => {
     const val = item.value;
     const isCurrentlySelected = selectedModels.includes(val);
@@ -628,7 +728,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   };
 
   return (
-    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-4xl">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-[72rem]">
       <div className="flex flex-col h-[85vh] max-h-[780px] -m-2 sm:-m-4">
         {/* Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#1E293B]">
@@ -791,11 +891,45 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
               </div>
             </div>
 
-            {/* Models Scrollable List */}
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-              {/* Dedicated Combos View when Combos is selected */}
-              {selectedProvider === "combo" ? (
-                filteredCombos.length === 0 ? (
+            {/* Combos quick-select pills above list when searching/browsing models */}
+            {selectedProvider !== "combo" && filteredCombos.length > 0 && (
+              <div className="p-2.5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 space-y-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-semibold">
+                  <span className="material-symbols-outlined text-[15px]">layers</span>
+                  <span>Smart Combos ({filteredCombos.length})</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {filteredCombos.map((combo) => {
+                    const isSelected = selectedModels.includes(combo.name);
+                    return (
+                      <button
+                        key={combo.id}
+                        type="button"
+                        onClick={() => handleToggleCombo(combo)}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-cyan-600 text-white border-cyan-500"
+                            : "bg-[#0A0D14] text-slate-300 border-[#1E293B] hover:border-cyan-500/40 hover:text-white"
+                        }`}
+                      >
+                        {isSelected && (
+                          <span className="material-symbols-outlined text-[12px] text-cyan-200">
+                            check
+                          </span>
+                        )}
+                        <span>{combo.name}</span>
+                        <span className="text-[10px] opacity-60">({combo.models.length})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Models / Combos View */}
+            {selectedProvider === "combo" ? (
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                {filteredCombos.length === 0 ? (
                   <div className="py-10 text-center text-slate-500 text-xs space-y-2">
                     <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
                       layers_clear
@@ -805,186 +939,71 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                     </p>
                   </div>
                 ) : (
-                  filteredCombos.map((combo) => {
-                    const isSelected = selectedModels.includes(combo.name);
-                    const comboCaps = aggregateComboCapabilities(combo.models);
-
-                    return (
-                      <div
-                        key={combo.id}
-                        onClick={() => handleToggleCombo(combo)}
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-cyan-950/30 border-cyan-500/50 text-white"
-                            : "bg-[#0A0D14]/70 border-[#1E293B] hover:border-slate-700 text-slate-300"
-                        }`}
-                      >
-                        <div className="min-w-0 pr-2 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 font-mono text-[9.5px] text-cyan-300 font-semibold tracking-wide">
-                              COMBO
-                            </span>
-                            <span className="text-xs font-semibold text-white truncate">
-                              {combo.name}
-                            </span>
-                            {combo.strategy && (
-                              <span
-                                className={`px-1.5 py-0.2 rounded font-sans text-[9px] font-medium border ${
-                                  combo.strategy === "round-robin"
-                                    ? "bg-cyan-950/40 text-cyan-300 border-cyan-500/30"
-                                    : combo.strategy === "fusion"
-                                    ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
-                                    : "bg-amber-950/40 text-amber-300 border-amber-500/30"
-                                }`}
-                              >
-                                {combo.strategy === "round-robin"
-                                  ? "Round Robin"
-                                  : combo.strategy === "fusion"
-                                  ? "Fusion"
-                                  : "Fallback"}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="font-mono text-[11px] text-slate-400 truncate">
-                            <span className="text-cyan-400 font-semibold">
-                              {combo.models.length} model{combo.models.length > 1 ? "s" : ""}:
-                            </span>{" "}
-                            <span className="text-slate-300">{combo.models.join(", ")}</span>
-                          </div>
-
-                          {comboCaps && (
-                            <div className="pt-0.5">
-                              <CapacityBadges caps={comboCaps} size="xs" />
-                            </div>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleCombo(combo);
-                          }}
-                          className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
-                            isSelected
-                              ? "bg-cyan-600 border-cyan-500 text-white"
-                              : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[16px]">
-                            {isSelected ? "check" : "add"}
-                          </span>
-                        </button>
-                      </div>
-                    );
-                  })
-                )
-              ) : (
-                <>
-                  {/* Combos section at top if any */}
-                  {filteredCombos.length > 0 && (
-                    <div className="p-2.5 rounded-xl border border-cyan-500/20 bg-cyan-950/20 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-xs text-cyan-400 font-semibold">
-                        <span className="material-symbols-outlined text-[15px]">layers</span>
-                        <span>Smart Combos ({filteredCombos.length})</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {filteredCombos.map((combo) => {
-                          const isSelected = selectedModels.includes(combo.name);
-                          return (
-                            <button
-                              key={combo.id}
-                              type="button"
-                              onClick={() => handleToggleCombo(combo)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                                isSelected
-                                  ? "bg-cyan-600 text-white border-cyan-500"
-                                  : "bg-[#0A0D14] text-slate-300 border-[#1E293B] hover:border-cyan-500/40 hover:text-white"
-                              }`}
-                            >
-                              {isSelected && (
-                                <span className="material-symbols-outlined text-[12px] text-cyan-200">
-                                  check
-                                </span>
-                              )}
-                              <span>{combo.name}</span>
-                              <span className="text-[10px] opacity-60">({combo.models.length})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {filteredModels.length === 0 ? (
-                    <div className="py-10 text-center text-slate-500 text-xs space-y-2">
-                      <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
-                        search_off
-                      </span>
-                      <p className="max-w-xs mx-auto">
-                        {connectedOnly && !hasConnectedAccounts
-                          ? "No accounts connected yet. All models are currently hidden by 'Connected Only'."
-                          : connectedOnly
-                          ? "No models found from connected accounts matching your search/filters."
-                          : "No models matched your filter. Try clearing filters or enter a custom model below."}
-                      </p>
-                      {connectedOnly && (
-                        <button
-                          type="button"
-                          onClick={() => setConnectedOnly(false)}
-                          className="px-3 py-1 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium cursor-pointer transition-colors"
-                        >
-                          Show All Registry Models
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    filteredModels.map((item) => {
-                      const isSelected = selectedModels.includes(item.value) || selectedModel === item.value;
-                      const ctxBadge = formatContextLength(item.contextLength);
+                  <div className="space-y-2">
+                    {filteredCombos.map((combo) => {
+                      const isSelected = selectedModels.includes(combo.name);
+                      const comboCaps = aggregateComboCapabilities(combo.models);
 
                       return (
                         <div
-                          key={item.value}
-                          onClick={() => handleToggleModel(item)}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          key={combo.id}
+                          onClick={() => handleToggleCombo(combo)}
+                          className={`flex items-center justify-between p-3 rounded-xl border transition-colors cursor-pointer ${
                             isSelected
-                              ? "bg-blue-600/10 border-blue-500/40 text-white"
+                              ? "bg-cyan-950/30 border-cyan-500/50 text-white"
                               : "bg-[#0A0D14]/70 border-[#1E293B] hover:border-slate-700 text-slate-300"
                           }`}
                         >
-                          <div className="min-w-0 pr-2">
-                            <div className="flex items-center gap-2">
+                          <div className="min-w-0 pr-2 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 font-mono text-[9.5px] text-cyan-300 font-semibold tracking-wide">
+                                COMBO
+                              </span>
                               <span className="text-xs font-semibold text-white truncate">
-                                {item.name}
+                                {combo.name}
                               </span>
-                              <span className="px-1.5 py-0.2 rounded bg-[#141B2D] border border-[#1E293B] text-[10px] text-slate-400 shrink-0 font-mono">
-                                {item.providerName}
-                              </span>
-                              {ctxBadge && (
-                                <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
-                                  {ctxBadge}
+                              {combo.strategy && (
+                                <span
+                                  className={`px-1.5 py-0.2 rounded font-sans text-[9px] font-medium border ${
+                                    combo.strategy === "round-robin"
+                                      ? "bg-cyan-950/40 text-cyan-300 border-cyan-500/30"
+                                      : combo.strategy === "fusion"
+                                      ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
+                                      : "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                                  }`}
+                                >
+                                  {combo.strategy === "round-robin"
+                                    ? "Round Robin"
+                                    : combo.strategy === "fusion"
+                                    ? "Fusion"
+                                    : "Fallback"}
                                 </span>
                               )}
                             </div>
-                            <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
-                              {item.value}
+
+                            <div className="font-mono text-[11px] text-slate-400 truncate">
+                              <span className="text-cyan-400 font-semibold">
+                                {combo.models.length} model{combo.models.length > 1 ? "s" : ""}:
+                              </span>{" "}
+                              <span className="text-slate-300">{combo.models.join(", ")}</span>
                             </div>
-                            <div className="mt-1">
-                              <CapacityBadges caps={item.caps} size="xs" />
-                            </div>
+
+                            {comboCaps && (
+                              <div className="pt-0.5">
+                                <CapacityBadges caps={comboCaps} size="xs" />
+                              </div>
+                            )}
                           </div>
 
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleToggleModel(item);
+                              handleToggleCombo(combo);
                             }}
-                            className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-all ${
+                            className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
                               isSelected
-                                ? "bg-blue-600 border-blue-500 text-white"
+                                ? "bg-cyan-600 border-cyan-500 text-white"
                                 : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
                             }`}
                           >
@@ -994,11 +1013,175 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                           </button>
                         </div>
                       );
-                    })
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : filteredModels.length === 0 ? (
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                <div className="py-10 text-center text-slate-500 text-xs space-y-2">
+                  <span className="material-symbols-outlined text-[26px] text-slate-600 block mx-auto">
+                    search_off
+                  </span>
+                  <p className="max-w-xs mx-auto">
+                    {connectedOnly && !hasConnectedAccounts
+                      ? "No accounts connected yet. All models are currently hidden by 'Connected Only'."
+                      : connectedOnly
+                      ? "No models found from connected accounts matching your search/filters."
+                      : "No models matched your filter. Try clearing filters or enter a custom model below."}
+                  </p>
+                  {connectedOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setConnectedOnly(false)}
+                      className="px-3 py-1 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium cursor-pointer transition-colors"
+                    >
+                      Show All Registry Models
+                    </button>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 flex flex-col space-y-2">
+                {/* Header with counts and Expand/Collapse All */}
+                <div className="flex items-center justify-between text-xs text-slate-400 px-1 shrink-0">
+                  <span className="font-medium text-slate-300">
+                    {providerGroups.length} provider{providerGroups.length > 1 ? "s" : ""} • {filteredModels.length} models
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExpandAll}
+                      className="text-[11px] text-blue-400 hover:text-blue-300 font-medium cursor-pointer hover:underline"
+                    >
+                      Expand All
+                    </button>
+                    <span className="text-slate-600">•</span>
+                    <button
+                      type="button"
+                      onClick={handleCollapseAll}
+                      className="text-[11px] text-slate-400 hover:text-slate-300 font-medium cursor-pointer hover:underline"
+                    >
+                      Collapse All
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scrollable Provider Groups List */}
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+                  {providerGroups.map((group) => {
+                    const isExpanded = expandedProviders.has(group.providerId);
+
+                    return (
+                      <div
+                        key={group.providerId}
+                        className="rounded-xl border border-[#1E293B] bg-[#0A0D14]/70 overflow-hidden transition-colors"
+                      >
+                        {/* Provider Header Accordion Trigger */}
+                        <div
+                          onClick={() => toggleProviderGroup(group.providerId)}
+                          className={`flex items-center justify-between p-2.5 cursor-pointer select-none transition-colors ${
+                            isExpanded
+                              ? "bg-[#141B2D]/80 hover:bg-[#141B2D] border-b border-[#1E293B]"
+                              : "hover:bg-white/[0.03]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <ToolIcon
+                              src={group.image}
+                              name={group.providerName}
+                              color={group.color}
+                              iconBg={group.iconBg}
+                              size="sm"
+                            />
+                            <div className="min-w-0 flex items-center gap-2">
+                              <span className="text-xs font-bold text-white truncate">
+                                {group.providerName}
+                              </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 shrink-0">
+                                {group.models.length} model{group.models.length > 1 ? "s" : ""}
+                              </span>
+                              {group.selectedCount > 0 && (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold shrink-0">
+                                  {group.selectedCount} selected
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <span
+                            className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform duration-200 shrink-0 ${
+                              isExpanded ? "rotate-180 text-blue-400" : ""
+                            }`}
+                          >
+                            expand_more
+                          </span>
+                        </div>
+
+                        {/* Models in Provider */}
+                        {isExpanded && (
+                          <div className="p-2 space-y-1.5 bg-[#080B12]/60">
+                            {group.models.map((item) => {
+                              const isSelected =
+                                selectedModels.includes(item.value) || selectedModel === item.value;
+                              const ctxBadge = formatContextLength(item.contextLength);
+
+                              return (
+                                <div
+                                  key={item.value}
+                                  onClick={() => handleToggleModel(item)}
+                                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-colors cursor-pointer ${
+                                    isSelected
+                                      ? "bg-blue-600/10 border-blue-500/40 text-white"
+                                      : "bg-[#0A0D14] border-[#1E293B] hover:border-slate-700 text-slate-300"
+                                  }`}
+                                >
+                                  <div className="min-w-0 pr-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-white truncate">
+                                        {item.name}
+                                      </span>
+                                      {ctxBadge && (
+                                        <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
+                                          {ctxBadge}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
+                                      {item.value}
+                                    </div>
+                                    <div className="mt-1">
+                                      <CapacityBadges caps={item.caps} size="xs" />
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleToggleModel(item);
+                                    }}
+                                    className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+                                      isSelected
+                                        ? "bg-blue-600 border-blue-500 text-white"
+                                        : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">
+                                      {isSelected ? "check" : "add"}
+                                    </span>
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Custom Model Input */}
             <form onSubmit={handleAddCustomModel} className="flex gap-2 pt-1 border-t border-[#1E293B]">

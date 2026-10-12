@@ -12,6 +12,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "OpenAI",
   "alias": "openai",
   "color": "#10A37F",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/openai/icon.png",
   "website": "https://platform.openai.com",
   "notice": {

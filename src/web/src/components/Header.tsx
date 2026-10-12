@@ -139,13 +139,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <span className="material-symbols-outlined text-[18px]">bolt</span>
           </button>
-
-          <button
-            title="English"
-            className="px-2 py-1 rounded-lg hover:bg-white/5 hover:text-white text-xs font-semibold flex items-center gap-1"
-          >
-            <span className="text-xs">EN</span>
-          </button>
         </div>
       </div>
     </header>

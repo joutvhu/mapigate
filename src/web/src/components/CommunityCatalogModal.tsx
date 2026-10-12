@@ -123,7 +123,7 @@ export const CommunityCatalogModal: React.FC<CommunityCatalogModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <PortalModal isOpen={isOpen} onClose={onClose}>
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-4xl">
       <div className="relative w-full max-w-4xl bg-[#0B0F19] border border-[#1E293B] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
         {/* Header */}
         <div className="p-6 border-b border-[#1E293B] bg-[#0F1420]/70 flex items-center justify-between gap-4">

@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "NVIDIA NIM",
   "alias": "nvidia",
   "color": "#76B900",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/nvidia/icon.png",
   "website": "https://developer.nvidia.com/nim",
   "notice": {
@@ -24,8 +25,7 @@ export const metadata: ProviderRegistryItem = {
   "validateUrl": "https://integrate.api.nvidia.com/v1/models",
   "format": "openai",
   "defaultHeaders": {},
-  "thinkingMode": "auto"
-,
+  "thinkingMode": "auto",
   models
 };
 

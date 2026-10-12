@@ -67,9 +67,10 @@ mapigate/
 │   ├── providers/               # Hierarchical 100% Self-Contained Provider Modules
 │   │   ├── core/                # Shared base classes, interfaces, runtime ProviderRegistry
 │   │   ├── runtime/             # Built-in providers (claude, openai, deepseek, bedrock, github, etc.)
+│   │   │   └── <provider>/      # assets/, metadata.ts, provider.ts, (optional) routes.ts, index.ts
 │   │   ├── composite/           # Composite routing providers (combo)
 │   │   ├── catalog/             # Lightweight standard providers (360ai, agnes, etc.) & community
-│   │   ├── generated/           # AUTO-GENERATED metadata and runtime registries
+│   │   ├── generated/           # AUTO-GENERATED metadata, provider, and routes registries
 │   │   └── index.ts             # Unified barrel export
 │   ├── mitm/                    # Decoupled HTTPS Interceptor
 │   │   ├── handlers/            # Modularized tool handlers (kiro, cursor, copilot, antigravity)
@@ -140,11 +141,12 @@ Client (Claude Code / Cursor / Cline)
 
 1. **Self-Contained Module Invariant:**
    * All provider logic, metadata, models, and assets MUST reside in `src/providers/runtime/<name>/` or `src/providers/catalog/<name>/`.
+   * If a provider defines custom API endpoints, OAuth PKCE flows, device code handling, or IDE token auto-import, implement them exclusively in `routes.ts` exporting `export function registerRoutes(router: Router): void`.
    * All CLI tool definitions and configurators MUST reside in `src/cli/tools/definitions/<tool>/`.
    * All MITM tool configs and handlers MUST reside in `src/mitm/handlers/<tool>/`.
-   * Never add provider, CLI, or MITM logic directly into proxy middleware, router core, or public directories.
+   * Server route files under `src/server/routes/` MUST remain Generic Thin Routers (< 150–200 lines) that mount auto-generated provider routes via `registerAllProviderRoutes(router)`. Never add provider, CLI, or MITM logic directly into proxy middleware, router core, or public directories.
 2. **Pure Scanner Invariant:**
-   * `scripts/generate-registries.mjs` is strictly a pure scanner and import generator. Never add business rules or inline helpers to it.
+   * `scripts/generate-registries.mjs` is strictly a pure scanner and import generator. It scans `metadata.ts`, `provider.ts`, and `routes.ts` across provider folders into generated registries (`metadataRegistry.generated.ts`, `providersRegistry.ts`, `routesRegistry.generated.ts`). Never add business rules or inline helpers to it.
    * Never manually edit generated registry files. Run `npm run codegen` to regenerate.
 3. **UI Icon Consistency Invariant:**
    * Always render icons through `src/web/src/components/ui/ToolIcon.tsx`.

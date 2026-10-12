@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "ps",
   "color": "#0EA5E9",
+  "iconBg": "#4337ff",
   "image": "/assets/providers/poolside/icon.png",
   "website": "https://poolside.ai",
   "notice": {

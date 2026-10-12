@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
-import { ScanModelsModal } from "../components/ScanModelsModal";
 import { CommunityCatalogModal } from "../components/CommunityCatalogModal";
-import { saveProviderModels } from "../services/providerService";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import { ToolIcon } from "../components/ui/ToolIcon";
@@ -27,7 +25,6 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "connected" | "not_connected">("all");
-  const [scanningProvider, setScanningProvider] = useState<ProviderItem | null>(null);
   const [isCommunityCatalogOpen, setIsCommunityCatalogOpen] = useState(false);
 
   const loadBackendProviders = async () => {
@@ -132,7 +129,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       <div
         key={p.id}
         onClick={() => onSelectProvider(p)}
-        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden"
+        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden min-w-[250px]"
       >
         <div className="flex items-center gap-3 min-w-0">
           <ToolIcon
@@ -166,16 +163,6 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setScanningProvider(p);
-            }}
-            title="Scan Models from API"
-            className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">radar</span>
-          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -320,7 +307,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
           {OAUTH_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -341,7 +328,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
           {FREE_TIER_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -362,7 +349,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
           {API_KEY_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -466,64 +453,6 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </div>
         )}
       </PortalModal>
-
-      {/* Modal Scan Models */}
-      {scanningProvider && (
-        <ScanModelsModal
-          isOpen={Boolean(scanningProvider)}
-          provider={{
-            id: scanningProvider.id,
-            name: scanningProvider.name,
-            baseUrl: scanningProvider.baseUrl,
-            validateUrl: scanningProvider.validateUrl || getRegistryProvider(scanningProvider.id)?.validateUrl,
-            image: scanningProvider.image,
-            color: scanningProvider.color || getRegistryProvider(scanningProvider.id)?.color,
-            iconBg: scanningProvider.iconBg || getRegistryProvider(scanningProvider.id)?.iconBg,
-            format: scanningProvider.format,
-          }}
-          existingModels={
-            backendProviders.find((bp) => bp.id === scanningProvider.id)?.models || []
-          }
-          accountsCount={getAccountsCount(scanningProvider.id)}
-          onAddAccount={() => {
-            const p = scanningProvider;
-            setScanningProvider(null);
-            onSelectProvider(p);
-          }}
-          onClose={() => setScanningProvider(null)}
-          onApplyModels={async (newModelIds, mode) => {
-            const current = backendProviders.find((bp) => bp.id === scanningProvider.id);
-            const currentModels = Array.isArray(current?.models) ? current.models : [];
-            const nextModels =
-              mode === "replace"
-                ? newModelIds
-                : [...currentModels, ...newModelIds.filter((m) => !currentModels.includes(m))];
-
-            try {
-              const saved = await saveProviderModels(scanningProvider.id, nextModels);
-              if (!saved) {
-                // Fallback in case provider is not yet persisted in SQLite
-                await fetch("/api/providers", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    ...(current || {}),
-                    id: scanningProvider.id,
-                    name: current?.name || scanningProvider.name,
-                    baseUrl: current?.baseUrl || scanningProvider.baseUrl || "https://api.openai.com",
-                    format: current?.format || scanningProvider.format || "openai",
-                    models: nextModels,
-                  }),
-                });
-              }
-              await loadBackendProviders();
-              invalidateAvailableModelsCache();
-            } catch (err) {
-              console.error("Failed to save scanned models:", err);
-            }
-          }}
-        />
-      )}
 
       {/* Modal Community Catalog */}
       <CommunityCatalogModal
