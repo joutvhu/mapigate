@@ -24,6 +24,11 @@ export interface MitmToolUiConfig {
   defaultHost?: string;
 }
 
+export interface MitmHttpRequestLike {
+  url?: string;
+  headers?: Record<string, string | string[] | undefined>;
+}
+
 export interface MitmToolConfig {
   id: string;
   name: string;
@@ -36,4 +41,6 @@ export interface MitmToolConfig {
   modelSynonyms?: Record<string, string>;
   modelPatterns?: Array<{ match: RegExp; alias: string }>;
   modelNoMap?: RegExp[];
+  matchesHost?: (hostname: string) => boolean;
+  isChatRequest?: (req: MitmHttpRequestLike) => boolean;
 }

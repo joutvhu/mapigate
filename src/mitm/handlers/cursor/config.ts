@@ -15,4 +15,5 @@ export const toolConfig: MitmToolConfig = {
     "/Run",
   ],
   defaultHost: "127.0.0.1 api2.cursor.sh",
+  matchesHost: (h: string) => h.includes("cursor.sh"),
 };

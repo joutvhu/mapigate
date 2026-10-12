@@ -60,6 +60,11 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.equal(getToolForHost("codewhisperer.us-east-1.amazonaws.com"), "kiro");
     assert.equal(getToolForHost("api2.cursor.sh:443"), "cursor");
     assert.equal(getToolForHost("api2.cursor.sh"), "cursor");
+    // Subdomain matching via tool-level matchesHost predicate
+    assert.equal(getToolForHost("custom-subdomain.cloudcode-pa.googleapis.com"), "antigravity");
+    assert.equal(getToolForHost("subdomain.githubcopilot.com"), "copilot");
+    assert.equal(getToolForHost("subdomain.cursor.sh"), "cursor");
+    assert.equal(getToolForHost("custom.kiro.dev"), "kiro");
     assert.equal(getToolForHost("unknown-domain.example.com"), null);
     assert.equal(getToolForHost(""), null);
     assert.equal(getToolForHost(undefined), null);
@@ -98,6 +103,13 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
       isChatRequest("kiro", {
         url: "/",
         headers: { "x-amz-target": "KiroRuntimeService.GenerateAssistantResponse" },
+      }),
+      true
+    );
+    assert.equal(
+      isChatRequest("kiro", {
+        url: "/",
+        headers: { "x-amz-target": "KiroRuntimeService.CreateResponse" },
       }),
       true
     );

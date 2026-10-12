@@ -14,4 +14,5 @@ export const toolConfig: MitmToolConfig = {
     "/responses",
   ],
   defaultHost: "127.0.0.1 api.individual.githubcopilot.com",
+  matchesHost: (h: string) => h.includes("githubcopilot.com"),
 };

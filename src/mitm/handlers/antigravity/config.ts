@@ -17,6 +17,7 @@ export const toolConfig: MitmToolConfig = {
   hostRewrite: {
     "cloudcode-pa.googleapis.com": "daily-cloudcode-pa.googleapis.com",
   },
+  matchesHost: (h: string) => h.includes("cloudcode-pa.googleapis.com"),
   modelSynonyms: {
     "gemini-default": "gemini-3.8-flash-medium",
     "gemini-3.5-flash-high": "gemini-3.8-flash-high",

@@ -15,4 +15,13 @@ export const toolConfig: MitmToolConfig = {
     "/responses",
   ],
   defaultHost: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
+  matchesHost: (h: string) =>
+    h.includes("kiro.dev") ||
+    h.includes("q.us-east-1.amazonaws.com") ||
+    h.includes("codewhisperer.us-east-1.amazonaws.com"),
+  isChatRequest: (req) => {
+    const rawTarget = req.headers?.["x-amz-target"];
+    const target = Array.isArray(rawTarget) ? rawTarget[0] : String(rawTarget || "");
+    return target.includes("GenerateAssistantResponse") || target.includes("CreateResponse");
+  },
 };
