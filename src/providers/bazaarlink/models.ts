@@ -1,0 +1,28 @@
+import type { RegistryModel } from "../types.js";
+
+export const models: RegistryModel[] = [
+  {"id":"auto:free","name":"Auto Free (Zero Cost)","isDefault":false},
+  {"id":"claude-opus-4.7","name":"Claude Opus 4.7","isDefault":false,"contextLength":1000000},
+  {"id":"claude-sonnet-4.6","name":"Claude Sonnet 4.6","isDefault":false,"contextLength":1000000},
+  {"id":"claude-haiku-4.5","name":"Claude Haiku 4.5","isDefault":false,"contextLength":200000},
+  {"id":"gpt-5.5","name":"GPT-5.5","isDefault":false,"contextLength":1050000},
+  {"id":"gpt-5.4","name":"GPT-5.4","isDefault":false,"contextLength":1050000},
+  {"id":"gpt-5.4-mini","name":"GPT-5.4 Mini","isDefault":false,"contextLength":400000},
+  {"id":"gpt-5.4-nano","name":"GPT-5.4 Nano","isDefault":false,"contextLength":400000},
+  {"id":"grok-4.3","name":"Grok 4.3","isDefault":false,"contextLength":1000000},
+  {"id":"grok-4.20","name":"Grok 4.20","isDefault":false,"contextLength":2000000},
+  {"id":"gemini-3.1-pro-preview","name":"Gemini 3.1 Pro","isDefault":false,"contextLength":1048576},
+  {"id":"gemini-3-flash-preview","name":"Gemini 3 Flash","isDefault":false,"contextLength":1048576},
+  {"id":"gemini-3.1-flash-lite-preview","name":"Gemini 3.1 Flash Lite","isDefault":false,"contextLength":1048576},
+  {"id":"kimi-k2.6","name":"Kimi K2.6","isDefault":false,"contextLength":262144},
+  {"id":"kimi-k2.5","name":"Kimi K2.5","isDefault":false,"contextLength":262144},
+  {"id":"glm-5.1","name":"GLM 5.1","isDefault":false,"contextLength":204800},
+  {"id":"glm-5","name":"GLM 5","isDefault":false,"contextLength":204800},
+  {"id":"mimo-v2.5-pro","name":"MiMo-V2.5-Pro","isDefault":false,"contextLength":1050000},
+  {"id":"mimo-v2.5","name":"MiMo-V2.5","isDefault":false,"contextLength":1050000},
+  {"id":"minimax-m3","name":"MiniMax M3","isDefault":false,"contextLength":1048576},
+  {"id":"minimax-m2.7","name":"MiniMax M2.7","isDefault":false,"contextLength":204800},
+  {"id":"minimax-m2.5","name":"MiniMax M2.5","isDefault":false,"contextLength":204800},
+  {"id":"qwen3.6-plus","name":"Qwen 3.6 Plus","isDefault":false,"contextLength":1000000},
+  {"id":"nemotron-3-super-120b-a12b","name":"Nemotron 3 Super","isDefault":false,"contextLength":1000000},
+];

@@ -2,25 +2,27 @@ import type { IProvider } from "./types.js";
 import { getRegistryProvider } from "./metadataRegistry.js";
 import { OpenAiCompatibleProvider } from "./base/openAiProvider.js";
 import { AnthropicCompatibleProvider } from "./base/anthropicProvider.js";
-import { ComboProvider } from "../core/providers/combo/index.js";
-import { AntigravityProvider } from "../core/providers/antigravity/index.js";
-import { AzureProvider } from "../core/providers/azure/index.js";
-import { BedrockProvider } from "../core/providers/bedrock/index.js";
-import { ClaudeProvider } from "../core/providers/claude/index.js";
-import { CloudflareProvider } from "../core/providers/cloudflare/index.js";
-import { CodexProvider } from "../core/providers/codex/index.js";
-import { DeepSeekProvider } from "../core/providers/deepseek/index.js";
-import { GeminiProvider } from "../core/providers/gemini/index.js";
-import { GitHubProvider } from "../core/providers/github/index.js";
-import { GlmProvider } from "../core/providers/glm/index.js";
-import { GrokProvider } from "../core/providers/grok/index.js";
-import { KiroProvider } from "../core/providers/kiro/index.js";
-import { MimoProvider } from "../core/providers/mimo/index.js";
-import { MiniMaxProvider } from "../core/providers/minimax/index.js";
-import { OllamaProvider } from "../core/providers/ollama/index.js";
-import { OpenCodeProvider } from "../core/providers/opencode/index.js";
-import { QoderProvider } from "../core/providers/qoder/index.js";
-import { XKiroProvider } from "../core/providers/xkiro/index.js";
+
+import { AntigravityProvider } from "./antigravity/index.js";
+import { AzureProvider } from "./azure/index.js";
+import { BedrockProvider } from "./bedrock/index.js";
+import { ClaudeProvider } from "./claude/index.js";
+import { CloudflareProvider } from "./cloudflare/index.js";
+import { CodexProvider } from "./codex/index.js";
+import { ComboProvider } from "./combo/index.js";
+import { DeepSeekProvider } from "./deepseek/index.js";
+import { GeminiProvider } from "./gemini/index.js";
+import { GitHubProvider } from "./github/index.js";
+import { GlmProvider } from "./glm/index.js";
+import { GrokProvider } from "./grok/index.js";
+import { KiroProvider } from "./kiro/index.js";
+import { MimoProvider } from "./mimo/index.js";
+import { MiniMaxProvider } from "./minimax/index.js";
+import { OllamaProvider } from "./ollama/index.js";
+import { OpenCodeProvider } from "./opencode/index.js";
+import { OpenAiProvider } from "./openai/index.js";
+import { QoderProvider } from "./qoder/index.js";
+import { XKiroProvider } from "./xkiro/index.js";
 
 export class ProviderRegistry {
   private static initialized = false;
@@ -62,6 +64,7 @@ export class ProviderRegistry {
     this.register(new MiniMaxProvider(), ["minimax-cn"]);
     this.register(new OllamaProvider(), ["ollama-local"]);
     this.register(new OpenCodeProvider(), ["oc"]);
+    this.register(new OpenAiProvider());
     this.register(new QoderProvider(), ["qoder-cn"]);
     this.register(new XKiroProvider());
   }
