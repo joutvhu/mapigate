@@ -44,7 +44,14 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "deepseek-v4.1-flash",
       "name": "DeepSeek V4.1 Flash",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "thinkingFormat": "deepseek",
+        "contextWindow": 1000000,
+        "maxOutput": 384000
+      }
     },
     {
       "id": "deepseek-v4-flash",
@@ -54,17 +61,39 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "deepseek-v4-flash-vision-exp",
       "name": "DeepSeek V4 Flash Vision (Exp)",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "thinkingFormat": "deepseek",
+        "contextWindow": 1000000,
+        "maxOutput": 384000
+      }
     },
     {
       "id": "deepseek-chat",
       "name": "DeepSeek V3.2 Chat",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": false,
+        "reasoning": true,
+        "thinkingFormat": "deepseek",
+        "contextWindow": 128000,
+        "maxOutput": 64000
+      }
     },
     {
       "id": "deepseek-reasoner",
       "name": "DeepSeek V3.2 Reasoner",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": false,
+        "reasoning": true,
+        "thinkingFormat": "deepseek",
+        "thinkingCanDisable": false,
+        "contextWindow": 128000,
+        "maxOutput": 64000
+      }
     }
   ]
 };

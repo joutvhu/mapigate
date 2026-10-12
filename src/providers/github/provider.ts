@@ -2,7 +2,7 @@ import { OpenAiCompatibleProvider } from "../base/openAiProvider.js";
 import type { ProviderRequestContext } from "../types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../core/usage/types.js";
 import { getGitHubUsage } from "./quota.js";
-import { ensureFreshCopilotCredentials } from "../../core/auth/copilotToken.js";
+import { ensureFreshCopilotCredentials } from "./auth.js";
 
 export class GitHubProvider extends OpenAiCompatibleProvider {
   public override readonly id = "github";

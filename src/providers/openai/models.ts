@@ -34,7 +34,7 @@ export const models: RegistryModel[] = [
   {"id":"gpt-image-2.5","name":"GPT Image 2.5","isDefault":false,"kind":"image"},
   {"id":"gpt-image-2.5-flare","name":"GPT Image 2.5 Flare","isDefault":false,"kind":"image"},
   {"id":"gpt-image-2.5-sunburst","name":"GPT Image 2.5 Sunburst","isDefault":false,"kind":"image"},
-  {"id":"gpt-image-1","name":"GPT Image 1","isDefault":false,"kind":"image"},
+  {"id":"gpt-image-1","name":"GPT Image 1","isDefault":false,"kind":"image","capabilities":{"imageOutput":true,"tools":false}},
   {"id":"dall-e-3","name":"DALL-E 3","isDefault":false,"kind":"image"},
   {"id":"dall-e-2","name":"DALL-E 2","isDefault":false,"kind":"image"},
 ];

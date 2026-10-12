@@ -225,20 +225,25 @@ modelRouter.get("/available", (req, res) => {
 
         const modelAny = model as any;
         const modelCaps = getCapabilitiesForModel(provider.id, model.id);
+        const hasCap = (capName: string): boolean => {
+          if (!model.capabilities) return false;
+          if (Array.isArray(model.capabilities)) return model.capabilities.includes(capName);
+          return Boolean((model.capabilities as any)[capName]);
+        };
         const vision = Boolean(
           modelAny.vision !== undefined
             ? modelAny.vision
-            : (model.capabilities?.includes("vision") || modelCaps.vision)
+            : (hasCap("vision") || modelCaps.vision)
         );
         const reasoning = Boolean(
           modelAny.reasoning !== undefined
             ? modelAny.reasoning
-            : (model.capabilities?.includes("reasoning") || modelCaps.reasoning)
+            : (hasCap("reasoning") || modelCaps.reasoning)
         );
         const audio = Boolean(
           modelAny.audio !== undefined
             ? modelAny.audio
-            : (model.capabilities?.includes("audio") || modelCaps.audioInput || modelCaps.audioOutput)
+            : (hasCap("audio") || modelCaps.audioInput || modelCaps.audioOutput)
         );
 
         availableModels.push({

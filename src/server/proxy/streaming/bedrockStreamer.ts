@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
-import { decodeEventStreamChunk } from "../../../core/adapters/awsEventStream.js";
+import { decodeEventStreamChunk } from "../../../providers/bedrock/eventStream.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../core/providers/types.js";
 import { createStreamTrackingState } from "./streamState.js";

@@ -56,17 +56,43 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "claude-opus-5-5",
       "name": "Claude Opus 5.5",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "contextWindow": 1000000,
+        "maxOutput": 128000,
+        "thinkingCanDisable": false
+      }
     },
     {
       "id": "claude-opus-5",
       "name": "Claude Opus 5",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
     },
     {
       "id": "claude-fable-5-1",
       "name": "Claude Fable 5.1",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "thinkingCanDisable": false,
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
     },
     {
       "id": "claude-fable-5",
@@ -76,12 +102,41 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "claude-sonnet-5-5",
       "name": "Claude Sonnet 5.5",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
     },
     {
       "id": "claude-sonnet-5",
       "name": "Claude Sonnet 5",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-3-7-sonnet",
+      "name": "Claude 3.7 Sonnet",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-budget",
+        "contextWindow": 200000,
+        "maxOutput": 64000
+      }
     },
     {
       "id": "claude-haiku-4-5-20251001",

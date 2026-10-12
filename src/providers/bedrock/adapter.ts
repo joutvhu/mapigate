@@ -1,4 +1,4 @@
-import { signAwsSigv4Request } from "../../core/auth/awsSigv4.js";
+import { signAwsSigv4Request } from "./auth.js";
 
 export interface BedrockSigningOptions {
   url: string;

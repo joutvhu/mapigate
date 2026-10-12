@@ -75,6 +75,34 @@ test("Capabilities - getCapabilitiesForModel accurately classifies models", () =
   assert.equal(gemini.search, true);
 });
 
+test("Capabilities - resolves model capabilities from provider metadata SSOT", () => {
+  // Claude provider metadata
+  const claudeFable = getCapabilitiesForModel("claude", "claude-fable-5-1");
+  assert.equal(claudeFable.vision, true);
+  assert.equal(claudeFable.reasoning, true);
+  assert.equal(claudeFable.thinkingCanDisable, false);
+  assert.equal(claudeFable.contextWindow, 1000000);
+
+  // Kimi provider metadata
+  const kimiK3 = getCapabilitiesForModel("kimi", "kimi-k3");
+  assert.equal(kimiK3.vision, true);
+  assert.equal(kimiK3.videoInput, true);
+  assert.equal(kimiK3.reasoning, true);
+  assert.equal(kimiK3.thinkingFormat, "kimi");
+  assert.equal(kimiK3.contextWindow, 1048576);
+
+  // OpenAI image generator without tools
+  const gptImage = getCapabilitiesForModel("openai", "gpt-image-1");
+  assert.equal(gptImage.imageOutput, true);
+  assert.equal(gptImage.tools, false);
+
+  // DeepSeek reasoning model
+  const dsReasoner = getCapabilitiesForModel("deepseek", "deepseek-reasoner");
+  assert.equal(dsReasoner.vision, false);
+  assert.equal(dsReasoner.reasoning, true);
+  assert.equal(dsReasoner.thinkingCanDisable, false);
+});
+
 test("Capabilities - aggregateComboCapabilities union and intersection", () => {
   // Combo with 1 non-vision text model and 1 vision model
   const models = ["deepseek/deepseek-chat", "openai/gpt-4o"];

@@ -8,6 +8,7 @@ import type {
   ProviderNotice,
   ProviderOAuthConfig,
 } from "../shared/constants/providerRegistry/types.js";
+import type { ModelCapabilities } from "../core/capabilities/types.js";
 
 export type SingleModelHandler = (
   modelBody: any,
@@ -111,6 +112,7 @@ export type ProviderMetadata = ProviderRegistryItem;
 export type {
   ProviderRegistryItem,
   RegistryModel,
+  ModelCapabilities,
   ProviderRegion,
   ProviderNotice,
   ProviderOAuthConfig,

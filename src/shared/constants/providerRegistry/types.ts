@@ -1,9 +1,11 @@
+import type { ModelCapabilities } from "../../../core/capabilities/types.js";
+
 export interface RegistryModel {
   id: string;
   name: string;
   upstreamModelId?: string;
   isDefault?: boolean;
-  capabilities?: string[];
+  capabilities?: Partial<ModelCapabilities> | string[];
   kind?: "llm" | "image" | "embedding" | "systemone" | "video" | string;
   contextLength?: number;
 }

@@ -44,12 +44,29 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "glm-5.3-flash",
       "name": "GLM 5.3 Flash (Vision)",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "videoInput": true,
+        "pdf": true,
+        "reasoning": true,
+        "thinkingFormat": "zai",
+        "thinkingCanDisable": false,
+        "contextWindow": 1000000,
+        "maxOutput": 131072
+      }
     },
     {
       "id": "glm-5.2",
       "name": "GLM 5.2",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "reasoning": true,
+        "thinkingFormat": "zai",
+        "thinkingCanDisable": false,
+        "contextWindow": 1000000,
+        "maxOutput": 131072
+      }
     },
     {
       "id": "glm-5.1",
@@ -74,7 +91,15 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "glm-4.6v",
       "name": "GLM 4.6V (Vision)",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "videoInput": true,
+        "reasoning": true,
+        "thinkingFormat": "zai",
+        "contextWindow": 128000,
+        "maxOutput": 32768
+      }
     }
   ]
 };

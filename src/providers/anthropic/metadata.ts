@@ -24,6 +24,45 @@ export const metadata: ProviderRegistryItem = {
   "thinkingMode": "auto",
   "models": [
     {
+      "id": "claude-3-7-sonnet",
+      "name": "Claude 3.7 Sonnet",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-budget",
+        "contextWindow": 200000,
+        "maxOutput": 64000
+      }
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "Claude Sonnet 5",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
       "id": "claude-sonnet-4-20250514",
       "name": "Claude Sonnet 4",
       "isDefault": false
