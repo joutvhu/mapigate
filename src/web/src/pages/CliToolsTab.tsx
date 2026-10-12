@@ -156,7 +156,7 @@ export const CliToolsTab: React.FC = () => {
       </div>
 
       {/* FULL-WIDTH RESPONSIVE GRID FOR ALL 26 CLI TOOLS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
         {CLI_TOOLS_LIST.map((tool, idx) => {
           const currentStatus = getEffectiveStatus(tool);
           return (
@@ -174,7 +174,7 @@ export const CliToolsTab: React.FC = () => {
                   setActiveTab("powershell");
                 }
               }}
-              className="rt-card stagger-item flex items-center justify-between gap-3 cursor-pointer py-3.5 px-4 hover:border-blue-500/40 hover:bg-[#131B2E] transition-all"
+              className="rt-card stagger-item flex items-center justify-between gap-3 cursor-pointer py-3.5 px-4 hover:border-blue-500/40 hover:bg-[#131B2E] transition-all min-w-[250px]"
               style={{ animationDelay: `${idx * 20}ms` }}
             >
               <div className="flex items-center gap-3 min-w-0">

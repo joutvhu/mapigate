@@ -76,7 +76,7 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
 
   return (
     <div
-      className={`flex flex-col justify-between bg-[#0F1420]/80 border border-[#1E293B] hover:border-slate-700/80 rounded-2xl p-4 sm:p-5 transition-all duration-200 shadow-lg ${
+      className={`flex flex-col justify-between bg-[#0F1420]/80 border border-[#1E293B] hover:border-slate-700/80 rounded-2xl p-4 sm:p-5 transition-all duration-200 shadow-lg min-w-[340px] ${
         !account.isActive ? "opacity-60 bg-[#0B0E17]/60" : ""
       }`}
     >

@@ -341,7 +341,7 @@ export const QuotaTab: React.FC = () => {
 
       {/* Grid of Quota Cards */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 w-full">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
@@ -376,7 +376,7 @@ export const QuotaTab: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 w-full">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
           {visibleAccounts.map((account) => (
             <ProviderLimitCard
               key={account.accountId}
