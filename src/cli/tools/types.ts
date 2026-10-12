@@ -40,6 +40,7 @@ export interface CliToolDefinition {
   name: string;
   image: string;
   color: string;
+  iconBg?: string;
   description: string;
   configType: "env" | "file" | "guide" | "custom";
   binary?: string;

@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "fl",
   "color": "#111827",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/featherless/icon.png",
   "website": "https://featherless.ai",
   "notice": {

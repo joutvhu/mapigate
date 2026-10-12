@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "GitHub Copilot",
   image: "/providers/copilot.png",
   color: "#1F6FEB",
+  iconBg: "#FFFFFF",
   description: "GitHub Copilot in VS Code / CLI",
   configType: "guide",
   binary: "copilot",

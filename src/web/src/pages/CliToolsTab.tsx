@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { CLI_TOOLS_LIST, type CliToolItem } from "../constants/providersData";
 import { CLI_TOOLS, type CliToolDefinition } from "../../../shared/constants/cliTools";
+import { ToolIcon } from "../components/ui/ToolIcon";
 
 interface ToolStatusData {
   id: string;
@@ -177,9 +178,13 @@ export const CliToolsTab: React.FC = () => {
               style={{ animationDelay: `${idx * 20}ms` }}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="size-10 rounded-xl bg-[#0D1322] p-2 flex items-center justify-center shrink-0 border border-[#1E293B]">
-                  <img src={tool.image} alt={tool.name} className="size-full object-contain" />
-                </div>
+                <ToolIcon
+                  src={tool.image}
+                  name={tool.name}
+                  color={CLI_TOOLS[tool.id]?.color}
+                  iconBg={CLI_TOOLS[tool.id]?.iconBg || tool.iconBg}
+                  size="md"
+                />
                 <div className="min-w-0">
                   <h4 className="text-xs font-bold text-slate-100 truncate">
                     {tool.name}
@@ -207,9 +212,13 @@ export const CliToolsTab: React.FC = () => {
             {/* Modal Header */}
             <div className="flex items-start justify-between pb-3.5 border-b border-[#1E293B]">
               <div className="flex items-center gap-3">
-                <div className="size-11 rounded-xl bg-[#0D1322] p-2 flex items-center justify-center border border-[#1E293B] shrink-0">
-                  <img src={activeModalTool.image} alt={activeModalTool.name} className="size-full object-contain" />
-                </div>
+                <ToolIcon
+                  src={activeModalTool.image}
+                  name={activeModalTool.name}
+                  color={selectedDef?.color}
+                  iconBg={selectedDef?.iconBg || activeModalTool.iconBg}
+                  size="lg"
+                />
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-white">{activeModalTool.name}</h3>

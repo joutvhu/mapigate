@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "bfl",
   "color": "#111827",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/black-forest-labs/icon.png",
   "website": "https://blackforestlabs.ai",
   "notice": {

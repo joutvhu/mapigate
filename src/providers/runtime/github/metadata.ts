@@ -12,6 +12,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "gh",
   "uiAlias": "gh",
   "color": "#333333",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/github/icon.png",
   "website": "https://github.com/features/copilot",
   "notice": {

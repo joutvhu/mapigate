@@ -21,6 +21,7 @@ export interface MitmToolUiConfig {
   name: string;
   image: string;
   desc: string;
+  iconBg?: string;
   defaultHost?: string;
 }
 
@@ -34,6 +35,7 @@ export interface MitmToolConfig {
   name: string;
   image: string;
   desc: string;
+  iconBg?: string;
   hosts: string[];
   urlPatterns: string[];
   defaultHost?: string;

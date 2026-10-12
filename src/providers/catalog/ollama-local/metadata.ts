@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Ollama Local",
   "alias": "ollama-local",
   "color": "#ffffffff",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/ollama-local/icon.png",
   "website": "https://ollama.com",
   "category": "apikey",

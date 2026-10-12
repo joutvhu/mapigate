@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from "react";
 import type { AccountQuotaResult } from "../../../core/usage/types.js";
 import { sortNormalizedQuotas } from "../../../../shared/constants/quotaOrder";
+import { getRegistryProvider } from "../../../../shared/constants/providerRegistry";
+import { ToolIcon } from "../ui/ToolIcon";
 import { QuotaProgressBar } from "./QuotaProgressBar.js";
 
 export interface ProviderLimitCardProps {
@@ -40,10 +42,9 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
   onToggle,
 }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [imageError, setImageError] = useState(false);
 
-  const providerColor = PROVIDER_COLORS[account.providerId.toLowerCase()] || "#3B82F6";
-  const fallbackText = account.providerId.slice(0, 2).toUpperCase();
+  const regProvider = getRegistryProvider(account.providerId);
+  const providerColor = regProvider?.color || PROVIDER_COLORS[account.providerId.toLowerCase()] || "#3B82F6";
 
   const handleRefresh = async () => {
     if (refreshing || loading) return;
@@ -84,23 +85,13 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-[#1E293B]/70">
           <div className="flex items-center gap-3 min-w-0">
             {/* Provider Avatar */}
-            <div
-              className="size-10 rounded-xl flex items-center justify-center p-1.5 shrink-0 border border-white/5"
-              style={{ backgroundColor: `${providerColor}20` }}
-            >
-              {!imageError ? (
-                <img
-                  src={`/providers/${account.providerId}.png`}
-                  alt={account.providerId}
-                  className="size-7 object-contain rounded-lg"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <span className="font-bold text-xs" style={{ color: providerColor }}>
-                  {fallbackText}
-                </span>
-              )}
-            </div>
+            <ToolIcon
+              src={regProvider?.image || `/providers/${account.providerId}.png`}
+              name={account.providerId}
+              color={providerColor}
+              iconBg={regProvider?.iconBg}
+              size="md"
+            />
 
             {/* Provider and Account Label */}
             <div className="min-w-0">

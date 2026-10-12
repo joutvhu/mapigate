@@ -5,6 +5,7 @@ export interface ProviderItem {
   name: string;
   image: string;
   color?: string;
+  iconBg?: string;
   category: "oauth" | "freeTier" | "apikey" | "custom";
   defaultConnected?: number;
   baseUrl?: string;
@@ -63,6 +64,7 @@ export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
     name: p.name,
     image: p.image || `/providers/${p.id}.png`,
     color: p.color || "#4285F4",
+    iconBg: p.iconBg,
     category: "oauth" as const,
     defaultConnected: 0,
     baseUrl: p.baseUrl,
@@ -79,6 +81,7 @@ export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
     name: p.name,
     image: p.image || `/providers/${p.id}.png`,
     color: p.color || "#10B981",
+    iconBg: p.iconBg,
     category: "freeTier" as const,
     defaultConnected: 0,
     baseUrl: p.baseUrl,
@@ -95,6 +98,7 @@ export const API_KEY_PROVIDERS_LIST: ProviderItem[] = registryList
     name: p.name,
     image: p.image || `/providers/${p.id}.png`,
     color: p.color || "#6366F1",
+    iconBg: p.iconBg,
     category: "apikey" as const,
     defaultConnected: 0,
     baseUrl: p.baseUrl,
@@ -108,6 +112,7 @@ export interface CliToolItem {
   id: string;
   name: string;
   image: string;
+  iconBg?: string;
   status: "Connected" | "Guide" | "Not configured" | "Not installed";
   badgeColor?: string;
   desc?: string;
@@ -117,12 +122,12 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
   { id: "claude", name: "Claude Code", image: "/providers/claude.png", status: "Not configured" },
   { id: "openclaw", name: "Open Claw", image: "/providers/openclaw.png", status: "Not installed" },
   { id: "codex", name: "OpenAI Codex CLI / App", image: "/providers/codex.png", status: "Not configured" },
-  { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", status: "Guide" },
+  { id: "copilot", name: "GitHub Copilot", image: "/providers/copilot.png", iconBg: "#FFFFFF", status: "Guide" },
   { id: "opencode", name: "OpenCode", image: "/providers/opencode.png", status: "Not configured" },
   { id: "cowork", name: "Claude Cowork", image: "/providers/claude.png", status: "Not configured" },
   { id: "hermes", name: "Hermes Agent", image: "/providers/hermes.png", status: "Not installed" },
   { id: "droid", name: "Factory Droid", image: "/providers/droid.png", status: "Not installed" },
-  { id: "cursor", name: "Cursor", image: "/providers/cursor.png", status: "Guide" },
+  { id: "cursor", name: "Cursor", image: "/providers/cursor.png", iconBg: "#FFFFFF", status: "Guide" },
   { id: "cline", name: "Cline", image: "/providers/cline.png", status: "Not configured" },
   { id: "kilo", name: "Kiro Code", image: "/providers/kilocode.png", status: "Guide" },
   { id: "roo", name: "Roo", image: "/providers/roo.png", status: "Guide" },

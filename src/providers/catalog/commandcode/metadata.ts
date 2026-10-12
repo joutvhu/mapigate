@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "cmc",
   "color": "#000000",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/commandcode/icon.png",
   "website": "https://commandcode.ai",
   "notice": {

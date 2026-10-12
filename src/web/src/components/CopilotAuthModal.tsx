@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { PortalModal } from "./PortalModal";
+import { ToolIcon } from "./ui/ToolIcon";
 
 interface CopilotAuthModalProps {
   isOpen: boolean;
@@ -142,9 +143,13 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-[#0D1322] border border-[#1E293B] p-1.5 flex items-center justify-center">
-              <img src="/providers/github.png" alt="GitHub" className="size-full object-contain" />
-            </div>
+            <ToolIcon
+              src="/providers/github.png"
+              name="GitHub Copilot"
+              color="#333333"
+              iconBg="#FFFFFF"
+              size="md"
+            />
             <div>
               <h3 className="text-sm font-bold text-white">Connect GitHub Copilot</h3>
               <p className="text-xs text-slate-400">Authorize via official GitHub Device Flow</p>

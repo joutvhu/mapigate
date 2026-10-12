@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "vercel",
   "color": "#111827",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/vercel-ai-gateway/icon.png",
   "website": "https://vercel.com/ai-gateway",
   "notice": {

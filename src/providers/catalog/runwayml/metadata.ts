@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "runway",
   "color": "#000000",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/runwayml/icon.png",
   "website": "https://runwayml.com",
   "notice": {

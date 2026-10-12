@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "writer",
   "color": "#111827",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/writer/icon.svg",
   "website": "https://dev.writer.com",
   "notice": {

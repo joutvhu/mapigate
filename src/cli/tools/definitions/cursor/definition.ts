@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Cursor",
   image: "/providers/cursor.png",
   color: "#000000",
+  iconBg: "#FFFFFF",
   description: "Cursor AI Code Editor",
   configType: "guide",
   binary: "cursor",

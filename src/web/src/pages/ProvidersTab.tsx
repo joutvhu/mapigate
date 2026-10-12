@@ -5,6 +5,7 @@ import { CommunityCatalogModal } from "../components/CommunityCatalogModal";
 import { saveProviderModels } from "../services/providerService";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
+import { ToolIcon } from "../components/ui/ToolIcon";
 import {
   OAUTH_PROVIDERS_LIST,
   FREE_TIER_PROVIDERS_LIST,
@@ -134,16 +135,14 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="size-10 rounded-xl bg-[#0D1322] p-2 flex items-center justify-center shrink-0 border border-[#1E293B] group-hover:border-blue-500/40 transition-colors">
-            <img
-              src={p.image}
-              alt={p.name}
-              className="size-full object-contain"
-              onError={(e) => {
-                (e.currentTarget as HTMLElement).style.display = "none";
-              }}
-            />
-          </div>
+          <ToolIcon
+            src={p.image}
+            name={p.name}
+            color={p.color}
+            iconBg={p.iconBg}
+            size="md"
+            className="group-hover:border-blue-500/40 transition-colors"
+          />
           <div className="min-w-0">
             <h4 className="text-xs font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
               {p.name}
@@ -378,10 +377,12 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
               <div className="flex items-center gap-3">
-                <img
+                <ToolIcon
                   src={selectedProvider.image}
-                  alt={selectedProvider.name}
-                  className="size-8 object-contain"
+                  name={selectedProvider.name}
+                  color={selectedProvider.color}
+                  iconBg={selectedProvider.iconBg}
+                  size="sm"
                 />
                 <div>
                   <h4 className="text-sm font-bold text-white">{selectedProvider.name}</h4>

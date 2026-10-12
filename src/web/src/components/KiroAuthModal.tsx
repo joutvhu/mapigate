@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "./PortalModal";
+import { ToolIcon } from "./ui/ToolIcon";
 
 interface KiroAuthModalProps {
   isOpen: boolean;
@@ -143,9 +144,12 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-[#0D1322] border border-[#1E293B] p-1.5 flex items-center justify-center">
-              <img src="/providers/kiro.png" alt="Kiro" className="size-full object-contain" />
-            </div>
+            <ToolIcon
+              src="/providers/kiro.png"
+              name="Kiro"
+              color="#FF9900"
+              size="md"
+            />
             <div>
               <h3 className="text-sm font-bold text-white">Connect Kiro IDE</h3>
               <p className="text-xs text-slate-400">AWS Builder ID, IAM Identity Center (IDC), or API Key</p>

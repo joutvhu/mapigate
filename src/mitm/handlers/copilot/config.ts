@@ -5,6 +5,7 @@ export const toolConfig: MitmToolConfig = {
   name: "GitHub Copilot",
   image: "/providers/copilot.png",
   desc: "Intercept GitHub Copilot requests in VS Code via MITM proxy",
+  iconBg: "#FFFFFF",
   hosts: [
     "api.individual.githubcopilot.com",
   ],

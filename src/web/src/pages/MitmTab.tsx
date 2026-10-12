@@ -8,6 +8,7 @@ interface MitmMappingRow {
 }
 
 import { MITM_TOOLS, type MitmToolConfig, type MitmToolId } from "../../../mitm/config.js";
+import { ToolIcon } from "../components/ui/ToolIcon";
 
 interface MitmStatusData {
   running: boolean;
@@ -697,9 +698,12 @@ export const MitmTab: React.FC = () => {
                 className="flex items-center justify-between cursor-pointer select-none"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="size-9 rounded-xl bg-[#0D1322] border border-[#1E293B] p-1.5 flex items-center justify-center shrink-0">
-                    <img src={tool.image} alt={tool.name} className="size-full object-contain" />
-                  </div>
+                  <ToolIcon
+                    src={tool.image}
+                    name={tool.name}
+                    iconBg={tool.iconBg}
+                    size="md"
+                  />
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-sm font-bold text-white">{tool.name}</h4>

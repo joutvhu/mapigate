@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Jina Reader",
   "alias": "jina-reader",
   "color": "#000000",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/jina-reader/icon.png",
   "website": "https://jina.ai/reader",
   "notice": {

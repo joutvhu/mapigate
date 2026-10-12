@@ -5,6 +5,7 @@ export const toolConfig: MitmToolConfig = {
   name: "Cursor",
   image: "/providers/cursor.png",
   desc: "Intercept Cursor IDE requests via MITM proxy (Coming Soon)",
+  iconBg: "#FFFFFF",
   hosts: [
     "api2.cursor.sh",
   ],

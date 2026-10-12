@@ -55,6 +55,7 @@ export interface ProviderRegistryItem {
   aliases?: string[];
   uiAlias?: string;
   color?: string;
+  iconBg?: string;
   image?: string;
   website?: string;
   notice?: ProviderNotice;

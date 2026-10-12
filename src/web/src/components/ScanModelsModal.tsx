@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
+import { ToolIcon } from "./ui/ToolIcon";
 import { scanProviderModels } from "../services/providerService";
 import type { ScannedModel } from "../../../shared/types";
 
@@ -11,6 +12,8 @@ export interface ScanModelsModalProps {
     baseUrl?: string;
     validateUrl?: string;
     image?: string;
+    color?: string;
+    iconBg?: string;
     format?: string;
   };
   existingModels: string[];
@@ -159,13 +162,16 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-[#0D1322] border border-[#1E293B] p-2 flex items-center justify-center shrink-0">
-              {provider.image ? (
-                <img src={provider.image} alt={provider.name} className="size-full object-contain" />
-              ) : (
+            <ToolIcon
+              src={provider.image}
+              name={provider.name}
+              color={provider.color}
+              iconBg={provider.iconBg}
+              size="md"
+              fallback={
                 <span className="material-symbols-outlined text-blue-400 text-[20px]">radar</span>
-              )}
-            </div>
+              }
+            />
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 Scan Models from Provider API

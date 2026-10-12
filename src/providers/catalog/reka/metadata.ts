@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "reka",
   "color": "#111827",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/reka/icon.svg",
   "website": "https://docs.reka.ai/chat/overview",
   "notice": {

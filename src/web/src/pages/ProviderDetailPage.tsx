@@ -9,6 +9,7 @@ import { KiroAuthModal } from "../components/KiroAuthModal";
 import { PortalModal } from "../components/PortalModal";
 import { Select } from "../components/Select";
 import { ScanModelsModal } from "../components/ScanModelsModal";
+import { ToolIcon } from "../components/ui/ToolIcon";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 
 interface ProviderDetailPageProps {
@@ -362,9 +363,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="size-12 rounded-2xl bg-[#0D1322] border border-[#1E293B] p-2.5 flex items-center justify-center">
-              <img src={provider.image} alt={provider.name} className="size-full object-contain" />
-            </div>
+            <ToolIcon
+              src={provider.image}
+              name={provider.name}
+              color={registryItem?.color || provider.color}
+              iconBg={registryItem?.iconBg || provider.iconBg}
+              size="lg"
+            />
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-xl font-bold text-white tracking-tight">{provider.name}</h2>
@@ -833,6 +838,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           id: provider.id,
           name: provider.name,
           image: provider.image,
+          color: registryItem?.color || provider.color,
+          iconBg: registryItem?.iconBg || provider.iconBg,
           format: registryItem?.format || provider.format,
           website: registryItem?.website,
           apiKeyUrl: registryItem?.notice?.apiKeyUrl,
@@ -917,6 +924,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl,
           validateUrl: provider.validateUrl || registryItem?.validateUrl,
           image: provider.image,
+          color: registryItem?.color || provider.color,
+          iconBg: registryItem?.iconBg || provider.iconBg,
           format: provider.format || registryItem?.format,
         }}
         existingModels={models}
