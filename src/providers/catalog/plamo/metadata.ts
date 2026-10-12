@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "plamo",
   "color": "#DC2626",
-  "image": "/assets/providers/plamo/icon.svg",
+  "image": "/assets/providers/plamo/icon.png",
   "website": "https://plamo.preferredai.jp/api",
   "notice": {
     "apiKeyUrl": "",

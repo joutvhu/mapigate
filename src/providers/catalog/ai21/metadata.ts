@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "ai21",
   "color": "#0284C7",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/ai21/icon.svg",
   "website": "https://www.ai21.com",
   "notice": {

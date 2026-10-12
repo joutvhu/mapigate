@@ -8,7 +8,8 @@ export const metadata: ProviderRegistryItem = {
     "ch"
   ],
   "uiAlias": "ch",
-  "color": "#ffffffff",
+  "color": "#ffffff",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/chutes/icon.png",
   "website": "https://chutes.ai",
   "notice": {

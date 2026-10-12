@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "aimlapi",
   "color": "#6366F1",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/aimlapi/icon.svg",
   "website": "https://aimlapi.com",
   "notice": {

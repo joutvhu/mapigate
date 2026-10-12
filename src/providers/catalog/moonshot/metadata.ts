@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "moonshot",
   "color": "#1E40AF",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/moonshot/icon.svg",
   "website": "https://platform.kimi.ai?aff=omniroute",
   "notice": {

@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "ovhcloud",
   "color": "#2563EB",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/ovhcloud/icon.svg",
   "website": "https://www.ovhcloud.com",
   "notice": {

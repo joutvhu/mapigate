@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "pioneer",
   "color": "#7C5CFF",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/pioneer/icon.svg",
   "website": "https://pioneer.ai",
   "notice": {
