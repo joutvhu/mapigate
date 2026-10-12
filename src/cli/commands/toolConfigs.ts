@@ -13,7 +13,7 @@ export {
 } from "../tools/registry.js";
 
 export { pruneTomlSection } from "../tools/helpers.js";
-export { CLAUDE_MODELS } from "../tools/configurators/claude.js";
+export { CLAUDE_MODELS } from "../tools/definitions/claude/configurator.js";
 
 export type {
   ToolInspectionResult,
