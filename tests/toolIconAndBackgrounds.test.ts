@@ -10,6 +10,7 @@ import {
   API_KEY_PROVIDERS_LIST,
   CLI_TOOLS_LIST,
 } from "../src/web/src/constants/providersData.js";
+import { isLightColor } from "../src/web/src/components/ui/ToolIcon.js";
 
 test("Tool icon background configurations in Provider registry", () => {
   const targetProviders = [
@@ -86,3 +87,26 @@ test("Web providersData propagates iconBg for providers and CLI tools", () => {
   assert.ok(copilotCli, "Copilot should be in CLI_TOOLS_LIST");
   assert.equal(copilotCli.iconBg, "#FFFFFF");
 });
+
+test("isLightColor correctly evaluates 6-digit hex, 3-digit shorthand, and translucent alpha tints", () => {
+  // 6-digit opaque colors
+  assert.equal(isLightColor("#FFFFFF"), true, "#FFFFFF should be light");
+  assert.equal(isLightColor("#ffffff"), true, "#ffffff should be light");
+  assert.equal(isLightColor("#000000"), false, "#000000 should be dark");
+  assert.equal(isLightColor("#0D1322"), false, "#0D1322 should be dark");
+  assert.equal(isLightColor("#333333"), false, "#333333 should be dark");
+
+  // 3-digit shorthand
+  assert.equal(isLightColor("#FFF"), true, "#FFF should be light");
+  assert.equal(isLightColor("#fff"), true, "#fff should be light");
+  assert.equal(isLightColor("#000"), false, "#000 should be dark");
+
+  // Translucent tints (alpha channel < 0.5)
+  assert.equal(isLightColor("#ffffff18"), false, "#ffffff18 (translucent tint) must not be light");
+  assert.equal(isLightColor("#FFF8"), false, "#FFF8 (translucent tint shorthand) must not be light");
+
+  // Empty / undefined / falsy
+  assert.equal(isLightColor(undefined), false);
+  assert.equal(isLightColor(""), false);
+});
+

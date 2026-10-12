@@ -52,10 +52,23 @@ function resolveBackgroundColor(iconBg?: string, color?: string): string {
   return "#0D1322";
 }
 
-function isLightColor(color?: string): boolean {
+export function isLightColor(color?: string): boolean {
   if (!color) return false;
-  const hex = color.replace("#", "");
+  let hex = color.replace("#", "").trim();
+  // Support 3-digit (#FFF) or 4-digit (#FFFF) shorthand
+  if (hex.length === 3 || hex.length === 4) {
+    hex = hex
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
   if (hex.length >= 6) {
+    // If alpha channel is present (8-digit hex), check opacity
+    // Container sits on a dark surface (#0D1322), so low/moderate alpha renders dark
+    if (hex.length >= 8) {
+      const alpha = parseInt(hex.substring(6, 8), 16) / 255;
+      if (alpha < 0.7) return false;
+    }
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
@@ -83,14 +96,16 @@ export const ToolIcon: React.FC<ToolIconProps> = ({
 
   const cfg = SIZE_CONFIG[size] || SIZE_CONFIG.md;
   const bgColor = resolveBackgroundColor(iconBg, color);
-  const isLightBg = isLightColor(iconBg || (color ? `${color.slice(0, 7)}` : ""));
+  // Only evaluate light background if an explicit, opaque iconBg is provided.
+  // Translucent color tints (e.g. #ffffff18) sit on dark surfaces and must not trigger light theme styling.
+  const isLightBg = Boolean(iconBg && isLightColor(iconBg));
   const borderColor = isLightBg ? "border-black/10" : "border-[#1E293B]";
 
   const renderFallback = () => {
     if (fallback) return fallback;
     if (name) {
       const initial = name.trim().slice(0, 2).toUpperCase();
-      const textColor = isLightColor(bgColor) ? "#0F172A" : color || "#94A3B8";
+      const textColor = isLightBg ? "#0F172A" : color || "#94A3B8";
       return (
         <span className={cfg.text} style={{ color: textColor }}>
           {initial}

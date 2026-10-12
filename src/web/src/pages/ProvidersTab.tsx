@@ -477,6 +477,8 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             baseUrl: scanningProvider.baseUrl,
             validateUrl: scanningProvider.validateUrl || getRegistryProvider(scanningProvider.id)?.validateUrl,
             image: scanningProvider.image,
+            color: scanningProvider.color || getRegistryProvider(scanningProvider.id)?.color,
+            iconBg: scanningProvider.iconBg || getRegistryProvider(scanningProvider.id)?.iconBg,
             format: scanningProvider.format,
           }}
           existingModels={
