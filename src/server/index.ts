@@ -179,6 +179,45 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Provider custom assets endpoint (icons, branding)
+app.get("/assets/providers/:provider/:file", (req, res) => {
+  const { provider, file } = req.params;
+
+  // Validate parameters against path traversal and invalid characters
+  if (
+    !provider ||
+    !file ||
+    !/^[a-zA-Z0-9_-]+$/.test(provider) ||
+    !/^[a-zA-Z0-9_.-]+$/.test(file) ||
+    file.includes("..")
+  ) {
+    res.status(400).send("Invalid asset path");
+    return;
+  }
+
+  const candidatePaths = [
+    path.resolve(process.cwd(), "src", "providers", provider, "assets", file),
+    path.resolve(__dirname, "../../src/providers", provider, "assets", file),
+    path.resolve(__dirname, "../providers", provider, "assets", file),
+    path.resolve(process.cwd(), "dist", "web", "assets", "providers", provider, file),
+    path.resolve(process.cwd(), "src", "web", "public", "providers", file),
+  ];
+
+  for (const filePath of candidatePaths) {
+    try {
+      if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        res.sendFile(filePath);
+        return;
+      }
+    } catch {
+      // Continue checking next candidate path
+    }
+  }
+
+  res.status(404).send("Provider asset not found");
+});
+
 // Serve web frontend when built (relative to server directory or root)
 const webDistPath = fs.existsSync(path.resolve(__dirname, "../web"))
   ? path.resolve(__dirname, "../web")

@@ -11,7 +11,8 @@
     "src/server/**/*",
     "src/cli/**/*",
     "src/mitm/**/*",
-    "src/shared/**/*"
+    "src/shared/**/*",
+    "src/providers/**/*"
   ],
   "exclude": ["src/web/**/*"]
 }
