@@ -16,6 +16,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "xk",
   "color": "#16a34a",
+  "iconBg": "#16a34a",
   "image": "/assets/providers/xkiro/icon.svg",
   "website": "https://xkiro.com",
   "notice": {

@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Cerebras",
   "alias": "cerebras",
   "color": "#FF4F00",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/cerebras/icon.png",
   "website": "https://www.cerebras.ai",
   "notice": {

@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "upstage",
   "color": "#0F766E",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/upstage/icon.svg",
   "website": "https://www.upstage.ai",
   "notice": {

@@ -13,6 +13,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "kr",
   "uiAlias": "kr",
   "color": "#FF6B35",
+  "iconBg": "#9046ff",
   "image": "/assets/providers/kiro/icon.png",
   "website": "https://kiro.dev",
   "notice": {

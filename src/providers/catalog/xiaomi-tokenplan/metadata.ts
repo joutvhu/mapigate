@@ -14,6 +14,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "xmtp",
   "color": "#FF6700",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/xiaomi-tokenplan/icon.png",
   "website": "https://platform.xiaomimimo.com/console/plan-manage",
   "notice": {

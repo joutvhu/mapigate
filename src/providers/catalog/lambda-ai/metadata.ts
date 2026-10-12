@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "lambda-ai",
   "color": "#7C3AED",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/lambda-ai/icon.svg",
   "website": "https://lambda.ai",
   "notice": {

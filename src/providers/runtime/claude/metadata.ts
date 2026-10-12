@@ -13,6 +13,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "cc",
   "uiAlias": "cc",
   "color": "#D97757",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/claude/icon.png",
   "website": "https://claude.ai",
   "notice": {

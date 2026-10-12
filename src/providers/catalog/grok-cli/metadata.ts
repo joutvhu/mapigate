@@ -17,6 +17,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "gcli",
   "color": "#1DA1F2",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/grok-cli/icon.png",
   "website": "https://x.ai",
   "notice": {

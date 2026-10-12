@@ -11,6 +11,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "qianfan",
   "color": "#2932E1",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/baidu/icon.png",
   "website": "https://cloud.baidu.com/product/qianfan.html",
   "notice": {

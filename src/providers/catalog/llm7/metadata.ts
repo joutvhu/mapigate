@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "llm7",
   "color": "#7C3AED",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/llm7/icon.png",
   "website": "https://llm7.io",
   "notice": {

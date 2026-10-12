@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "aq",
   "color": "#FF9900",
+  "iconBg": "#9046ff",
   "image": "/assets/providers/amazon-q/icon.png",
   "website": "https://aws.amazon.com/q/developer/",
   "notice": {

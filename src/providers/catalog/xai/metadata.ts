@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "xAI (Grok)",
   "alias": "xai",
   "color": "#1DA1F2",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/xai/icon.png",
   "website": "https://x.ai",
   "notice": {

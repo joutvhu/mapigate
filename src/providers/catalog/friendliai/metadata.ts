@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "friendliai",
   "color": "#EC4899",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/friendliai/icon.svg",
   "website": "https://friendli.ai",
   "notice": {

@@ -15,6 +15,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "mimo",
   "color": "#FF6900",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/xiaomi-mimo/icon.png",
   "website": "https://xiaomimimo.com",
   "notice": {

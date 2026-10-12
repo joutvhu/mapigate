@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Groq",
   "alias": "groq",
   "color": "#F55036",
+  "iconBg": "#f43e01",
   "image": "/assets/providers/groq/icon.png",
   "website": "https://groq.com",
   "notice": {

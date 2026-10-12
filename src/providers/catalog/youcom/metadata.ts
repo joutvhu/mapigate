@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "You.com Search",
   "alias": "youcom",
   "color": "#7C3AED",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/youcom/icon.png",
   "website": "https://you.com",
   "notice": {

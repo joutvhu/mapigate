@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "atria",
   "color": "#C2410C",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/atria/icon.png",
   "website": "https://atria-asi.ai",
   "notice": {

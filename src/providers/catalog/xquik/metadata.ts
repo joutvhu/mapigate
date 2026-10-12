@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Xquik",
   "alias": "xquik",
   "color": "#5C3327",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/xquik/icon.png",
   "website": "https://docs.xquik.com/api-reference/x/search-tweets",
   "notice": {

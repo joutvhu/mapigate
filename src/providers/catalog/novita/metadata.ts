@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "novita",
   "color": "#7C3AED",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/novita/icon.png",
   "website": "https://novita.ai",
   "notice": {

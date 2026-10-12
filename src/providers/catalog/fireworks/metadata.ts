@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Fireworks AI",
   "alias": "fireworks",
   "color": "#7B2EF2",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/fireworks/icon.png",
   "website": "https://fireworks.ai",
   "notice": {

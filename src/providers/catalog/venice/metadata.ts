@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "venice",
   "color": "#DC2626",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/venice/icon.png",
   "website": "https://venice.ai",
   "notice": {

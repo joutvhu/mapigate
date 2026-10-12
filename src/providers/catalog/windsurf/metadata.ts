@@ -7,6 +7,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "ws",
   "uiAlias": "ws",
   "color": "#14B8A6",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/windsurf/icon.png",
   "website": "https://windsurf.com",
   "notice": {

@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "iFlow AI",
   "alias": "if",
   "color": "#6366F1",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/iflow/icon.png",
   "website": "https://iflow.cn",
   "notice": {

@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "kgw",
   "color": "#8B5CF6",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/kilo-gateway/icon.png",
   "website": "https://kilo.ai",
   "notice": {

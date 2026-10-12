@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "brx",
   "color": "#FF9900",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/bedrock-xai/icon.png",
   "website": "https://aws.amazon.com/bedrock/",
   "notice": {

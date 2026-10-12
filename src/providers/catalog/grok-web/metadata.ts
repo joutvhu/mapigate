@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "gw",
   "color": "#1DA1F2",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/grok-web/icon.png",
   "website": "https://grok.com",
   "category": "webCookie",
