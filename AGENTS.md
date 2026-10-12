@@ -47,25 +47,36 @@
 mapigate/
 ├── bin/
 │   └── mapigate.js              # CLI executable entry point (with mpg & mapigate aliases)
+├── scripts/
+│   └── generate-registries.mjs  # Pure pre-build scanner generating all module registries
 ├── src/
 │   ├── cli/                     # Daemon lifecycle management & developer tools setup
-│   │   ├── commands/            # CLI subcommands (start, stop, status, models, providers)
-│   │   ├── tools/               # Decoupled tool auto-config registry (Claude Code, Cursor, Cline)
+│   │   ├── commands/            # CLI subcommands (start, stop, status, models, providers, connect)
+│   │   ├── tools/               # Modularized CLI Tools
+│   │   │   ├── definitions/     # Self-contained modules per tool (claude, cursor, cline, codex, etc.)
+│   │   │   │   └── <tool>/      # definition.ts, configurator.ts (if auto-apply supported), index.ts
+│   │   │   ├── generated/       # AUTO-GENERATED toolsRegistry.ts & handlersRegistry.ts
+│   │   │   └── registry.ts      # ToolConfigRegistry lookup & validator
 │   │   └── tui/                 # Interactive terminal UI
 │   ├── core/                    # Gateway Engine (framework-agnostic)
 │   │   ├── adapters/            # Protocol converters (OpenAI ⇄ Anthropic ⇄ Gemini)
-│   │   ├── auth/                # Third-party credentials & OAuth refreshers
-│   │   ├── capabilities/        # Context window & thinking token capability definitions
+│   │   ├── capabilities/        # Context window & thinking token resolution engine
 │   │   ├── router/              # Routing engine, fallback rules, load balancing
 │   │   ├── rtk/                 # RTK Token Saver (compressors for diff, grep, logs)
 │   │   └── scheduler/           # Periodic quota resets and provider health-checks
-│   ├── providers/               # 100% Self-Contained Provider Modules
-│   │   ├── <provider-name>/     # assets/, metadata.ts, provider.ts, quota.ts, index.ts
-│   │   ├── combo/               # Composite Provider for multi-model & multimodal routing
-│   │   ├── base/                # BaseProvider, OpenAiCompatibleProvider, AnthropicCompatibleProvider
-│   │   ├── metadataRegistry.ts  # Unified Isomorphic Metadata Catalog (Single Source of Truth)
-│   │   └── registry.ts          # Central Provider Runtime Registry (Pluggable)
-│   ├── mitm/                    # Decoupled HTTPS Interceptor (CA Manager, Host Interceptor)
+│   ├── providers/               # Hierarchical 100% Self-Contained Provider Modules
+│   │   ├── core/                # Shared base classes, interfaces, runtime ProviderRegistry
+│   │   ├── runtime/             # Built-in providers (claude, openai, deepseek, bedrock, github, etc.)
+│   │   ├── composite/           # Composite routing providers (combo)
+│   │   ├── catalog/             # Lightweight standard providers (360ai, agnes, etc.) & community
+│   │   ├── generated/           # AUTO-GENERATED metadata and runtime registries
+│   │   └── index.ts             # Unified barrel export
+│   ├── mitm/                    # Decoupled HTTPS Interceptor
+│   │   ├── handlers/            # Modularized tool handlers (kiro, cursor, copilot, antigravity)
+│   │   │   └── <tool>/          # config.ts (hosts, patterns, UI config), handler.ts, interceptor.ts
+│   │   ├── toolsHelper.ts       # Runtime MITM helpers (getToolForHost, isChatRequest, extractModel)
+│   │   ├── cert/                # Root CA & dynamic TLS certificate generator
+│   │   └── server.ts            # MITM interceptor server
 │   ├── server/                  # HTTP & SSE Gateway
 │   │   ├── middlewares/         # Auth, logging, rate limiter, error handlers
 │   │   ├── proxy/               # Upstream streaming handler & decomposed SSE pipes
@@ -77,12 +88,12 @@ mapigate/
 │   │   ├── migrations/          # SQLite schema versioning
 │   │   └── repositories/        # Data access layer for providers, models, usage logs
 │   ├── web/                     # Web Dashboard SPA (React 19 + Vite + Tailwind CSS)
-│   │   ├── src/                 # Components, Pages, Zustand stores, Hooks
+│   │   ├── src/                 # Components (including ToolIcon.tsx), Pages, Zustand stores
 │   │   └── vite.config.ts       # Vite config (copies provider assets to dist/web/assets/providers)
 │   └── shared/                  # Common TypeScript interfaces, enums, constants
 ├── dist/                        # Compiled production artifacts (server & static web)
 ├── ARCHITECTURE.md              # Detailed technical design specifications
-└── package.json                 # Dependencies and npm scripts
+└── package.json                 # Dependencies, npm scripts (codegen hooked to predev/prebuild/pretest)
 ```
 
 ---
@@ -127,19 +138,27 @@ Client (Claude Code / Cursor / Cline)
 
 ## 5. Development Invariants for Agents
 
-1. **Self-Contained Provider Invariant:**
-   * All provider logic, metadata, models, and assets MUST reside in `src/providers/<name>/`.
-   * Never add provider logic directly into proxy middleware, router core, or public directories.
-2. **Strict TypeScript:**
-   * All new files in `src/` must be TypeScript. Avoid `any` without justification; declare or reuse shared types from `src/shared/` or `src/providers/types.ts`.
-3. **Cross-Platform Compatibility:**
+1. **Self-Contained Module Invariant:**
+   * All provider logic, metadata, models, and assets MUST reside in `src/providers/runtime/<name>/` or `src/providers/catalog/<name>/`.
+   * All CLI tool definitions and configurators MUST reside in `src/cli/tools/definitions/<tool>/`.
+   * All MITM tool configs and handlers MUST reside in `src/mitm/handlers/<tool>/`.
+   * Never add provider, CLI, or MITM logic directly into proxy middleware, router core, or public directories.
+2. **Pure Scanner Invariant:**
+   * `scripts/generate-registries.mjs` is strictly a pure scanner and import generator. Never add business rules or inline helpers to it.
+   * Never manually edit generated registry files. Run `npm run codegen` to regenerate.
+3. **UI Icon Consistency Invariant:**
+   * Always render icons through `src/web/src/components/ui/ToolIcon.tsx`.
+   * Dark or monochrome icons must provide `iconBg` in their metadata/definition to maintain strong contrast against dark mode surfaces.
+4. **Strict TypeScript:**
+   * All new files in `src/` must be TypeScript. Avoid `any` without justification; declare or reuse shared types from `src/shared/` or `src/providers/core/types.ts`.
+5. **Cross-Platform Compatibility:**
    * Always use `node:path` methods (`path.join`, `path.resolve`). Never hardcode `/` or `\\` path separators.
    * All scripts and build helpers must use Node.js (`.ts` or `.mjs`). **Never introduce `.sh` shell scripts.**
-4. **API Key Security Invariant:**
+6. **API Key Security Invariant:**
    * Any API key or OAuth secret stored in SQLite **must** pass through `cryptoVault.encrypt()`.
    * Never log raw API keys to `console.log` or store unencrypted credentials.
-5. **RTK Fail-Open Architecture:**
+7. **RTK Fail-Open Architecture:**
    * All RTK compression logic under `src/core/rtk/` must be wrapped in defensive `try...catch` blocks. On any unexpected error or parser mismatch, return the unmodified request body.
-6. **Anti-Bloat Discipline:**
+8. **Anti-Bloat Discipline:**
    * Do not install heavy dependencies, reintroduce Next.js SSR, add i18n systems, or support media generation.
    * Always evaluate new features against the core mission: *"Does this directly accelerate or stabilize AI coding workflows?"*
