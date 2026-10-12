@@ -1,0 +1,20 @@
+import type { CliToolDefinition } from "../../types.js";
+
+export const definition: CliToolDefinition = {
+  id: "codex",
+  name: "OpenAI Codex CLI / App",
+  image: "/providers/codex.png",
+  color: "#10A37F",
+  description: "OpenAI Codex CLI",
+  configType: "env",
+  binary: "codex",
+  configPath: "~/.codex/config.toml",
+  baseUrlPath: "/v1",
+  envVars: {
+    baseUrl: "OPENAI_BASE_URL",
+    apiKey: "OPENAI_API_KEY",
+  },
+  powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\ncodex`,
+  bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\ncodex`,
+  configFileTemplate: `model_provider = "mapigate"\n\n[model_providers.mapigate]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
+};

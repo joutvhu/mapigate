@@ -1,19 +1,7 @@
 import type { ToolConfigHandler, ResolveToolResult } from "./types.js";
-import { claudeHandler } from "./configurators/claude.js";
-import { codexHandler } from "./configurators/codex.js";
-import { opencodeHandler } from "./configurators/opencode.js";
-import { droidHandler } from "./configurators/droid.js";
-import { clineHandler } from "./configurators/cline.js";
-import { openclawHandler } from "./configurators/openclaw.js";
+import { ALL_TOOL_HANDLERS } from "./generated/handlersRegistry.js";
 
-export const ALL_TOOL_HANDLERS: ToolConfigHandler[] = [
-  claudeHandler,
-  codexHandler,
-  opencodeHandler,
-  droidHandler,
-  clineHandler,
-  openclawHandler,
-];
+export { ALL_TOOL_HANDLERS };
 
 export const SUPPORTED_TOOL_IDS = ALL_TOOL_HANDLERS.map((h) => h.id);
 

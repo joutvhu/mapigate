@@ -1,3 +1,67 @@
+export interface CliGuideStep {
+  step: number;
+  title: string;
+  desc?: string;
+  value?: string;
+  type?: "apiKeySelector" | "modelSelector" | string;
+  copyable?: boolean;
+  docsUrl?: string;
+}
+
+export interface CliCodeBlock {
+  language: string;
+  code: string;
+}
+
+export interface CliNote {
+  type: "info" | "warning" | "error" | "cloudCheck";
+  text: string;
+}
+
+export interface CliToolModel {
+  id: string;
+  name: string;
+  alias?: string;
+  envKey?: string;
+  defaultValue?: string;
+  isTopLevel?: boolean;
+  mandatory?: boolean;
+  contextLength?: number;
+  rateMultiplier?: number;
+}
+
+export interface CliToolRole {
+  id: string;
+  label: string;
+}
+
+export interface CliToolDefinition {
+  id: string;
+  name: string;
+  image: string;
+  color: string;
+  description: string;
+  configType: "env" | "file" | "guide" | "custom";
+  binary?: string;
+  settingsFile?: string;
+  configPath?: string;
+  defaultPort?: number;
+  baseUrlPath?: string;
+  envVars?: Record<string, string>;
+  modelAliases?: string[];
+  defaultModels?: CliToolModel[];
+  guideSteps?: CliGuideStep[];
+  codeBlock?: CliCodeBlock;
+  notes?: CliNote[];
+  docsUrl?: string;
+  installUrl?: string;
+  defaultCommand?: string;
+  roles?: CliToolRole[];
+  powershellTemplate?: string;
+  bashTemplate?: string;
+  configFileTemplate?: string;
+}
+
 export interface ToolInspectionResult {
   id: string;
   name: string;
