@@ -3,9 +3,4 @@ export * from "./helpers.js";
 export * from "./registry.js";
 export * from "./generated/toolsRegistry.js";
 export * from "./generated/handlersRegistry.js";
-export * from "./definitions/claude/configurator.js";
-export * from "./definitions/codex/configurator.js";
-export * from "./definitions/opencode/configurator.js";
-export * from "./definitions/droid/configurator.js";
-export * from "./definitions/cline/configurator.js";
-export * from "./definitions/openclaw/configurator.js";
+
