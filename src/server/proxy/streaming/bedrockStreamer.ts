@@ -3,7 +3,7 @@ import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { decodeEventStreamChunk } from "../../../providers/runtime/bedrock/eventStream.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
-import { createStreamTrackingState } from "./streamState.js";
+import { createStreamTrackingState, recordStreamToolCall } from "./streamState.js";
 
 export async function pipeBedrockEventStream(
   upstreamRes: globalThis.Response,
@@ -49,15 +49,10 @@ export async function pipeBedrockEventStream(
           if (eventObj.usage.output_tokens) state.completionTokens = eventObj.usage.output_tokens;
         }
 
-        if (eventObj.type === "content_block_start" && eventObj.content_block?.type === "tool_use") {
-          const toolName = eventObj.content_block.name || "tool";
-          state.tools.push({
-            name: toolName,
-            type: "call",
-            summary: `Tool: ${toolName}`,
-          });
+        // Detect and record tool calls in stream chunks (with deduplication tracking)
+        recordStreamToolCall(eventObj, state, (toolName) => {
           logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
-        }
+        });
 
         if (eventObj.delta?.text) {
           if (state.capturedResponseText.length < 4000) {

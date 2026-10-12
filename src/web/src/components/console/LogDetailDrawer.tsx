@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { StructuredLogEntry } from "../../../../shared/types/logging.js";
 import { ToolIcon } from "../ui/ToolIcon.js";
+import { TokenEconomicsPanel } from "./TokenEconomicsPanel.js";
+import { ToolCallsPanel } from "./ToolCallsPanel.js";
 import {
   X,
   Copy,
@@ -9,12 +11,7 @@ import {
   Clock,
   Cpu,
   Server,
-  Zap,
-  Repeat,
-  Sparkles,
   Terminal,
-  AlertCircle,
-  Wrench,
   Code,
   ShieldCheck,
 } from "lucide-react";
@@ -196,73 +193,11 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
           </div>
 
           {/* Token Breakdown Section */}
-          {gateway?.tokens && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Cpu className="size-3.5 text-blue-400" /> Token Economics
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-lg bg-[#0A0E18] border border-[#1E293B]">
-                  <span className="text-[11px] text-slate-400">Prompt Tokens</span>
-                  <p className="text-sm font-bold font-mono text-blue-400">
-                    {gateway.tokens.prompt.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-[#0A0E18] border border-[#1E293B]">
-                  <span className="text-[11px] text-slate-400">Cached Tokens (↻)</span>
-                  <p className="text-sm font-bold font-mono text-cyan-400">
-                    {(gateway.tokens.cached || 0).toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-[#0A0E18] border border-[#1E293B]">
-                  <span className="text-[11px] text-slate-400">Output Tokens</span>
-                  <p className="text-sm font-bold font-mono text-emerald-400">
-                    {gateway.tokens.completion.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 rounded-lg bg-[#0A0E18] border border-[#1E293B]">
-                  <span className="text-[11px] text-slate-400">RTK Saved</span>
-                  <p className="text-sm font-bold font-mono text-amber-400 flex items-center gap-1">
-                    <Zap className="size-3" />
-                    {(gateway.tokens.savedByRtk || 0).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          {gateway?.tokens && <TokenEconomicsPanel tokens={gateway.tokens} />}
 
           {/* Tools Invoked Section */}
           {gateway?.tools && gateway.tools.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Wrench className="size-3.5 text-purple-400" /> Tool Calls ({gateway.tools.length})
-              </h4>
-              <div className="space-y-2">
-                {gateway.tools.map((t, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 rounded-lg bg-[#0A0E18] border border-[#1E293B] flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="p-1 rounded bg-purple-500/20 text-purple-300">
-                        <Wrench className="size-3.5" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-white font-mono truncate">
-                          {t.name}
-                        </p>
-                        <p className="text-[11px] text-slate-400 font-mono truncate">
-                          {t.summary}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 uppercase">
-                      {t.type}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ToolCallsPanel tools={gateway.tools} />
           )}
 
           {/* Raw Log & Summary Text */}

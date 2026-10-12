@@ -168,11 +168,25 @@ export function appendStructuredLog(entry: StructuredLogEntry): void {
     const last = state.structuredLogs[state.structuredLogs.length - 1];
 
     if (last && entry.requestId && last.requestId === entry.requestId && last.category === entry.category) {
-      state.structuredLogs[state.structuredLogs.length - 1] = { ...last, ...enriched, gateway: { ...last.gateway, ...enriched.gateway } };
+      Object.assign(last, enriched, { gateway: { ...last.gateway, ...enriched.gateway } });
+      if (!state.pendingStructured.includes(last)) {
+        state.pendingStructured.push(last);
+        if (!state.flushTimer) {
+          state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
+          state.flushTimer?.unref?.();
+        }
+      }
       return;
     }
-    if (last && last.reqTag === enriched.reqTag && (last.rawText.includes(enriched.message) || enriched.rawText.includes(last.message))) {
-      state.structuredLogs[state.structuredLogs.length - 1] = { ...last, ...enriched, gateway: { ...last.gateway, ...enriched.gateway } };
+    if (last && last.reqTag && last.reqTag === enriched.reqTag && (last.rawText.includes(enriched.message) || enriched.rawText.includes(last.message))) {
+      Object.assign(last, enriched, { gateway: { ...last.gateway, ...enriched.gateway } });
+      if (!state.pendingStructured.includes(last)) {
+        state.pendingStructured.push(last);
+        if (!state.flushTimer) {
+          state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
+          state.flushTimer?.unref?.();
+        }
+      }
       return;
     }
 

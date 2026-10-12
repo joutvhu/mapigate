@@ -2,7 +2,7 @@ import type { Response } from "express";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
-import { createStreamTrackingState, extractTokensFromChunk } from "./streamState.js";
+import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
 
 export async function pipeSseStream(
   upstreamRes: globalThis.Response,
@@ -84,28 +84,10 @@ export async function pipeSseStream(
 
         extractTokensFromChunk(jsonChunk, state);
 
-        // Detect tool calls in stream chunks
-        if (jsonChunk.type === "content_block_start" && jsonChunk.content_block?.type === "tool_use") {
-          const toolName = jsonChunk.content_block.name || "tool";
-          state.tools.push({
-            name: toolName,
-            type: "call",
-            summary: `Tool: ${toolName}`,
-          });
+        // Detect and record tool calls in stream chunks (with deduplication tracking)
+        recordStreamToolCall(jsonChunk, state, (toolName) => {
           logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
-        } else if (Array.isArray(jsonChunk.choices?.[0]?.delta?.tool_calls)) {
-          for (const tc of jsonChunk.choices[0].delta.tool_calls) {
-            if (tc.function?.name) {
-              const toolName = tc.function.name;
-              state.tools.push({
-                name: toolName,
-                type: "call",
-                summary: `Tool: ${toolName}`,
-              });
-              logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
-            }
-          }
-        }
+        });
 
         if (clientFormat === "anthropic" && targetFormat === "openai") {
           const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
