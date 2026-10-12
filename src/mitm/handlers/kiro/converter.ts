@@ -1,0 +1,264 @@
+import { buildEventStreamFrame, withInitialFrame, type KiroState } from "./state.js";
+
+export function extractThinking(text: string, state: KiroState): { thinking: string | null; text: string | null } {
+  if (!text) return { thinking: null, text: null };
+
+  let working = text;
+  if (state.inThink && state.thinkBuf) {
+    working = state.thinkBuf + working;
+    state.thinkBuf = "";
+    state.inThink = false;
+  }
+
+  const startMatch = working.match(/<thinking>|<think>/i);
+  if (!startMatch) {
+    return { thinking: null, text: working };
+  }
+
+  const tag = startMatch[0].toLowerCase();
+  const closeTag = tag === "<think>" ? "</think>" : "</thinking>";
+  const startIdx = startMatch.index ?? 0;
+  const endIdx = working.indexOf(closeTag, startIdx + tag.length);
+
+  if (endIdx === -1) {
+    state.inThink = true;
+    state.thinkBuf = working.slice(startIdx);
+    const before = working.slice(0, startIdx).trim();
+    return { thinking: null, text: before || null };
+  }
+
+  const thinking = working.slice(startIdx + tag.length, endIdx);
+  const before = working.slice(0, startIdx).trim();
+  const after = working.slice(endIdx + closeTag.length).trim();
+  const rest = [before, after].filter(Boolean).join("");
+
+  return {
+    thinking: thinking || null,
+    text: rest || null,
+  };
+}
+
+export function safeArgsString(value: any): string {
+  if (typeof value === "string") return value;
+  if (value == null) return "{}";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "{}";
+  }
+}
+
+export function convertUserInputMessage(uim: any): any[] {
+  const out: any[] = [];
+  const toolResults = uim.userInputMessageContext?.toolResults || [];
+
+  for (const tr of toolResults) {
+    const text = (tr.content || []).map((c: any) => c.text || "").join("\n");
+    out.push({
+      role: "tool",
+      tool_call_id: tr.toolUseId || "",
+      content: text,
+    });
+  }
+
+  const text = (uim.content || "").trim();
+  if (text || toolResults.length === 0) {
+    out.push({ role: "user", content: text });
+  }
+
+  return out;
+}
+
+export function convertAssistantResponseMessage(arm: any): any {
+  const toolUses = arm.toolUses || [];
+  if (toolUses.length > 0) {
+    return {
+      role: "assistant",
+      content: arm.content || null,
+      tool_calls: toolUses.map((tu: any) => ({
+        id: tu.toolUseId || `call_${Date.now()}`,
+        type: "function",
+        function: {
+          name: tu.name || "",
+          arguments: safeArgsString(tu.input),
+        },
+      })),
+    };
+  }
+  return { role: "assistant", content: arm.content || "" };
+}
+
+export function codeWhispererToMessages(body: any): any[] {
+  const cs = body.conversationState || {};
+  const history = cs.history || [];
+  const currentMsg = cs.currentMessage;
+  const messages: any[] = [];
+
+  for (const item of history) {
+    if (item.userInputMessage) {
+      messages.push(...convertUserInputMessage(item.userInputMessage));
+    } else if (item.assistantResponseMessage) {
+      messages.push(convertAssistantResponseMessage(item.assistantResponseMessage));
+    }
+  }
+
+  if (currentMsg?.userInputMessage) {
+    messages.push(...convertUserInputMessage(currentMsg.userInputMessage));
+  }
+
+  return messages;
+}
+
+export function extractTools(body: any): any[] {
+  const cs = body.conversationState || {};
+  const fromCurrent = cs.currentMessage?.userInputMessage?.userInputMessageContext?.tools || [];
+  const fromHistory = cs.history?.find((h: any) => h.userInputMessage?.userInputMessageContext?.tools)
+    ?.userInputMessage?.userInputMessageContext?.tools || [];
+  const cwTools = fromCurrent.length > 0 ? fromCurrent : fromHistory;
+
+  if (!cwTools.length) return [];
+
+  return cwTools.map((item: any) => {
+    const spec = item.toolSpecification || item;
+    return {
+      type: "function",
+      function: {
+        name: spec.name || "",
+        description: spec.description || `Tool: ${spec.name || "unknown"}`,
+        parameters: spec.inputSchema?.json || { type: "object", properties: {}, required: [] },
+      },
+    };
+  });
+}
+
+export function emitFinish(state: KiroState): Buffer[] | null {
+  const frames: Buffer[] = [];
+  if (state.hasToolCalls) {
+    for (const idx of Object.keys(state.toolCallInit).sort()) {
+      const tc = state.toolCallInit[Number(idx)];
+      frames.push(
+        buildEventStreamFrame("toolUseEvent", {
+          name: tc.name,
+          stop: true,
+          toolUseId: tc.id,
+        })
+      );
+    }
+  } else {
+    frames.push(buildEventStreamFrame("messageStopEvent", {}));
+  }
+  state.finishSent = true;
+
+  if (state.usage) {
+    frames.push(
+      buildEventStreamFrame("usageEvent", {
+        inputTokens: state.usage.prompt_tokens || 0,
+        outputTokens: state.usage.completion_tokens || 0,
+      })
+    );
+  }
+
+  state.toolCallInit = {};
+  return frames.length > 0 ? frames : null;
+}
+
+export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer | Buffer[] | null {
+  if (!chunk) {
+    if (state.finishSent) return null;
+    if (state.inThink && state.thinkBuf) {
+      state.inThink = false;
+      const thinking = state.thinkBuf;
+      state.thinkBuf = "";
+      return withInitialFrame(
+        state,
+        buildEventStreamFrame("reasoningContentEvent", {
+          content: thinking,
+          modelId: state.modelId || "kiro-unknown",
+        })
+      );
+    }
+    return withInitialFrame(state, buildEventStreamFrame("messageStopEvent", {}));
+  }
+
+  const frames: Buffer[] = [];
+  const choice = chunk.choices?.[0];
+  const delta = choice?.delta || {};
+
+  if (!state.modelId && chunk.model) {
+    state.modelId = chunk.model;
+  }
+  const modelId = state.modelId || "unknown";
+
+  if (chunk.usage) {
+    state.usage = chunk.usage;
+  }
+
+  if (delta.tool_calls) {
+    state.hasToolCalls = true;
+    for (const tc of delta.tool_calls) {
+      const idx = tc.index ?? 0;
+      if (tc.id && tc.function?.name && !state.toolCallInit[idx]) {
+        state.toolCallInit[idx] = { id: tc.id, name: tc.function.name };
+        frames.push(
+          buildEventStreamFrame("toolUseEvent", {
+            name: tc.function.name,
+            toolUseId: tc.id,
+          })
+        );
+      }
+
+      if (tc.function?.arguments) {
+        const init = state.toolCallInit[idx];
+        frames.push(
+          buildEventStreamFrame("toolUseEvent", {
+            input: tc.function.arguments,
+            name: init?.name || tc.function?.name || "",
+            toolUseId: init?.id || tc.id || "",
+          })
+        );
+      }
+    }
+  }
+
+  if (delta.reasoning_content) {
+    frames.push(
+      buildEventStreamFrame("reasoningContentEvent", {
+        content: delta.reasoning_content,
+        modelId,
+      })
+    );
+  }
+
+  if (delta.content) {
+    const { thinking, text } = extractThinking(delta.content, state);
+    if (thinking) {
+      frames.push(
+        buildEventStreamFrame("reasoningContentEvent", {
+          content: thinking,
+          modelId,
+        })
+      );
+    }
+    if (text) {
+      frames.push(
+        buildEventStreamFrame("assistantResponseEvent", {
+          content: text,
+          modelId,
+        })
+      );
+    }
+  }
+
+  if (choice?.finish_reason) {
+    const finishFrames = emitFinish(state);
+    if (finishFrames) {
+      frames.push(...finishFrames);
+    }
+  }
+
+  if (frames.length === 0) {
+    if (!state.initialSent) return withInitialFrame(state, null);
+    return null;
+  }
+  return withInitialFrame(state, frames.length === 1 ? frames[0] : frames);
+}

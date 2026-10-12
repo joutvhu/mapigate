@@ -4,13 +4,15 @@ import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { ROOT_CA_KEY_PATH, ROOT_CA_CERT_PATH, generateRootCA } from "./cert/rootCA.js";
 import { getCertForDomain } from "./cert/generate.js";
-import { passthroughHttps } from "./handlers/base.js";
+import {
+  passthroughHttps,
+  CursorMitmHandler,
+  CopilotMitmHandler,
+  KiroMitmHandler,
+  AntigravityMitmHandler,
+  DefaultPassthroughMitmHandler,
+} from "./handlers/index.js";
 import { MitmHandlerRegistry } from "./registry.js";
-import { CursorMitmHandler } from "./handlers/cursorHandler.js";
-import { CopilotMitmHandler } from "./handlers/copilotHandler.js";
-import { KiroMitmHandler } from "./handlers/kiroHandler.js";
-import { AntigravityMitmHandler } from "./handlers/antigravityHandler.js";
-import { DefaultPassthroughMitmHandler } from "./handlers/defaultPassthrough.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 import {
   getToolForHost,
