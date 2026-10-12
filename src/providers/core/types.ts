@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import type { ProviderConfig, ProviderAccount, ComboConfig } from "../../shared/types/index.js";
+import type { ProviderConfig, ProviderAccount, ComboConfig, LogToolSnippet } from "../../shared/types/index.js";
 import type { RawProviderQuotaResult, ProviderUsageContext } from "../../core/usage/types.js";
 import type { ModelCapabilities } from "../../core/capabilities/types.js";
 
@@ -107,6 +107,10 @@ export interface StreamExecutionResult {
   outputTokens: number;
   ttftMs: number;
   totalDurationMs: number;
+  cachedTokens?: number;
+  cacheCreationTokens?: number;
+  reasoningTokens?: number;
+  tools?: LogToolSnippet[];
 }
 
 export interface ProviderRequestContext {

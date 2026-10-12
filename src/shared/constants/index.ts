@@ -47,7 +47,7 @@ export const MAPIGATE_DB_FILE = "mapigate.sqlite";
 export const MAPIGATE_LOG_FILE = "server.log";
 
 export const CONSOLE_LOG_CONFIG = {
-  maxLines: 300,
+  maxLines: 500,
   flushIntervalMs: 100,
   maxBatchLines: 50,
   keepaliveIntervalMs: 25000,

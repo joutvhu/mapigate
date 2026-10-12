@@ -2,6 +2,9 @@ import type { ModelCallResult, ProviderRequestContext } from "./types.js";
 import { ResponseLogger } from "./responseLogger.js";
 import { pipeSseStream } from "./streaming/sseStreamer.js";
 import { pipeBedrockEventStream } from "./streaming/bedrockStreamer.js";
+import { formatDoneLine, logger, LogSymbol } from "../../shared/logger.js";
+import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
+import type { LogToolSnippet } from "../../shared/types/index.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -39,7 +42,7 @@ export async function handleNonStreamingResponse(
   const cacheCreationTokens = usage.cache_creation_input_tokens ?? 0;
   const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens ?? 0;
 
-  ResponseLogger.logSuccess({
+  const calculatedCost = ResponseLogger.logSuccess({
     requestId: context.requestId,
     startTime,
     durationMs,
@@ -71,6 +74,76 @@ export async function handleNonStreamingResponse(
     },
   });
 
+  // Extract tools if non-streaming response body contains tool_calls or tool_use
+  const toolSnippets: LogToolSnippet[] = [];
+  try {
+    if (responseBody?.choices?.[0]?.message?.tool_calls) {
+      for (const tc of responseBody.choices[0].message.tool_calls) {
+        toolSnippets.push({
+          name: tc.function?.name || "tool",
+          type: "call",
+          summary: `${tc.function?.name || "tool"}(${tc.function?.arguments?.slice?.(0, 80) || ""})`,
+        });
+      }
+    } else if (Array.isArray(responseBody?.content)) {
+      for (const block of responseBody.content) {
+        if (block.type === "tool_use") {
+          toolSnippets.push({
+            name: block.name || "tool",
+            type: "call",
+            summary: `${block.name || "tool"}(${JSON.stringify(block.input || {}).slice(0, 80)})`,
+          });
+        }
+      }
+    }
+  } catch {}
+
+  const doneMsg = formatDoneLine({
+    durationMs,
+    promptTokens,
+    completionTokens,
+    cachedTokens,
+    cacheCreationTokens,
+    tokensSaved: rtkStats.tokensSaved,
+    cost: calculatedCost,
+  });
+
+  const reqTag = context.reqTag || "PROXY";
+  const doneSummary = `${provider.id}/${targetModel} · ${doneMsg}`;
+  logger.line(reqTag, LogSymbol.USAGE, doneSummary);
+
+  appendStructuredLog({
+    id: context.requestId,
+    timestamp: Date.now(),
+    level: "info",
+    category: "proxy",
+    message: doneSummary,
+    requestId: context.requestId,
+    reqTag,
+    gateway: {
+      clientTool,
+      route: req.path,
+      requestedModel: rawModel,
+      actualModel: targetModel,
+      providerId: provider.id,
+      accountId: account?.id,
+      accountName: account?.name,
+      statusCode: 200,
+      durationMs,
+      tokens: {
+        prompt: promptTokens,
+        completion: completionTokens,
+        cached: cachedTokens,
+        cacheCreation: cacheCreationTokens,
+        reasoning: reasoningTokens,
+        savedByRtk: rtkStats.tokensSaved,
+      },
+      cost: calculatedCost,
+      tools: toolSnippets.length ? toolSnippets : undefined,
+    },
+    rawText: doneSummary,
+  });
+
   return { ok: true, status: 200, json: isJson ? responseBody : undefined, text: isJson ? undefined : responseBody, modelUsed: targetModel };
 }
 
@@ -99,7 +172,13 @@ export async function handleStreamingResponse(
   }
 
   const durationMs = streamRes.totalDurationMs;
-  ResponseLogger.logSuccess({
+  const promptTokens = streamRes.inputTokens;
+  const completionTokens = streamRes.outputTokens;
+  const cachedTokens = streamRes.cachedTokens || 0;
+  const cacheCreationTokens = streamRes.cacheCreationTokens || 0;
+  const reasoningTokens = streamRes.reasoningTokens || 0;
+
+  const calculatedCost = ResponseLogger.logSuccess({
     requestId: context.requestId,
     startTime,
     durationMs,
@@ -109,11 +188,11 @@ export async function handleStreamingResponse(
     providerId: provider.id,
     accountId: account?.id,
     accountName: account?.name,
-    promptTokens: streamRes.inputTokens,
-    completionTokens: streamRes.outputTokens,
-    cachedTokens: 0,
-    cacheCreationTokens: 0,
-    reasoningTokens: 0,
+    promptTokens,
+    completionTokens,
+    cachedTokens,
+    cacheCreationTokens,
+    reasoningTokens,
     tokensSavedByRtk: rtkStats.tokensSaved,
     ttftMs: streamRes.ttftMs,
     is1mContext,
@@ -122,6 +201,54 @@ export async function handleStreamingResponse(
     providerRequest: { url: meta.upstreamUrl, headers: meta.outgoingHeaders, body: meta.upstreamBody },
     providerResponse: { status: upstreamRes.status, headers: Object.fromEntries(upstreamRes.headers.entries()) },
     clientResponse: { status: 200, headers: { "content-type": "text/event-stream" }, body: { text: "Stream completed" } },
+  });
+
+  const doneMsg = formatDoneLine({
+    durationMs,
+    ttftMs: streamRes.ttftMs,
+    promptTokens,
+    completionTokens,
+    cachedTokens,
+    cacheCreationTokens,
+    tokensSaved: rtkStats.tokensSaved,
+    cost: calculatedCost,
+  });
+
+  const reqTag = context.reqTag || "PROXY";
+  const doneSummary = `${provider.id}/${targetModel} · ${doneMsg}`;
+  logger.line(reqTag, LogSymbol.USAGE, doneSummary);
+
+  appendStructuredLog({
+    id: context.requestId,
+    timestamp: Date.now(),
+    level: "info",
+    category: "proxy",
+    message: doneSummary,
+    requestId: context.requestId,
+    reqTag,
+    gateway: {
+      clientTool,
+      route: req.path,
+      requestedModel: rawModel,
+      actualModel: targetModel,
+      providerId: provider.id,
+      accountId: account?.id,
+      accountName: account?.name,
+      statusCode: 200,
+      durationMs,
+      ttftMs: streamRes.ttftMs,
+      tokens: {
+        prompt: promptTokens,
+        completion: completionTokens,
+        cached: cachedTokens,
+        cacheCreation: cacheCreationTokens,
+        reasoning: reasoningTokens,
+        savedByRtk: rtkStats.tokensSaved,
+      },
+      cost: calculatedCost,
+      tools: streamRes.tools && streamRes.tools.length ? streamRes.tools : undefined,
+    },
+    rawText: doneSummary,
   });
 
   return { ok: true, status: 200, modelUsed: targetModel };

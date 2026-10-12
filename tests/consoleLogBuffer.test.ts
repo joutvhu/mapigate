@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import {
   initConsoleLogCapture,
   getConsoleLogs,
+  getStructuredLogs,
+  appendStructuredLog,
   clearConsoleLogs,
   getConsoleEmitter,
   stripAnsi,
+  maskSecretsInText,
+  parseRawLineToStructured,
 } from "../src/server/utils/consoleLogBuffer.js";
 
 test("consoleLogBuffer - stripAnsi removes escape codes", () => {
@@ -13,11 +17,53 @@ test("consoleLogBuffer - stripAnsi removes escape codes", () => {
   assert.equal(stripAnsi(colored), "Success with Error");
 });
 
-test("consoleLogBuffer - captures logs and preserves circular buffer cap", async () => {
+test("consoleLogBuffer - maskSecretsInText redacts sk- keys and Bearer tokens", () => {
+  const line1 = "Using key sk-ant-api03-12345678abcdef for upstream";
+  const masked1 = maskSecretsInText(line1);
+  assert.ok(!masked1.includes("12345678abcdef"));
+  assert.ok(masked1.includes("sk-a...cdef"));
+
+  const line2 = "Authorization: Bearer secret-oauth-token-12345678";
+  const masked2 = maskSecretsInText(line2);
+  assert.ok(!masked2.includes("secret-oauth-token-12345678"));
+  assert.ok(masked2.startsWith("Authorization: Bearer "));
+
+  const line3 = '{"password":"superSecretPassword123","username":"admin"}';
+  const masked3 = maskSecretsInText(line3);
+  assert.ok(!masked3.includes("superSecretPassword123"));
+});
+
+test("consoleLogBuffer - parseRawLineToStructured extracts levels, tags, and categories", () => {
+  // Proxy category and tag
+  const line1 = "[14:20:30] 🟢 📥 POST /v1/messages · client: claude-code · model: claude-3-7-sonnet";
+  const parsed1 = parseRawLineToStructured(line1);
+  assert.equal(parsed1.category, "proxy");
+  assert.equal(parsed1.reqTag, "🟢");
+  assert.equal(parsed1.level, "info");
+
+  // Error level
+  const line2 = "[14:20:31] 🔴 ❌ Upstream call failed with 500 ERROR: Overloaded";
+  const parsed2 = parseRawLineToStructured(line2);
+  assert.equal(parsed2.level, "error");
+  assert.equal(parsed2.category, "proxy");
+
+  // Scheduler category
+  const line3 = "[14:21:00] [SCHEDULER] Periodic tick executed";
+  const parsed3 = parseRawLineToStructured(line3);
+  assert.equal(parsed3.category, "scheduler");
+
+  // MITM category
+  const line4 = "[MITM] Intercepting request for api.anthropic.com";
+  const parsed4 = parseRawLineToStructured(line4);
+  assert.equal(parsed4.category, "mitm");
+});
+
+test("consoleLogBuffer - captures logs and preserves circular buffer cap at 500", async () => {
   initConsoleLogCapture();
   clearConsoleLogs();
 
   assert.equal(getConsoleLogs().length, 0);
+  assert.equal(getStructuredLogs().length, 0);
 
   console.log("Test log 1");
   console.info("Test info 2");
@@ -30,14 +76,59 @@ test("consoleLogBuffer - captures logs and preserves circular buffer cap", async
   assert.ok(logs.some((l) => l.includes("Test warn 3")));
   assert.ok(logs.some((l) => l.includes("Test error 4")));
 
-  // Test circular buffer cap at 300
-  for (let i = 0; i < 350; i++) {
+  const structured = getStructuredLogs();
+  assert.equal(structured.length, 4);
+  assert.ok(structured.some((s) => s.message.includes("Test log 1")));
+
+  // Test circular buffer cap at 500
+  for (let i = 0; i < 550; i++) {
     console.log(`Flood line ${i}`);
   }
 
   const cappedLogs = getConsoleLogs();
-  assert.equal(cappedLogs.length, 300);
-  assert.ok(cappedLogs[cappedLogs.length - 1].includes("Flood line 349"));
+  assert.equal(cappedLogs.length, 500);
+  assert.ok(cappedLogs[cappedLogs.length - 1].includes("Flood line 549"));
+
+  const cappedStructured = getStructuredLogs();
+  assert.equal(cappedStructured.length, 500);
+  assert.ok(cappedStructured[cappedStructured.length - 1].message.includes("Flood line 549"));
+});
+
+test("consoleLogBuffer - appendStructuredLog adds and enriches structured entries", () => {
+  clearConsoleLogs();
+
+  appendStructuredLog({
+    id: "req-123",
+    timestamp: Date.now(),
+    level: "info",
+    category: "proxy",
+    message: "Proxy request completed",
+    requestId: "req-123",
+    reqTag: "🟢",
+    gateway: {
+      clientTool: "claude-code",
+      requestedModel: "claude-3-7-sonnet",
+      actualModel: "claude-3-7-sonnet-20250219",
+      providerId: "anthropic",
+      statusCode: 200,
+      durationMs: 450,
+      ttftMs: 120,
+      tokens: {
+        prompt: 1500,
+        completion: 350,
+        cached: 800,
+        savedByRtk: 120,
+      },
+      cost: 0.005,
+    },
+    rawText: "anthropic/claude-3-7-sonnet · DONE 450ms · TTFT 120ms · IN 1500",
+  });
+
+  const structured = getStructuredLogs();
+  assert.equal(structured.length, 1);
+  assert.equal(structured[0].gateway?.clientTool, "claude-code");
+  assert.equal(structured[0].gateway?.tokens?.cached, 800);
+  assert.equal(structured[0].gateway?.cost, 0.005);
 });
 
 test("consoleLogBuffer - emits batched lines event and clear event", async () => {
@@ -76,4 +167,5 @@ test("consoleLogBuffer - emits batched lines event and clear event", async () =>
 
   assert.equal(cleared, true);
   assert.equal(getConsoleLogs().length, 0);
+  assert.equal(getStructuredLogs().length, 0);
 });

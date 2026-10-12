@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import crypto from "node:crypto";
 import { logger, tagForSession, LogSymbol, formatTime, ANSI } from "../../shared/logger.js";
+import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 
 declare global {
   namespace Express {
@@ -101,6 +102,31 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
         icon,
         `${color}${req.method} ${req.path} -> ${statusText} (${durationMs}ms)${ANSI.reset}`
       );
+
+      if (isError) {
+        appendStructuredLog({
+          id: incomingReqId,
+          timestamp: Date.now(),
+          level: "error",
+          category: isProxyRequest ? "proxy" : "system",
+          message: `${req.method} ${req.path} -> ${statusText} (${durationMs}ms)`,
+          requestId: incomingReqId,
+          reqTag,
+          gateway: isProxyRequest
+            ? {
+                clientTool: getClientTool(req),
+                route: req.path,
+                statusCode: status,
+                durationMs,
+              }
+            : undefined,
+          error: {
+            status,
+            message: statusText,
+          },
+          rawText: `[${formatTime()}] ${reqTag} ${icon} ${req.method} ${req.path} -> ${statusText} (${durationMs}ms)`,
+        });
+      }
     }
   });
 

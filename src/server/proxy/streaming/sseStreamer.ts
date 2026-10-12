@@ -84,6 +84,29 @@ export async function pipeSseStream(
 
         extractTokensFromChunk(jsonChunk, state);
 
+        // Detect tool calls in stream chunks
+        if (jsonChunk.type === "content_block_start" && jsonChunk.content_block?.type === "tool_use") {
+          const toolName = jsonChunk.content_block.name || "tool";
+          state.tools.push({
+            name: toolName,
+            type: "call",
+            summary: `Tool: ${toolName}`,
+          });
+          logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
+        } else if (Array.isArray(jsonChunk.choices?.[0]?.delta?.tool_calls)) {
+          for (const tc of jsonChunk.choices[0].delta.tool_calls) {
+            if (tc.function?.name) {
+              const toolName = tc.function.name;
+              state.tools.push({
+                name: toolName,
+                type: "call",
+                summary: `Tool: ${toolName}`,
+              });
+              logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
+            }
+          }
+        }
+
         if (clientFormat === "anthropic" && targetFormat === "openai") {
           const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
             jsonChunk,
@@ -138,6 +161,10 @@ export async function pipeSseStream(
   return {
     inputTokens: state.promptTokens,
     outputTokens: state.completionTokens,
+    cachedTokens: state.cachedTokens,
+    cacheCreationTokens: state.cacheCreationTokens,
+    reasoningTokens: state.reasoningTokens,
+    tools: state.tools,
     ttftMs: state.ttftMs || (Date.now() - startTime),
     totalDurationMs: Date.now() - startTime,
   };

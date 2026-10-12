@@ -49,6 +49,16 @@ export async function pipeBedrockEventStream(
           if (eventObj.usage.output_tokens) state.completionTokens = eventObj.usage.output_tokens;
         }
 
+        if (eventObj.type === "content_block_start" && eventObj.content_block?.type === "tool_use") {
+          const toolName = eventObj.content_block.name || "tool";
+          state.tools.push({
+            name: toolName,
+            type: "call",
+            summary: `Tool: ${toolName}`,
+          });
+          logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
+        }
+
         if (eventObj.delta?.text) {
           if (state.capturedResponseText.length < 4000) {
             state.capturedResponseText += eventObj.delta.text;
@@ -83,6 +93,10 @@ export async function pipeBedrockEventStream(
   return {
     inputTokens: state.promptTokens,
     outputTokens: state.completionTokens,
+    cachedTokens: state.cachedTokens,
+    cacheCreationTokens: state.cacheCreationTokens,
+    reasoningTokens: state.reasoningTokens,
+    tools: state.tools,
     ttftMs: state.ttftMs || (Date.now() - startTime),
     totalDurationMs: Date.now() - startTime,
   };

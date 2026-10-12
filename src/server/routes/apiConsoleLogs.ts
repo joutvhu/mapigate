@@ -1,10 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import {
   getConsoleLogs,
+  getStructuredLogs,
   clearConsoleLogs,
   getConsoleEmitter,
 } from "../utils/consoleLogBuffer.js";
 import { CONSOLE_LOG_CONFIG } from "../../shared/constants/index.js";
+import type { StructuredLogEntry } from "../../shared/types/logging.js";
 
 export const consoleLogsRouter = Router();
 
@@ -12,7 +14,8 @@ export const consoleLogsRouter = Router();
 consoleLogsRouter.get("/", (_req: Request, res: Response) => {
   try {
     const logs = getConsoleLogs();
-    res.json({ success: true, logs });
+    const structuredLogs = getStructuredLogs();
+    res.json({ success: true, logs, structuredLogs });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || "Failed to get console logs" });
   }
@@ -44,16 +47,31 @@ consoleLogsRouter.get("/stream", (req: Request, res: Response) => {
 
   // Send initial history snapshot
   const initialLogs = getConsoleLogs();
+  const initialStructured = getStructuredLogs();
   try {
-    res.write(`data: ${JSON.stringify({ type: "init", logs: initialLogs })}\n\n`);
+    res.write(
+      `data: ${JSON.stringify({
+        type: "init",
+        logs: initialLogs,
+        lines: initialLogs,
+        structured: initialStructured,
+      })}\n\n`
+    );
   } catch {
     return;
   }
 
-  const onLines = (lines: string[]) => {
+  const onLines = (lines: string[], structured?: StructuredLogEntry[]) => {
     if (closed || !Array.isArray(lines) || lines.length === 0) return;
     try {
-      res.write(`data: ${JSON.stringify({ type: "lines", lines })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          type: "lines",
+          lines,
+          logs: lines,
+          structured: structured || [],
+        })}\n\n`
+      );
     } catch {
       cleanup();
     }

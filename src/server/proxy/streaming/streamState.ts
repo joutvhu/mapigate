@@ -1,3 +1,5 @@
+import type { LogToolSnippet } from "../../../shared/types/index.js";
+
 export interface StreamTrackingState {
   promptTokens: number;
   completionTokens: number;
@@ -6,6 +8,7 @@ export interface StreamTrackingState {
   reasoningTokens: number;
   ttftMs?: number;
   capturedResponseText: string;
+  tools: LogToolSnippet[];
 }
 
 export function createStreamTrackingState(initialPromptTokens = 0): StreamTrackingState {
@@ -16,6 +19,7 @@ export function createStreamTrackingState(initialPromptTokens = 0): StreamTracki
     cacheCreationTokens: 0,
     reasoningTokens: 0,
     capturedResponseText: "",
+    tools: [],
   };
 }
 

@@ -249,3 +249,5 @@ export interface ScanModelsOptions {
   providerSpecificData?: Record<string, any>;
 }
 
+export * from "./logging.js";
+
