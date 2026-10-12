@@ -1,0 +1,18 @@
+import type { RegistryModel } from "../../core/types.js";
+
+export const models: RegistryModel[] = [
+  {"id":"gpt-4.1","name":"GPT-4.1","isDefault":false,"contextLength":1048576},
+  {"id":"gpt-4.1-mini","name":"GPT-4.1 Mini","isDefault":false,"contextLength":1048576},
+  {"id":"gpt-4.1-nano","name":"GPT-4.1 Nano","isDefault":false,"contextLength":1048576},
+  {"id":"claude-sonnet-4-5","name":"Claude Sonnet 4.5","isDefault":false,"contextLength":200000},
+  {"id":"claude-haiku-4-5","name":"Claude Haiku 4.5","isDefault":false,"contextLength":200000},
+  {"id":"gemini-2.0-flash","name":"Gemini 2.0 Flash","isDefault":false,"contextLength":1048576},
+  {"id":"gemini-2.0-flash-exp","name":"Gemini 2.0 Flash (Exp)","isDefault":false,"contextLength":1048576},
+  {"id":"qwen-turbo","name":"Qwen Turbo","isDefault":false,"contextLength":1000000},
+  {"id":"kimi-k2","name":"Kimi K2","isDefault":false,"contextLength":262144},
+  {"id":"kimi-k2-thinking","name":"Kimi K2 Thinking","isDefault":false,"contextLength":262144},
+  {"id":"glm-4.7","name":"GLM 4.7","isDefault":false,"contextLength":204800},
+  {"id":"minimax-m2.5","name":"MiniMax M2.5","isDefault":false,"contextLength":204800},
+  {"id":"claude-opus-4-5","name":"Claude Opus 4.5 (VIP)","isDefault":false,"contextLength":200000},
+  {"id":"gemini-2.5-pro","name":"Gemini 2.5 Pro (VIP)","isDefault":false,"contextLength":1048576},
+];

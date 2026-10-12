@@ -1,0 +1,42 @@
+import type { ProviderRegistryItem } from "../../core/types.js";
+
+export const metadata: ProviderRegistryItem = {
+  "id": "sealion",
+  "name": "SEA-LION",
+  "alias": "sealion",
+  "aliases": [
+    "sealion"
+  ],
+  "uiAlias": "sealion",
+  "color": "#0D9488",
+  "image": "/assets/providers/sealion/icon.svg",
+  "website": "https://sea-lion.ai",
+  "notice": {
+    "apiKeyUrl": "",
+    "text": "SEA-LION provider endpoint."
+  },
+  "category": "apikey",
+  "authType": "apikey",
+  "baseUrl": "https://api.sea-lion.ai/v1/chat/completions",
+  "baseUrls": [
+    "https://api.sea-lion.ai/v1/chat/completions"
+  ],
+  "validateUrl": "",
+  "format": "openai",
+  "defaultHeaders": {
+    "content-type": "application/json"
+  },
+  "thinkingMode": "auto",
+  "models": [
+    {
+      "id": "sealion-default",
+      "name": "SEA-LION Default",
+      "isDefault": true,
+      "contextLength": 128000
+    }
+  ],
+  "passthroughModels": true
+};
+
+export const provider = metadata;
+export default metadata;

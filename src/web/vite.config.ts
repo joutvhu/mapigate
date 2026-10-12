@@ -32,14 +32,25 @@ function providerAssetsPlugin(): Plugin {
         }
 
         const [, provider, file] = match;
-        const assetPath = path.resolve(providersDir, provider, "assets", file);
-        const fallbackPath = path.resolve(projectRoot, "src", "web", "public", "providers", file);
-
+        const categories = ["runtime", "catalog", "composite"];
         let targetFile: string | null = null;
-        if (fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
-          targetFile = assetPath;
-        } else if (fs.existsSync(fallbackPath) && fs.statSync(fallbackPath).isFile()) {
-          targetFile = fallbackPath;
+
+        for (const cat of categories) {
+          const catAssetPath = path.resolve(providersDir, cat, provider, "assets", file);
+          if (fs.existsSync(catAssetPath) && fs.statSync(catAssetPath).isFile()) {
+            targetFile = catAssetPath;
+            break;
+          }
+        }
+
+        if (!targetFile) {
+          const flatAssetPath = path.resolve(providersDir, provider, "assets", file);
+          const fallbackPath = path.resolve(projectRoot, "src", "web", "public", "providers", file);
+          if (fs.existsSync(flatAssetPath) && fs.statSync(flatAssetPath).isFile()) {
+            targetFile = flatAssetPath;
+          } else if (fs.existsSync(fallbackPath) && fs.statSync(fallbackPath).isFile()) {
+            targetFile = fallbackPath;
+          }
         }
 
         if (targetFile) {
@@ -60,25 +71,34 @@ function providerAssetsPlugin(): Plugin {
       if (!fs.existsSync(providersDir)) return;
 
       try {
-        const entries = fs.readdirSync(providersDir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            const assetsPath = path.resolve(providersDir, entry.name, "assets");
-            if (fs.existsSync(assetsPath)) {
-              const files = fs.readdirSync(assetsPath, { withFileTypes: true });
-              for (const f of files) {
-                if (f.isFile()) {
-                  const destDir = path.resolve(targetDistBase, entry.name);
-                  fs.mkdirSync(destDir, { recursive: true });
-                  fs.copyFileSync(
-                    path.resolve(assetsPath, f.name),
-                    path.resolve(destDir, f.name)
-                  );
+        const categories = ["runtime", "catalog", "composite"];
+        const copyFromDir = (dir: string) => {
+          if (!fs.existsSync(dir)) return;
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              const assetsPath = path.resolve(dir, entry.name, "assets");
+              if (fs.existsSync(assetsPath)) {
+                const files = fs.readdirSync(assetsPath, { withFileTypes: true });
+                for (const f of files) {
+                  if (f.isFile()) {
+                    const destDir = path.resolve(targetDistBase, entry.name);
+                    fs.mkdirSync(destDir, { recursive: true });
+                    fs.copyFileSync(
+                      path.resolve(assetsPath, f.name),
+                      path.resolve(destDir, f.name)
+                    );
+                  }
                 }
               }
             }
           }
+        };
+
+        for (const cat of categories) {
+          copyFromDir(path.resolve(providersDir, cat));
         }
+        copyFromDir(providersDir);
       } catch (err) {
         console.warn("[vite-plugin-provider-assets] Could not copy provider assets:", err);
       }

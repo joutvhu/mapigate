@@ -4,7 +4,7 @@ import {
   signAwsSigv4Request,
   AWS_SIGV4,
   escapeUri,
-} from "../src/providers/bedrock/auth.js";
+} from "../src/providers/runtime/bedrock/auth.js";
 import {
   signAwsSigv4Request as facadeSign,
 } from "../src/core/auth/awsSigv4.js";
@@ -12,7 +12,7 @@ import {
   crc32,
   parseEventFrame,
   decodeEventStreamChunk,
-} from "../src/providers/bedrock/eventStream.js";
+} from "../src/providers/runtime/bedrock/eventStream.js";
 import {
   crc32 as facadeCrc32,
   decodeEventStreamChunk as facadeDecode,

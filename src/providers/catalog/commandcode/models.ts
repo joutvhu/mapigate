@@ -1,0 +1,26 @@
+import type { RegistryModel } from "../../core/types.js";
+
+export const models: RegistryModel[] = [
+  {"id":"deepseek/deepseek-v4-pro","name":"DeepSeek V4 Pro","isDefault":false},
+  {"id":"deepseek/deepseek-v4-flash","name":"DeepSeek V4 Flash","isDefault":false},
+  {"id":"moonshotai/Kimi-K2.7-Code","name":"Kimi K2.7 Code","isDefault":false},
+  {"id":"moonshotai/Kimi-K2.7-Code-Highspeed","name":"Kimi K2.7 Code HighSpeed","isDefault":false},
+  {"id":"moonshotai/Kimi-K2.6","name":"Kimi K2.6","isDefault":false},
+  {"id":"moonshotai/Kimi-K2.5","name":"Kimi K2.5","isDefault":false},
+  {"id":"zai-org/GLM-5.2","name":"GLM 5.2","isDefault":false},
+  {"id":"zai-org/GLM-5.2-Fast","name":"GLM 5.2 Fast","isDefault":false},
+  {"id":"zai-org/GLM-5.1","name":"GLM 5.1","isDefault":false},
+  {"id":"zai-org/GLM-5","name":"GLM 5","isDefault":false},
+  {"id":"MiniMaxAI/MiniMax-M3","name":"MiniMax M3","isDefault":false},
+  {"id":"MiniMaxAI/MiniMax-M2.7","name":"MiniMax M2.7","isDefault":false},
+  {"id":"MiniMaxAI/MiniMax-M2.5","name":"MiniMax M2.5","isDefault":false},
+  {"id":"xiaomi/mimo-v2.5-pro","name":"MiMo V2.5 Pro","isDefault":false},
+  {"id":"xiaomi/mimo-v2.5","name":"MiMo V2.5","isDefault":false},
+  {"id":"Qwen/Qwen3.6-Max-Preview","name":"Qwen 3.6 Max Preview","isDefault":false},
+  {"id":"Qwen/Qwen3.6-Plus","name":"Qwen 3.6 Plus","isDefault":false},
+  {"id":"Qwen/Qwen3.7-Max","name":"Qwen 3.7 Max","isDefault":false},
+  {"id":"Qwen/Qwen3.7-Plus","name":"Qwen 3.7 Plus","isDefault":false},
+  {"id":"stepfun/Step-3.7-Flash","name":"Step 3.7 Flash","isDefault":false},
+  {"id":"stepfun/Step-3.5-Flash","name":"Step 3.5 Flash","isDefault":false},
+  {"id":"nvidia/nemotron-3-ultra-550b-a55b","name":"Nemotron 3 Ultra","isDefault":false},
+];

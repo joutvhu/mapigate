@@ -195,13 +195,24 @@ app.get("/assets/providers/:provider/:file", (req, res) => {
     return;
   }
 
-  const candidatePaths = [
+  const candidatePaths: string[] = [];
+  const categories = ["runtime", "catalog", "composite"];
+
+  for (const cat of categories) {
+    candidatePaths.push(
+      path.resolve(process.cwd(), "src", "providers", cat, provider, "assets", file),
+      path.resolve(__dirname, "../../src/providers", cat, provider, "assets", file),
+      path.resolve(__dirname, "../providers", cat, provider, "assets", file)
+    );
+  }
+
+  candidatePaths.push(
     path.resolve(process.cwd(), "src", "providers", provider, "assets", file),
     path.resolve(__dirname, "../../src/providers", provider, "assets", file),
     path.resolve(__dirname, "../providers", provider, "assets", file),
     path.resolve(process.cwd(), "dist", "web", "assets", "providers", provider, file),
-    path.resolve(process.cwd(), "src", "web", "public", "providers", file),
-  ];
+    path.resolve(process.cwd(), "src", "web", "public", "providers", file)
+  );
 
   for (const filePath of candidatePaths) {
     try {
