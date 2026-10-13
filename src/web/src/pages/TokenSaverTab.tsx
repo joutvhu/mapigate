@@ -1,110 +1,187 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { type TokenSaverSettings, DEFAULT_TOKEN_SAVER_SETTINGS } from "../components/tokenSaver/types.js";
+import { RtkCard } from "../components/tokenSaver/RtkCard.js";
+import { CavemanCard } from "../components/tokenSaver/CavemanCard.js";
+import { PonytailCard } from "../components/tokenSaver/PonytailCard.js";
+
+function parseSettings(data: any): TokenSaverSettings {
+  return {
+    rtkEnabled: Boolean(data?.rtkEnabled),
+    cavemanEnabled: Boolean(data?.cavemanEnabled),
+    cavemanLevel: data?.cavemanLevel || "lite",
+    ponytailEnabled: Boolean(data?.ponytailEnabled),
+    ponytailLevel: data?.ponytailLevel || "lite",
+  };
+}
 
 export const TokenSaverTab: React.FC = () => {
-  const [rtkEnabled, setRtkEnabled] = useState(true);
-  const [compressDiff, setCompressDiff] = useState(true);
-  const [compressLogs, setCompressLogs] = useState(true);
-  const [testInput, setTestInput] = useState(
-    "diff --git a/src/index.ts b/src/index.ts\nindex 83b9c1..94c1a2 100644\n--- a/src/index.ts\n+++ b/src/index.ts\n@@ -1,10 +1,10 @@\n const a = 1;\n const b = 2;\n const c = 3;\n const d = 4;\n const e = 5;\n const f = 6;\n+const newFeature = true;\n const g = 7;\n const h = 8;\n const i = 9;\n const j = 10;\n"
-  );
-  const [compressedOutput, setCompressedOutput] = useState<string | null>(null);
+  const [settings, setSettings] = useState<TokenSaverSettings>(DEFAULT_TOKEN_SAVER_SETTINGS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedBadge, setSavedBadge] = useState(false);
 
-  const simulateCompress = () => {
-    // Compress repeated lines & context
-    const lines = testInput.split("\n");
-    const filtered = lines.filter((l) => !l.startsWith("index "));
-    setCompressedOutput(filtered.join("\n"));
+  const loadSettings = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch("/api/settings/token-saver");
+      if (!res.ok) throw new Error("Failed to load token saver configuration");
+      const data = await res.json();
+      setSettings(parseSettings(data));
+    } catch (err: any) {
+      setError(err?.message || "Could not connect to settings API");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const handleUpdate = async (partial: Partial<TokenSaverSettings>) => {
+    const previous = { ...settings };
+    setSettings((prev) => ({ ...prev, ...partial }));
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/settings/token-saver", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partial),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Failed to persist token saver settings");
+      }
+
+      const updated = await res.json();
+      setSettings(parseSettings(updated));
+      setSavedBadge(true);
+      setTimeout(() => setSavedBadge(false), 2500);
+    } catch (err: any) {
+      setError(err?.message || "Failed to save settings");
+      setSettings(previous); // Rollback
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="w-full px-2 sm:px-4 py-8 space-y-4 animate-rt-fade-in">
+        <div className="rt-card p-6 h-32 animate-pulse bg-[#0F1420]" />
+        <div className="rt-card p-6 h-48 animate-pulse bg-[#0F1420]" />
+        <div className="rt-card p-6 h-48 animate-pulse bg-[#0F1420]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
-      <div className="rt-card p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-cyan-400">savings</span>
-              RTK Token Optimizer
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Lossless tool result compression saving 20-40% context window tokens per agent request
-            </p>
-          </div>
-
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={rtkEnabled}
-              onChange={(e) => setRtkEnabled(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-10 h-5.5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600" />
-          </label>
+      {/* Top Header & Auto-Save Status */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px] text-cyan-400">savings</span>
+            Token Saver Engine &amp; Prompt Optimizers
+          </h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Reduce input and output token consumption across coding agents (Claude Code, Cursor, Cline, OpenCode, Codex).
+          </p>
         </div>
 
-        {/* Compression Filters configuration */}
-        <div className="space-y-3 pt-2 border-t border-[#1E293B]">
-          <span className="text-xs font-bold text-slate-300 block uppercase tracking-wider">
-            Active Token Trimming Engines
-          </span>
-
-          <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] flex items-center justify-between">
-            <div>
-              <h4 className="text-xs font-bold text-white">Git Diff Compression</h4>
-              <p className="text-[11px] text-slate-400">
-                Removes redundant unchanged context lines and git commit hash metadata
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={compressDiff}
-              onChange={(e) => setCompressDiff(e.target.checked)}
-              className="accent-blue-600 rounded size-4"
-            />
-          </div>
-
-          <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] flex items-center justify-between">
-            <div>
-              <h4 className="text-xs font-bold text-white">Terminal Build & Test Logs</h4>
-              <p className="text-[11px] text-slate-400">
-                Strips ANSI terminal colors, infinite progress bar artifacts, and duplicate poll lines
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={compressLogs}
-              onChange={(e) => setCompressLogs(e.target.checked)}
-              className="accent-blue-600 rounded size-4"
-            />
-          </div>
-        </div>
-
-        {/* Interactive Playground */}
-        <div className="pt-2 border-t border-[#1E293B] space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-200">Interactive RTK Test Sandbox:</span>
-            <button onClick={simulateCompress} className="rt-btn rt-btn--primary">
-              <span className="material-symbols-outlined text-[15px]">auto_fix_high</span>
-              Test Trim
-            </button>
-          </div>
-
-          <textarea
-            value={testInput}
-            onChange={(e) => setTestInput(e.target.value)}
-            rows={4}
-            className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl p-3 text-xs font-mono text-slate-300 focus:outline-none focus:border-blue-500"
-          />
-
-          {compressedOutput && (
-            <div className="bg-[#080B10] p-4 rounded-xl border border-blue-500/30 text-emerald-400 text-xs font-mono animate-rt-scale-in">
-              <span className="text-[10px] text-slate-500 uppercase block font-sans mb-1">
-                Optimized Payload (Saved ~25% tokens):
-              </span>
-              <pre>{compressedOutput}</pre>
-            </div>
+        <div className="flex items-center gap-2 text-xs">
+          {saving && (
+            <span className="flex items-center gap-1.5 text-cyan-400 font-medium">
+              <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+              Saving changes...
+            </span>
+          )}
+          {savedBadge && !saving && (
+            <span className="flex items-center gap-1.5 text-emerald-400 font-medium animate-rt-fade-in">
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              All changes saved
+            </span>
+          )}
+          {error && (
+            <span className="flex items-center gap-1.5 text-rose-400 font-medium">
+              <span className="material-symbols-outlined text-[16px]">error</span>
+              {error}
+            </span>
           )}
         </div>
       </div>
+
+      {error && !saving && (
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-between gap-3 text-xs text-rose-300">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-rose-400 text-[18px]">warning</span>
+            <span>{error}</span>
+          </div>
+          <button onClick={loadSettings} className="rt-btn text-xs py-1 px-3 border border-rose-500/30 text-rose-300 hover:bg-rose-500/20">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Overview Status Pills */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-3.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex items-center justify-between">
+          <div>
+            <div className="text-[11px] text-slate-400 font-medium">Input Tool Trimming</div>
+            <div className="text-xs font-bold text-white mt-0.5">RTK Tool Optimizer</div>
+          </div>
+          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+            settings.rtkEnabled ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "bg-slate-800 text-slate-500"
+          }`}>
+            {settings.rtkEnabled ? "Active" : "Off"}
+          </span>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex items-center justify-between">
+          <div>
+            <div className="text-[11px] text-slate-400 font-medium">Output Fluff Removal</div>
+            <div className="text-xs font-bold text-white mt-0.5">Caveman ({settings.cavemanLevel})</div>
+          </div>
+          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+            settings.cavemanEnabled ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-slate-800 text-slate-500"
+          }`}>
+            {settings.cavemanEnabled ? "Active" : "Off"}
+          </span>
+        </div>
+
+        <div className="p-3.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex items-center justify-between">
+          <div>
+            <div className="text-[11px] text-slate-400 font-medium">Simplicity Bias Persona</div>
+            <div className="text-xs font-bold text-white mt-0.5">Ponytail ({settings.ponytailLevel})</div>
+          </div>
+          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+            settings.ponytailEnabled ? "bg-purple-500/20 text-purple-300 border border-purple-500/30" : "bg-slate-800 text-slate-500"
+          }`}>
+            {settings.ponytailEnabled ? "Active" : "Off"}
+          </span>
+        </div>
+      </div>
+
+      <RtkCard enabled={settings.rtkEnabled} disabled={saving} onToggle={(val) => handleUpdate({ rtkEnabled: val })} />
+      <CavemanCard
+        enabled={settings.cavemanEnabled}
+        level={settings.cavemanLevel}
+        disabled={saving}
+        onToggle={(val) => handleUpdate({ cavemanEnabled: val })}
+        onSelectLevel={(val) => handleUpdate({ cavemanLevel: val })}
+      />
+      <PonytailCard
+        enabled={settings.ponytailEnabled}
+        level={settings.ponytailLevel}
+        disabled={saving}
+        onToggle={(val) => handleUpdate({ ponytailEnabled: val })}
+        onSelectLevel={(val) => handleUpdate({ ponytailLevel: val })}
+      />
     </div>
   );
 };
