@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "bzl",
   "color": "#DC2626",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/bazaarlink/icon.png",
   "website": "https://bazaarlink.ai",
   "notice": {

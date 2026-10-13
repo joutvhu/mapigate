@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "SiliconFlow",
   "alias": "siliconflow",
   "color": "#5B6EF5",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/siliconflow/icon.png",
   "website": "https://cloud.siliconflow.com",
   "notice": {

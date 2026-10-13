@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "gigachat",
   "color": "#10B981",
-  "image": "/assets/providers/gigachat/icon.svg",
+  "image": "/assets/providers/gigachat/icon.png",
   "website": "https://developers.sber.ru",
   "notice": {
     "apiKeyUrl": "",

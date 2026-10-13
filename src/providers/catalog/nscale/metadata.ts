@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "nscale",
   "color": "#0891B2",
-  "image": "/assets/providers/nscale/icon.svg",
+  "image": "/assets/providers/nscale/icon.png",
   "website": "https://nscale.com",
   "notice": {
     "apiKeyUrl": "",

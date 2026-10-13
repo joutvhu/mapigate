@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "sarvam",
   "color": "#0EA5E9",
+  "iconBg": "#ffffff",
   "image": "/assets/providers/sarvam/icon.svg",
   "website": "https://docs.sarvam.ai",
   "notice": {

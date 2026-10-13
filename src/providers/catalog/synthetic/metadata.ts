@@ -9,7 +9,8 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "synthetic",
   "color": "#6366F1",
-  "image": "/assets/providers/synthetic/icon.svg",
+  "iconBg": "#ffb86a",
+  "image": "/assets/providers/synthetic/icon.png",
   "website": "https://synthetic.new",
   "notice": {
     "apiKeyUrl": "",

@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "nanogpt",
   "color": "#10B981",
-  "image": "/assets/providers/nanogpt/icon.svg",
+  "image": "/assets/providers/nanogpt/icon.ico",
   "website": "https://nano-gpt.com",
   "notice": {
     "apiKeyUrl": "https://nano-gpt.com/api"

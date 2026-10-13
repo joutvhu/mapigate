@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Nebius AI",
   "alias": "nebius",
   "color": "#6C5CE7",
+  "iconBg": "#e2ff4c",
   "image": "/assets/providers/nebius/icon.png",
   "website": "https://nebius.com",
   "notice": {

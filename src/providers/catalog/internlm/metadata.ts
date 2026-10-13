@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "internlm",
   "color": "#4F46E5",
-  "image": "/assets/providers/internlm/icon.svg",
+  "image": "/assets/providers/internlm/icon.png",
   "website": "https://internlm.intern-ai.org.cn/",
   "notice": {
     "apiKeyUrl": "",

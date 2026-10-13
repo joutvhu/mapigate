@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "sealion",
   "color": "#0D9488",
-  "image": "/assets/providers/sealion/icon.svg",
+  "image": "/assets/providers/sealion/icon.png",
   "website": "https://sea-lion.ai",
   "notice": {
     "apiKeyUrl": "",

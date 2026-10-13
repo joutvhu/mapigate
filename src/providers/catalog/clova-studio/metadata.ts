@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "clova-studio",
   "color": "#03C75A",
-  "image": "/assets/providers/clova-studio/icon.svg",
+  "image": "/assets/providers/clova-studio/icon.png",
   "website": "https://api.ncloud-docs.com/docs/en/ai-naver-clovastudio-summary",
   "notice": {
     "apiKeyUrl": "",

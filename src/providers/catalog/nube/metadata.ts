@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "nube",
   "color": "#2563EB",
-  "image": "/assets/providers/nube/icon.svg",
+  "image": "/assets/providers/nube/icon.ico",
   "website": "https://nube.sh",
   "notice": {
     "apiKeyUrl": "https://nube.sh/dashboard/api-keys",

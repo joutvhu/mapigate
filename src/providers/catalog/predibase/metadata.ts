@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "predibase",
   "color": "#0F766E",
-  "image": "/assets/providers/predibase/icon.svg",
+  "image": "/assets/providers/predibase/icon.png",
   "website": "https://predibase.com",
   "notice": {
     "apiKeyUrl": "",
