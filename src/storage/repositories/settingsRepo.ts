@@ -1,5 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { getDatabase } from "../database.js";
+import {
+  type TokenSaverSettings,
+  DEFAULT_TOKEN_SAVER_SETTINGS,
+} from "../../core/tokenSaver/core/types.js";
+
+export { type TokenSaverSettings, DEFAULT_TOKEN_SAVER_SETTINGS };
 
 export interface CapacityAdapterEntry {
   enabled: boolean;
@@ -270,5 +276,67 @@ export class SettingsRepository {
     keys[index].isActive = !keys[index].isActive;
     this.setSetting("gatewayApiKeys", keys);
     return keys[index];
+  }
+
+  // --- Token Saver Settings ---
+
+  public static getTokenSaverSettings(): TokenSaverSettings {
+    const raw = this.getSetting<any>("tokenSaver");
+    if (!raw || typeof raw !== "object") {
+      return { ...DEFAULT_TOKEN_SAVER_SETTINGS };
+    }
+    return {
+      rtkEnabled:
+        raw.rtkEnabled !== undefined ? Boolean(raw.rtkEnabled) : DEFAULT_TOKEN_SAVER_SETTINGS.rtkEnabled,
+      cavemanEnabled:
+        raw.cavemanEnabled !== undefined
+          ? Boolean(raw.cavemanEnabled)
+          : DEFAULT_TOKEN_SAVER_SETTINGS.cavemanEnabled,
+      cavemanLevel:
+        typeof raw.cavemanLevel === "string" && raw.cavemanLevel.trim()
+          ? raw.cavemanLevel.trim()
+          : DEFAULT_TOKEN_SAVER_SETTINGS.cavemanLevel,
+      ponytailEnabled:
+        raw.ponytailEnabled !== undefined
+          ? Boolean(raw.ponytailEnabled)
+          : DEFAULT_TOKEN_SAVER_SETTINGS.ponytailEnabled,
+      ponytailLevel:
+        typeof raw.ponytailLevel === "string" && raw.ponytailLevel.trim()
+          ? raw.ponytailLevel.trim()
+          : DEFAULT_TOKEN_SAVER_SETTINGS.ponytailLevel,
+    };
+  }
+
+  public static setTokenSaverSettings(
+    settings: Partial<TokenSaverSettings>
+  ): TokenSaverSettings {
+    const current = this.getTokenSaverSettings();
+    const updated: TokenSaverSettings = {
+      ...current,
+      rtkEnabled:
+        settings.rtkEnabled !== undefined ? Boolean(settings.rtkEnabled) : current.rtkEnabled,
+      cavemanEnabled:
+        settings.cavemanEnabled !== undefined
+          ? Boolean(settings.cavemanEnabled)
+          : current.cavemanEnabled,
+      cavemanLevel:
+        settings.cavemanLevel !== undefined &&
+        typeof settings.cavemanLevel === "string" &&
+        settings.cavemanLevel.trim()
+          ? settings.cavemanLevel.trim()
+          : current.cavemanLevel,
+      ponytailEnabled:
+        settings.ponytailEnabled !== undefined
+          ? Boolean(settings.ponytailEnabled)
+          : current.ponytailEnabled,
+      ponytailLevel:
+        settings.ponytailLevel !== undefined &&
+        typeof settings.ponytailLevel === "string" &&
+        settings.ponytailLevel.trim()
+          ? settings.ponytailLevel.trim()
+          : current.ponytailLevel,
+    };
+    this.setSetting("tokenSaver", updated);
+    return updated;
   }
 }

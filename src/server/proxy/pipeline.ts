@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
-import { RtkCompressor } from "../../core/rtk/compressor.js";
+import { TokenSaverCoordinator } from "../../core/tokenSaver/index.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { UsageRepository } from "../../storage/repositories/usageRepo.js";
@@ -36,11 +36,40 @@ export async function runProxyPipeline(
   }
   const cleanModel = strippedModel || rawModel;
 
-  const rtkStats = RtkCompressor.compressPayloadInPlace(body);
-  if (rtkStats.tokensSaved > 0) {
-    const orig = rtkStats.originalTokens || (rtkStats.compressedTokens + rtkStats.tokensSaved);
-    const pct = orig > 0 ? Math.round((rtkStats.tokensSaved / orig) * 100) : 0;
-    logger.line(reqTag, LogSymbol.SAVER, `RTK: saved ${rtkStats.tokensSaved} tokens (-${pct}%)`);
+  const tokenSaverSettings = SettingsRepository.getTokenSaverSettings();
+  const tokenSaverSummary = TokenSaverCoordinator.process(
+    body,
+    {
+      clientFormat,
+      targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
+      model: cleanModel,
+      clientTool,
+    },
+    tokenSaverSettings
+  );
+
+  const rtkStats = {
+    originalTokens: tokenSaverSummary.originalTokens,
+    compressedTokens: tokenSaverSummary.compressedTokens,
+    tokensSaved: tokenSaverSummary.tokensSaved,
+  };
+
+  if (tokenSaverSummary.tokensSaved > 0) {
+    const orig =
+      tokenSaverSummary.originalTokens ||
+      tokenSaverSummary.compressedTokens + tokenSaverSummary.tokensSaved;
+    const pct = orig > 0 ? Math.round((tokenSaverSummary.tokensSaved / orig) * 100) : 0;
+    logger.line(reqTag, LogSymbol.SAVER, `TOKEN SAVER: saved ${tokenSaverSummary.tokensSaved} tokens (-${pct}%)`);
+  }
+
+  for (const r of tokenSaverSummary.results) {
+    if (r.applied && (r.methodId === "caveman" || r.methodId === "ponytail")) {
+      logger.line(
+        reqTag,
+        LogSymbol.SAVER,
+        `TOKEN SAVER: injected [${r.methodId.toUpperCase()}] prompt (level: ${r.details?.level || "default"})`
+      );
+    }
   }
 
   const allCombos = ComboRepository.getAllCombos();

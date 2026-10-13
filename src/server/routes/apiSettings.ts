@@ -83,6 +83,38 @@ settingsRouter.put("/endpoint", (req, res) => {
   }
 });
 
+// --- Token Saver Settings ---
+
+// GET /api/settings/token-saver - Get token saver settings
+settingsRouter.get("/token-saver", (_req, res) => {
+  try {
+    const config = SettingsRepository.getTokenSaverSettings();
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to fetch token saver settings" });
+  }
+});
+
+// PUT /api/settings/token-saver - Update token saver settings
+settingsRouter.put("/token-saver", (req, res) => {
+  try {
+    const updated = SettingsRepository.setTokenSaverSettings(req.body || {});
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to update token saver settings" });
+  }
+});
+
+// PATCH /api/settings/token-saver - Partial update token saver settings
+settingsRouter.patch("/token-saver", (req, res) => {
+  try {
+    const updated = SettingsRepository.setTokenSaverSettings(req.body || {});
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to update token saver settings" });
+  }
+});
+
 // --- Client Gateway API Keys Management ---
 
 // GET /api/settings/endpoint/keys - List all client gateway API keys
@@ -143,9 +175,11 @@ settingsRouter.get("/", (_req, res) => {
   try {
     const capacityAdapter = SettingsRepository.getCapacityAdapterSettings();
     const endpoint = SettingsRepository.getEndpointSettings();
+    const tokenSaver = SettingsRepository.getTokenSaverSettings();
     res.json({
       capacityAdapter,
       endpoint,
+      tokenSaver,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to fetch settings" });
@@ -162,16 +196,21 @@ settingsRouter.patch("/", (req, res) => {
     if (body.endpoint) {
       SettingsRepository.setEndpointSettings(body.endpoint);
     }
+    if (body.tokenSaver) {
+      SettingsRepository.setTokenSaverSettings(body.tokenSaver);
+    }
     for (const [key, val] of Object.entries(body)) {
-      if (key !== "capacityAdapter" && key !== "endpoint") {
+      if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver") {
         SettingsRepository.setSetting(key, val);
       }
     }
     const capacityAdapter = SettingsRepository.getCapacityAdapterSettings();
     const endpoint = SettingsRepository.getEndpointSettings();
+    const tokenSaver = SettingsRepository.getTokenSaverSettings();
     res.json({
       capacityAdapter,
       endpoint,
+      tokenSaver,
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message || "Failed to update settings" });
@@ -188,16 +227,21 @@ settingsRouter.put("/", (req, res) => {
     if (body.endpoint) {
       SettingsRepository.setEndpointSettings(body.endpoint);
     }
+    if (body.tokenSaver) {
+      SettingsRepository.setTokenSaverSettings(body.tokenSaver);
+    }
     for (const [key, val] of Object.entries(body)) {
-      if (key !== "capacityAdapter" && key !== "endpoint") {
+      if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver") {
         SettingsRepository.setSetting(key, val);
       }
     }
     const capacityAdapter = SettingsRepository.getCapacityAdapterSettings();
     const endpoint = SettingsRepository.getEndpointSettings();
+    const tokenSaver = SettingsRepository.getTokenSaverSettings();
     res.json({
       capacityAdapter,
       endpoint,
+      tokenSaver,
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message || "Failed to update settings" });
