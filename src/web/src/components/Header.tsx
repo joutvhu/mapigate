@@ -37,7 +37,7 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
     icon: "data_usage",
   },
   tokensaver: {
-    title: "Token Saver (RTK)",
+    title: "Token Saver",
     subtitle: "Lossless context optimization saving 20-40% input tokens",
     icon: "savings",
   },
@@ -57,7 +57,7 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
     icon: "terminal",
   },
   settings: {
-    title: "Settings & Storage",
+    title: "Settings",
     subtitle: "Local SQLite database, hardware encryption vault, and system preferences",
     icon: "tune",
   },

@@ -24,7 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: "combos" as NavTab, label: "Combo & Vision Adapter", icon: "layers" },
     { id: "usage" as NavTab, label: "Usage & Analytics", icon: "bar_chart" },
     { id: "quota" as NavTab, label: "Quota Tracker", icon: "data_usage" },
-    { id: "tokensaver" as NavTab, label: "Token Saver (RTK)", icon: "savings" },
+    { id: "tokensaver" as NavTab, label: "Token Saver", icon: "savings" },
     { id: "clitools" as NavTab, label: "CLI Tools", icon: "terminal" },
     { id: "mitm" as NavTab, label: "MITM Proxy", icon: "security" },
   ];
@@ -95,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             <span className="material-symbols-outlined text-[18px]">
               tune
             </span>
-            <span>Settings & Storage</span>
+            <span>Settings</span>
           </button>
         </nav>
       </div>
