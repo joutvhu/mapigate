@@ -56,6 +56,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isCustomProvider = provider.category === "custom" || !registryItem;
+
   const isOAuth = isOAuthProvider(registryItem) || isOAuthProvider(provider);
   const supportsApiKey = Boolean(
     registryItem?.authModes?.includes("apikey") ||
@@ -852,29 +854,31 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       </div>
 
-      {/* Danger Zone / Delete Provider Section */}
-      <div className="rt-card p-5 space-y-3 border border-rose-500/20 bg-rose-500/5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">warning</span>
-              Danger Zone
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Permanently remove this provider configuration and all associated accounts/credentials.
-            </p>
+      {/* Danger Zone / Delete Provider Section (Custom Providers Only) */}
+      {isCustomProvider && (
+        <div className="rt-card p-5 space-y-3 border border-rose-500/20 bg-rose-500/5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">warning</span>
+                Danger Zone
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Permanently remove this custom provider configuration and all associated accounts/credentials.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              disabled={isDeleting}
+              className="rt-btn rt-btn--danger text-xs py-2 px-4 flex items-center gap-1.5 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete</span>
+              {isDeleting ? "Deleting..." : "Delete Provider"}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowDeleteModal(true)}
-            disabled={isDeleting}
-            className="rt-btn rt-btn--danger text-xs py-2 px-4 flex items-center gap-1.5 cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">delete</span>
-            {isDeleting ? "Deleting..." : "Delete Provider"}
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Specialized Provider Connection Modals */}
       <AddAccountModal
@@ -988,15 +992,17 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       />
 
       {/* Confirm Delete Provider Modal */}
-      <ConfirmModal
-        isOpen={showDeleteModal}
-        title="Delete Provider"
-        message="Are you sure you want to delete this provider? This will permanently remove the provider configuration and all associated accounts/credentials."
-        confirmText="Delete"
-        variant="danger"
-        onConfirm={handleDeleteProvider}
-        onCancel={() => setShowDeleteModal(false)}
-      />
+      {isCustomProvider && (
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          title="Delete Provider"
+          message={`Are you sure you want to delete custom provider "${provider.name}"? This will permanently remove the provider configuration and all associated accounts/credentials.`}
+          confirmText="Delete"
+          variant="danger"
+          onConfirm={handleDeleteProvider}
+          onCancel={() => setShowDeleteModal(false)}
+        />
+      )}
     </div>
   );
 };

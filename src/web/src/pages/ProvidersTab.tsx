@@ -153,7 +153,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         name: bp.name,
         image: reg?.image || (bp.format === "anthropic" ? "/providers/anthropic.png" : "/providers/openai.png"),
         color: reg?.color || (bp.format === "anthropic" ? "#D97706" : "#10A37F"),
-        iconBg: reg?.iconBg,
+        iconBg: reg?.iconBg || "#ffffff",
         category: "custom" as const,
         format: bp.format || "openai",
         baseUrl: bp.baseUrl,
@@ -171,7 +171,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       <div
         key={p.id}
         onClick={() => onSelectProvider(p)}
-        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden min-w-[250px]"
+        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden min-w-[290px]"
       >
         <div className="flex items-center gap-3 min-w-0">
           <ToolIcon
@@ -340,7 +340,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
 
         {/* Custom providers grid or placeholder */}
         {customOrImportedList.filter(filterItem).length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
             {customOrImportedList.filter(filterItem).map((p) => renderCard(p, true))}
           </div>
         ) : (
@@ -371,7 +371,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
           {OAUTH_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -392,7 +392,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
           {FREE_TIER_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
@@ -413,7 +413,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </button>
         </div>
 
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
           {API_KEY_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
         </div>
       </div>
