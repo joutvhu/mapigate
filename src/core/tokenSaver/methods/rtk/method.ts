@@ -172,6 +172,7 @@ export class RtkMethod implements ITokenSaverMethod {
 
           // Shape: OpenAI Responses function_call_output
           if (msg.type === "function_call_output") {
+            if (msg.is_error === true || msg.status === "error") continue;
             if (typeof msg.output === "string") {
               const { text, tokensSaved, filterName } = this.compressText(msg.output);
               if (tokensSaved > 0) {
@@ -200,6 +201,7 @@ export class RtkMethod implements ITokenSaverMethod {
 
           // Shape: OpenAI tool role with string content
           if (msg.role === "tool" && typeof msg.content === "string") {
+            if (msg.is_error === true || msg.status === "error") continue;
             const { text, tokensSaved, filterName } = this.compressText(msg.content);
             if (tokensSaved > 0) {
               totalOrig += Math.ceil(msg.content.length / 4);
@@ -213,6 +215,7 @@ export class RtkMethod implements ITokenSaverMethod {
 
           // Shape: OpenAI tool role with array content
           if (msg.role === "tool" && Array.isArray(msg.content)) {
+            if (msg.is_error === true || msg.status === "error") continue;
             for (const part of msg.content) {
               if (part && part.type === "text" && typeof part.text === "string") {
                 const { text, tokensSaved, filterName } = this.compressText(part.text);
