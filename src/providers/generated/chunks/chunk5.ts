@@ -15,7 +15,7 @@ import { metadata as tokenharbor } from "../../catalog/tokenharbor/metadata.js";
 import { metadata as tokenrouter } from "../../catalog/tokenrouter/metadata.js";
 import { metadata as topaz } from "../../catalog/topaz/metadata.js";
 import { metadata as tortoise } from "../../catalog/tortoise/metadata.js";
-import { metadata as trae } from "../../catalog/trae/metadata.js";
+import { metadata as trae } from "../../runtime/trae/metadata.js";
 import { metadata as typhoon } from "../../catalog/typhoon/metadata.js";
 import { metadata as upstage } from "../../catalog/upstage/metadata.js";
 import { metadata as v0_vercel } from "../../catalog/v0-vercel/metadata.js";
@@ -29,7 +29,7 @@ import { metadata as volcengine_ark } from "../../catalog/volcengine-ark/metadat
 import { metadata as volcengine_coding_plan } from "../../catalog/volcengine-coding-plan/metadata.js";
 import { metadata as voyage_ai } from "../../catalog/voyage-ai/metadata.js";
 import { metadata as watsonx } from "../../catalog/watsonx/metadata.js";
-import { metadata as windsurf } from "../../catalog/windsurf/metadata.js";
+import { metadata as windsurf } from "../../runtime/windsurf/metadata.js";
 import { metadata as writer } from "../../catalog/writer/metadata.js";
 import { metadata as xai } from "../../catalog/xai/metadata.js";
 import { metadata as xiaomi_mimo } from "../../catalog/xiaomi-mimo/metadata.js";
@@ -40,7 +40,7 @@ import { metadata as yi } from "../../catalog/yi/metadata.js";
 import { metadata as youcom } from "../../catalog/youcom/metadata.js";
 import { metadata as zai } from "../../catalog/zai/metadata.js";
 import { metadata as zcode } from "../../catalog/zcode/metadata.js";
-import { metadata as zed } from "../../catalog/zed/metadata.js";
+import { metadata as zed } from "../../runtime/zed/metadata.js";
 
 export const metadataChunk5: Record<string, ProviderRegistryItem> = {
   "siliconflow": siliconflow,

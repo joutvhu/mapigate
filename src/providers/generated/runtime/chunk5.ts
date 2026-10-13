@@ -14,7 +14,7 @@ import Prov_tokenharbor from "../../catalog/tokenharbor/provider.js";
 import Prov_tokenrouter from "../../catalog/tokenrouter/provider.js";
 import Prov_topaz from "../../catalog/topaz/provider.js";
 import Prov_tortoise from "../../catalog/tortoise/provider.js";
-import Prov_trae from "../../catalog/trae/provider.js";
+import Prov_trae from "../../runtime/trae/provider.js";
 import Prov_typhoon from "../../catalog/typhoon/provider.js";
 import Prov_upstage from "../../catalog/upstage/provider.js";
 import Prov_v0_vercel from "../../catalog/v0-vercel/provider.js";
@@ -28,7 +28,7 @@ import Prov_volcengine_ark from "../../catalog/volcengine-ark/provider.js";
 import Prov_volcengine_coding_plan from "../../catalog/volcengine-coding-plan/provider.js";
 import Prov_voyage_ai from "../../catalog/voyage-ai/provider.js";
 import Prov_watsonx from "../../catalog/watsonx/provider.js";
-import Prov_windsurf from "../../catalog/windsurf/provider.js";
+import Prov_windsurf from "../../runtime/windsurf/provider.js";
 import Prov_writer from "../../catalog/writer/provider.js";
 import Prov_xai from "../../catalog/xai/provider.js";
 import Prov_xiaomi_mimo from "../../catalog/xiaomi-mimo/provider.js";
@@ -39,7 +39,7 @@ import Prov_yi from "../../catalog/yi/provider.js";
 import Prov_youcom from "../../catalog/youcom/provider.js";
 import Prov_zai from "../../catalog/zai/provider.js";
 import Prov_zcode from "../../catalog/zcode/provider.js";
-import Prov_zed from "../../catalog/zed/provider.js";
+import Prov_zed from "../../runtime/zed/provider.js";
 
 export function registerRuntimeChunk5(registry: { register(p: any): void }): void {
   registry.register(new Prov_siliconflow());

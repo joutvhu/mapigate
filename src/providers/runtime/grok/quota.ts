@@ -3,6 +3,8 @@ import { parseResetTime, toFiniteNumber } from "../../../core/usage/utils.js";
 
 export const GROK_BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
 export const GROK_USER_URL = "https://cli-chat-proxy.grok.com/v1/user?include=subscription";
+export const GRPC_CREDITS_URL = "https://grok.com/grok_api_v2.GrokBuildBilling/GetGrokCreditsConfig";
+const GRPC_WEB_EMPTY_REQUEST_FRAME = Buffer.from([0, 0, 0, 0, 0]);
 
 export function unwrapVal(value: any, fallback = 0): number {
   if (value == null) return fallback;
@@ -48,6 +50,75 @@ export function detectGrokTier(user: any, config: any, token: string): string {
   if (user?.hasGrokCodeAccess === true) return "Grok Code";
   if (config?.isUnifiedBillingUser === true) return "Grok Build";
   return "Grok Build";
+}
+
+export function decodeGrokCreditsFrame(buffer: Buffer): { percentUsed: number; resetAt: string | null } | null {
+  if (!buffer || buffer.length < 5) return null;
+  try {
+    const payloadLength = buffer.readUInt32BE(1);
+    if (payloadLength > buffer.length - 5) return null;
+    const payload = buffer.subarray(5, 5 + payloadLength);
+    // Scan for subfield 1 float (usage ratio)
+    let offset = 0;
+    let ratio: number | null = null;
+    let resetAtStr: string | null = null;
+
+    while (offset < payload.length) {
+      const tag = payload[offset++];
+      const fieldNum = tag >>> 3;
+      const wireType = tag & 0x7;
+      if (fieldNum === 1 && wireType === 2) {
+        // Nested credits info
+        const len = payload[offset++];
+        const sub = payload.subarray(offset, offset + len);
+        offset += len;
+        let subOff = 0;
+        while (subOff < sub.length) {
+          const subTag = sub[subOff++];
+          const sField = subTag >>> 3;
+          const sWire = subTag & 0x7;
+          if (sField === 1 && sWire === 5) {
+            ratio = sub.readFloatLE(subOff);
+            subOff += 4;
+          } else if (sField === 5 && sWire === 2) {
+            const tLen = sub[subOff++];
+            const tBuf = sub.subarray(subOff, subOff + tLen);
+            subOff += tLen;
+            if (tBuf.length >= 2 && (tBuf[0] >>> 3) === 1) {
+              const sec = tBuf[1];
+              resetAtStr = new Date(sec * 1000).toISOString();
+            }
+          } else if (sWire === 0) {
+            while (subOff < sub.length && (sub[subOff++] & 0x80) !== 0) {}
+          } else if (sWire === 2) {
+            const skipLen = sub[subOff++];
+            subOff += skipLen;
+          } else if (sWire === 5) {
+            subOff += 4;
+          } else {
+            break;
+          }
+        }
+      } else if (wireType === 0) {
+        while (offset < payload.length && (payload[offset++] & 0x80) !== 0) {}
+      } else if (wireType === 2) {
+        const l = payload[offset++];
+        offset += l;
+      } else {
+        break;
+      }
+    }
+
+    if (ratio !== null && Number.isFinite(ratio) && ratio >= 0) {
+      return {
+        percentUsed: Math.min(100, Math.round(ratio * 100)),
+        resetAt: resetAtStr,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getGrokUsage(
@@ -195,6 +266,36 @@ export async function getGrokUsage(
         unlimited: false,
         recurring: true,
       };
+    } else {
+      // Best-effort SuperGrok gRPC-web check
+      try {
+        const grpcRes = await fetchFn(GRPC_CREDITS_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/grpc-web+proto",
+            "x-grpc-web": "1",
+          },
+          body: GRPC_WEB_EMPTY_REQUEST_FRAME,
+          signal: AbortSignal.timeout(4000),
+        });
+        if (grpcRes.ok) {
+          const buf = Buffer.from(await grpcRes.arrayBuffer());
+          const decoded = decodeGrokCreditsFrame(buf);
+          if (decoded) {
+            quotas["weekly_supergrok"] = {
+              displayName: "Weekly SuperGrok",
+              used: decoded.percentUsed,
+              total: 100,
+              remaining: 100 - decoded.percentUsed,
+              remainingPercentage: 100 - decoded.percentUsed,
+              resetAt: parseResetTime(decoded.resetAt),
+              unlimited: false,
+              recurring: true,
+            };
+          }
+        }
+      } catch {}
     }
 
     if (Object.keys(quotas).length === 0) {

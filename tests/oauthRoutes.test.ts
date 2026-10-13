@@ -189,15 +189,15 @@ test("POST /api/oauth/:provider/poll - Polling tokens delegation and validation"
   const missingData = (await missingRes.json()) as any;
   assert.equal(missingData.error, "Missing device_code");
 
-  // Provider not supporting poll (minimax has only deviceCode, no poll)
-  const minimaxRes = await fetch(`${baseUrl}/api/oauth/minimax/poll`, {
+  // Provider not supporting poll (e.g. claude has authorize/exchange, no poll)
+  const noPollRes = await fetch(`${baseUrl}/api/oauth/claude/poll`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ device_code: "dc_test" }),
   });
-  assert.equal(minimaxRes.status, 400);
-  const minimaxData = (await minimaxRes.json()) as any;
-  assert.ok(minimaxData.error.includes("Poll not supported"));
+  assert.equal(noPollRes.status, 400);
+  const noPollData = (await noPollRes.json()) as any;
+  assert.ok(noPollData.error.includes("Poll not supported"));
 
   // Register mock poll handler in OAuthHandlerRegistry
   OAuthHandlerRegistry.register("mock-poll-provider", {

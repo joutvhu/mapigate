@@ -2,7 +2,7 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 
 import { metadata as clova_studio } from "../../catalog/clova-studio/metadata.js";
-import { metadata as codebuddy_cn } from "../../catalog/codebuddy-cn/metadata.js";
+import { metadata as codebuddy_cn } from "../../runtime/codebuddy-cn/metadata.js";
 import { metadata as codebuddy_intl } from "../../catalog/codebuddy-intl/metadata.js";
 import { metadata as codestral } from "../../catalog/codestral/metadata.js";
 import { metadata as codex } from "../../runtime/codex/metadata.js";

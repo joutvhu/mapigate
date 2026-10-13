@@ -1,4 +1,5 @@
 import type { ModelCallResult, ExecuteSingleModelOptions, ProviderRequestContext } from "./types.js";
+import type { SingleModelHandler } from "../../providers/types.js";
 import { stripModelContextMarker, RuleEngine } from "../../core/router/ruleEngine.js";
 import { LoadBalancer, isRateLimitOrQuotaError } from "../../core/router/loadBalancer.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
@@ -127,6 +128,13 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       rawModel,
       rtkStats,
     };
+
+    if (provider.execute && provider.id !== "combo") {
+      const dispatchSingleModel: SingleModelHandler = async (mBody: any, mStr: string, isP: boolean = false) => {
+        return executeSingleModel({ ...options, body: mBody, modelStr: mStr, isPanel: isP });
+      };
+      return await provider.execute(context, dispatchSingleModel);
+    }
 
     let upstreamBody = provider.transformRequestBody(context);
     if (!isPanel) {
