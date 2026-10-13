@@ -163,6 +163,8 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
     });
 
   const renderCard = (p: ProviderItem, canDelete = false) => {
+    const isCustom = p.category === "custom" || !builtInIds.has(p.id);
+    const allowDelete = Boolean(canDelete) === true && isCustom;
     const count = getAccountCount(p.id);
     const isTesting = testingId === p.id;
     const hasTestRes = testResult?.id === p.id;
@@ -218,7 +220,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
               {isTesting ? "sync" : "speed"}
             </span>
           </button>
-          {canDelete && (
+          {allowDelete && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -372,7 +374,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
-          {OAUTH_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
+          {OAUTH_PROVIDERS_LIST.filter(filterItem).map((p) => renderCard(p, false))}
         </div>
       </div>
 
@@ -393,7 +395,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
-          {FREE_TIER_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
+          {FREE_TIER_PROVIDERS_LIST.filter(filterItem).map((p) => renderCard(p, false))}
         </div>
       </div>
 
@@ -414,7 +416,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-3">
-          {API_KEY_PROVIDERS_LIST.filter(filterItem).map(renderCard)}
+          {API_KEY_PROVIDERS_LIST.filter(filterItem).map((p) => renderCard(p, false))}
         </div>
       </div>
 
