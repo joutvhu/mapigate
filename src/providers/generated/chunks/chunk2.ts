@@ -14,6 +14,7 @@ import { metadata as commandcode } from "../../catalog/commandcode/metadata.js";
 import { metadata as coqui } from "../../catalog/coqui/metadata.js";
 import { metadata as coze } from "../../catalog/coze/metadata.js";
 import { metadata as cursor } from "../../runtime/cursor/metadata.js";
+import { metadata as cursor_api } from "../../runtime/cursor-api/metadata.js";
 import { metadata as dahl } from "../../catalog/dahl/metadata.js";
 import { metadata as databricks } from "../../catalog/databricks/metadata.js";
 import { metadata as deepgram } from "../../catalog/deepgram/metadata.js";
@@ -40,7 +41,6 @@ import { metadata as gitlab } from "../../catalog/gitlab/metadata.js";
 import { metadata as glm } from "../../runtime/glm/metadata.js";
 import { metadata as glm_cn } from "../../catalog/glm-cn/metadata.js";
 import { metadata as google_pse } from "../../catalog/google-pse/metadata.js";
-import { metadata as google_tts } from "../../catalog/google-tts/metadata.js";
 
 export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "clova-studio": clova_studio,
@@ -56,6 +56,7 @@ export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "coqui": coqui,
   "coze": coze,
   "cursor": cursor,
+  "cursor-api": cursor_api,
   "dahl": dahl,
   "databricks": databricks,
   "deepgram": deepgram,
@@ -82,5 +83,4 @@ export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "glm": glm,
   "glm-cn": glm_cn,
   "google-pse": google_pse,
-  "google-tts": google_tts,
 };

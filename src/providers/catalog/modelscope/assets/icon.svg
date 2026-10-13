@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="msGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B61FF" />
+      <stop offset="100%" stop-color="#624AFF" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#msGrad)" />
+  <g fill="#FFFFFF" fill-rule="evenodd">
+    <!-- Stylized ModelScope M block structure -->
+    <path d="M 28 36 L 46 36 L 46 92 L 28 92 Z" />
+    <path d="M 82 36 L 100 36 L 100 92 L 82 92 Z" />
+    <path d="M 46 36 L 64 62 L 50 72 L 46 66 Z" />
+    <path d="M 82 36 L 64 62 L 78 72 L 82 66 Z" />
+    <rect x="55" y="60" width="18" height="18" rx="4" />
+  </g>
+</svg>

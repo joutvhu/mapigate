@@ -1887,17 +1887,6 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
     ]
   },
   {
-    "id": "modelscope",
-    "name": "ModelScope",
-    "baseUrl": "https://api-inference.modelscope.cn/v1/chat/completions",
-    "format": "openai",
-    "category": "apikey",
-    "authType": "apikey",
-    "website": "https://modelscope.cn",
-    "notice": "",
-    "models": []
-  },
-  {
     "id": "digitalocean",
     "name": "DigitalOcean",
     "baseUrl": "https://inference.do-ai.run/v1/chat/completions",
@@ -2341,17 +2330,6 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
         "contextLength": 128000
       }
     ]
-  },
-  {
-    "id": "cursor-api",
-    "name": "Cursor API",
-    "baseUrl": "",
-    "format": "openai",
-    "category": "unknown",
-    "authType": "apikey",
-    "website": "https://cursor.com/dashboard/api",
-    "notice": "",
-    "models": []
   },
   {
     "id": "jules",

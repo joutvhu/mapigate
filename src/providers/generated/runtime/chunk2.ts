@@ -13,6 +13,7 @@ import Prov_commandcode from "../../catalog/commandcode/provider.js";
 import Prov_coqui from "../../catalog/coqui/provider.js";
 import Prov_coze from "../../catalog/coze/provider.js";
 import Prov_cursor from "../../runtime/cursor/provider.js";
+import Prov_cursor_api from "../../runtime/cursor-api/provider.js";
 import Prov_dahl from "../../catalog/dahl/provider.js";
 import Prov_databricks from "../../catalog/databricks/provider.js";
 import Prov_deepgram from "../../catalog/deepgram/provider.js";
@@ -39,7 +40,6 @@ import Prov_gitlab from "../../catalog/gitlab/provider.js";
 import Prov_glm from "../../runtime/glm/provider.js";
 import Prov_glm_cn from "../../catalog/glm-cn/provider.js";
 import Prov_google_pse from "../../catalog/google-pse/provider.js";
-import Prov_google_tts from "../../catalog/google-tts/provider.js";
 
 export function registerRuntimeChunk2(registry: { register(p: any): void }): void {
   registry.register(new Prov_clova_studio());
@@ -55,6 +55,7 @@ export function registerRuntimeChunk2(registry: { register(p: any): void }): voi
   registry.register(new Prov_coqui());
   registry.register(new Prov_coze());
   registry.register(new Prov_cursor());
+  registry.register(new Prov_cursor_api());
   registry.register(new Prov_dahl());
   registry.register(new Prov_databricks());
   registry.register(new Prov_deepgram());
@@ -81,5 +82,4 @@ export function registerRuntimeChunk2(registry: { register(p: any): void }): voi
   registry.register(new Prov_glm());
   registry.register(new Prov_glm_cn());
   registry.register(new Prov_google_pse());
-  registry.register(new Prov_google_tts());
 }
