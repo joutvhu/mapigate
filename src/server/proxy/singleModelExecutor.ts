@@ -133,7 +133,32 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       const dispatchSingleModel: SingleModelHandler = async (mBody: any, mStr: string, isP: boolean = false) => {
         return executeSingleModel({ ...options, body: mBody, modelStr: mStr, isPanel: isP });
       };
-      return await provider.execute(context, dispatchSingleModel);
+      const customResult = await provider.execute(context, dispatchSingleModel);
+      if (customResult.ok) {
+        return customResult;
+      }
+
+      const errText = customResult.text || customResult.error || "";
+      const isRateLimit = provider.isRateLimitOrQuotaError
+        ? provider.isRateLimitOrQuotaError(customResult.status, errText)
+        : isRateLimitOrQuotaError(customResult.status, errText);
+
+      if (isRateLimit && account) {
+        const cooldownMs = 60_000;
+        LoadBalancer.markRateLimited(account.id, cooldownMs, provider.id);
+        const nextAccount = LoadBalancer.pickAccount(provider.id, triedAccountIds);
+        if (nextAccount) {
+          logger.line(
+            reqTag,
+            LogSymbol.FAILOVER,
+            `Account '${account.name || account.id}' hit ${customResult.status} (rate-limit/quota) in custom provider · failing over to '${nextAccount.name || nextAccount.id}' (cooldown: ${cooldownMs}ms)`
+          );
+          lastFailureResult = customResult;
+          continue;
+        }
+      }
+
+      return customResult;
     }
 
     let upstreamBody = provider.transformRequestBody(context);

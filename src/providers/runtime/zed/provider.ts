@@ -110,6 +110,10 @@ export class ZedProvider extends OpenAiCompatibleProvider {
     });
 
     if (!completionRes.ok) {
+      if (completionRes.status === 401) {
+        const cacheKey = `${userId}:${psd.organizationId || "default"}`;
+        llmTokenCache.delete(cacheKey);
+      }
       const errText = await completionRes.text();
       return { ok: false, status: completionRes.status, error: `Zed completion failed: ${errText}` };
     }

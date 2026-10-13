@@ -35,52 +35,70 @@ export function stripCodexUnsupportedPatterns(schema: any): any {
 
 export function convertSystemToDeveloperRole(body: any): void {
   if (Array.isArray(body?.messages)) {
-    for (const msg of body.messages) {
-      if (msg && msg.role === "system") {
-        msg.role = "developer";
+    body.messages = body.messages.map((msg: any) => {
+      if (msg && typeof msg === "object" && msg.role === "system") {
+        return { ...msg, role: "developer" };
       }
-    }
+      return msg;
+    });
   }
   if (Array.isArray(body?.input)) {
-    for (const item of body.input) {
+    body.input = body.input.map((item: any) => {
       if (item && typeof item === "object" && item.role === "system") {
-        item.role = "developer";
+        return { ...item, role: "developer" };
       }
-    }
+      return item;
+    });
   }
 }
 
 export function stripStoredItemReferences(body: any): void {
   if (Array.isArray(body?.input)) {
-    body.input = body.input.filter((item: any) => {
-      if (typeof item === "string" && SERVER_ID_PATTERN.test(item)) return false;
-      if (item && typeof item === "object" && !Array.isArray(item)) {
-        if (item.type === "item_reference") return false;
-        if (typeof item.id === "string" && SERVER_ID_PATTERN.test(item.id)) {
-          delete item.id;
+    body.input = body.input
+      .filter((item: any) => {
+        if (typeof item === "string" && SERVER_ID_PATTERN.test(item)) return false;
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          if (item.type === "item_reference") return false;
         }
-      }
-      return true;
-    });
+        return true;
+      })
+      .map((item: any) => {
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          if (typeof item.id === "string" && SERVER_ID_PATTERN.test(item.id)) {
+            const next = { ...item };
+            delete next.id;
+            return next;
+          }
+        }
+        return item;
+      });
   }
   if (Array.isArray(body?.messages)) {
-    for (const msg of body.messages) {
-      if (msg && typeof msg.id === "string" && SERVER_ID_PATTERN.test(msg.id)) {
-        delete msg.id;
+    body.messages = body.messages.map((msg: any) => {
+      if (msg && typeof msg === "object" && typeof msg.id === "string" && SERVER_ID_PATTERN.test(msg.id)) {
+        const next = { ...msg };
+        delete next.id;
+        return next;
       }
-    }
+      return msg;
+    });
   }
 }
 
 export function sanitizeCodexTools(body: any): void {
   if (!Array.isArray(body?.tools)) return;
-  for (const tool of body.tools) {
-    if (!tool || typeof tool !== "object") continue;
+  body.tools = body.tools.map((tool: any) => {
+    if (!tool || typeof tool !== "object") return tool;
+    const nextTool = { ...tool };
     if (tool.parameters && typeof tool.parameters === "object") {
-      tool.parameters = stripCodexUnsupportedPatterns(tool.parameters);
+      nextTool.parameters = stripCodexUnsupportedPatterns(tool.parameters);
     }
-    if (tool.function?.parameters && typeof tool.function.parameters === "object") {
-      tool.function.parameters = stripCodexUnsupportedPatterns(tool.function.parameters);
+    if (tool.function && typeof tool.function === "object") {
+      nextTool.function = { ...tool.function };
+      if (tool.function.parameters && typeof tool.function.parameters === "object") {
+        nextTool.function.parameters = stripCodexUnsupportedPatterns(tool.function.parameters);
+      }
     }
-  }
+    return nextTool;
+  });
 }

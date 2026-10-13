@@ -9,6 +9,11 @@ import {
   convertSystemToDeveloperRole,
   stripStoredItemReferences,
 } from "../src/providers/runtime/codex/schemaSanitizer.js";
+import {
+  decodeCompletionChunk,
+  encodeString,
+  encodeMessage,
+} from "../src/providers/runtime/windsurf/proto.js";
 import { qoderEncodeBody, buildCosyHeaders } from "../src/providers/runtime/qoder/cosy.js";
 
 test("providersSync - promoted runtime providers are registered in ProviderRegistry", () => {
@@ -125,4 +130,29 @@ test("providersSync - Qoder COSY signing and body encoding", () => {
   assert.ok(headers["Cosy-Info"], "Must contain Cosy-Info");
   assert.ok(headers["Cosy-Sign"], "Must contain Cosy-Sign");
   assert.equal(headers["Authorization"], "Bearer dt-token-abc");
+});
+
+test("providersSync - Codex sanitizer does not mutate original messages in-place", () => {
+  const originalMsg = { role: "system", content: "Original system prompt" };
+  const originalUserMsg = { role: "user", id: "msg_secret123", content: "User prompt" };
+  const body = {
+    messages: [originalMsg, originalUserMsg],
+  };
+
+  convertSystemToDeveloperRole(body);
+  assert.equal(body.messages[0].role, "developer");
+  assert.equal(originalMsg.role, "system", "Original msg object must not be mutated in-place");
+
+  stripStoredItemReferences(body);
+  assert.equal(body.messages[1].id, undefined);
+  assert.equal(originalUserMsg.id, "msg_secret123", "Original user msg object must retain its id");
+});
+
+test("providersSync - Windsurf proto chunk error decoding", () => {
+  const errPayload = encodeString(1, "Quota depleted on Codeium");
+  const errFrame = encodeMessage(4, errPayload);
+  const chunk = decodeCompletionChunk(errFrame);
+
+  assert.equal(chunk.kind, "error");
+  assert.equal(chunk.message, "Quota depleted on Codeium");
 });
