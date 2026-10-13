@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
+import { ConfirmModal } from "../components/ConfirmModal.js";
 import { CommunityCatalogModal } from "../components/CommunityCatalogModal";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import { ToolIcon } from "../components/ui/ToolIcon";
 import {
+  CODING_PROVIDERS_LIST,
   OAUTH_PROVIDERS_LIST,
   FREE_TIER_PROVIDERS_LIST,
   API_KEY_PROVIDERS_LIST,
@@ -26,6 +28,8 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "connected" | "not_connected">("all");
   const [isCommunityCatalogOpen, setIsCommunityCatalogOpen] = useState(false);
+  const [providerToDelete, setProviderToDelete] = useState<ProviderItem | null>(null);
+  const [isDeletingProvider, setIsDeletingProvider] = useState(false);
 
   const loadBackendProviders = async () => {
     try {
@@ -120,7 +124,45 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
     }
   };
 
-  const renderCard = (p: ProviderItem) => {
+  const handleConfirmDelete = async () => {
+    if (!providerToDelete) return;
+    setIsDeletingProvider(true);
+    try {
+      const res = await fetch(`/api/providers/${providerToDelete.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        await loadBackendProviders();
+        invalidateAvailableModelsCache();
+      }
+    } catch {
+      // Fail-open
+    } finally {
+      setIsDeletingProvider(false);
+      setProviderToDelete(null);
+    }
+  };
+
+  const builtInIds = new Set(CODING_PROVIDERS_LIST.map((p) => p.id));
+  const customOrImportedList: ProviderItem[] = backendProviders
+    .filter((bp) => !builtInIds.has(bp.id))
+    .map((bp) => {
+      const reg = getRegistryProvider(bp.id);
+      return {
+        id: bp.id,
+        name: bp.name,
+        image: reg?.image || (bp.format === "anthropic" ? "/providers/anthropic.png" : "/providers/openai.png"),
+        color: reg?.color || (bp.format === "anthropic" ? "#D97706" : "#10A37F"),
+        iconBg: reg?.iconBg,
+        category: "custom" as const,
+        format: bp.format || "openai",
+        baseUrl: bp.baseUrl,
+        models: bp.models,
+        thinkingMode: bp.thinkingMode,
+      };
+    });
+
+  const renderCard = (p: ProviderItem, canDelete = false) => {
     const count = getAccountCount(p.id);
     const isTesting = testingId === p.id;
     const hasTestRes = testResult?.id === p.id;
@@ -176,6 +218,18 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
               {isTesting ? "sync" : "speed"}
             </span>
           </button>
+          {canDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setProviderToDelete(p);
+              }}
+              title="Delete Provider"
+              className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">delete</span>
+            </button>
+          )}
         </div>
 
         {hasTestRes && (
@@ -284,11 +338,21 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           </div>
         </div>
 
-        {/* Empty state or custom list */}
-        <div className="border border-dashed border-[#1E293B] bg-[#0E1320]/60 rounded-2xl p-5 text-center text-xs text-slate-400 flex items-center justify-center gap-2 hover:border-blue-500/30 transition-colors">
-          <span className="material-symbols-outlined text-blue-400 text-[18px]">cloud_sync</span>
-          <span>Use the buttons above to register self-hosted vLLM, Ollama, LM Studio, or local API proxies.</span>
-        </div>
+        {/* Custom providers grid or placeholder */}
+        {customOrImportedList.filter(filterItem).length > 0 ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
+            {customOrImportedList.filter(filterItem).map((p) => renderCard(p, true))}
+          </div>
+        ) : (
+          <div className="border border-dashed border-[#1E293B] bg-[#0E1320]/60 rounded-2xl p-5 text-center text-xs text-slate-400 flex items-center justify-center gap-2 hover:border-blue-500/30 transition-colors">
+            <span className="material-symbols-outlined text-blue-400 text-[18px]">cloud_sync</span>
+            <span>
+              {customOrImportedList.length > 0
+                ? "No custom providers match the current filter."
+                : "Use the buttons above to register self-hosted vLLM, Ollama, LM Studio, or local API proxies."}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* SECTION 2: OAuth Providers */}
@@ -463,6 +527,17 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           await loadBackendProviders();
           invalidateAvailableModelsCache();
         }}
+      />
+
+      {/* Confirm Delete Provider Modal */}
+      <ConfirmModal
+        isOpen={Boolean(providerToDelete)}
+        title="Delete Provider"
+        message={`Are you sure you want to delete "${providerToDelete?.name}"? This will permanently remove the provider configuration and all associated accounts/credentials.`}
+        confirmText={isDeletingProvider ? "Deleting..." : "Delete"}
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setProviderToDelete(null)}
       />
     </div>
   );

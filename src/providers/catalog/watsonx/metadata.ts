@@ -10,7 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "watsonx",
   "color": "#052FAD",
-  "image": "/assets/providers/watsonx/icon.svg",
+  "image": "/assets/providers/watsonx/icon.png",
   "website": "https://www.ibm.com/products/watsonx-ai",
   "notice": {
     "apiKeyUrl": "https://cloud.ibm.com/iam/apikeys",

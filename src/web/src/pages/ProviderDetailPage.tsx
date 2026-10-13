@@ -11,6 +11,7 @@ import { Select } from "../components/Select";
 import { ScanModelsModal } from "../components/ScanModelsModal";
 import { ToolIcon } from "../components/ui/ToolIcon";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
+import { ConfirmModal } from "../components/ConfirmModal.js";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -52,6 +53,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [newHeaderVal, setNewHeaderVal] = useState("");
   const [headersSavedMsg, setHeadersSavedMsg] = useState<string | null>(null);
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isOAuth = isOAuthProvider(registryItem) || isOAuthProvider(provider);
   const supportsApiKey = Boolean(
@@ -331,6 +334,24 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       setTimeout(() => setHeadersSavedMsg(null), 3000);
     } catch {
       //
+    }
+  };
+
+  const handleDeleteProvider = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/providers/${provider.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        invalidateAvailableModelsCache();
+        onBack();
+      }
+    } catch {
+      // Fail-open
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -831,6 +852,30 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       </div>
 
+      {/* Danger Zone / Delete Provider Section */}
+      <div className="rt-card p-5 space-y-3 border border-rose-500/20 bg-rose-500/5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">warning</span>
+              Danger Zone
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Permanently remove this provider configuration and all associated accounts/credentials.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            disabled={isDeleting}
+            className="rt-btn rt-btn--danger text-xs py-2 px-4 flex items-center gap-1.5 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">delete</span>
+            {isDeleting ? "Deleting..." : "Delete Provider"}
+          </button>
+        </div>
+      </div>
+
       {/* Specialized Provider Connection Modals */}
       <AddAccountModal
         isOpen={showAddModal}
@@ -940,6 +985,17 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         }}
         onClose={() => setShowScanModal(false)}
         onApplyModels={handleApplyScannedModels}
+      />
+
+      {/* Confirm Delete Provider Modal */}
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        title="Delete Provider"
+        message="Are you sure you want to delete this provider? This will permanently remove the provider configuration and all associated accounts/credentials."
+        confirmText="Delete"
+        variant="danger"
+        onConfirm={handleDeleteProvider}
+        onCancel={() => setShowDeleteModal(false)}
       />
     </div>
   );
