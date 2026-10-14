@@ -7,6 +7,7 @@ import {
   getProviderCircuitBreaker,
   isRateLimitOrQuotaError,
 } from "../resilience/index.js";
+import { pickAffinityAccount } from "../caching/promptCacheAffinity.js";
 
 export { isRateLimitOrQuotaError };
 
@@ -60,6 +61,7 @@ export class LoadBalancer {
     let excludeSet: Set<string> | undefined;
     let healthyOnly = false;
     let targetModel: string | undefined;
+    let prefixHash: string | undefined;
 
     if (excludeOrOptions) {
       if (excludeOrOptions instanceof Set || Array.isArray(excludeOrOptions)) {
@@ -74,6 +76,7 @@ export class LoadBalancer {
         }
         healthyOnly = Boolean(excludeOrOptions.healthyOnly ?? (excludeSet && excludeSet.size > 0));
         targetModel = excludeOrOptions.targetModel;
+        prefixHash = excludeOrOptions.prefixHash;
       }
     }
 
@@ -106,32 +109,39 @@ export class LoadBalancer {
 
     let chosen: (ProviderAccount & { rawApiKey: string }) | undefined;
 
-    if (strategy === "fill-first") {
-      // Pick first active account in priority order
-      chosen = pool[0];
-    } else if (strategy === "earliest-reset") {
-      // Prioritize account whose cooldown expires soonest (or least rate limit hits)
-      const sorted = [...pool].sort((a, b) => {
-        const cdA = cooldownManager.getCooldownRemainingMs(a.id);
-        const cdB = cooldownManager.getCooldownRemainingMs(b.id);
-        if (cdA !== cdB) return cdA - cdB;
-        return a.rateLimitHits - b.rateLimitHits;
-      });
-      chosen = sorted[0];
-    } else {
-      // Round-robin with sticky limit support
-      const sticky = this.stickyCounts.get(providerId);
-      const currentStickyAcc = sticky ? pool.find((a) => a.id === sticky.accountId) : undefined;
+    // Prompt Cache Affinity: when prefixHash is provided and multiple healthy accounts are available
+    if (prefixHash && pool.length > 1) {
+      chosen = pickAffinityAccount(pool, prefixHash);
+    }
 
-      if (currentStickyAcc && sticky && sticky.count < stickyLimit) {
-        sticky.count += 1;
-        chosen = currentStickyAcc;
-      } else {
-        // Pick least recently used
-        const sorted = [...pool].sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0));
+    if (!chosen) {
+      if (strategy === "fill-first") {
+        // Pick first active account in priority order
+        chosen = pool[0];
+      } else if (strategy === "earliest-reset") {
+        // Prioritize account whose cooldown expires soonest (or least rate limit hits)
+        const sorted = [...pool].sort((a, b) => {
+          const cdA = cooldownManager.getCooldownRemainingMs(a.id);
+          const cdB = cooldownManager.getCooldownRemainingMs(b.id);
+          if (cdA !== cdB) return cdA - cdB;
+          return a.rateLimitHits - b.rateLimitHits;
+        });
         chosen = sorted[0];
-        if (chosen) {
-          this.stickyCounts.set(providerId, { accountId: chosen.id, count: 1 });
+      } else {
+        // Round-robin with sticky limit support
+        const sticky = this.stickyCounts.get(providerId);
+        const currentStickyAcc = sticky ? pool.find((a) => a.id === sticky.accountId) : undefined;
+
+        if (currentStickyAcc && sticky && sticky.count < stickyLimit) {
+          sticky.count += 1;
+          chosen = currentStickyAcc;
+        } else {
+          // Pick least recently used
+          const sorted = [...pool].sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0));
+          chosen = sorted[0];
+          if (chosen) {
+            this.stickyCounts.set(providerId, { accountId: chosen.id, count: 1 });
+          }
         }
       }
     }

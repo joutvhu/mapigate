@@ -18,6 +18,8 @@ import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { handleNonStreamingResponse, handleStreamingResponse } from "./responseHandlers.js";
 import { logger, LogSymbol, maskKey, tagForSession } from "../../shared/logger.js";
 import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js";
+import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
+import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.js";
 
 function tryFailover(
   providerId: string,
@@ -27,9 +29,10 @@ function tryFailover(
   triedAccountIds: Set<string>,
   targetModel: string,
   reqTag: string,
-  isCustom = false
+  isCustom = false,
+  prefixHash?: string
 ): boolean {
-  const next = LoadBalancer.pickAccount(providerId, { excludeAccountIds: triedAccountIds, targetModel });
+  const next = LoadBalancer.pickAccount(providerId, { excludeAccountIds: triedAccountIds, targetModel, prefixHash });
   if (next) {
     const suffix = isCustom ? " in custom provider" : "";
     logger.line(
@@ -111,6 +114,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   const provider = ProviderRegistry.get(providerConfig.id);
   const { contextWindow } = getCapabilitiesForModel(providerConfig.id, targetModel);
   const adjustedBody = stripHistoryForContext(body, contextWindow);
+  const prefixHash = extractConversationPrefixHash(adjustedBody);
 
   let targetFormat = providerConfig.format || provider.defaultFormat || "openai";
   if (provider.id === "opencode" || provider.id === "oc") {
@@ -121,7 +125,11 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   let lastFailureResult: ModelCallResult | undefined;
 
   while (true) {
-    const account = LoadBalancer.pickAccount(provider.id, { excludeAccountIds: triedAccountIds, targetModel });
+    const account = LoadBalancer.pickAccount(provider.id, {
+      excludeAccountIds: triedAccountIds,
+      targetModel,
+      prefixHash: prefixHash || undefined,
+    });
     const hasCustomHeaders = Boolean(
       providerConfig.customHeaders && Object.keys(providerConfig.customHeaders).length > 0
     );
@@ -168,7 +176,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
       if (resFailure.rateLimited && account) {
         const cdMs = resFailure.cooldownMs || 60_000;
-        if (tryFailover(provider.id, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true)) {
+        if (tryFailover(provider.id, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true, prefixHash || undefined)) {
           lastFailureResult = customResult;
           continue;
         }
@@ -177,6 +185,9 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     }
 
     let upstreamBody = provider.transformRequestBody(context);
+    if (upstreamBody) {
+      applyCacheControlPolicy(upstreamBody, provider.id, targetModel, targetFormat);
+    }
     if (upstreamBody && Array.isArray(upstreamBody.messages)) {
       applyReasoningReplayPolicy(upstreamBody.messages, provider.id, targetModel);
     }
@@ -230,7 +241,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
       if (resFailure.rateLimited && account) {
         const cdMs = resFailure.cooldownMs || 60_000;
-        if (tryFailover(provider.id, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false)) {
+        if (tryFailover(provider.id, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: errText, error: errText };
           continue;
         }
