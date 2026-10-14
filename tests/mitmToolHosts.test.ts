@@ -32,6 +32,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     ]);
     assert.deepEqual(TOOL_HOSTS.copilot, [
       "api.individual.githubcopilot.com",
+      "copilot-proxy.githubusercontent.com",
     ]);
     assert.deepEqual(TOOL_HOSTS.kiro, [
       "runtime.us-east-1.kiro.dev",
@@ -41,7 +42,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.deepEqual(TOOL_HOSTS.cursor, [
       "api2.cursor.sh",
     ]);
-    assert.equal(ALL_MITM_HOSTS.length, 7);
+    assert.equal(ALL_MITM_HOSTS.length, 8);
   });
 
   it("rewrites production cloudcode-pa to daily-cloudcode-pa", () => {
@@ -55,6 +56,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.equal(getToolForHost("daily-cloudcode-pa.googleapis.com"), "antigravity");
     assert.equal(getToolForHost("cloudcode-pa.googleapis.com:443"), "antigravity");
     assert.equal(getToolForHost("api.individual.githubcopilot.com"), "copilot");
+    assert.equal(getToolForHost("copilot-proxy.githubusercontent.com"), "copilot");
     assert.equal(getToolForHost("runtime.us-east-1.kiro.dev:443"), "kiro");
     assert.equal(getToolForHost("q.us-east-1.amazonaws.com"), "kiro");
     assert.equal(getToolForHost("codewhisperer.us-east-1.amazonaws.com"), "kiro");

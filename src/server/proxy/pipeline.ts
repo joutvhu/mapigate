@@ -13,6 +13,7 @@ import {
 import { executeSingleModel } from "./singleModelExecutor.js";
 import { ResponseLogger } from "./responseLogger.js";
 import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
+import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import crypto from "node:crypto";
 
 export async function runProxyPipeline(
@@ -167,7 +168,8 @@ export async function runProxyPipeline(
     if (!result.ok && !res.headersSent) {
       const durationMs = Date.now() - startTime;
       const status = result.status || 503;
-      const errMsg = result.error || "All combo models failed";
+      const rawErrMsg = result.error || "All combo models failed";
+      const errMsg = sanitizeErrorMessage(rawErrMsg);
 
       logger.errorLine(
         reqTag,
@@ -202,15 +204,18 @@ export async function runProxyPipeline(
     }
   } catch (err: any) {
     const totalDuration = Date.now() - startTime;
+    const sanitizedMsg = sanitizeErrorMessage(err.message || "Internal server error");
+    const sanitizedStack = sanitizeErrorMessage(err.stack || err.message || "Internal server error");
+
     logger.errorLine(
       reqTag,
       LogSymbol.ERROR,
-      `REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms\n    ${err.stack || err.message}`
+      `REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms\n    ${sanitizedStack}`
     );
     UsageRepository.endPendingRequest(requestId, true);
 
     if (!res.headersSent) {
-      res.status(500).json({ error: { message: err.message || "Internal server error" } });
+      res.status(500).json({ error: { message: sanitizedMsg } });
     } else if (!res.writableEnded) {
       res.end();
     }
@@ -224,7 +229,7 @@ export async function runProxyPipeline(
       actualModel: rawModel,
       providerId: comboName || "unknown",
       status: 500,
-      errorMessage: err.message || "Internal server error",
+      errorMessage: sanitizedMsg,
       tokensSavedByRtk: rtkStats.tokensSaved,
       is1mContext,
       requestHeaders: req.headers as Record<string, string>,

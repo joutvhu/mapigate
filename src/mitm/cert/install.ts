@@ -9,7 +9,7 @@ const execAsync = promisify(exec);
 
 export function getInstallCommand(certPath: string = ROOT_CA_CERT_PATH): { windows: string; mac: string; linux: string } {
   return {
-    windows: `certutil -addstore -user "Root" "${certPath}"`,
+    windows: `certutil -addstore Root "${certPath}"`,
     mac: `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${certPath}"`,
     linux: `sudo cp "${certPath}" /usr/local/share/ca-certificates/mapigate-rootCA.crt && sudo update-ca-certificates`,
   };
@@ -33,12 +33,13 @@ export async function checkCertInstalled(certPath: string = ROOT_CA_CERT_PATH): 
   const platform = process.platform;
   if (platform === "win32") {
     try {
-      // Check user root or system root store
-      await execAsync(`certutil -store -user Root ${fingerprint}`, { windowsHide: true });
+      // Check machine root store first (for Electron IDEs)
+      await execAsync(`certutil -store Root ${fingerprint}`, { windowsHide: true });
       return true;
     } catch {
       try {
-        await execAsync(`certutil -store Root ${fingerprint}`, { windowsHide: true });
+        // Fallback to user root store
+        await execAsync(`certutil -store -user Root ${fingerprint}`, { windowsHide: true });
         return true;
       } catch {
         return false;
@@ -74,9 +75,13 @@ export async function installCert(certPath: string = ROOT_CA_CERT_PATH): Promise
   const platform = process.platform;
   try {
     if (platform === "win32") {
-      // Install to user store (does NOT require elevated UAC)
-      await execAsync(`certutil -addstore -user "Root" "${certPath}"`, { windowsHide: true });
-      return { success: true, message: "Installed Root CA to Windows User Root store successfully" };
+      // Install Root CA to Machine-Level store (LocalMachine\Root) so background Electron IDE processes trust it
+      if (isAdmin()) {
+        await execAsync(`certutil -addstore Root "${certPath}"`, { windowsHide: true });
+      } else {
+        await runElevatedPowerShell(`certutil -addstore Root "${certPath}"`);
+      }
+      return { success: true, message: "Installed Root CA to Windows LocalMachine Root store successfully" };
     } else if (platform === "darwin") {
       const cmd = `security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${certPath}"`;
       await execAsync(cmd, { windowsHide: true });
