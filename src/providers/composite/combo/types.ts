@@ -2,6 +2,8 @@ import type { ModelCallResult, SingleModelHandler } from "../../core/types.js";
 
 export type { ModelCallResult, SingleModelHandler };
 
+export type ComboStrategy = "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c";
+
 export interface RotationState {
   index: number;
   consecutiveUseCount: number;
@@ -25,7 +27,7 @@ export interface FallbackChatOptions {
   handleSingleModel: SingleModelHandler;
   log?: { info: (...args: any[]) => void; warn: (...args: any[]) => void };
   comboName?: string;
-  comboStrategy?: string;
+  comboStrategy?: ComboStrategy;
   comboStickyLimit?: number;
   autoSwitch?: boolean;
 }

@@ -1,11 +1,12 @@
 import { getDatabase } from "../database.js";
 import { buildClaudePresetItems } from "../../core/router/comboPresets.js";
+import type { ComboStrategy } from "../../providers/composite/combo/types.js";
 
 export interface ComboRecord {
   id: string;
   name: string;
   models: string[];
-  strategy: "round-robin" | "fallback" | "fusion";
+  strategy: ComboStrategy;
   isActive: boolean;
   createdAt: number;
   updatedAt: number;
@@ -20,7 +21,7 @@ function mapRowToCombo(r: any): ComboRecord {
     id: r.id,
     name: r.name,
     models: typeof r.models === "string" ? JSON.parse(r.models || "[]") : (r.models || []),
-    strategy: r.strategy || "round-robin",
+    strategy: (r.strategy as ComboStrategy) || "round-robin",
     isActive: Boolean(r.is_active),
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
@@ -76,7 +77,7 @@ export class ComboRepository {
     id?: string;
     name: string;
     models: string[];
-    strategy?: "round-robin" | "fallback" | "fusion";
+    strategy?: ComboStrategy;
     isActive?: boolean;
   }): ComboRecord {
     if (!combo.name || typeof combo.name !== "string" || combo.name.trim().length === 0) {
@@ -128,7 +129,7 @@ export class ComboRepository {
     updates: Partial<{
       name: string;
       models: string[];
-      strategy: "round-robin" | "fallback" | "fusion";
+      strategy: ComboStrategy;
       isActive: boolean;
     }>
   ): ComboRecord | undefined {

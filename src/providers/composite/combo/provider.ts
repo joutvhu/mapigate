@@ -6,6 +6,7 @@ import type {
 } from "../../core/types.js";
 import { handleFallbackChat } from "./fallbackStrategy.js";
 import { handleFusionChat } from "./fusionStrategy.js";
+import type { ComboStrategy } from "./types.js";
 
 export class ComboProvider implements IProvider {
   public readonly id = "combo";
@@ -47,23 +48,13 @@ export class ComboProvider implements IProvider {
       });
     }
 
-    if (strategy === "round-robin") {
-      return await handleFallbackChat({
-        body: context.body,
-        models,
-        handleSingleModel: dispatchSingleModel,
-        comboName,
-        comboStrategy: "round-robin",
-        comboStickyLimit: 1,
-      });
-    }
-
     return await handleFallbackChat({
       body: context.body,
       models,
       handleSingleModel: dispatchSingleModel,
       comboName,
-      comboStrategy: "fallback",
+      comboStrategy: strategy as ComboStrategy,
+      comboStickyLimit: strategy === "round-robin" ? 1 : undefined,
     });
   }
 }

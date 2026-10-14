@@ -26,7 +26,7 @@ export interface ComboItem {
   id: string;
   name: string;
   models: string[];
-  strategy: "round-robin" | "fallback" | "fusion";
+  strategy: "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c";
   isActive?: boolean;
   createdAt?: number;
   updatedAt?: number;
@@ -41,7 +41,7 @@ export interface ComboFormModalProps {
     id?: string;
     name: string;
     models: string[];
-    strategy: "round-robin" | "fallback" | "fusion";
+    strategy: "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c";
     isActive?: boolean;
   }) => Promise<void> | void;
 }
@@ -228,7 +228,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
   onSave,
 }) => {
   const [name, setName] = useState("");
-  const [strategy, setStrategy] = useState<"round-robin" | "fallback" | "fusion">("round-robin");
+  const [strategy, setStrategy] = useState<"round-robin" | "fallback" | "fusion" | "lkgp" | "p2c">("round-robin");
   const [models, setModels] = useState<string[]>([]);
   const [nameError, setNameError] = useState("");
   const [modelsError, setModelsError] = useState("");
@@ -481,12 +481,14 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
               <Select
                 value={strategy}
                 onChange={(val) =>
-                  setStrategy(val as "round-robin" | "fallback" | "fusion")
+                  setStrategy(val as "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c")
                 }
                 options={[
                   { value: "round-robin", label: "Round Robin — Rotate across accounts" },
                   { value: "fallback", label: "Fallback — Sequential priority order" },
                   { value: "fusion", label: "Fusion — Parallel query panel + judge synthesis" },
+                  { value: "lkgp", label: "LKGP — Last Known Good (maximize prompt cache warmth)" },
+                  { value: "p2c", label: "P2C — Power of Two Choices (dynamic EMA load balancing)" },
                 ]}
                 className="w-full"
               />
@@ -505,6 +507,16 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                 {strategy === "fusion" && (
                   <span className="text-indigo-300">
                     <strong>Fusion:</strong> Queries member models concurrently in parallel, then synthesizes the best answer with a judge.
+                  </span>
+                )}
+                {strategy === "lkgp" && (
+                  <span className="text-emerald-300">
+                    <strong>LKGP (Last Known Good):</strong> Retains the model that succeeded on the last request to keep prompt caches warm; fails over on error.
+                  </span>
+                )}
+                {strategy === "p2c" && (
+                  <span className="text-amber-300">
+                    <strong>P2C (Power of Two Choices):</strong> Samples 2 candidates at random and routes to the one with superior latency and error score via EMA.
                   </span>
                 )}
               </div>

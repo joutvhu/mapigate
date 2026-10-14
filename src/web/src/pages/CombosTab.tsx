@@ -177,7 +177,7 @@ export const CombosTab: React.FC = () => {
     id?: string;
     name: string;
     models: string[];
-    strategy: "round-robin" | "fallback" | "fusion";
+    strategy: "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c";
     isActive?: boolean;
   }) => {
     if (item.id) {
@@ -233,7 +233,7 @@ export const CombosTab: React.FC = () => {
   // 6. Change Combo Strategy
   const handleChangeComboStrategy = async (
     combo: ComboItem,
-    strategy: "round-robin" | "fallback" | "fusion"
+    strategy: "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c"
   ) => {
     try {
       const res = await fetch(`/api/combos/${combo.id}`, {
@@ -360,7 +360,7 @@ export const CombosTab: React.FC = () => {
             Group multiple models and provider accounts under a single unified alias. Mapigate automatically manages fallbacks, load balances requests, or fuses multiple outputs together.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1 text-[11px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-2.5 pt-1 text-[11px]">
             <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
               <span className="text-blue-400 font-bold flex items-center gap-1">
                 <span className="material-symbols-outlined text-[14px]">low_priority</span>
@@ -386,6 +386,24 @@ export const CombosTab: React.FC = () => {
               </span>
               <p className="text-slate-400">
                 Queries models in parallel and synthesizes the best answer with a judge.
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">verified</span>
+                LKGP Strategy
+              </span>
+              <p className="text-slate-400">
+                Sticks to last known good model for prompt cache warmth; fails over on error.
+              </p>
+            </div>
+            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+              <span className="text-amber-400 font-bold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">balance</span>
+                P2C Strategy
+              </span>
+              <p className="text-slate-400">
+                Samples 2 random models and picks the higher-scoring via EMA latency/error rate.
               </p>
             </div>
           </div>
@@ -504,7 +522,11 @@ export const CombosTab: React.FC = () => {
                           ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
                           : combo.strategy === "round-robin"
                           ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
-                          : "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                          : combo.strategy === "fusion"
+                          ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/20"
+                          : combo.strategy === "lkgp"
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                       }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">
@@ -512,7 +534,11 @@ export const CombosTab: React.FC = () => {
                           ? "low_priority"
                           : combo.strategy === "round-robin"
                           ? "sync"
-                          : "call_split"}
+                          : combo.strategy === "fusion"
+                          ? "call_split"
+                          : combo.strategy === "lkgp"
+                          ? "verified"
+                          : "balance"}
                       </span>
                     </div>
 
@@ -559,13 +585,15 @@ export const CombosTab: React.FC = () => {
                       onChange={(val) =>
                         handleChangeComboStrategy(
                           combo,
-                          val as "round-robin" | "fallback" | "fusion"
+                          val as "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c"
                         )
                       }
                       options={[
                         { value: "round-robin", label: "Round Robin (rotate)" },
                         { value: "fallback", label: "Fallback (try in order)" },
                         { value: "fusion", label: "Fusion (parallel panel)" },
+                        { value: "lkgp", label: "LKGP (Last Known Good)" },
+                        { value: "p2c", label: "P2C (Power of Two Choices)" },
                       ]}
                       className="min-w-[180px]"
                     />

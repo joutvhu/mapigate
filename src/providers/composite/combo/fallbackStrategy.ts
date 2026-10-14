@@ -1,6 +1,14 @@
 import { detectRequiredCapabilities } from "../../../core/router/capacityAdapter.js";
 import { logger } from "../../../shared/logger.js";
-import { getRotatedModels, reorderByCapabilities } from "./state.js";
+import {
+  getRotatedModels,
+  reorderByCapabilities,
+  getLkgpModel,
+  recordComboSuccess,
+  getComboModelScore,
+  recordComboModelResult,
+  getModelCapabilityTier,
+} from "./state.js";
 import type { ModelCallResult, FallbackChatOptions } from "./types.js";
 
 const defaultComboLogger = {
@@ -53,11 +61,42 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
 
   let candidateModels = getRotatedModels(models, comboName, comboStrategy, comboStickyLimit);
 
+  let requiredCaps = new Set<string>();
   if (autoSwitch) {
-    const required = detectRequiredCapabilities(body);
-    if (required.size > 0) {
-      candidateModels = reorderByCapabilities(candidateModels, required);
+    requiredCaps = detectRequiredCapabilities(body);
+    if (requiredCaps.size > 0) {
+      candidateModels = reorderByCapabilities(candidateModels, requiredCaps);
     }
+  }
+
+  // LKGP Strategy: Promote last known good model to index 0 if valid and capable
+  if (comboStrategy === "lkgp" && candidateModels.length > 1) {
+    const lkgpModel = getLkgpModel(comboName);
+    if (lkgpModel && candidateModels.includes(lkgpModel)) {
+      const canPromote =
+        !autoSwitch ||
+        requiredCaps.size === 0 ||
+        getModelCapabilityTier(lkgpModel, requiredCaps) < 2;
+      if (canPromote) {
+        candidateModels = [lkgpModel, ...candidateModels.filter((m) => m !== lkgpModel)];
+      }
+    }
+  }
+
+  // P2C Strategy: Power of Two Choices with EMA scoring
+  if (comboStrategy === "p2c" && candidateModels.length >= 2) {
+    const idx1 = Math.floor(Math.random() * candidateModels.length);
+    let idx2 = Math.floor(Math.random() * (candidateModels.length - 1));
+    if (idx2 >= idx1) idx2++;
+
+    const model1 = candidateModels[idx1];
+    const model2 = candidateModels[idx2];
+    const score1 = getComboModelScore(model1);
+    const score2 = getComboModelScore(model2);
+
+    const [firstIdx, secondIdx] = score1 >= score2 ? [idx1, idx2] : [idx2, idx1];
+    const rest = candidateModels.filter((_, idx) => idx !== firstIdx && idx !== secondIdx);
+    candidateModels = [candidateModels[firstIdx], candidateModels[secondIdx], ...rest];
   }
 
   let lastStatus = 503;
@@ -67,11 +106,15 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
     const modelStr = candidateModels[i];
     log.info(`[COMBO:Fallback] Trying model ${i + 1}/${candidateModels.length}: ${modelStr}`);
 
+    const startTime = Date.now();
     try {
       const res = await handleSingleModel(body, modelStr, false);
+      const durationMs = Date.now() - startTime;
+      recordComboModelResult(modelStr, res.ok, durationMs);
 
       if (res.ok) {
         log.info(`[COMBO:Fallback] Model ${modelStr} succeeded`);
+        recordComboSuccess(comboName, modelStr);
         return { ...res, modelUsed: modelStr };
       }
 
@@ -90,6 +133,8 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
         await new Promise((r) => setTimeout(r, cooldownMs));
       }
     } catch (err: any) {
+      const durationMs = Date.now() - startTime;
+      recordComboModelResult(modelStr, false, durationMs);
       lastStatus = 500;
       lastError = err.message || String(err);
       log.warn(`[COMBO:Fallback] Model ${modelStr} threw exception: ${lastError}`);
