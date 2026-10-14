@@ -1,7 +1,12 @@
 import type { ModelCallResult, ExecuteSingleModelOptions, ProviderRequestContext } from "./types.js";
 import type { SingleModelHandler } from "../../providers/types.js";
 import { stripModelContextMarker, RuleEngine } from "../../core/router/ruleEngine.js";
-import { LoadBalancer, isRateLimitOrQuotaError } from "../../core/router/loadBalancer.js";
+import { LoadBalancer } from "../../core/router/loadBalancer.js";
+import {
+  getProviderCircuitBreaker,
+  recordResilienceSuccess,
+  recordResilienceFailure,
+} from "../../core/resilience/index.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
@@ -13,19 +18,33 @@ import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { handleNonStreamingResponse, handleStreamingResponse } from "./responseHandlers.js";
 import { logger, LogSymbol, maskKey, tagForSession } from "../../shared/logger.js";
 
+function tryFailover(
+  providerId: string,
+  account: any,
+  status: number,
+  cooldownMs: number,
+  triedAccountIds: Set<string>,
+  targetModel: string,
+  reqTag: string,
+  isCustom = false
+): boolean {
+  const next = LoadBalancer.pickAccount(providerId, { excludeAccountIds: triedAccountIds, targetModel });
+  if (next) {
+    const suffix = isCustom ? " in custom provider" : "";
+    logger.line(
+      reqTag,
+      LogSymbol.FAILOVER,
+      `Account '${account.name || account.id}' hit ${status} (rate-limit/quota)${suffix} · failing over to '${next.name || next.id}' (cooldown: ${cooldownMs}ms)`
+    );
+    return true;
+  }
+  return false;
+}
+
 export async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<ModelCallResult> {
   const {
-    req,
-    res,
-    body,
-    modelStr,
-    clientFormat,
-    isPanel = false,
-    requestId,
-    startTime,
-    clientTool,
-    rawModel,
-    rtkStats,
+    req, res, body, modelStr, clientFormat, isPanel = false,
+    requestId, startTime, clientTool, rawModel, rtkStats,
     is1mContext: optionIs1m,
     reqTag = options.req.reqTag || tagForSession(options.requestId),
   } = options;
@@ -43,8 +62,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     targetModel = effectiveModelStr.slice(slash + 1);
   } else {
     const rules = ModelRepository.getAllRules();
-    const ruleEngine = new RuleEngine(rules);
-    const resolved = ruleEngine.resolveModel(effectiveModelStr);
+    const resolved = new RuleEngine(rules).resolveModel(effectiveModelStr);
     targetModel = resolved.model;
     providerId = resolved.rule?.targetProviderId;
   }
@@ -53,26 +71,40 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   if (cleanTargetModel) targetModel = cleanTargetModel;
 
   if (!providerId) {
-    const activeProvider = ProviderRepository.getAllProviders().find((p) => p.isActive);
-    providerId = activeProvider?.id;
+    providerId = ProviderRepository.getAllProviders().find((p) => p.isActive)?.id;
   }
-
   if (!providerId) {
     logger.errorLine(reqTag, LogSymbol.ERROR, `No active provider configured for model '${modelStr}'`);
     return { ok: false, status: 503, error: `No active provider configured for model '${modelStr}'.` };
   }
 
   const regProv = getRegistryProvider(providerId);
-  const canonicalProviderId = regProv?.id || providerId;
+  const cid = regProv?.id || providerId;
   const providerConfig =
-    (canonicalProviderId ? ProviderRepository.getProviderWithDefaults(canonicalProviderId) : undefined) ||
-    (canonicalProviderId ? ProviderRepository.getProviderById(canonicalProviderId) : undefined) ||
+    ProviderRepository.getProviderWithDefaults(cid) ||
+    ProviderRepository.getProviderById(cid) ||
     ProviderRepository.getProviderWithDefaults(providerId) ||
     ProviderRepository.getProviderById(providerId);
 
   if (!providerConfig) {
     logger.errorLine(reqTag, LogSymbol.ERROR, `Provider '${providerId}' not found`);
     return { ok: false, status: 502, error: `Provider '${providerId}' not found.` };
+  }
+
+  // Layer 1: Circuit breaker fast-fail if whole provider is OPEN
+  const cb = getProviderCircuitBreaker(providerConfig.id);
+  if (!cb.canExecute()) {
+    const retrySec = Math.ceil(cb.getRetryAfterMs() / 1000) || 30;
+    logger.errorLine(
+      reqTag,
+      LogSymbol.WARN,
+      `Provider '${providerConfig.name}' circuit breaker is OPEN (fast-fail, retry-after: ${retrySec}s)`
+    );
+    return {
+      ok: false,
+      status: 503,
+      error: `Provider '${providerConfig.name}' circuit breaker is OPEN. Upstream service is temporarily unavailable.`,
+    };
   }
 
   const provider = ProviderRegistry.get(providerConfig.id);
@@ -88,7 +120,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   let lastFailureResult: ModelCallResult | undefined;
 
   while (true) {
-    const account = LoadBalancer.pickAccount(provider.id, triedAccountIds);
+    const account = LoadBalancer.pickAccount(provider.id, { excludeAccountIds: triedAccountIds, targetModel });
     const hasCustomHeaders = Boolean(
       providerConfig.customHeaders && Object.keys(providerConfig.customHeaders).length > 0
     );
@@ -111,22 +143,10 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     if (account) triedAccountIds.add(account.id);
 
     const context: ProviderRequestContext = {
-      req,
-      res,
-      targetModel,
-      clientFormat,
-      targetFormat,
-      body: adjustedBody,
-      provider: providerConfig,
-      account,
-      isPanel,
-      is1mContext,
-      reqTag,
-      requestId,
-      startTime,
-      clientTool,
-      rawModel,
-      rtkStats,
+      req, res, targetModel, clientFormat, targetFormat,
+      body: adjustedBody, provider: providerConfig, account,
+      isPanel, is1mContext, reqTag, requestId, startTime,
+      clientTool, rawModel, rtkStats,
     };
 
     if (provider.execute && provider.id !== "combo") {
@@ -135,29 +155,23 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       };
       const customResult = await provider.execute(context, dispatchSingleModel);
       if (customResult.ok) {
+        recordResilienceSuccess({ providerId: provider.id, accountId: account?.id, model: targetModel });
         return customResult;
       }
 
       const errText = customResult.text || customResult.error || "";
-      const isRateLimit = provider.isRateLimitOrQuotaError
-        ? provider.isRateLimitOrQuotaError(customResult.status, errText)
-        : isRateLimitOrQuotaError(customResult.status, errText);
+      const resFailure = recordResilienceFailure({
+        providerId: provider.id, accountId: account?.id, model: targetModel,
+        status: customResult.status, errorText: errText,
+      });
 
-      if (isRateLimit && account) {
-        const cooldownMs = 60_000;
-        LoadBalancer.markRateLimited(account.id, cooldownMs, provider.id);
-        const nextAccount = LoadBalancer.pickAccount(provider.id, triedAccountIds);
-        if (nextAccount) {
-          logger.line(
-            reqTag,
-            LogSymbol.FAILOVER,
-            `Account '${account.name || account.id}' hit ${customResult.status} (rate-limit/quota) in custom provider · failing over to '${nextAccount.name || nextAccount.id}' (cooldown: ${cooldownMs}ms)`
-          );
+      if (resFailure.rateLimited && account) {
+        const cdMs = resFailure.cooldownMs || 60_000;
+        if (tryFailover(provider.id, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true)) {
           lastFailureResult = customResult;
           continue;
         }
       }
-
       return customResult;
     }
 
@@ -198,33 +212,21 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     if (!upstreamRes.ok && upstreamRes.status === 401 && provider.handleAuthRefresh) {
       const refreshed = await provider.handleAuthRefresh(context, upstreamRes.status);
       if (refreshed) {
-        const retriedHeaders = await provider.buildHeaders(context);
-        fetchOptions.headers = retriedHeaders;
+        fetchOptions.headers = await provider.buildHeaders(context);
         upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
       }
     }
 
     if (!upstreamRes.ok) {
       const errText = await upstreamRes.text();
-      const isRateLimit = provider.isRateLimitOrQuotaError
-        ? provider.isRateLimitOrQuotaError(upstreamRes.status, errText)
-        : isRateLimitOrQuotaError(upstreamRes.status, errText);
+      const resFailure = recordResilienceFailure({
+        providerId: provider.id, accountId: account?.id, model: targetModel,
+        status: upstreamRes.status, errorText: errText, headers: upstreamRes.headers,
+      });
 
-      if (isRateLimit && account) {
-        let cooldownMs = 60_000;
-        const retryAfter = upstreamRes.headers?.get?.("retry-after");
-        if (retryAfter) {
-          const parsed = Number.parseInt(retryAfter, 10);
-          if (Number.isFinite(parsed) && parsed > 0) cooldownMs = Math.max(10_000, parsed * 1000);
-        }
-        LoadBalancer.markRateLimited(account.id, cooldownMs, provider.id);
-        const nextAccount = LoadBalancer.pickAccount(provider.id, triedAccountIds);
-        if (nextAccount) {
-          logger.line(
-            reqTag,
-            LogSymbol.FAILOVER,
-            `Account '${account.name || account.id}' hit ${upstreamRes.status} (rate-limit/quota) · failing over to '${nextAccount.name || nextAccount.id}' (cooldown: ${cooldownMs}ms)`
-          );
+      if (resFailure.rateLimited && account) {
+        const cdMs = resFailure.cooldownMs || 60_000;
+        if (tryFailover(provider.id, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: errText, error: errText };
           continue;
         }
@@ -236,6 +238,8 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       return { ok: false, status: upstreamRes.status, text: errText, error: errText };
     }
 
+    recordResilienceSuccess({ providerId: provider.id, accountId: account?.id, model: targetModel });
+
     if (isPanel) {
       try {
         const json = await upstreamRes.json();
@@ -246,19 +250,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       }
     }
 
-    const isStreaming = upstreamBody.stream !== false;
-    if (!isStreaming) {
+    if (upstreamBody.stream === false) {
       return await handleNonStreamingResponse(upstreamRes, res, context, provider, {
-        upstreamUrl,
-        outgoingHeaders,
-        upstreamBody,
+        upstreamUrl, outgoingHeaders, upstreamBody,
       });
     }
 
     return await handleStreamingResponse(upstreamRes, res, context, provider, {
-      upstreamUrl,
-      outgoingHeaders,
-      upstreamBody,
+      upstreamUrl, outgoingHeaders, upstreamBody,
     });
   }
 }

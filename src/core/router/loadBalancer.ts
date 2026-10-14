@@ -1,6 +1,14 @@
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import type { ProviderAccount } from "../../shared/types/index.js";
+import {
+  cooldownManager,
+  modelLockoutManager,
+  getProviderCircuitBreaker,
+  isRateLimitOrQuotaError,
+} from "../resilience/index.js";
+
+export { isRateLimitOrQuotaError };
 
 export interface CooldownEntry {
   until: number;
@@ -9,50 +17,28 @@ export interface CooldownEntry {
 export interface PickAccountOptions {
   excludeAccountIds?: Set<string> | string[];
   healthyOnly?: boolean;
-}
-
-/**
- * Evaluates whether an HTTP status code or error response text indicates
- * rate limiting or quota / balance exhaustion.
- */
-export function isRateLimitOrQuotaError(status: number, errorText?: string): boolean {
-  if (status === 429) return true;
-  if (status === 402) return true; // Payment Required / Depleted balance
-
-  const lower = (errorText || "").toLowerCase();
-  if (!lower) return false;
-
-  return (
-    lower.includes("quota") ||
-    lower.includes("rate limit") ||
-    lower.includes("rate_limit") ||
-    lower.includes("ratelimit") ||
-    lower.includes("too many requests") ||
-    lower.includes("insufficient_quota") ||
-    lower.includes("insufficient balance") ||
-    lower.includes("insufficient funds") ||
-    lower.includes("out of credits") ||
-    lower.includes("resource_exhausted") ||
-    lower.includes("resource exhausted") ||
-    lower.includes("overloaded") ||
-    lower.includes("capacity") ||
-    lower.includes("usage limit") ||
-    lower.includes("credit limit")
-  );
+  prefixHash?: string;
+  targetModel?: string;
 }
 
 export class LoadBalancer {
-  private static cooldowns: Map<string, CooldownEntry> = new Map();
   private static stickyCounts: Map<string, { accountId: string; count: number }> = new Map();
 
   /**
    * Pick an active account with strategy, sticky limit, and rate-limit cooldown filtering.
    * Supports excluding already-tried accounts for intra-provider failover.
+   * Checks provider circuit breaker, account cooldowns, and model lockouts.
    */
   public static pickAccount(
     providerId: string,
     excludeOrOptions?: Set<string> | string[] | PickAccountOptions
   ): (ProviderAccount & { rawApiKey: string }) | undefined {
+    // 1. Layer 1 Check: Provider Circuit Breaker
+    const cb = getProviderCircuitBreaker(providerId);
+    if (!cb.canExecute()) {
+      return undefined;
+    }
+
     const allAccounts = ProviderRepository.getAccountsByProvider(providerId);
     if (allAccounts.length === 0) {
       const reg = getRegistryProvider(providerId);
@@ -73,6 +59,7 @@ export class LoadBalancer {
 
     let excludeSet: Set<string> | undefined;
     let healthyOnly = false;
+    let targetModel: string | undefined;
 
     if (excludeOrOptions) {
       if (excludeOrOptions instanceof Set || Array.isArray(excludeOrOptions)) {
@@ -86,6 +73,7 @@ export class LoadBalancer {
               : new Set(excludeOrOptions.excludeAccountIds);
         }
         healthyOnly = Boolean(excludeOrOptions.healthyOnly ?? (excludeSet && excludeSet.size > 0));
+        targetModel = excludeOrOptions.targetModel;
       }
     }
 
@@ -99,16 +87,15 @@ export class LoadBalancer {
     const strategy = providerConfig?.strategy || "round-robin";
     const stickyLimit = providerConfig?.stickyLimit || 1;
 
-    const now = Date.now();
-    // Filter out accounts currently under cooldown
+    // Filter out accounts currently under cooldown or with target model locked
     const available = eligibleAccounts.filter((acc) => {
-      const cd = this.cooldowns.get(acc.id);
-      if (!cd) return true;
-      if (now >= cd.until) {
-        this.cooldowns.delete(acc.id);
-        return true;
+      if (cooldownManager.isAccountInCooldown(acc.id)) {
+        return false;
       }
-      return false;
+      if (targetModel && modelLockoutManager.isModelLocked(providerId, acc.id, targetModel)) {
+        return false;
+      }
+      return true;
     });
 
     if (healthyOnly && available.length === 0) {
@@ -125,8 +112,8 @@ export class LoadBalancer {
     } else if (strategy === "earliest-reset") {
       // Prioritize account whose cooldown expires soonest (or least rate limit hits)
       const sorted = [...pool].sort((a, b) => {
-        const cdA = this.cooldowns.get(a.id)?.until || 0;
-        const cdB = this.cooldowns.get(b.id)?.until || 0;
+        const cdA = cooldownManager.getCooldownRemainingMs(a.id);
+        const cdB = cooldownManager.getCooldownRemainingMs(b.id);
         if (cdA !== cdB) return cdA - cdB;
         return a.rateLimitHits - b.rateLimitHits;
       });
@@ -157,14 +144,15 @@ export class LoadBalancer {
   }
 
   /**
-   * Mark an account as rate limited with a cooldown period (default 60s)
+   * Mark an account as rate limited with a cooldown period (default 60s).
+   * Legacy facade method delegating to cooldownManager.
    */
   public static markRateLimited(
     accountId: string,
     cooldownMs: number = 60_000,
     providerId?: string
   ): void {
-    this.cooldowns.set(accountId, { until: Date.now() + cooldownMs });
+    cooldownManager.markRateLimited(accountId, cooldownMs, providerId);
     ProviderRepository.recordRateLimitHit(accountId);
 
     // If this account was sticky, clear sticky count so next selection moves on
@@ -176,28 +164,15 @@ export class LoadBalancer {
   }
 
   public static isAccountInCooldown(accountId: string): boolean {
-    const cd = this.cooldowns.get(accountId);
-    if (!cd) return false;
-    if (Date.now() >= cd.until) {
-      this.cooldowns.delete(accountId);
-      return false;
-    }
-    return true;
+    return cooldownManager.isAccountInCooldown(accountId);
   }
 
   public static getCooldownRemainingMs(accountId: string): number {
-    const cd = this.cooldowns.get(accountId);
-    if (!cd) return 0;
-    const remaining = cd.until - Date.now();
-    if (remaining <= 0) {
-      this.cooldowns.delete(accountId);
-      return 0;
-    }
-    return remaining;
+    return cooldownManager.getCooldownRemainingMs(accountId);
   }
 
   public static clearCooldowns(): void {
-    this.cooldowns.clear();
+    cooldownManager.clearCooldowns();
   }
 
   public static clearStickyCounts(): void {
@@ -205,7 +180,7 @@ export class LoadBalancer {
   }
 
   public static reset(): void {
-    this.cooldowns.clear();
+    cooldownManager.reset();
     this.stickyCounts.clear();
   }
 }
