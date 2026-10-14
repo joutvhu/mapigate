@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { LoadBalancer, isRateLimitOrQuotaError } from "../src/core/router/loadBalancer.js";
+import { getProviderCircuitBreaker } from "../src/core/resilience/index.js";
 import { handleProxyRequest } from "../src/server/proxy/chatProxy.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
 import { LogRepository } from "../src/storage/repositories/logRepo.js";
@@ -560,3 +561,136 @@ test("Intra-Provider Failover - does NOT failover on non-quota errors (e.g. 400 
     ProviderRepository.deleteProvider(providerId);
   }
 });
+
+test("LoadBalancer - fill-first strategy strictly maintains priority even with prefixHash", () => {
+  LoadBalancer.reset();
+
+  const providerId = `lb_test_fill_first_${Date.now()}`;
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: "Fill First Provider",
+    baseUrl: "https://api.fill-first.com/v1",
+    format: "openai",
+    isActive: true,
+    strategy: "fill-first",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  const acc1Id = `acc_1_${Date.now()}`;
+  const acc2Id = `acc_2_${Date.now()}`;
+
+  ProviderRepository.addAccount({
+    id: acc1Id,
+    providerId,
+    name: "Account 1 (Priority)",
+    rawApiKey: "key-1",
+    isActive: true,
+  });
+
+  ProviderRepository.addAccount({
+    id: acc2Id,
+    providerId,
+    name: "Account 2 (Secondary)",
+    rawApiKey: "key-2",
+    isActive: true,
+  });
+
+  try {
+    // With various prefix hashes, fill-first MUST always pick acc1Id (pool[0])
+    for (let i = 0; i < 10; i++) {
+      const picked = LoadBalancer.pickAccount(providerId, { prefixHash: `prefix_hash_${i}_test` });
+      assert.equal(picked?.id, acc1Id, `fill-first should pick account 1, picked ${picked?.id}`);
+    }
+  } finally {
+    LoadBalancer.reset();
+    ProviderRepository.deleteAccount(acc1Id);
+    ProviderRepository.deleteAccount(acc2Id);
+    ProviderRepository.deleteProvider(providerId);
+  }
+});
+
+test("executeSingleModel - handles fetch rejection and records infrastructure failure on circuit breaker", async () => {
+  LoadBalancer.reset();
+
+  const providerId = `test_prov_fetch_rejection_${Date.now()}`;
+  const accId = `acc_fetch_err_${Date.now()}`;
+  const testModel = "gpt-4o";
+
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: "Fetch Rejection Provider",
+    baseUrl: "https://api.fetch-rejection.com/v1",
+    format: "openai",
+    isActive: true,
+    strategy: "fill-first",
+    models: [testModel],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  ProviderRepository.addAccount({
+    id: accId,
+    providerId,
+    name: "Account 1",
+    rawApiKey: "key-1",
+    isActive: true,
+  });
+
+  const cb = getProviderCircuitBreaker(providerId);
+  cb.forceState("HALF_OPEN");
+  assert.equal(cb.getState(), "HALF_OPEN");
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new TypeError("fetch failed: connection refused");
+  }) as typeof fetch;
+
+  try {
+    const mockReq = {
+      headers: { "content-type": "application/json" },
+      body: {
+        model: `${providerId}/${testModel}`,
+        messages: [{ role: "user", content: "Test network error" }],
+        stream: false,
+      },
+    } as unknown as Request;
+
+    let responseStatusCode = 0;
+    let responseJson: any = null;
+
+    const mockRes = {
+      status(code: number) {
+        responseStatusCode = code;
+        return this;
+      },
+      json(data: any) {
+        responseJson = data;
+        return this;
+      },
+      send(data: any) {
+        responseJson = data;
+        return this;
+      },
+      setHeader() {},
+    } as unknown as Response;
+
+    await handleProxyRequest(mockReq, mockRes, "openai");
+
+    // Client receives 502
+    assert.equal(responseStatusCode, 502);
+    // Circuit breaker transitioned from HALF_OPEN to OPEN due to infrastructure failure
+    assert.equal(cb.getState(), "OPEN");
+    // In-flight probe concurrency guard was released
+    const snap = cb.getSnapshot();
+    assert.equal(snap.halfOpenProbeInFlight, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    cb.reset();
+    LoadBalancer.reset();
+    ProviderRepository.deleteAccount(accId);
+    ProviderRepository.deleteProvider(providerId);
+  }
+});
+
+

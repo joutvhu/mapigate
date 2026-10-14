@@ -288,7 +288,7 @@ export class ProviderRepository {
     const reg = getRegistryProvider(providerId);
     const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) ORDER BY rate_limit_hits ASC, last_used_at ASC",
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) ORDER BY rate_limit_hits ASC, created_at ASC, rowid ASC",
       providerId,
       targetProviderId
     );
@@ -304,6 +304,7 @@ export class ProviderRepository {
           isActive: true,
           rateLimitHits: 0,
           lastUsedAt: 0,
+          createdAt: 0,
         },
       ];
     }
@@ -317,6 +318,7 @@ export class ProviderRepository {
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
+      createdAt: r.created_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
       cachedQuotas: r.cached_quotas || undefined,
       quotaFetchedAt: r.quota_fetched_at || undefined,
@@ -328,7 +330,7 @@ export class ProviderRepository {
     const reg = getRegistryProvider(providerId);
     const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY rate_limit_hits ASC, last_used_at ASC",
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY rate_limit_hits ASC, created_at ASC, rowid ASC",
       providerId,
       targetProviderId
     );
@@ -344,6 +346,7 @@ export class ProviderRepository {
           isActive: true,
           rateLimitHits: 0,
           lastUsedAt: 0,
+          createdAt: 0,
         },
       ];
     }
@@ -357,6 +360,7 @@ export class ProviderRepository {
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
       lastUsedAt: r.last_used_at,
+      createdAt: r.created_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
       cachedQuotas: r.cached_quotas || undefined,
       quotaFetchedAt: r.quota_fetched_at || undefined,

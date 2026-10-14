@@ -326,3 +326,33 @@ test("LoadBalancer facade compatibility and resilience integration", () => {
     ProviderRepository.deleteProvider(providerId);
   }
 });
+
+test("ProviderCircuitBreaker - in-flight probe safety release and timeout", () => {
+  const cb = new ProviderCircuitBreaker("test-probe-timeout", {
+    failureThreshold: 2,
+    resetTimeoutMs: 50,
+  });
+
+  cb.recordFailure(500);
+  cb.recordFailure(500);
+  assert.equal(cb.getState(), "OPEN");
+
+  // Force into HALF_OPEN
+  cb.forceState("HALF_OPEN");
+  assert.equal(cb.getState(), "HALF_OPEN");
+
+  // First canExecute permits the single in-flight probe
+  assert.equal(cb.canExecute(), true);
+  // Second canExecute is blocked by concurrency guard
+  assert.equal(cb.canExecute(), false);
+
+  // Manual releaseProbe frees the in-flight probe guard
+  cb.releaseProbe();
+  assert.equal(cb.canExecute(), true);
+  assert.equal(cb.canExecute(), false);
+
+  // Reset clears in-flight state
+  cb.reset();
+  assert.equal(cb.canExecute(), true);
+});
+

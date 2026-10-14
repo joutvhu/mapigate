@@ -28,6 +28,7 @@ export interface ProviderAccount {
   isActive: boolean;
   rateLimitHits: number;
   lastUsedAt?: number;
+  createdAt?: number;
   providerSpecificData?: Record<string, any>;
   cachedQuotas?: string;
   quotaFetchedAt?: number;

@@ -72,6 +72,8 @@ export class ProviderCircuitBreaker {
   private lastFailureTime: number = 0;
   private lastStateChangeTime: number = Date.now();
   private halfOpenProbeInFlight: boolean = false;
+  private halfOpenProbeStartedAt: number = 0;
+  private static readonly PROBE_TIMEOUT_MS = 15_000;
 
   constructor(providerId: string, profile?: Partial<ProviderBreakerProfile>) {
     this.providerId = providerId;
@@ -88,6 +90,7 @@ export class ProviderCircuitBreaker {
         this.state = "HALF_OPEN";
         this.consecutiveSuccesses = 0;
         this.halfOpenProbeInFlight = false;
+        this.halfOpenProbeStartedAt = 0;
         this.lastStateChangeTime = Date.now();
       }
     }
@@ -95,7 +98,8 @@ export class ProviderCircuitBreaker {
 
   /**
    * Evaluates if requests are permitted.
-   * If in HALF_OPEN, allows exactly 1 probe through using halfOpenProbeInFlight concurrency guard.
+   * If in HALF_OPEN, allows exactly 1 probe through using halfOpenProbeInFlight concurrency guard
+   * with a safety timeout to prevent deadlocks from unhandled probe errors.
    */
   public canExecute(): boolean {
     this.checkLazyRecovery();
@@ -105,14 +109,29 @@ export class ProviderCircuitBreaker {
     }
 
     if (this.state === "HALF_OPEN") {
-      if (!this.halfOpenProbeInFlight) {
+      const isStale =
+        this.halfOpenProbeInFlight &&
+        Date.now() - this.halfOpenProbeStartedAt > ProviderCircuitBreaker.PROBE_TIMEOUT_MS;
+
+      if (!this.halfOpenProbeInFlight || isStale) {
         this.halfOpenProbeInFlight = true;
+        this.halfOpenProbeStartedAt = Date.now();
         return true;
       }
       return false; // Concurrency guard: reject other requests while probe is in flight
     }
 
     return false; // OPEN
+  }
+
+  /**
+   * Release in-flight probe guard manually if an operation was aborted or cancelled.
+   */
+  public releaseProbe(): void {
+    if (this.state === "HALF_OPEN") {
+      this.halfOpenProbeInFlight = false;
+      this.halfOpenProbeStartedAt = 0;
+    }
   }
 
   /**
@@ -126,6 +145,7 @@ export class ProviderCircuitBreaker {
     if (this.state === "HALF_OPEN") {
       this.consecutiveSuccesses++;
       this.halfOpenProbeInFlight = false;
+      this.halfOpenProbeStartedAt = 0;
       const threshold = this.profile.halfOpenSuccessThreshold ?? 1;
       if (this.consecutiveSuccesses >= threshold) {
         this.state = "CLOSED";
@@ -159,6 +179,7 @@ export class ProviderCircuitBreaker {
     if (this.state === "HALF_OPEN") {
       this.state = "OPEN";
       this.halfOpenProbeInFlight = false;
+      this.halfOpenProbeStartedAt = 0;
       this.lastStateChangeTime = now;
       return true;
     }
@@ -170,6 +191,7 @@ export class ProviderCircuitBreaker {
       if (this.state !== "OPEN") {
         this.state = "OPEN";
         this.halfOpenProbeInFlight = false;
+        this.halfOpenProbeStartedAt = 0;
         this.lastStateChangeTime = now;
       }
     } else if (this.failureCount >= degradedLimit) {
@@ -213,6 +235,7 @@ export class ProviderCircuitBreaker {
     this.lastFailureTime = 0;
     this.lastStateChangeTime = Date.now();
     this.halfOpenProbeInFlight = false;
+    this.halfOpenProbeStartedAt = 0;
   }
 
   public forceState(state: CircuitState): void {
@@ -223,6 +246,7 @@ export class ProviderCircuitBreaker {
     }
     if (state !== "HALF_OPEN") {
       this.halfOpenProbeInFlight = false;
+      this.halfOpenProbeStartedAt = 0;
     }
   }
 }

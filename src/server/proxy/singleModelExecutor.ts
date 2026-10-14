@@ -1,6 +1,5 @@
 import type { ModelCallResult, ExecuteSingleModelOptions, ProviderRequestContext } from "./types.js";
 import type { SingleModelHandler } from "../../providers/types.js";
-import { stripModelContextMarker, RuleEngine } from "../../core/router/ruleEngine.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import {
   getProviderCircuitBreaker,
@@ -8,7 +7,6 @@ import {
   recordResilienceFailure,
 } from "../../core/resilience/index.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { ProviderRegistry } from "../../providers/registry.js";
 import { getRegistryProvider } from "../../providers/metadataRegistry.js";
@@ -22,29 +20,7 @@ import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.js";
 
-function tryFailover(
-  providerId: string,
-  account: any,
-  status: number,
-  cooldownMs: number,
-  triedAccountIds: Set<string>,
-  targetModel: string,
-  reqTag: string,
-  isCustom = false,
-  prefixHash?: string
-): boolean {
-  const next = LoadBalancer.pickAccount(providerId, { excludeAccountIds: triedAccountIds, targetModel, prefixHash });
-  if (next) {
-    const suffix = isCustom ? " in custom provider" : "";
-    logger.line(
-      reqTag,
-      LogSymbol.FAILOVER,
-      `Account '${account.name || account.id}' hit ${status} (rate-limit/quota)${suffix} · failing over to '${next.name || next.id}' (cooldown: ${cooldownMs}ms)`
-    );
-    return true;
-  }
-  return false;
-}
+import { tryFailover, resolveTargetModelAndProvider } from "./executorHelpers.js";
 
 export async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<ModelCallResult> {
   const {
@@ -54,30 +30,11 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     reqTag = options.req.reqTag || tagForSession(options.requestId),
   } = options;
 
-  let targetModel = modelStr;
-  let providerId: string | undefined;
+  const resolved = resolveTargetModelAndProvider(modelStr);
+  let targetModel = resolved.targetModel;
+  const providerId = resolved.providerId;
+  const is1mContext = Boolean(optionIs1m || resolved.is1mContext);
 
-  const { model: cleanModelStr, is1mContext: modelIs1m } = stripModelContextMarker(modelStr);
-  const effectiveModelStr = cleanModelStr || modelStr;
-  const is1mContext = Boolean(optionIs1m || modelIs1m);
-
-  if (effectiveModelStr.includes("/")) {
-    const slash = effectiveModelStr.indexOf("/");
-    providerId = effectiveModelStr.slice(0, slash);
-    targetModel = effectiveModelStr.slice(slash + 1);
-  } else {
-    const rules = ModelRepository.getAllRules();
-    const resolved = new RuleEngine(rules).resolveModel(effectiveModelStr);
-    targetModel = resolved.model;
-    providerId = resolved.rule?.targetProviderId;
-  }
-
-  const { model: cleanTargetModel } = stripModelContextMarker(targetModel);
-  if (cleanTargetModel) targetModel = cleanTargetModel;
-
-  if (!providerId) {
-    providerId = ProviderRepository.getAllProviders().find((p) => p.isActive)?.id;
-  }
   if (!providerId) {
     logger.errorLine(reqTag, LogSymbol.ERROR, `No active provider configured for model '${modelStr}'`);
     return { ok: false, status: 503, error: `No active provider configured for model '${modelStr}'.` };
@@ -224,14 +181,35 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       body: JSON.stringify(upstreamBody),
     };
 
-    let upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
+    let upstreamRes: any;
+    try {
+      upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
 
-    if (!upstreamRes.ok && upstreamRes.status === 401 && provider.handleAuthRefresh) {
-      const refreshed = await provider.handleAuthRefresh(context, upstreamRes.status);
-      if (refreshed) {
-        fetchOptions.headers = await provider.buildHeaders(context);
-        upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
+      if (!upstreamRes.ok && upstreamRes.status === 401 && provider.handleAuthRefresh) {
+        const refreshed = await provider.handleAuthRefresh(context, upstreamRes.status);
+        if (refreshed) {
+          fetchOptions.headers = await provider.buildHeaders(context);
+          upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
+        }
       }
+    } catch (fetchErr: any) {
+      const errMsg = fetchErr?.message || String(fetchErr);
+      const cleanErrText = sanitizeErrorMessage(errMsg);
+      recordResilienceFailure({
+        providerId: provider.id,
+        accountId: account?.id,
+        model: targetModel,
+        status: 502,
+        errorText: cleanErrText,
+      });
+
+      const durationMs = Date.now() - startTime;
+      logger.errorLine(
+        reqTag,
+        LogSymbol.ERROR,
+        `FETCH ERROR · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${cleanErrText}`
+      );
+      return { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
     }
 
     if (!upstreamRes.ok) {

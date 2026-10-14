@@ -36,7 +36,7 @@ export class LoadBalancer {
   ): (ProviderAccount & { rawApiKey: string }) | undefined {
     // 1. Layer 1 Check: Provider Circuit Breaker
     const cb = getProviderCircuitBreaker(providerId);
-    if (!cb.canExecute()) {
+    if (cb.getState() === "OPEN") {
       return undefined;
     }
 
@@ -109,39 +109,37 @@ export class LoadBalancer {
 
     let chosen: (ProviderAccount & { rawApiKey: string }) | undefined;
 
-    // Prompt Cache Affinity: when prefixHash is provided and multiple healthy accounts are available
-    if (prefixHash && pool.length > 1) {
+    if (strategy === "fill-first") {
+      // Pick first active account in priority order
+      chosen = pool[0];
+    } else if (strategy === "earliest-reset") {
+      // Prioritize account whose cooldown expires soonest (or least rate limit hits)
+      const sorted = [...pool].sort((a, b) => {
+        const cdA = cooldownManager.getCooldownRemainingMs(a.id);
+        const cdB = cooldownManager.getCooldownRemainingMs(b.id);
+        if (cdA !== cdB) return cdA - cdB;
+        return a.rateLimitHits - b.rateLimitHits;
+      });
+      chosen = sorted[0];
+    } else if (prefixHash && pool.length > 1) {
+      // Prompt Cache Affinity: only invoke when strategy is round-robin (or default)
       chosen = pickAffinityAccount(pool, prefixHash);
     }
 
     if (!chosen) {
-      if (strategy === "fill-first") {
-        // Pick first active account in priority order
-        chosen = pool[0];
-      } else if (strategy === "earliest-reset") {
-        // Prioritize account whose cooldown expires soonest (or least rate limit hits)
-        const sorted = [...pool].sort((a, b) => {
-          const cdA = cooldownManager.getCooldownRemainingMs(a.id);
-          const cdB = cooldownManager.getCooldownRemainingMs(b.id);
-          if (cdA !== cdB) return cdA - cdB;
-          return a.rateLimitHits - b.rateLimitHits;
-        });
-        chosen = sorted[0];
-      } else {
-        // Round-robin with sticky limit support
-        const sticky = this.stickyCounts.get(providerId);
-        const currentStickyAcc = sticky ? pool.find((a) => a.id === sticky.accountId) : undefined;
+      // Round-robin with sticky limit support
+      const sticky = this.stickyCounts.get(providerId);
+      const currentStickyAcc = sticky ? pool.find((a) => a.id === sticky.accountId) : undefined;
 
-        if (currentStickyAcc && sticky && sticky.count < stickyLimit) {
-          sticky.count += 1;
-          chosen = currentStickyAcc;
-        } else {
-          // Pick least recently used
-          const sorted = [...pool].sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0));
-          chosen = sorted[0];
-          if (chosen) {
-            this.stickyCounts.set(providerId, { accountId: chosen.id, count: 1 });
-          }
+      if (currentStickyAcc && sticky && sticky.count < stickyLimit) {
+        sticky.count += 1;
+        chosen = currentStickyAcc;
+      } else {
+        // Pick least recently used
+        const sorted = [...pool].sort((a, b) => (a.lastUsedAt || 0) - (b.lastUsedAt || 0));
+        chosen = sorted[0];
+        if (chosen) {
+          this.stickyCounts.set(providerId, { accountId: chosen.id, count: 1 });
         }
       }
     }

@@ -250,3 +250,12 @@ test("applyReasoningReplayPolicy - strips reasoning for non-thinking models", ()
   assert.equal(blocks[0].type, "text");
   assert.equal(blocks[0].text, "Answer without thinking");
 });
+
+test("ReasoningCache - secondary index idx_reasoning_cache_expires exists in database", () => {
+  const db = getDatabase();
+  const indexRow = db.get<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_reasoning_cache_expires'"
+  );
+  assert.ok(indexRow, "Index idx_reasoning_cache_expires must exist on reasoning_cache table");
+});
+

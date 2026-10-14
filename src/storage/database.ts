@@ -214,7 +214,7 @@ function initSchema(db: DatabaseDriver) {
     CREATE INDEX IF NOT EXISTS idx_request_details_provider ON request_details(provider);
     CREATE INDEX IF NOT EXISTS idx_request_details_model ON request_details(model);
     CREATE INDEX IF NOT EXISTS idx_request_details_status ON request_details(status);
-    CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires_at ON reasoning_cache(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);
   `);
 
   // Safe migrations for newly added columns
@@ -231,4 +231,5 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cost REAL NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN account_id TEXT;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN account_name TEXT;"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);"); } catch {}
 }
