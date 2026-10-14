@@ -17,6 +17,7 @@ import { stripHistoryForContext } from "../../core/router/capacityAdapter.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { handleNonStreamingResponse, handleStreamingResponse } from "./responseHandlers.js";
 import { logger, LogSymbol, maskKey, tagForSession } from "../../shared/logger.js";
+import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js";
 
 function tryFailover(
   providerId: string,
@@ -176,6 +177,9 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     }
 
     let upstreamBody = provider.transformRequestBody(context);
+    if (upstreamBody && Array.isArray(upstreamBody.messages)) {
+      applyReasoningReplayPolicy(upstreamBody.messages, provider.id, targetModel);
+    }
     if (!isPanel) {
       if (targetFormat === "openai" && upstreamBody && upstreamBody.stream !== false) {
         upstreamBody.stream_options = { ...(upstreamBody.stream_options || {}), include_usage: true };

@@ -5,6 +5,7 @@ import { pipeBedrockEventStream } from "./streaming/bedrockStreamer.js";
 import { formatDoneLine, logger, LogSymbol } from "../../shared/logger.js";
 import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import type { LogToolSnippet } from "../../shared/types/index.js";
+import { reasoningCache } from "../../core/caching/reasoningCache.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -95,6 +96,39 @@ export async function handleNonStreamingResponse(
           });
         }
       }
+    }
+  } catch {}
+
+  // Persist tool call reasoning if present
+  try {
+    let reasoningText = "";
+    const toolCallIds: string[] = [];
+
+    const msg = responseBody?.choices?.[0]?.message;
+    if (msg) {
+      const reasoning = msg.reasoning_content || msg.reasoning || "";
+      if (typeof reasoning === "string" && reasoning) {
+        reasoningText = reasoning;
+      }
+      if (Array.isArray(msg.tool_calls)) {
+        for (const tc of msg.tool_calls) {
+          if (tc.id) toolCallIds.push(tc.id);
+        }
+      }
+    }
+
+    if (Array.isArray(responseBody?.content)) {
+      for (const block of responseBody.content) {
+        if (block.type === "thinking" && typeof block.thinking === "string") {
+          reasoningText = block.thinking;
+        } else if (block.type === "tool_use" && block.id) {
+          toolCallIds.push(block.id);
+        }
+      }
+    }
+
+    if (toolCallIds.length > 0 && reasoningText) {
+      reasoningCache.saveMultiple(toolCallIds, provider.id, targetModel, reasoningText);
     }
   } catch {}
 

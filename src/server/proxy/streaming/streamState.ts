@@ -8,6 +8,8 @@ export interface StreamTrackingState {
   reasoningTokens: number;
   ttftMs?: number;
   capturedResponseText: string;
+  capturedReasoningText: string;
+  capturedToolCallIds: string[];
   tools: LogToolSnippet[];
   seenToolCallKeys: Set<string>;
 }
@@ -20,6 +22,8 @@ export function createStreamTrackingState(initialPromptTokens = 0): StreamTracki
     cacheCreationTokens: 0,
     reasoningTokens: 0,
     capturedResponseText: "",
+    capturedReasoningText: "",
+    capturedToolCallIds: [],
     tools: [],
     seenToolCallKeys: new Set<string>(),
   };
@@ -54,6 +58,17 @@ export function extractTokensFromChunk(chunk: any, state: StreamTrackingState): 
       state.capturedResponseText += deltaText;
     }
   }
+
+  const reasoningDelta =
+    chunk.choices?.[0]?.delta?.reasoning_content ||
+    chunk.choices?.[0]?.delta?.reasoning ||
+    chunk.choices?.[0]?.delta?.thought ||
+    (chunk.delta?.type === "thinking_delta" ? chunk.delta.thinking : "") ||
+    (chunk.content_block?.type === "thinking" ? chunk.content_block.thinking : "") ||
+    "";
+  if (typeof reasoningDelta === "string" && reasoningDelta) {
+    state.capturedReasoningText += reasoningDelta;
+  }
 }
 
 /**
@@ -69,6 +84,9 @@ export function recordStreamToolCall(
 
   // Anthropic format
   if (chunk.type === "content_block_start" && chunk.content_block?.type === "tool_use") {
+    if (chunk.content_block.id && !state.capturedToolCallIds.includes(chunk.content_block.id)) {
+      state.capturedToolCallIds.push(chunk.content_block.id);
+    }
     const toolIndex = chunk.index !== undefined ? `anthropic_${chunk.index}` : null;
     if (!toolIndex || !state.seenToolCallKeys.has(toolIndex)) {
       if (toolIndex) state.seenToolCallKeys.add(toolIndex);
@@ -86,6 +104,9 @@ export function recordStreamToolCall(
   // OpenAI format: choices[0].delta.tool_calls
   if (Array.isArray(chunk.choices?.[0]?.delta?.tool_calls)) {
     for (const tc of chunk.choices[0].delta.tool_calls) {
+      if (tc.id && !state.capturedToolCallIds.includes(tc.id)) {
+        state.capturedToolCallIds.push(tc.id);
+      }
       if (tc.function?.name) {
         const toolKey = tc.id
           ? `id_${tc.id}`

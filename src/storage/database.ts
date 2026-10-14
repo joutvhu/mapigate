@@ -198,12 +198,23 @@ function initSchema(db: DatabaseDriver) {
       PRIMARY KEY (ide, source_model)
     );
 
+    CREATE TABLE IF NOT EXISTS reasoning_cache (
+      tool_call_id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      reasoning TEXT NOT NULL,
+      char_count INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_logs_provider ON request_logs(provider_id);
     CREATE INDEX IF NOT EXISTS idx_request_details_timestamp ON request_details(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_details_provider ON request_details(provider);
     CREATE INDEX IF NOT EXISTS idx_request_details_model ON request_details(model);
     CREATE INDEX IF NOT EXISTS idx_request_details_status ON request_details(status);
+    CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires_at ON reasoning_cache(expires_at);
   `);
 
   // Safe migrations for newly added columns

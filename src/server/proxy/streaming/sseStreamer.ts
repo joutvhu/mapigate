@@ -3,6 +3,7 @@ import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
 import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
+import { reasoningCache } from "../../../core/caching/reasoningCache.js";
 
 export async function pipeSseStream(
   upstreamRes: globalThis.Response,
@@ -135,6 +136,15 @@ export async function pipeSseStream(
   }
 
   clientRes.end();
+
+  if (state.capturedToolCallIds.length > 0 && state.capturedReasoningText) {
+    reasoningCache.saveMultiple(
+      state.capturedToolCallIds,
+      provider.id,
+      targetModel,
+      state.capturedReasoningText
+    );
+  }
 
   if (state.completionTokens === 0 && state.capturedResponseText.length > 0) {
     state.completionTokens = Math.max(1, Math.round(state.capturedResponseText.length / 4));
