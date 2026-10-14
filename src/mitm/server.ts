@@ -223,7 +223,8 @@ export class MitmServer {
     });
   }
 
-  public stop(): Promise<void> {
+  public async stop(): Promise<void> {
+    removeAllDNSEntriesSync();
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {

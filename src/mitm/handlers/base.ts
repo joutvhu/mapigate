@@ -138,6 +138,35 @@ export async function fetchRouter(
   return response;
 }
 
+/**
+ * Await socket drain event when socket write buffer is full,
+ * or immediately resolve if socket closes or is destroyed.
+ */
+export function waitForDrainOrClose(res: ServerResponse): Promise<void> {
+  if (res.destroyed) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let done = false;
+    const cleanup = () => {
+      if (done) return;
+      done = true;
+      res.removeListener("drain", onDrain);
+      res.removeListener("close", onClose);
+    };
+    const onDrain = () => {
+      cleanup();
+      resolve();
+    };
+    const onClose = () => {
+      cleanup();
+      resolve();
+    };
+    res.once("drain", onDrain);
+    res.once("close", onClose);
+  });
+}
+
 export async function pipeSSE(routerRes: Response, res: ServerResponse): Promise<void> {
   const ct = routerRes.headers.get("content-type") || "application/json";
   const status = routerRes.status || 200;
@@ -159,13 +188,43 @@ export async function pipeSSE(routerRes: Response, res: ServerResponse): Promise
 
   const reader = routerRes.body.getReader();
   const decoder = new TextDecoder();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      res.end();
-      break;
+  let clientDisconnected = false;
+
+  const onClose = () => {
+    clientDisconnected = true;
+    reader.cancel().catch(() => {});
+  };
+  res.once("close", onClose);
+
+  try {
+    while (true) {
+      if (clientDisconnected || res.destroyed) break;
+
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      if (clientDisconnected || res.destroyed) break;
+
+      const canWrite = res.write(chunk);
+      if (!canWrite) {
+        await waitForDrainOrClose(res);
+      }
     }
-    res.write(decoder.decode(value, { stream: true }));
+  } catch (err: any) {
+    if (!clientDisconnected && !res.destroyed) {
+      console.error("[MITM pipeSSE] Error reading upstream stream:", err?.message);
+    }
+  } finally {
+    res.removeListener("close", onClose);
+    try {
+      reader.cancel().catch(() => {});
+    } catch {
+      // ignore
+    }
+    if (!res.writableEnded && !res.destroyed) {
+      res.end();
+    }
   }
 }
 
@@ -190,49 +249,83 @@ export async function pipeTransformedEventStream(
   const reader = routerRes.body.getReader();
   const decoder = new TextDecoder("utf-8", { fatal: false });
   let buffer = "";
+  let clientDisconnected = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  const onClose = () => {
+    clientDisconnected = true;
+    reader.cancel().catch(() => {});
+  };
+  res.once("close", onClose);
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+  try {
+    while (true) {
+      if (clientDisconnected || res.destroyed) break;
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data:")) continue;
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      const data = trimmed.slice(5).trim();
-      if (data === "[DONE]") continue;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
+      for (const line of lines) {
+        if (clientDisconnected || res.destroyed) break;
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data:")) continue;
+
+        const data = trimmed.slice(5).trim();
+        if (data === "[DONE]") continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const result = transformFn(parsed, state);
+          if (result != null) {
+            const outputs = Array.isArray(result) ? result : [result];
+            for (const output of outputs) {
+              if (clientDisconnected || res.destroyed) break;
+              const canWrite = res.write(Buffer.from(output));
+              if (!canWrite) {
+                await waitForDrainOrClose(res);
+              }
+            }
+          }
+        } catch {
+          // Skip unparseable lines
+        }
+      }
+    }
+
+    // Flush
+    if (!clientDisconnected && !res.destroyed) {
       try {
-        const parsed = JSON.parse(data);
-        const result = transformFn(parsed, state);
-        if (result != null) {
-          const outputs = Array.isArray(result) ? result : [result];
+        const flushed = transformFn(null, state);
+        if (flushed != null) {
+          const outputs = Array.isArray(flushed) ? flushed : [flushed];
           for (const output of outputs) {
-            res.write(Buffer.from(output));
+            if (clientDisconnected || res.destroyed) break;
+            const canWrite = res.write(Buffer.from(output));
+            if (!canWrite) {
+              await waitForDrainOrClose(res);
+            }
           }
         }
       } catch {
-        // Skip unparseable lines
+        // ignore
       }
     }
-  }
-
-  // Flush
-  try {
-    const flushed = transformFn(null, state);
-    if (flushed != null) {
-      const outputs = Array.isArray(flushed) ? flushed : [flushed];
-      for (const output of outputs) {
-        res.write(Buffer.from(output));
-      }
+  } catch (err: any) {
+    if (!clientDisconnected && !res.destroyed) {
+      console.error("[MITM pipeTransformedEventStream] Stream error:", err?.message);
     }
-  } catch {
-    // ignore
+  } finally {
+    res.removeListener("close", onClose);
+    try {
+      reader.cancel().catch(() => {});
+    } catch {
+      // ignore
+    }
+    if (!res.writableEnded && !res.destroyed) {
+      res.end();
+    }
   }
-
-  res.end();
 }

@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import { mitmServerInstance } from "./server.js";
 import { ROOT_CA_CERT_PATH, ROOT_CA_KEY_PATH, getCertFingerprint, generateRootCA } from "./cert/rootCA.js";
-import { checkCertInstalled, installCert, getInstallCommand } from "./cert/install.js";
+import { checkCertInstalled, installCert, uninstallCert, getInstallCommand, getUninstallCommand } from "./cert/install.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
-import { checkAllDNSStatus, removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
+import { checkAllDNSStatus, removeAllDNSEntries, removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 import {
   inspectPortOwner,
   killProcessByPid,
@@ -28,6 +28,7 @@ export class MitmManager {
     const certTrusted = certExists ? await checkCertInstalled(ROOT_CA_CERT_PATH) : false;
     const fingerprint = certExists ? getCertFingerprint(ROOT_CA_CERT_PATH) : "";
     const installCommands = getInstallCommand(ROOT_CA_CERT_PATH);
+    const uninstallCommands = getUninstallCommand(ROOT_CA_CERT_PATH);
 
     // Merge repo state with live /etc/hosts file entries
     const repoDns = MitmRepository.getAllToolDnsStatus();
@@ -45,6 +46,7 @@ export class MitmManager {
       certPath: ROOT_CA_CERT_PATH,
       fingerprint,
       installCommands,
+      uninstallCommands,
       dnsStatus: mergedDnsStatus,
       routerBaseUrl: "http://127.0.0.1:20127",
     };
@@ -61,42 +63,42 @@ export class MitmManager {
       throw new Error(`Invalid port: ${targetPort}. Port must be an integer between 1 and 65535.`);
     }
 
-    // Pre-flight check: is port already occupied?
-    const portOwner = await inspectPortOwner(targetPort);
-    if (portOwner.inUse) {
-      if (opts.forceKill && !portOwner.isSystemProcess && portOwner.pid && portOwner.pid > 4) {
-        console.log(
-          `[MITM] Terminating process occupying port ${targetPort} (PID ${portOwner.pid}, name=${portOwner.processName})...`
-        );
-        await killProcessByPid(portOwner.pid, true, portOwner.processName);
-
-        // Polling briefly to confirm port is released
-        let released = false;
-        for (let i = 0; i < 10; i++) {
-          if (await checkPortFree(targetPort)) {
-            released = true;
-            break;
-          }
-          await new Promise((r) => setTimeout(r, 200));
-        }
-
-        if (!released) {
-          throw new PortConflictError(
-            `Port ${targetPort} remains occupied after attempting to terminate process (PID ${portOwner.pid}).`,
-            "PORT_443_BUSY",
-            portOwner
-          );
-        }
-      } else {
-        const errorCode = portOwner.isSystemProcess ? "PORT_443_SYSTEM" : "PORT_443_BUSY";
-        const errorMsg = portOwner.isSystemProcess
-          ? `Port ${targetPort} is occupied by Windows system service "${portOwner.processName}" (PID ${portOwner.pid || 4}).`
-          : `Port ${targetPort} is already in use by "${portOwner.processName || "unknown"}" (PID ${portOwner.pid || "unknown"}).`;
-        throw new PortConflictError(errorMsg, errorCode, portOwner);
-      }
-    }
-
     try {
+      // Pre-flight check: is port already occupied?
+      const portOwner = await inspectPortOwner(targetPort);
+      if (portOwner.inUse) {
+        if (opts.forceKill && !portOwner.isSystemProcess && portOwner.pid && portOwner.pid > 4) {
+          console.log(
+            `[MITM] Terminating process occupying port ${targetPort} (PID ${portOwner.pid}, name=${portOwner.processName})...`
+          );
+          await killProcessByPid(portOwner.pid, true, portOwner.processName);
+
+          // Polling briefly to confirm port is released
+          let released = false;
+          for (let i = 0; i < 10; i++) {
+            if (await checkPortFree(targetPort)) {
+              released = true;
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 200));
+          }
+
+          if (!released) {
+            throw new PortConflictError(
+              `Port ${targetPort} remains occupied after attempting to terminate process (PID ${portOwner.pid}).`,
+              "PORT_443_BUSY",
+              portOwner
+            );
+          }
+        } else {
+          const errorCode = portOwner.isSystemProcess ? "PORT_443_SYSTEM" : "PORT_443_BUSY";
+          const errorMsg = portOwner.isSystemProcess
+            ? `Port ${targetPort} is occupied by Windows system service "${portOwner.processName}" (PID ${portOwner.pid || 4}).`
+            : `Port ${targetPort} is already in use by "${portOwner.processName || "unknown"}" (PID ${portOwner.pid || "unknown"}).`;
+          throw new PortConflictError(errorMsg, errorCode, portOwner);
+        }
+      }
+
       const activePort = await mitmServerInstance.start(targetPort);
       if (activePort > 0) {
         MitmRepository.setMitmServerRunning(true);
@@ -104,6 +106,14 @@ export class MitmManager {
       return activePort;
     } catch (err: any) {
       MitmRepository.setMitmServerRunning(false);
+      try {
+        await this.removeAllDns();
+      } catch {
+        this.cleanupDnsSync();
+      }
+      if (err instanceof PortConflictError || err.name === "PortConflictError") {
+        throw err;
+      }
       const postInspect = await inspectPortOwner(targetPort);
       const errorCode = postInspect.isSystemProcess ? "PORT_443_SYSTEM" : "PORT_443_BUSY";
       throw new PortConflictError(
@@ -114,7 +124,16 @@ export class MitmManager {
     }
   }
 
+  public async removeAllDns(sudoPassword?: string): Promise<void> {
+    await removeAllDNSEntries(sudoPassword);
+  }
+
   public async stopServer() {
+    try {
+      await this.removeAllDns();
+    } catch {
+      this.cleanupDnsSync();
+    }
     await mitmServerInstance.stop();
     MitmRepository.setMitmServerRunning(false);
   }
@@ -124,6 +143,10 @@ export class MitmManager {
       generateRootCA();
     }
     return installCert(ROOT_CA_CERT_PATH);
+  }
+
+  public async uninstallCertificate(sudoPassword?: string) {
+    return uninstallCert(ROOT_CA_CERT_PATH, sudoPassword);
   }
 
   public cleanupDnsSync() {

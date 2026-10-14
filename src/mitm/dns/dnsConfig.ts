@@ -13,11 +13,42 @@ export const HOSTS_FILE = IS_WIN
   : "/etc/hosts";
 
 /**
+ * Build the set of dual-stack hosts lines (IPv4 and IPv6) for a given hostname.
+ */
+export function dnsLines(hostname: string): string[] {
+  return [`127.0.0.1 ${hostname}`, `::1 ${hostname}`];
+}
+
+/**
+ * Check whether all IPv4+IPv6 lines for `hostname` are present in hosts file content.
+ */
+export function hasHostEntry(hostsContent: string, hostname: string): boolean {
+  const lines = hostsContent.split(/\r?\n/);
+  return dnsLines(hostname).every((entry) => {
+    const [ip, host] = entry.split(/\s+/);
+    return lines.some((line) => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("#")) return false;
+      const parts = trimmed.split(/\s+/).filter(Boolean);
+      return parts.length >= 2 && parts[0] === ip && parts.includes(host);
+    });
+  });
+}
+
+function isLineMatchingHosts(line: string, targetHosts: string[]): boolean {
+  const trimmed = line.trim();
+  if (trimmed.startsWith("#")) return false;
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return false;
+  return targetHosts.some((h) => parts.slice(1).includes(h));
+}
+
+/**
  * Atomic write for Windows hosts file with rollback on failure.
  * Strategy: write `.new` sibling → rename current to `.bak` → rename `.new` to target.
  * If anything fails mid-way, restore from `.bak`. Same-volume renames are atomic on NTFS.
  */
-function atomicWriteHostsWin(target: string, originalContent: string, newContent: string): void {
+export function atomicWriteHostsWin(target: string, originalContent: string, newContent: string): void {
   const tmpNew = `${target}.mapigate.new`;
   const tmpBak = `${target}.mapigate.bak`;
   try {
@@ -150,15 +181,15 @@ export async function flushDNS(sudoPassword?: string): Promise<void> {
 }
 
 /**
- * Check if DNS entry exists in system hosts file for a specific host.
+ * Check if dual-stack DNS entry exists in system hosts file for a specific host.
  */
 export function checkDNSEntry(host: string | null = null): boolean {
   try {
     if (!fs.existsSync(HOSTS_FILE)) return false;
     const hostsContent = fs.readFileSync(HOSTS_FILE, "utf8");
-    if (host) return hostsContent.includes(host);
+    if (host) return hasHostEntry(hostsContent, host);
     // Legacy check: all antigravity hosts present
-    return TOOL_HOSTS.antigravity.every((h) => hostsContent.includes(h));
+    return TOOL_HOSTS.antigravity.every((h) => hasHostEntry(hostsContent, h));
   } catch {
     return false;
   }
@@ -175,7 +206,7 @@ export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
     const hostsContent = fs.readFileSync(HOSTS_FILE, "utf8");
     const result: Record<string, boolean> = {};
     for (const [tool, hosts] of Object.entries(TOOL_HOSTS)) {
-      result[tool] = hosts.every((h) => hostsContent.includes(h));
+      result[tool] = hosts.every((h) => hasHostEntry(hostsContent, h));
     }
     return result as Record<MitmToolId, boolean>;
   } catch {
@@ -184,36 +215,50 @@ export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
 }
 
 /**
- * Add DNS entries for a specific tool.
+ * Add dual-stack DNS entries (127.0.0.1 and ::1) for a specific tool.
  */
 export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<void> {
   const toolKey = tool.toLowerCase() as MitmToolId;
   const hosts = TOOL_HOSTS[toolKey];
   if (!hosts) throw new Error(`Unknown tool: ${tool}`);
 
-  const entriesToAdd = hosts.filter((h) => !checkDNSEntry(h));
-  if (entriesToAdd.length === 0) {
+  const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
+  const linesToAdd: string[] = [];
+
+  for (const h of hosts) {
+    for (const entry of dnsLines(h)) {
+      const [ip, host] = entry.split(/\s+/);
+      const exists = current.split(/\r?\n/).some((l) => {
+        const trimmed = l.trim();
+        if (trimmed.startsWith("#")) return false;
+        const parts = trimmed.split(/\s+/).filter(Boolean);
+        return parts.length >= 2 && parts[0] === ip && parts.includes(host);
+      });
+      if (!exists) {
+        linesToAdd.push(entry);
+      }
+    }
+  }
+
+  if (linesToAdd.length === 0) {
     console.log(`[MITM DNS] ${tool}: already active in hosts file`);
     return;
   }
 
   try {
+    const eol = IS_WIN ? "\r\n" : "\n";
+    const trimmed = current.replace(/[\r\n\s]+$/g, "");
+    const toAppend = linesToAdd.join(eol);
+    const next = trimmed ? `${trimmed}${eol}${toAppend}${eol}` : `${toAppend}${eol}`;
+
     if (IS_WIN) {
-      const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
-      const trimmed = current.replace(/[\r\n\s]+$/g, "");
-      const toAppend = entriesToAdd.map((h) => `127.0.0.1 ${h}`).join("\r\n");
-      const next = `${trimmed}\r\n${toAppend}\r\n`;
       await writeHostsFileWin(HOSTS_FILE, current, next);
     } else {
-      const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
-      const trimmed = current.replace(/[\r\n\s]+$/g, "");
-      const toAppend = entriesToAdd.map((h) => `127.0.0.1 ${h}`).join("\n");
-      const next = `${trimmed}\n${toAppend}\n`;
       const escaped = next.replace(/'/g, "'\\''");
       await execWithPassword(`printf '%s' '${escaped}' | tee ${HOSTS_FILE} > /dev/null`, sudoPassword);
       await flushDNS(sudoPassword);
     }
-    console.log(`[MITM DNS] ${tool}: added ${entriesToAdd.join(", ")}`);
+    console.log(`[MITM DNS] ${tool}: added dual-stack entries for ${hosts.join(", ")}`);
   } catch (error: any) {
     const msg = error.message?.includes("incorrect password")
       ? "Wrong sudo password"
@@ -223,40 +268,38 @@ export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<
 }
 
 /**
- * Remove DNS entries for a specific tool.
+ * Remove dual-stack DNS entries for a specific tool.
  */
 export async function removeDNSEntry(tool: string, sudoPassword?: string): Promise<void> {
   const toolKey = tool.toLowerCase() as MitmToolId;
   const hosts = TOOL_HOSTS[toolKey];
   if (!hosts) throw new Error(`Unknown tool: ${tool}`);
 
-  const entriesToRemove = hosts.filter((h) => checkDNSEntry(h));
-  if (entriesToRemove.length === 0) {
+  const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
+  const hasMatchingLines = current.split(/\r?\n/).some((l) => isLineMatchingHosts(l, hosts));
+
+  if (!hasMatchingLines) {
     console.log(`[MITM DNS] ${tool}: already inactive in hosts file`);
     return;
   }
 
   try {
+    const eol = IS_WIN ? "\r\n" : "\n";
+    const filtered = current
+      .split(/\r?\n/)
+      .filter((l) => !isLineMatchingHosts(l, hosts))
+      .join(eol);
+    const trimmed = filtered.replace(/[\r\n\s]+$/g, "");
+    const next = trimmed ? `${trimmed}${eol}` : "";
+
     if (IS_WIN) {
-      const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
-      const filtered = current
-        .split(/\r?\n/)
-        .filter((l) => !entriesToRemove.some((h) => l.includes(h)))
-        .join("\r\n");
-      const next = filtered.replace(/[\r\n\s]+$/g, "") + "\r\n";
       await writeHostsFileWin(HOSTS_FILE, current, next);
     } else {
-      const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
-      const filtered = current
-        .split(/\r?\n/)
-        .filter((l) => !entriesToRemove.some((h) => l.includes(h)))
-        .join("\n");
-      const next = filtered.replace(/[\r\n\s]+$/g, "") + "\n";
       const escaped = next.replace(/'/g, "'\\''");
       await execWithPassword(`printf '%s' '${escaped}' | tee ${HOSTS_FILE} > /dev/null`, sudoPassword);
       await flushDNS(sudoPassword);
     }
-    console.log(`[MITM DNS] ${tool}: removed ${entriesToRemove.join(", ")}`);
+    console.log(`[MITM DNS] ${tool}: removed entries for ${hosts.join(", ")}`);
   } catch (error: any) {
     const msg = error.message?.includes("incorrect password")
       ? "Wrong sudo password"
@@ -290,12 +333,22 @@ export function removeAllDNSEntriesSync(): void {
     const eol = IS_WIN ? "\r\n" : "\n";
     const filtered = content
       .split(/\r?\n/)
-      .filter((l) => !allHosts.some((h) => l.includes(h)))
+      .filter((l) => !isLineMatchingHosts(l, allHosts))
       .join(eol);
-    const next = filtered.replace(/[\r\n\s]+$/g, "") + eol;
+    const trimmed = filtered.replace(/[\r\n\s]+$/g, "");
+    const next = trimmed ? `${trimmed}${eol}` : "";
     if (next === content) return;
 
-    fs.writeFileSync(HOSTS_FILE, next, "utf8");
+    if (IS_WIN && isAdmin()) {
+      try {
+        atomicWriteHostsWin(HOSTS_FILE, content, next);
+      } catch {
+        fs.writeFileSync(HOSTS_FILE, next, "utf8");
+      }
+    } else {
+      fs.writeFileSync(HOSTS_FILE, next, "utf8");
+    }
+
     if (IS_WIN) {
       try {
         execSync("ipconfig /flushdns", { windowsHide: true, stdio: "ignore" });

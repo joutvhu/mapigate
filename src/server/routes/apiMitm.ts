@@ -58,6 +58,17 @@ mitmRouter.post("/install-cert", async (_req, res) => {
   }
 });
 
+// POST uninstall Root CA certificate
+mitmRouter.post("/uninstall-cert", async (req, res) => {
+  try {
+    const sudoPassword = req.body?.sudoPassword;
+    const result = await mitmManager.uninstallCertificate(sudoPassword);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Failed to uninstall certificate" });
+  }
+});
+
 // GET port owner status
 mitmRouter.get("/port-status", async (req, res) => {
   try {
