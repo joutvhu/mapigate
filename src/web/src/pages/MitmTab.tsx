@@ -55,6 +55,7 @@ export const MitmTab: React.FC = () => {
   });
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [installingCert, setInstallingCert] = useState(false);
+  const [uninstallingCert, setUninstallingCert] = useState(false);
   const [certInstallMsg, setCertInstallMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [dnsStatus, setDnsStatus] = useState<Record<string, boolean>>({
@@ -245,6 +246,25 @@ export const MitmTab: React.FC = () => {
       setCertInstallMsg({ type: "error", text: e?.message || "Failed to install certificate" });
     } finally {
       setInstallingCert(false);
+    }
+  };
+
+  const handleUninstallCert = async () => {
+    setUninstallingCert(true);
+    setCertInstallMsg(null);
+    try {
+      const res = await fetch("/api/mitm/uninstall-cert", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setCertInstallMsg({ type: "success", text: data.message || "Root CA uninstalled successfully!" });
+        loadStatus();
+      } else {
+        setCertInstallMsg({ type: "error", text: data.message || "Uninstallation failed" });
+      }
+    } catch (e: any) {
+      setCertInstallMsg({ type: "error", text: e?.message || "Failed to uninstall certificate" });
+    } finally {
+      setUninstallingCert(false);
     }
   };
 
@@ -574,14 +594,25 @@ export const MitmTab: React.FC = () => {
               <span className="material-symbols-outlined text-[16px]">download</span>
               Download CA
             </a>
-            <button
-              disabled={installingCert}
-              onClick={handleInstallCert}
-              className="rt-btn rt-btn--primary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[16px]">add_task</span>
-              {installingCert ? "Installing..." : "Install to System Store"}
-            </button>
+            {certTrusted ? (
+              <button
+                disabled={uninstallingCert}
+                onClick={handleUninstallCert}
+                className="rt-btn rt-btn--secondary text-xs py-1.5 px-3.5 flex items-center gap-1.5 text-rose-400 hover:text-rose-300 border-rose-500/20"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete</span>
+                {uninstallingCert ? "Uninstalling..." : "Uninstall from System"}
+              </button>
+            ) : (
+              <button
+                disabled={installingCert}
+                onClick={handleInstallCert}
+                className="rt-btn rt-btn--primary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">add_task</span>
+                {installingCert ? "Installing..." : "Install to System Store"}
+              </button>
+            )}
           </div>
         </div>
 
