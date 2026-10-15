@@ -73,6 +73,8 @@ export const MitmTab: React.FC = () => {
     copilot: "127.0.0.1 api.individual.githubcopilot.com",
     cursor: "127.0.0.1 api2.cursor.sh",
   });
+  const [editingHostsByTool, setEditingHostsByTool] = useState<Record<string, boolean>>({});
+  const [originalHostsByTool, setOriginalHostsByTool] = useState<Record<string, string>>({});
   const [hostsSavedMsgByTool, setHostsSavedMsgByTool] = useState<Record<string, string | null>>({});
 
   // Per-tool Mappings State
@@ -302,6 +304,7 @@ export const MitmTab: React.FC = () => {
       });
       if (res.ok) {
         setHostsSavedMsgByTool((prev) => ({ ...prev, [toolId]: "Saved hosts successfully." }));
+        setEditingHostsByTool((prev) => ({ ...prev, [toolId]: false }));
         setTimeout(() => {
           setHostsSavedMsgByTool((prev) => ({ ...prev, [toolId]: null }));
         }, 3000);
@@ -717,6 +720,7 @@ export const MitmTab: React.FC = () => {
         {MITM_TOOLS.map((tool) => {
           const isExpanded = expandedTool === tool.id;
           const isDnsOn = Boolean(dnsStatus[tool.id]);
+          const isEditingHosts = Boolean(editingHostsByTool[tool.id]);
           const toolHosts = hostsByTool[tool.id] || tool.defaultHost;
           const toolMappings = mappingsByTool[tool.id] || [];
           const savedMsg = hostsSavedMsgByTool[tool.id];
@@ -783,31 +787,71 @@ export const MitmTab: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleResetToolHosts(tool.id)}
-                          className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
-                          title="Reset hosts entries to tool default"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">restart_alt</span>
-                          Reset
-                        </button>
-                        <button
-                          onClick={() => handleSaveToolHosts(tool.id)}
-                          className="rt-btn rt-btn--primary text-xs py-1.5 px-3"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">save</span>
-                          Save Hosts
-                        </button>
+                        {isEditingHosts ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                if (originalHostsByTool[tool.id] !== undefined) {
+                                  setHostsByTool((prev) => ({
+                                    ...prev,
+                                    [tool.id]: originalHostsByTool[tool.id],
+                                  }));
+                                }
+                                setEditingHostsByTool((prev) => ({ ...prev, [tool.id]: false }));
+                              }}
+                              className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveToolHosts(tool.id)}
+                              className="rt-btn rt-btn--primary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">save</span>
+                              Save Hosts
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleResetToolHosts(tool.id)}
+                              className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                              title="Reset hosts entries to tool default"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                              Reset
+                            </button>
+                            <button
+                              onClick={() => {
+                                setOriginalHostsByTool((prev) => ({
+                                  ...prev,
+                                  [tool.id]: toolHosts,
+                                }));
+                                setEditingHostsByTool((prev) => ({ ...prev, [tool.id]: true }));
+                              }}
+                              className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                              Edit
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
                     <textarea
+                      readOnly={!isEditingHosts}
                       rows={Math.max(2, toolHosts.split("\n").length + 1)}
                       value={toolHosts}
                       onChange={(e) =>
                         setHostsByTool((prev) => ({ ...prev, [tool.id]: e.target.value }))
                       }
-                      className="w-full bg-[#05070B] border border-[#1E293B] rounded-xl p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-blue-500 leading-relaxed"
+                      className={`w-full border rounded-xl p-3 text-xs font-mono leading-relaxed transition-colors ${
+                        isEditingHosts
+                          ? "bg-[#05070B] border-blue-500/60 text-emerald-400 cursor-text focus:outline-none focus:border-blue-500"
+                          : "bg-[#07090E] border-[#1E293B] text-emerald-400/80 cursor-default focus:outline-none"
+                      }`}
                       placeholder="127.0.0.1 domain"
                     />
 
