@@ -8,6 +8,10 @@
     "mapigate": "bin/mapigate.js",
     "mpg": "bin/mapigate.js"
   },
+  "files": [
+    "dist",
+    "bin"
+  ],
   "type": "module",
   "scripts": {
     "codegen": "node scripts/generate-registries.mjs",
@@ -25,7 +29,10 @@
     "test": "tsx --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
     "migrate:9router": "tsx src/scripts/migrate-from-9router.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "local:publish": "node scripts/publish-local.mjs",
+    "local:pack": "node scripts/publish-local.mjs --pack-only",
+    "local:uninstall": "npm uninstall -g mapigate"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
