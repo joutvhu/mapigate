@@ -31,7 +31,7 @@
 * **Error Trace Preservation:** Tool results containing `is_error` or exception traces are strictly exempt from compression so coding agents retain full debugging visibility.
 
 ### 🔄 Pillar 4: Smart Routing & High Availability
-* **Dual-Protocol Translation:** Full bidirectional translation between Anthropic Messages (`/v1/messages`) and OpenAI Chat Completions (`/v1/chat/completions`), preserving reasoning/thinking blocks and tool call streams.
+* **Multi-Protocol Translation:** Full bidirectional translation between Anthropic Messages (`/v1/messages`), OpenAI Chat Completions (`/v1/chat/completions`), and OpenAI Responses API (`/v1/responses`), preserving reasoning/thinking blocks and tool call streams.
 * **Automatic Fallback:** Seamlessly re-routes requests to backup models/providers when the primary model encounters rate limits (HTTP 429) or quota exhaustion.
 * **Multi-Account Load Balancing:** Rotates multiple accounts round-robin per provider to maximize quota utilization.
 
@@ -59,7 +59,7 @@ mapigate/
 │   │   │   └── registry.ts      # ToolConfigRegistry lookup & validator
 │   │   └── tui/                 # Interactive terminal UI
 │   ├── core/                    # Gateway Engine (framework-agnostic)
-│   │   ├── adapters/            # Protocol converters (OpenAI ⇄ Anthropic ⇄ Gemini)
+│   │   ├── adapters/            # Protocol converters (OpenAI ⇄ Anthropic ⇄ Responses ⇄ Gemini)
 │   │   ├── capabilities/        # Context window & thinking token resolution engine
 │   │   ├── router/              # Routing engine, fallback rules, load balancing
 │   │   ├── rtk/                 # RTK Token Saver (compressors for diff, grep, logs)
@@ -102,12 +102,12 @@ mapigate/
 ## 4. Request Lifecycle
 
 ```
-Client (Claude Code / Cursor / Cline)
+Client (Claude Code / Cursor / Cline / Kiro / Copilot)
   │
   ▼
 [Port 20127: Gateway Server]
   │
-  ├─► Authenticate request & identify route (/v1/messages or /v1/chat/completions)
+  ├─► Authenticate request & identify route (/v1/messages, /v1/chat/completions, or /v1/responses)
   │
   ├─► [Core Router]:
   │     1. Detect client type & requested target model
@@ -164,3 +164,6 @@ Client (Claude Code / Cursor / Cline)
 8. **Anti-Bloat Discipline:**
    * Do not install heavy dependencies, reintroduce Next.js SSR, add i18n systems, or support media generation.
    * Always evaluate new features against the core mission: *"Does this directly accelerate or stabilize AI coding workflows?"*
+9. **Format-Aware Protocol Invariant:**
+   * Handlers, streamers, and proxy pipelines must never assume the client format is only OpenAI or Anthropic. Mapigate actively supports three first-class client formats: `"openai"`, `"anthropic"`, and `"responses"` (`OpenAI Responses API`, used by tools like Kiro).
+   * All streaming pipelines (`sseStreamer.ts`, `bedrockStreamer.ts`, runtime provider streaming loops) and non-streaming response formatters (`pipeline.ts`, `responseHandlers.ts`) must check `context.clientFormat` and emit the correct chunk/event format and termination signals (`[DONE]`, `message_stop`, or `response.completed`).

@@ -11,7 +11,7 @@
 - **🛡️ 100% Local-First & Secure:** No external server phone-home, no telemetry. All API keys are encrypted locally using **AES-256-GCM** with your hardware Machine ID.
 - **✂️ RTK Token Saver:** Automatically detects and compresses tool results (`git diff`, `grep`, terminal logs, search results) to save 20–40% context tokens without breaking agent logic.
 - **🔄 Auto-Fallback & Multi-Account:** Automatically routes requests to backup models when primary models hit rate limits (429) or quota errors. Round-robin rotation across multiple accounts.
-- **🎯 Dual-Protocol Translation:** Full bidirectional translation between Anthropic Messages (`/v1/messages`) and OpenAI Chat Completions (`/v1/chat/completions`), including reasoning/thinking content and tool use streaming.
+- **🎯 Multi-Protocol Translation:** Full bidirectional translation between Anthropic Messages (`/v1/messages`), OpenAI Chat Completions (`/v1/chat/completions`), and OpenAI Responses API (`/v1/responses`), including reasoning/thinking content and tool use streaming.
 - **🖥️ Clean Dark Dashboard:** Modern, developer-focused React + Vite SPA dashboard for managing providers, keys, model routing, and monitoring real-time token savings.
 
 ---
