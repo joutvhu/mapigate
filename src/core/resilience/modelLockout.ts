@@ -11,6 +11,7 @@
 
 import type { ModelLockoutEntry } from "./types.js";
 
+export const MAX_LOCKOUT_ENTRIES = 1000;
 const INITIAL_LOCKOUT_MS = 120_000; // 120s initial lockout
 const MAX_LOCKOUT_MS = 3_600_000; // 1 hour ceiling
 
@@ -51,6 +52,33 @@ export class ModelLockoutManager {
     return `${providerId}:${accountId}:${model}`;
   }
 
+  private evictIfNecessary(): void {
+    if (this.lockouts.size < MAX_LOCKOUT_ENTRIES) return;
+
+    const now = Date.now();
+    // 1. Evict expired entries first
+    for (const [k, v] of this.lockouts.entries()) {
+      if (now >= v.until) {
+        this.lockouts.delete(k);
+      }
+    }
+
+    // 2. If still at or over limit, evict oldest entry by lockedAt
+    if (this.lockouts.size >= MAX_LOCKOUT_ENTRIES) {
+      let oldestKey: string | undefined;
+      let oldestTime = Infinity;
+      for (const [k, v] of this.lockouts.entries()) {
+        if (v.lockedAt < oldestTime) {
+          oldestTime = v.lockedAt;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) {
+        this.lockouts.delete(oldestKey);
+      }
+    }
+  }
+
   /**
    * Lock a model for a specific provider and account with exponential backoff.
    * Returns the lockout duration in milliseconds.
@@ -62,6 +90,9 @@ export class ModelLockoutManager {
     errorText?: string
   ): number {
     const key = this.buildKey(providerId, accountId, model);
+    if (!this.lockouts.has(key)) {
+      this.evictIfNecessary();
+    }
     const existing = this.lockouts.get(key);
 
     const failureCount = (existing?.failureCount || 0) + 1;
@@ -108,6 +139,7 @@ export class ModelLockoutManager {
     if (!entry) return false;
 
     if (Date.now() >= entry.until) {
+      this.lockouts.delete(key);
       return false; // Lockout has expired lazily
     }
 
@@ -120,7 +152,15 @@ export class ModelLockoutManager {
     if (!entry) return 0;
 
     const remaining = entry.until - Date.now();
-    return Math.max(0, remaining);
+    if (remaining <= 0) {
+      this.lockouts.delete(key);
+      return 0;
+    }
+    return remaining;
+  }
+
+  public get size(): number {
+    return this.lockouts.size;
   }
 
   public getFailureCount(providerId: string, accountId: string, model: string): number {

@@ -76,7 +76,7 @@ interface ComboSummary {
   id: string;
   name: string;
   models: string[];
-  strategy?: "round-robin" | "fallback" | "fusion" | string;
+  strategy?: "round-robin" | "fallback" | "fusion" | "lkgp" | "p2c" | string;
   isActive?: boolean;
 }
 
@@ -969,6 +969,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                                       ? "bg-cyan-950/40 text-cyan-300 border-cyan-500/30"
                                       : combo.strategy === "fusion"
                                       ? "bg-purple-950/40 text-purple-300 border-purple-500/30"
+                                      : combo.strategy === "lkgp"
+                                      ? "bg-emerald-950/40 text-emerald-300 border-emerald-500/30"
+                                      : combo.strategy === "p2c"
+                                      ? "bg-indigo-950/40 text-indigo-300 border-indigo-500/30"
                                       : "bg-amber-950/40 text-amber-300 border-amber-500/30"
                                   }`}
                                 >
@@ -976,6 +980,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                                     ? "Round Robin"
                                     : combo.strategy === "fusion"
                                     ? "Fusion"
+                                    : combo.strategy === "lkgp"
+                                    ? "LKGP"
+                                    : combo.strategy === "p2c"
+                                    ? "P2C"
                                     : "Fallback"}
                                 </span>
                               )}

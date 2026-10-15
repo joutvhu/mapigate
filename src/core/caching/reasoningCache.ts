@@ -287,3 +287,47 @@ export function applyReasoningReplayPolicy(
     }
   }
 }
+
+/**
+ * Prunes expired entries from SQLite reasoning_cache table.
+ * Returns the number of pruned rows.
+ */
+export function pruneExpiredReasoningCache(): number {
+  try {
+    const db = getDatabase();
+    const result = db.run("DELETE FROM reasoning_cache WHERE expires_at <= ?", Date.now());
+    return result?.changes || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export const REASONING_CACHE_PRUNE_INTERVAL_MS = 15 * 60 * 1000; // 900_000ms (15 minutes)
+let reasoningCachePruneTimer: NodeJS.Timeout | null = null;
+
+export function startReasoningCachePruneJob(
+  intervalMs = REASONING_CACHE_PRUNE_INTERVAL_MS
+): NodeJS.Timeout {
+  if (reasoningCachePruneTimer) return reasoningCachePruneTimer;
+
+  reasoningCachePruneTimer = setInterval(() => {
+    pruneExpiredReasoningCache();
+  }, intervalMs);
+
+  if (typeof reasoningCachePruneTimer.unref === "function") {
+    reasoningCachePruneTimer.unref();
+  }
+
+  return reasoningCachePruneTimer;
+}
+
+export function stopReasoningCachePruneJob(): void {
+  if (reasoningCachePruneTimer) {
+    clearInterval(reasoningCachePruneTimer);
+    reasoningCachePruneTimer = null;
+  }
+}
+
+// Start periodic cleanup interval (15 mins) with unref()
+startReasoningCachePruneJob();
+

@@ -5,6 +5,9 @@ import {
   reasoningCache,
   requiresReasoningReplay,
   applyReasoningReplayPolicy,
+  pruneExpiredReasoningCache,
+  startReasoningCachePruneJob,
+  stopReasoningCachePruneJob,
 } from "../src/core/caching/reasoningCache.js";
 import { getDatabase } from "../src/storage/database.js";
 
@@ -258,4 +261,49 @@ test("ReasoningCache - secondary index idx_reasoning_cache_expires exists in dat
   );
   assert.ok(indexRow, "Index idx_reasoning_cache_expires must exist on reasoning_cache table");
 });
+
+test("ReasoningCache - pruneExpiredReasoningCache cleans up expired rows", () => {
+  const db = getDatabase();
+  const now = Date.now();
+
+  // Insert one expired entry and one active entry
+  db.run(
+    `INSERT OR REPLACE INTO reasoning_cache (tool_call_id, provider, model, reasoning, char_count, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    "tc_expired_test_1",
+    "deepseek",
+    "deepseek-reasoner",
+    "expired reasoning",
+    17,
+    now - 10_000,
+    now - 1_000 // Expired 1 second ago
+  );
+
+  db.run(
+    `INSERT OR REPLACE INTO reasoning_cache (tool_call_id, provider, model, reasoning, char_count, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    "tc_active_test_1",
+    "deepseek",
+    "deepseek-reasoner",
+    "active reasoning",
+    16,
+    now,
+    now + 60_000 // Valid for 60s
+  );
+
+  const prunedCount = pruneExpiredReasoningCache();
+  assert.ok(prunedCount >= 1, `Pruned count must be at least 1, got ${prunedCount}`);
+
+  const expiredRow = db.get("SELECT * FROM reasoning_cache WHERE tool_call_id = ?", "tc_expired_test_1");
+  assert.equal(expiredRow, undefined, "Expired row should be removed by pruneExpiredReasoningCache");
+
+  const activeRow = db.get("SELECT * FROM reasoning_cache WHERE tool_call_id = ?", "tc_active_test_1");
+  assert.ok(activeRow, "Active row should remain in reasoning_cache");
+
+  // Verify prune job functions
+  const timer = startReasoningCachePruneJob();
+  assert.ok(timer, "Timer must be returned");
+  stopReasoningCachePruneJob();
+});
+
 

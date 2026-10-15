@@ -22,6 +22,37 @@ import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.j
 
 import { tryFailover, resolveTargetModelAndProvider } from "./executorHelpers.js";
 
+/**
+ * Safely clones upstream request body, including messages and their content blocks,
+ * to prevent in-place mutation of the original context.body / req.body
+ * when cache control stripping or reasoning replay runs.
+ */
+function cloneBodyForUpstream(body: any): any {
+  if (!body || typeof body !== "object") return body;
+  try {
+    return structuredClone(body);
+  } catch {
+    const cloned = { ...body };
+    if (Array.isArray(body.messages)) {
+      cloned.messages = body.messages.map((m: any) => {
+        if (!m || typeof m !== "object") return m;
+        const msg = { ...m };
+        if (Array.isArray(msg.content)) {
+          msg.content = msg.content.map((c: any) => (c && typeof c === "object" ? { ...c } : c));
+        }
+        return msg;
+      });
+    }
+    if (Array.isArray(body.tools)) {
+      cloned.tools = body.tools.map((t: any) => (t && typeof t === "object" ? { ...t } : t));
+    }
+    if (Array.isArray(body.system)) {
+      cloned.system = body.system.map((s: any) => (s && typeof s === "object" ? { ...s } : s));
+    }
+    return cloned;
+  }
+}
+
 export async function executeSingleModel(options: ExecuteSingleModelOptions): Promise<ModelCallResult> {
   const {
     req, res, body, modelStr, clientFormat, isPanel = false,
@@ -111,7 +142,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
     const context: ProviderRequestContext = {
       req, res, targetModel, clientFormat, targetFormat,
-      body: adjustedBody, provider: providerConfig, account,
+      body: cloneBodyForUpstream(adjustedBody), provider: providerConfig, account,
       isPanel, is1mContext, reqTag, requestId, startTime,
       clientTool, rawModel, rtkStats,
     };
@@ -145,6 +176,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
     let upstreamBody = provider.transformRequestBody(context);
     if (upstreamBody) {
+      upstreamBody = cloneBodyForUpstream(upstreamBody);
       applyCacheControlPolicy(upstreamBody, provider.id, targetModel, targetFormat);
     }
     if (upstreamBody && Array.isArray(upstreamBody.messages)) {

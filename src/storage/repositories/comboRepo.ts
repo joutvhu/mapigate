@@ -1,6 +1,7 @@
 import { getDatabase } from "../database.js";
 import { buildClaudePresetItems } from "../../core/router/comboPresets.js";
 import type { ComboStrategy } from "../../providers/composite/combo/types.js";
+import { resetComboState } from "../../providers/composite/combo/state.js";
 
 export interface ComboRecord {
   id: string;
@@ -146,6 +147,9 @@ export class ComboRepository {
       if (existingByName && existingByName.id !== id) {
         throw new Error("Combo name already exists.");
       }
+      if (trimmedName !== existing.name) {
+        resetComboState(existing.name);
+      }
       newName = trimmedName;
     }
 
@@ -179,9 +183,17 @@ export class ComboRepository {
   }
 
   public static deleteCombo(id: string): boolean {
+    const existing = this.getComboById(id) || this.getComboByName(id);
     const db = getDatabase();
     const result = db.run("DELETE FROM combos WHERE id = ? OR name = ?", id, id);
-    return result.changes > 0;
+    if (result.changes > 0) {
+      if (existing) {
+        resetComboState(existing.name);
+      }
+      resetComboState(id);
+      return true;
+    }
+    return false;
   }
 
   public static toggleCombo(id: string): ComboRecord | undefined {

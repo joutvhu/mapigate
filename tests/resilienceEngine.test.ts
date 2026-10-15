@@ -17,6 +17,7 @@ import {
 import {
   ModelLockoutManager,
   isModelScopedError,
+  MAX_LOCKOUT_ENTRIES,
 } from "../src/core/resilience/modelLockout.js";
 import {
   getProviderCircuitBreaker,
@@ -355,4 +356,80 @@ test("ProviderCircuitBreaker - in-flight probe safety release and timeout", () =
   cb.reset();
   assert.equal(cb.canExecute(), true);
 });
+
+test("ProviderCircuitBreaker - NTP clock skew defense resets lastFailureTime when clock moves backward", () => {
+  const cb = new ProviderCircuitBreaker("test-clock-skew", {
+    failureThreshold: 2,
+    resetTimeoutMs: 50,
+  });
+
+  // Trip to OPEN
+  cb.recordFailure(500);
+  cb.recordFailure(500);
+  assert.equal(cb.getState(), "OPEN");
+
+  // Simulate NTP clock skew: lastFailureTime set far into future (+1 hour)
+  const futureTime = Date.now() + 3_600_000;
+  (cb as any).lastFailureTime = futureTime;
+
+  // getRetryAfterMs and canExecute should detect clock skew (now < lastFailureTime)
+  // and reset lastFailureTime to Date.now() instead of getting permanently stuck
+  const retryMs = cb.getRetryAfterMs();
+  assert.ok(retryMs <= 50, `RetryMs should be within resetTimeoutMs, got ${retryMs}`);
+  assert.ok((cb as any).lastFailureTime <= Date.now() + 50);
+
+  // Now simulate backward skew in checkLazyRecovery during canExecute
+  (cb as any).lastFailureTime = Date.now() + 10_000;
+  const canExec = cb.canExecute();
+  assert.equal(canExec, false); // Still in OPEN until resetTimeoutMs passes
+  assert.ok((cb as any).lastFailureTime <= Date.now() + 50, "lastFailureTime should have been corrected");
+});
+
+test("ModelLockoutManager - lazy deletion on expiration and MAX_LOCKOUT_ENTRIES ceiling", () => {
+  const ml = new ModelLockoutManager();
+  const prov = "prov_leak_test";
+  const acc = "acc_1";
+  const model = "model-expired";
+
+  // Lock model
+  ml.lockModel(prov, acc, model, "404 model not found");
+  assert.equal(ml.size, 1);
+  assert.equal(ml.isModelLocked(prov, acc, model), true);
+
+  // Manually expire entry
+  const key = `${prov}:${acc}:${model}`;
+  const entry = (ml as any).lockouts.get(key);
+  assert.ok(entry);
+  entry.until = Date.now() - 1000; // Expired 1 second ago
+
+  // isModelLocked should delete the expired entry and return false
+  const isLocked = ml.isModelLocked(prov, acc, model);
+  assert.equal(isLocked, false);
+  assert.equal(ml.size, 0, "Expired entry must be deleted from internal map to prevent memory leak");
+
+  // Verify getRemainingLockoutMs also cleans up expired entries
+  ml.lockModel(prov, acc, model, "404");
+  assert.equal(ml.size, 1);
+  (ml as any).lockouts.get(key).until = Date.now() - 500;
+  assert.equal(ml.getRemainingLockoutMs(prov, acc, model), 0);
+  assert.equal(ml.size, 0);
+
+  // Verify MAX_LOCKOUT_ENTRIES ceiling
+  assert.equal(MAX_LOCKOUT_ENTRIES, 1000);
+
+  // Pre-fill to MAX_LOCKOUT_ENTRIES with dummy entries
+  for (let i = 0; i < MAX_LOCKOUT_ENTRIES; i++) {
+    (ml as any).lockouts.set(`p:a:m${i}`, {
+      until: Date.now() + 60_000,
+      failureCount: 1,
+      lockedAt: Date.now() + i,
+    });
+  }
+  assert.equal(ml.size, MAX_LOCKOUT_ENTRIES);
+
+  // Add 1 more entry: should evict oldest entry and not exceed MAX_LOCKOUT_ENTRIES
+  ml.lockModel("new_prov", "new_acc", "new_model");
+  assert.ok(ml.size <= MAX_LOCKOUT_ENTRIES, `Size ${ml.size} must not exceed MAX_LOCKOUT_ENTRIES`);
+});
+
 

@@ -85,13 +85,18 @@ export class ProviderCircuitBreaker {
    */
   private checkLazyRecovery(): void {
     if (this.state === "OPEN") {
-      const elapsed = Date.now() - this.lastFailureTime;
+      const now = Date.now();
+      // Guard against backward NTP clock skew
+      if (now < this.lastFailureTime) {
+        this.lastFailureTime = now;
+      }
+      const elapsed = now - this.lastFailureTime;
       if (elapsed >= this.profile.resetTimeoutMs) {
         this.state = "HALF_OPEN";
         this.consecutiveSuccesses = 0;
         this.halfOpenProbeInFlight = false;
         this.halfOpenProbeStartedAt = 0;
-        this.lastStateChangeTime = Date.now();
+        this.lastStateChangeTime = now;
       }
     }
   }
@@ -224,7 +229,12 @@ export class ProviderCircuitBreaker {
   public getRetryAfterMs(): number {
     this.checkLazyRecovery();
     if (this.state !== "OPEN") return 0;
-    const remaining = this.profile.resetTimeoutMs - (Date.now() - this.lastFailureTime);
+    const now = Date.now();
+    // Guard against backward NTP clock skew
+    if (now < this.lastFailureTime) {
+      this.lastFailureTime = now;
+    }
+    const remaining = this.profile.resetTimeoutMs - (now - this.lastFailureTime);
     return Math.max(0, remaining);
   }
 

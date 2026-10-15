@@ -10,8 +10,13 @@ import {
   getLkgpModel,
   resetComboState,
   ComboProvider,
+  comboRotationState,
+  lkgpState,
 } from "../src/providers/composite/combo/index.js";
 import { ComboRepository } from "../src/storage/repositories/comboRepo.js";
+import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
+import { ProviderRegistry } from "../src/providers/registry.js";
+import { executeSingleModel } from "../src/server/proxy/singleModelExecutor.js";
 import type { ProviderRequestContext } from "../src/providers/core/types.js";
 
 test("Smart Combo - LKGP cache warmth preservation", async () => {
@@ -228,3 +233,157 @@ test("Smart Combo - ComboProvider forwards comboStrategy dynamically", async () 
   // Successfully executed and recorded LKGP
   assert.equal(getLkgpModel("provider-forwarding-test"), "model-x");
 });
+
+test("Smart Combo - ComboRepository cleanup of lkgpState and comboRotationState on rename and delete", () => {
+  const combo = ComboRepository.saveCombo({
+    name: "combo-cleanup-test",
+    models: ["model-1", "model-2"],
+    strategy: "lkgp",
+  });
+
+  // Seed state
+  recordComboSuccess("combo-cleanup-test", "model-2");
+  comboRotationState.set("combo-cleanup-test", { index: 1, consecutiveUseCount: 1 });
+  assert.equal(getLkgpModel("combo-cleanup-test"), "model-2");
+  assert.ok(comboRotationState.has("combo-cleanup-test"));
+
+  // Rename combo
+  ComboRepository.updateCombo(combo.id, {
+    name: "combo-cleanup-renamed",
+  });
+
+  // Old name state must be cleared
+  assert.equal(getLkgpModel("combo-cleanup-test"), undefined);
+  assert.equal(comboRotationState.has("combo-cleanup-test"), false);
+
+  // Seed state on new name
+  recordComboSuccess("combo-cleanup-renamed", "model-1");
+  comboRotationState.set("combo-cleanup-renamed", { index: 0, consecutiveUseCount: 1 });
+  assert.equal(getLkgpModel("combo-cleanup-renamed"), "model-1");
+
+  // Delete combo
+  ComboRepository.deleteCombo(combo.id);
+
+  // Deleted state must be cleared
+  assert.equal(getLkgpModel("combo-cleanup-renamed"), undefined);
+  assert.equal(comboRotationState.has("combo-cleanup-renamed"), false);
+});
+
+test("Smart Combo - fallback preserves cache_control in original request body across sequential models", async () => {
+  const originalBody = {
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Explain quantum teleportation in detail",
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+      },
+    ],
+  };
+
+  const capturedBodies: any[] = [];
+
+  const fakeHandler = async (body: any, modelStr: string) => {
+    // Model 1 simulates an OpenAI-style model that strips cache_control in its own upstream body
+    if (modelStr === "openai/gpt-4o") {
+      capturedBodies.push(JSON.parse(JSON.stringify(body)));
+      return { ok: false, status: 429, error: "Rate limit reached" };
+    }
+    // Model 2 is Claude: it should receive the cache_control intact
+    if (modelStr === "claude/claude-3-7-sonnet") {
+      capturedBodies.push(JSON.parse(JSON.stringify(body)));
+      return { ok: true, status: 200, text: "Claude response" };
+    }
+    return { ok: false, status: 500 };
+  };
+
+  const res = await handleFallbackChat({
+    body: originalBody,
+    models: ["openai/gpt-4o", "claude/claude-3-7-sonnet"],
+    handleSingleModel: fakeHandler,
+    comboName: "combo-cache-control-test",
+    comboStrategy: "fallback",
+    log: { info: () => {}, warn: () => {} },
+  });
+
+  assert.equal(res.ok, true);
+  assert.equal(res.modelUsed, "claude/claude-3-7-sonnet");
+
+  // Verify that model 2 received cache_control intact
+  assert.deepEqual(capturedBodies[1].messages[0].content[0].cache_control, {
+    type: "ephemeral",
+  });
+
+  // Verify that the original input body still has cache_control intact
+  assert.deepEqual(originalBody.messages[0].content[0].cache_control, {
+    type: "ephemeral",
+  });
+});
+
+test("executeSingleModel - does not mutate caller body or strip cache_control from original messages", async () => {
+  ProviderRegistry.initializeBuiltins();
+
+  const mockProvId = `mock_strip_${Date.now()}`;
+  ProviderRepository.saveProvider({
+    id: mockProvId,
+    name: "Mock Strip Provider",
+    baseUrl: "http://127.0.0.1:59999/v1", // Non-listening port to fail fast
+    format: "openai",
+    isActive: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  const mockAccId = `acc_strip_${Date.now()}`;
+  ProviderRepository.addAccount({
+    id: mockAccId,
+    providerId: mockProvId,
+    name: "Mock Acc",
+    rawApiKey: "mock-key",
+    isActive: true,
+  });
+
+  const testBody = {
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Hello world with cache control",
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+      },
+    ],
+  };
+
+  try {
+    await executeSingleModel({
+      req: {} as any,
+      res: {} as any,
+      body: testBody,
+      modelStr: `${mockProvId}/test-model`,
+      clientFormat: "openai",
+      requestId: "test-mutate-id",
+      startTime: Date.now(),
+    });
+  } catch {
+    // Expected fetch failure
+  } finally {
+    ProviderRepository.deleteAccount(mockAccId);
+    ProviderRepository.deleteProvider(mockProvId);
+  }
+
+  // Crucial invariant: original input body MUST retain cache_control even though
+  // the provider format was OpenAI which stripped cache_control on upstream body!
+  assert.deepEqual(
+    testBody.messages[0].content[0].cache_control,
+    { type: "ephemeral" },
+    "cache_control must not be stripped in-place from caller's body"
+  );
+});
+
