@@ -32,7 +32,8 @@ export abstract class BaseProvider implements IProvider {
   public readonly streamType: "sse" | "eventstream" | "custom" = "sse";
 
   public buildUrl(context: ProviderRequestContext): string {
-    const rawBase = (context.provider?.baseUrl || "").trim();
+    const accountBase = (context.account?.providerSpecificData?.baseUrl || "").trim();
+    const rawBase = (accountBase || context.provider?.baseUrl || "").trim();
     const hasTerminalPath =
       rawBase.includes("/chat/completions") ||
       rawBase.includes("/messages") ||

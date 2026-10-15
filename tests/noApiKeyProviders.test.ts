@@ -122,6 +122,112 @@ test("No-API-Key Providers - Header Construction Without Empty Authorization", a
   assert.equal(anthropicHeaders["anthropic-version"], "2023-06-01");
 });
 
+test("No-API-Key Providers - Custom Account Base URL Resolution", () => {
+  const openaiProv = new OpenAiCompatibleProvider({
+    id: "lm-studio",
+    name: "LM Studio",
+    requiresApiKey: false,
+    isLocal: true,
+  });
+
+  const baseContext: ProviderRequestContext = {
+    req: { headers: {} } as any,
+    targetModel: "local-model",
+    clientFormat: "openai",
+    targetFormat: "openai",
+    body: {},
+    provider: {
+      id: "lm-studio",
+      name: "LM Studio",
+      baseUrl: "http://localhost:1234/v1",
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: ["local-model"],
+      requiresApiKey: false,
+      isLocal: true,
+      authType: "none",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+    requestId: "test-req-url",
+    startTime: Date.now(),
+    clientTool: "test",
+    rawModel: "local-model",
+    rtkStats: { compressedTokens: 0, tokensSaved: 0 },
+  };
+
+  // 1. Without account -> uses context.provider.baseUrl
+  const defaultUrl = openaiProv.buildUrl(baseContext);
+  assert.equal(defaultUrl, "http://localhost:1234/v1/chat/completions");
+
+  // 2. With account having custom baseUrl -> prioritizes account.providerSpecificData.baseUrl
+  const customContext: ProviderRequestContext = {
+    ...baseContext,
+    account: {
+      id: "acc_custom_1",
+      providerId: "lm-studio",
+      name: "LAN LM Studio",
+      rawApiKey: "",
+      apiKeyEncrypted: "",
+      isActive: true,
+      rateLimitHits: 0,
+      providerSpecificData: {
+        baseUrl: "http://192.168.1.50:1234/v1",
+      },
+    },
+  };
+  const customUrl = openaiProv.buildUrl(customContext);
+  assert.equal(customUrl, "http://192.168.1.50:1234/v1/chat/completions");
+
+  // 3. With custom baseUrl lacking /v1
+  const customNoV1Context: ProviderRequestContext = {
+    ...baseContext,
+    account: {
+      id: "acc_custom_2",
+      providerId: "lm-studio",
+      name: "LAN LM Studio Without V1",
+      rawApiKey: "",
+      apiKeyEncrypted: "",
+      isActive: true,
+      rateLimitHits: 0,
+      providerSpecificData: {
+        baseUrl: "http://192.168.1.50:1234",
+      },
+    },
+  };
+  const customNoV1Url = openaiProv.buildUrl(customNoV1Context);
+  assert.equal(customNoV1Url, "http://192.168.1.50:1234/v1/chat/completions");
+
+  // 4. Anthropic compatible provider with custom account baseUrl
+  const anthropicProv = new AnthropicCompatibleProvider({
+    id: "anthropic-local",
+    requiresApiKey: false,
+    isLocal: true,
+  });
+  const anthropicCustomContext: ProviderRequestContext = {
+    ...baseContext,
+    provider: {
+      ...baseContext.provider,
+      format: "claude",
+    },
+    account: {
+      id: "acc_custom_3",
+      providerId: "anthropic-local",
+      name: "Custom Anthropic Host",
+      rawApiKey: "",
+      apiKeyEncrypted: "",
+      isActive: true,
+      rateLimitHits: 0,
+      providerSpecificData: {
+        baseUrl: "http://192.168.1.60:8000/v1",
+      },
+    },
+  };
+  const anthropicCustomUrl = anthropicProv.buildUrl(anthropicCustomContext);
+  assert.equal(anthropicCustomUrl, "http://192.168.1.60:8000/v1/messages");
+});
+
 test("No-API-Key Providers - Virtual Account Resolution & Load Balancing", () => {
   // Virtual account resolution for lm-studio
   const lmsAccounts = ProviderRepository.getAccountsByProvider("lm-studio");

@@ -650,7 +650,7 @@ providerRouter.post("/:id/test", async (req, res) => {
     Boolean(reg?.isLocal);
 
   try {
-    const rawBase = (provider.baseUrl || reg?.baseUrl || "").replace(/\/+$/, "");
+    const rawBase = (account.providerSpecificData?.baseUrl || provider.baseUrl || reg?.baseUrl || "").replace(/\/+$/, "");
     let testUrl = `${rawBase}/v1/models`;
     if (provider.id === "ollama-local" || provider.id.includes("ollama")) {
       const host = rawBase.replace(/\/api\/chat$/, "");
@@ -660,9 +660,7 @@ providerRouter.post("/:id/test", async (req, res) => {
     }
 
     const headers: Record<string, string> = {};
-    if (account.rawApiKey && !isNoKey) {
-      headers["Authorization"] = `Bearer ${account.rawApiKey}`;
-    } else if (account.rawApiKey) {
+    if (account.rawApiKey) {
       headers["Authorization"] = `Bearer ${account.rawApiKey}`;
     }
 
