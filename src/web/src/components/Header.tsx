@@ -1,6 +1,7 @@
 import React from "react";
 import type { NavTab } from "./Sidebar";
 import type { ProviderItem } from "../constants/providersData";
+import { useAuth } from "../hooks/useAuth";
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -22,7 +23,7 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
     icon: "dns",
   },
   combos: {
-    title: "Combos & Vision Adapter",
+    title: "Combos & Adapter",
     subtitle: "Group models under smart fallback and load-balancing combos",
     icon: "layers",
   },
@@ -71,6 +72,8 @@ export const Header: React.FC<HeaderProps> = ({
   onBackToProviders,
 }) => {
   const meta = PAGE_META[currentTab] || PAGE_META.providers;
+  const isPasswordSet = useAuth((s) => s.isPasswordSet);
+  const lock = useAuth((s) => s.lock);
 
   return (
     <header className="rt-header">
@@ -130,6 +133,19 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="material-symbols-outlined text-[15px]">verified_user</span>
           100% Local-First
         </div>
+
+        {/* Lock Dashboard Button (visible when master password is configured) */}
+        {isPasswordSet && (
+          <button
+            type="button"
+            onClick={lock}
+            title="Lock Dashboard (Master Password Protected)"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[15px]">lock</span>
+            <span className="hidden sm:inline">Lock</span>
+          </button>
+        )}
 
         {/* Action icons */}
         <div className="flex items-center gap-1 border-l border-[#1E293B] pl-2 text-slate-400">

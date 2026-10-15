@@ -22,6 +22,8 @@ import { consoleLogsRouter } from "./routes/apiConsoleLogs.js";
 import { quotaRouter } from "./routes/apiQuota.js";
 import { usageRouter } from "./routes/apiUsage.js";
 import { settingsRouter } from "./routes/apiSettings.js";
+import { authRouter } from "./routes/apiAuth.js";
+import { masterAuthMiddleware } from "./middlewares/masterAuthMiddleware.js";
 import { serverRouter, handleShutdownRequest } from "./routes/apiServer.js";
 import { serverLifecycle } from "./lifecycle.js";
 import { initTray } from "../cli/tray/tray.js";
@@ -58,6 +60,12 @@ app.post("/v1/messages", (req, res) => {
 
 app.get("/v1/models", handleOpenAiModelsList);
 app.get("/models", handleOpenAiModelsList);
+
+// Master Password auth endpoints
+app.use("/api/auth", authRouter);
+
+// Guard management /api/* routes when master password is configured
+app.use("/api", masterAuthMiddleware);
 
 // Dashboard Management APIs
 app.use("/api/providers", providerRouter);

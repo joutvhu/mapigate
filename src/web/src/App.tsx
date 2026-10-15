@@ -13,6 +13,8 @@ import { TokenSaverTab } from "./pages/TokenSaverTab";
 import { ConsoleLogTab } from "./pages/ConsoleLogTab";
 import { SettingsTab } from "./pages/SettingsTab";
 import { CallbackPage } from "./pages/CallbackPage";
+import { useAuth } from "./hooks/useAuth";
+import { LockScreen } from "./components/LockScreen";
 import type { ProviderItem } from "./constants/providersData";
 
 export default function App() {
@@ -26,6 +28,14 @@ export default function App() {
     return <CallbackPage />;
   }
 
+  const isChecking = useAuth((s) => s.isChecking);
+  const isLocked = useAuth((s) => s.isLocked);
+  const checkAuth = useAuth((s) => s.checkAuth);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
@@ -34,6 +44,18 @@ export default function App() {
     setCurrentTab(tab);
     setDetailProvider(null);
   };
+
+  if (isChecking) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-[#0A0D14] text-slate-400">
+        <div className="size-8 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isLocked) {
+    return <LockScreen />;
+  }
 
   return (
     <div className="rt-app">

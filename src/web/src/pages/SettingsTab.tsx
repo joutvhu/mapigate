@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
+import { MasterPasswordModal, type MasterPasswordModalMode } from "../components/MasterPasswordModal";
+import { useAuth } from "../hooks/useAuth";
 
 interface SystemInfo {
   dataDir: string;
@@ -15,6 +17,8 @@ export const SettingsTab: React.FC = () => {
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const isPasswordSet = useAuth((s) => s.isPasswordSet);
+  const [pwdModalMode, setPwdModalMode] = useState<MasterPasswordModalMode>(null);
 
   useEffect(() => {
     fetch("/api/settings/system-info")
@@ -117,6 +121,72 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
+      {/* Master Password Protection Card */}
+      <div className="rt-card p-6 space-y-4 border border-blue-500/20">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">lock</span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Master Password Protection</h3>
+              <p className="text-xs text-slate-400">Lock the Web Dashboard and guard management REST APIs</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {isPasswordSet ? (
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Protected
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20 flex items-center gap-1.5">
+                Disabled (No Auth Required)
+              </span>
+            )}
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          {isPasswordSet
+            ? "Master Password protection is active. Accessing the Mapigate dashboard requires entering your password. AI coding assistant proxy endpoints (/v1/*) remain 100% unauthenticated and fast."
+            : "By default, Mapigate requires no login. Set a master password if you want to protect your dashboard settings, provider credentials, and management APIs from unauthorized access."}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          {!isPasswordSet ? (
+            <button
+              type="button"
+              onClick={() => setPwdModalMode("setup")}
+              className="rt-btn rt-btn--primary text-xs py-2 px-4 flex items-center gap-2 cursor-pointer font-semibold"
+            >
+              <span className="material-symbols-outlined text-[16px]">lock</span>
+              Set Master Password
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setPwdModalMode("change")}
+                className="rt-btn rt-btn--secondary text-xs py-2 px-4 flex items-center gap-2 cursor-pointer font-semibold"
+              >
+                <span className="material-symbols-outlined text-[16px]">key</span>
+                Change Password
+              </button>
+              <button
+                type="button"
+                onClick={() => setPwdModalMode("remove")}
+                className="rt-btn rt-btn--danger text-xs py-2 px-4 flex items-center gap-2 cursor-pointer font-semibold"
+              >
+                <span className="material-symbols-outlined text-[16px]">lock_open</span>
+                Remove Password
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       {/* Gateway Server Control / Danger Zone Card */}
       <div className="rt-card p-6 space-y-4 border border-rose-500/20">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
@@ -200,6 +270,12 @@ export const SettingsTab: React.FC = () => {
           </div>
         </div>
       </PortalModal>
+
+      {/* Master Password Configuration Modal */}
+      <MasterPasswordModal
+        mode={pwdModalMode}
+        onClose={() => setPwdModalMode(null)}
+      />
     </div>
   );
 };

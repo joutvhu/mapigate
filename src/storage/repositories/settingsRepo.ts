@@ -71,6 +71,18 @@ export interface GatewayApiKey {
   lastUsedAt?: number;
 }
 
+export interface MasterPasswordConfig {
+  enabled: boolean;
+  hash?: string;
+  salt?: string;
+  algorithm?: string;
+  updatedAt?: number;
+}
+
+export const DEFAULT_MASTER_PASSWORD_CONFIG: MasterPasswordConfig = {
+  enabled: false,
+};
+
 function upgradeLegacyModel(m: string): string {
   return m === "oc/mimo-v2.5-free" ? DEFAULT_FALLBACK_MODEL : m;
 }
@@ -338,5 +350,37 @@ export class SettingsRepository {
     };
     this.setSetting("tokenSaver", updated);
     return updated;
+  }
+
+  // --- Master Password Settings ---
+
+  public static getMasterPasswordConfig(): MasterPasswordConfig {
+    const raw = this.getSetting<any>("masterPassword");
+    if (!raw || typeof raw !== "object" || !raw.enabled) {
+      return { ...DEFAULT_MASTER_PASSWORD_CONFIG };
+    }
+    return {
+      enabled: Boolean(raw.enabled),
+      hash: typeof raw.hash === "string" ? raw.hash : undefined,
+      salt: typeof raw.salt === "string" ? raw.salt : undefined,
+      algorithm: typeof raw.algorithm === "string" ? raw.algorithm : "scrypt",
+      updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : undefined,
+    };
+  }
+
+  public static setMasterPasswordConfig(config: MasterPasswordConfig): MasterPasswordConfig {
+    const updated: MasterPasswordConfig = {
+      enabled: Boolean(config.enabled),
+      hash: config.hash,
+      salt: config.salt,
+      algorithm: config.algorithm || "scrypt",
+      updatedAt: config.updatedAt || Date.now(),
+    };
+    this.setSetting("masterPassword", updated);
+    return updated;
+  }
+
+  public static clearMasterPassword(): void {
+    this.setSetting("masterPassword", { ...DEFAULT_MASTER_PASSWORD_CONFIG });
   }
 }
