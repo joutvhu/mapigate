@@ -6,13 +6,18 @@ export interface ProviderItem {
   image: string;
   color?: string;
   iconBg?: string;
-  category: "oauth" | "freeTier" | "apikey" | "custom";
+  category: "oauth" | "freeTier" | "apikey" | "custom" | string;
   defaultConnected?: number;
   baseUrl?: string;
+  defaultBaseUrl?: string;
   format?: "openai" | "anthropic" | string;
   defaultHeaders?: Record<string, string>;
   models?: string[];
   thinkingMode?: string;
+  authType?: string;
+  requiresApiKey?: boolean;
+  isLocal?: boolean;
+  noAuth?: boolean;
 }
 
 const MEDIA_ONLY_PROVIDERS = new Set([
@@ -55,6 +60,31 @@ export function isOAuthProvider(p?: {
   return false;
 }
 
+export function isNoApiKeyProvider(p?: {
+  id?: string;
+  requiresApiKey?: boolean;
+  authType?: string;
+  noAuth?: boolean;
+  isLocal?: boolean;
+}): boolean {
+  if (!p) return false;
+  const pId = p.id?.toLowerCase() || "";
+  if (
+    pId === "opencode" ||
+    pId === "oc" ||
+    pId === "ollama-local" ||
+    pId === "lm-studio" ||
+    pId === "jan" ||
+    pId === "local-device"
+  ) {
+    return true;
+  }
+  if (p.requiresApiKey === false) return true;
+  if (p.authType === "none") return true;
+  if (p.noAuth === true) return true;
+  return false;
+}
+
 export const CODING_PROVIDERS_LIST = registryList;
 
 export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
@@ -68,14 +98,19 @@ export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
     category: "oauth" as const,
     defaultConnected: 0,
     baseUrl: p.baseUrl,
+    defaultBaseUrl: p.defaultBaseUrl || p.baseUrl,
     format: p.format,
     defaultHeaders: p.defaultHeaders,
     models: p.models.map((m) => m.id),
     thinkingMode: p.thinkingMode,
+    authType: p.authType,
+    requiresApiKey: p.requiresApiKey,
+    isLocal: p.isLocal,
+    noAuth: p.noAuth,
   }));
 
 export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => p.category === "freeTier" || p.category === "free")
+  .filter((p) => p.category === "freeTier" || p.category === "free" || isNoApiKeyProvider(p))
   .map((p) => ({
     id: p.id,
     name: p.name,
@@ -85,14 +120,19 @@ export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
     category: "freeTier" as const,
     defaultConnected: 0,
     baseUrl: p.baseUrl,
+    defaultBaseUrl: p.defaultBaseUrl || p.baseUrl,
     format: p.format,
     defaultHeaders: p.defaultHeaders,
     models: p.models.map((m) => m.id),
     thinkingMode: p.thinkingMode,
+    authType: p.authType,
+    requiresApiKey: p.requiresApiKey,
+    isLocal: p.isLocal,
+    noAuth: p.noAuth,
   }));
 
 export const API_KEY_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => p.category === "apikey" || p.category === "custom")
+  .filter((p) => (p.category === "apikey" || p.category === "custom") && !isNoApiKeyProvider(p))
   .map((p) => ({
     id: p.id,
     name: p.name,
@@ -102,10 +142,15 @@ export const API_KEY_PROVIDERS_LIST: ProviderItem[] = registryList
     category: "apikey" as const,
     defaultConnected: 0,
     baseUrl: p.baseUrl,
+    defaultBaseUrl: p.defaultBaseUrl || p.baseUrl,
     format: p.format,
     defaultHeaders: p.defaultHeaders,
     models: p.models.map((m) => m.id),
     thinkingMode: p.thinkingMode,
+    authType: p.authType,
+    requiresApiKey: p.requiresApiKey,
+    isLocal: p.isLocal,
+    noAuth: p.noAuth,
   }));
 
 export interface CliToolItem {

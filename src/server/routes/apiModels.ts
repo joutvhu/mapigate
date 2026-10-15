@@ -64,7 +64,13 @@ modelRouter.get("/available", (req, res) => {
           }
         }
       }
-      if (reg?.noAuth || pId === "opencode" || pId === "oc") {
+      if (
+        reg?.noAuth ||
+        reg?.requiresApiKey === false ||
+        reg?.authType === "none" ||
+        pId === "opencode" ||
+        pId === "oc"
+      ) {
         return Math.max(1, count);
       }
       return count;

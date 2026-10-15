@@ -215,36 +215,54 @@ async function showAddAccountCatalog(breadcrumb: string[]): Promise<void> {
 }
 
 async function promptAddAccount(providerId: string): Promise<void> {
-  const isNoAuth = providerId === "opencode" || providerId === "oc";
-  console.log(`\n${COLORS.bold}Add Account for ${providerId}:${COLORS.reset}`);
-  if (isNoAuth) {
-    console.log(`${COLORS.dim}OpenCode Free is 100% free and does not require an API key.${COLORS.reset}`);
+  const reg = getRegistryProvider(providerId);
+  const isNoAuth =
+    providerId === "opencode" ||
+    providerId === "oc" ||
+    Boolean(reg?.noAuth) ||
+    reg?.requiresApiKey === false ||
+    reg?.authType === "none";
+  const isLocal =
+    Boolean(reg?.isLocal) ||
+    providerId === "ollama-local" ||
+    providerId === "lm-studio" ||
+    providerId === "jan" ||
+    providerId === "local-device";
+  const defaultAccountName = isNoAuth
+    ? (providerId === "opencode" || providerId === "oc" ? "OpenCode Free" : `${reg?.name || providerId} Default`)
+    : isLocal
+    ? `${reg?.name || providerId} Local`
+    : "Work";
+
+  console.log(`\n${COLORS.bold}Add Account for ${reg?.name || providerId}:${COLORS.reset}`);
+  if (isNoAuth || isLocal) {
+    console.log(`${COLORS.dim}${reg?.name || providerId} does not require a paid API key.${COLORS.reset}`);
   }
   const name =
-    (await prompt(`Account Name (default: ${isNoAuth ? "OpenCode Free" : "Work"}): `)) ||
-    (isNoAuth ? "OpenCode Free" : "");
-  if (!name && !isNoAuth) {
+    (await prompt(`Account Name (default: ${defaultAccountName}): `)) ||
+    (isNoAuth || isLocal ? defaultAccountName : "");
+  if (!name && !isNoAuth && !isLocal) {
     showStatus("Account creation cancelled (empty name).", "warning");
     await pause();
     return;
   }
 
   let apiKey = "";
-  if (!isNoAuth) {
+  if (!isNoAuth && !isLocal) {
     apiKey = await prompt("API Key: ");
-    if (!apiKey && providerId !== "ollama-local") {
+    if (!apiKey) {
       showStatus("API Key is required.", "error");
       await pause();
       return;
     }
   } else {
-    apiKey = "public";
+    apiKey = (providerId === "opencode" || providerId === "oc") ? "public" : "";
   }
 
   console.log("Saving account...");
-  const res = await ApiClient.addAccount(providerId, { name: name || "OpenCode Free", apiKey });
+  const res = await ApiClient.addAccount(providerId, { name: name || defaultAccountName, apiKey });
   if (res.success) {
-    showStatus(`Account "${name || "OpenCode Free"}" added successfully!`, "success");
+    showStatus(`Account "${name || defaultAccountName}" added successfully!`, "success");
   } else {
     showStatus(res.error || "Failed to add account.", "error");
   }

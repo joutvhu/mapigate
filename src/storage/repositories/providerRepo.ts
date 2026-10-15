@@ -293,14 +293,22 @@ export class ProviderRepository {
       targetProviderId
     );
 
-    if (rows.length === 0 && (reg?.noAuth || targetProviderId === "opencode")) {
+    const isNoKey =
+      Boolean(reg?.noAuth) ||
+      reg?.requiresApiKey === false ||
+      reg?.authType === "none" ||
+      targetProviderId === "opencode" ||
+      targetProviderId === "oc";
+
+    if (rows.length === 0 && isNoKey) {
+      const isOC = targetProviderId === "opencode" || targetProviderId === "oc";
       return [
         {
-          id: "acc_opencode_free",
+          id: isOC ? "acc_opencode_free" : `acc_${targetProviderId}_default`,
           providerId: targetProviderId,
-          name: "OpenCode Free (Public)",
+          name: isOC ? "OpenCode Free (Public)" : `${reg?.name || targetProviderId} (Default)`,
           apiKeyEncrypted: "",
-          rawApiKey: "public",
+          rawApiKey: isOC ? "public" : "",
           isActive: true,
           rateLimitHits: 0,
           lastUsedAt: 0,
@@ -335,14 +343,22 @@ export class ProviderRepository {
       targetProviderId
     );
 
-    if (rows.length === 0 && (reg?.noAuth || targetProviderId === "opencode")) {
+    const isNoKey =
+      Boolean(reg?.noAuth) ||
+      reg?.requiresApiKey === false ||
+      reg?.authType === "none" ||
+      targetProviderId === "opencode" ||
+      targetProviderId === "oc";
+
+    if (rows.length === 0 && isNoKey) {
+      const isOC = targetProviderId === "opencode" || targetProviderId === "oc";
       return [
         {
-          id: "acc_opencode_free",
+          id: isOC ? "acc_opencode_free" : `acc_${targetProviderId}_default`,
           providerId: targetProviderId,
-          name: "OpenCode Free (Public)",
+          name: isOC ? "OpenCode Free (Public)" : `${reg?.name || targetProviderId} (Default)`,
           apiKeyEncrypted: "",
-          rawApiKey: "public",
+          rawApiKey: isOC ? "public" : "",
           isActive: true,
           rateLimitHits: 0,
           lastUsedAt: 0,
@@ -370,7 +386,39 @@ export class ProviderRepository {
   public static getAccountById(id: string): (ProviderAccount & { rawApiKey: string }) | undefined {
     const db = getDatabase();
     const r = db.get<any>("SELECT * FROM provider_accounts WHERE id = ?", id);
-    if (!r) return undefined;
+    if (!r) {
+      if (id === "acc_opencode_free") {
+        return {
+          id: "acc_opencode_free",
+          providerId: "opencode",
+          name: "OpenCode Free (Public)",
+          apiKeyEncrypted: "",
+          rawApiKey: "public",
+          isActive: true,
+          rateLimitHits: 0,
+          lastUsedAt: 0,
+          createdAt: 0,
+        };
+      }
+      if (id.startsWith("acc_") && id.endsWith("_default")) {
+        const pId = id.slice(4, -8);
+        const reg = getRegistryProvider(pId);
+        if (reg?.noAuth || reg?.requiresApiKey === false || reg?.authType === "none") {
+          return {
+            id,
+            providerId: reg.id || pId,
+            name: `${reg.name || pId} (Default)`,
+            apiKeyEncrypted: "",
+            rawApiKey: "",
+            isActive: true,
+            rateLimitHits: 0,
+            lastUsedAt: 0,
+            createdAt: 0,
+          };
+        }
+      }
+      return undefined;
+    }
     return {
       id: r.id,
       providerId: r.provider_id,

@@ -8,8 +8,12 @@ export const metadata: ProviderRegistryItem = {
   "iconBg": "#FFFFFF",
   "image": "/assets/providers/ollama-local/icon.png",
   "website": "https://ollama.com",
-  "category": "apikey",
+  "category": "freeTier",
+  "authType": "none",
+  "requiresApiKey": false,
+  "isLocal": true,
   "baseUrl": "http://localhost:11434/api/chat",
+  "defaultBaseUrl": "http://localhost:11434/api/chat",
   "baseUrls": [
     "http://localhost:11434/api/chat"
   ],

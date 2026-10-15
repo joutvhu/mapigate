@@ -12,6 +12,7 @@ import { metadata as hyperbolic } from "../../catalog/hyperbolic/metadata.js";
 import { metadata as iflow } from "../../catalog/iflow/metadata.js";
 import { metadata as internlm } from "../../catalog/internlm/metadata.js";
 import { metadata as inworld } from "../../catalog/inworld/metadata.js";
+import { metadata as jan } from "../../catalog/jan/metadata.js";
 import { metadata as jina_ai } from "../../catalog/jina-ai/metadata.js";
 import { metadata as jina_reader } from "../../catalog/jina-reader/metadata.js";
 import { metadata as kilo_gateway } from "../../catalog/kilo-gateway/metadata.js";
@@ -24,6 +25,7 @@ import { metadata as linkup } from "../../catalog/linkup/metadata.js";
 import { metadata as liquid } from "../../catalog/liquid/metadata.js";
 import { metadata as llm7 } from "../../catalog/llm7/metadata.js";
 import { metadata as llmtr } from "../../catalog/llmtr/metadata.js";
+import { metadata as lm_studio } from "../../catalog/lm-studio/metadata.js";
 import { metadata as local_device } from "../../catalog/local-device/metadata.js";
 import { metadata as longcat } from "../../catalog/longcat/metadata.js";
 import { metadata as maritalk } from "../../catalog/maritalk/metadata.js";
@@ -39,8 +41,6 @@ import { metadata as mmf } from "../../catalog/mmf/metadata.js";
 import { metadata as modal } from "../../catalog/modal/metadata.js";
 import { metadata as modelscope } from "../../catalog/modelscope/metadata.js";
 import { metadata as moonshot } from "../../catalog/moonshot/metadata.js";
-import { metadata as morph } from "../../catalog/morph/metadata.js";
-import { metadata as muse } from "../../catalog/muse/metadata.js";
 
 export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "google-pse": google_pse,
@@ -54,6 +54,7 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "iflow": iflow,
   "internlm": internlm,
   "inworld": inworld,
+  "jan": jan,
   "jina-ai": jina_ai,
   "jina-reader": jina_reader,
   "kilo-gateway": kilo_gateway,
@@ -66,6 +67,7 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "liquid": liquid,
   "llm7": llm7,
   "llmtr": llmtr,
+  "lm-studio": lm_studio,
   "local-device": local_device,
   "longcat": longcat,
   "maritalk": maritalk,
@@ -81,6 +83,4 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "modal": modal,
   "modelscope": modelscope,
   "moonshot": moonshot,
-  "morph": morph,
-  "muse": muse,
 };

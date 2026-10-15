@@ -8,6 +8,8 @@ export const metadata: ProviderRegistryItem = {
   "image": "/assets/providers/local-device/icon.png",
   "category": "freeTier",
   "authType": "none",
+  "requiresApiKey": false,
+  "isLocal": true,
   "noAuth": true,
   "baseUrl": "",
   "baseUrls": [],

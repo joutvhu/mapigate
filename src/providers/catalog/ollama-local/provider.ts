@@ -5,6 +5,9 @@ export class OllamaLocalProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
+  public override readonly requiresApiKey = false;
+  public override readonly isLocal = true;
+  public override readonly defaultBaseUrl = metadata.defaultBaseUrl;
 }
 
 export default OllamaLocalProvider;

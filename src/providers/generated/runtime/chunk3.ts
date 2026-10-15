@@ -11,6 +11,7 @@ import Prov_hyperbolic from "../../catalog/hyperbolic/provider.js";
 import Prov_iflow from "../../catalog/iflow/provider.js";
 import Prov_internlm from "../../catalog/internlm/provider.js";
 import Prov_inworld from "../../catalog/inworld/provider.js";
+import Prov_jan from "../../catalog/jan/provider.js";
 import Prov_jina_ai from "../../catalog/jina-ai/provider.js";
 import Prov_jina_reader from "../../catalog/jina-reader/provider.js";
 import Prov_kilo_gateway from "../../catalog/kilo-gateway/provider.js";
@@ -23,6 +24,7 @@ import Prov_linkup from "../../catalog/linkup/provider.js";
 import Prov_liquid from "../../catalog/liquid/provider.js";
 import Prov_llm7 from "../../catalog/llm7/provider.js";
 import Prov_llmtr from "../../catalog/llmtr/provider.js";
+import Prov_lm_studio from "../../catalog/lm-studio/provider.js";
 import Prov_local_device from "../../catalog/local-device/provider.js";
 import Prov_longcat from "../../catalog/longcat/provider.js";
 import Prov_maritalk from "../../catalog/maritalk/provider.js";
@@ -38,8 +40,6 @@ import Prov_mmf from "../../catalog/mmf/provider.js";
 import Prov_modal from "../../catalog/modal/provider.js";
 import Prov_modelscope from "../../catalog/modelscope/provider.js";
 import Prov_moonshot from "../../catalog/moonshot/provider.js";
-import Prov_morph from "../../catalog/morph/provider.js";
-import Prov_muse from "../../catalog/muse/provider.js";
 
 export function registerRuntimeChunk3(registry: { register(p: any): void }): void {
   registry.register(new Prov_google_pse());
@@ -53,6 +53,7 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_iflow());
   registry.register(new Prov_internlm());
   registry.register(new Prov_inworld());
+  registry.register(new Prov_jan());
   registry.register(new Prov_jina_ai());
   registry.register(new Prov_jina_reader());
   registry.register(new Prov_kilo_gateway());
@@ -65,6 +66,7 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_liquid());
   registry.register(new Prov_llm7());
   registry.register(new Prov_llmtr());
+  registry.register(new Prov_lm_studio());
   registry.register(new Prov_local_device());
   registry.register(new Prov_longcat());
   registry.register(new Prov_maritalk());
@@ -80,6 +82,4 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_modal());
   registry.register(new Prov_modelscope());
   registry.register(new Prov_moonshot());
-  registry.register(new Prov_morph());
-  registry.register(new Prov_muse());
 }

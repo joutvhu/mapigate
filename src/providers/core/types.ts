@@ -62,7 +62,10 @@ export interface ProviderRegistryItem {
   deprecated?: boolean;
   deprecationNotice?: string;
   category: "oauth" | "freeTier" | "apikey" | "free" | "webCookie" | "custom" | string;
-  authType?: string;
+  authType?: "api-key" | "none" | "oauth" | string;
+  requiresApiKey?: boolean;
+  isLocal?: boolean;
+  defaultBaseUrl?: string;
   authModes?: string[];
   noAuth?: boolean;
   baseUrl: string;
@@ -138,6 +141,9 @@ export interface IProvider {
   readonly name: string;
   readonly defaultFormat: string;
   readonly requiresAccount?: boolean;
+  readonly requiresApiKey?: boolean;
+  readonly isLocal?: boolean;
+  readonly defaultBaseUrl?: string;
   readonly streamType?: "sse" | "eventstream" | "custom";
 
   buildUrl(context: ProviderRequestContext): string;

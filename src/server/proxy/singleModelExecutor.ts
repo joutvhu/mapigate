@@ -130,7 +130,15 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       provider.id === "opencode" ||
       provider.id === "oc" ||
       Boolean((providerConfig as any).noAuth) ||
-      Boolean(regProv?.noAuth);
+      Boolean((providerConfig as any).requiresApiKey === false) ||
+      Boolean((providerConfig as any).authType === "none") ||
+      Boolean((providerConfig as any).isLocal) ||
+      Boolean(regProv?.noAuth) ||
+      Boolean(regProv?.requiresApiKey === false) ||
+      Boolean(regProv?.authType === "none") ||
+      Boolean(regProv?.isLocal) ||
+      provider.requiresApiKey === false ||
+      provider.isLocal === true;
 
     if ((!account || !account.rawApiKey) && !hasCustomHeaders && requiresAccount && !isNoAuthOrProfile) {
       if (triedAccountIds.size > 0 && lastFailureResult) return lastFailureResult;

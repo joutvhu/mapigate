@@ -26,6 +26,9 @@ export abstract class BaseProvider implements IProvider {
   public abstract readonly defaultFormat: string;
 
   public readonly requiresAccount: boolean = true;
+  public requiresApiKey?: boolean;
+  public isLocal?: boolean;
+  public defaultBaseUrl?: string;
   public readonly streamType: "sse" | "eventstream" | "custom" = "sse";
 
   public buildUrl(context: ProviderRequestContext): string {
@@ -48,14 +51,23 @@ export abstract class BaseProvider implements IProvider {
   }
 
   public async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
-    const bearerToken = context.account?.rawApiKey || "";
+    const bearerToken = (context.account?.rawApiKey || "").trim();
+    const prov = context.provider as any;
+    const isNoApiKey =
+      prov?.requiresApiKey === false ||
+      prov?.authType === "none" ||
+      this.requiresApiKey === false;
+
     const outgoingHeaders: Record<string, string> = {
       "Content-Type": "application/json",
       ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
       ...(context.provider?.customHeaders || {}),
     };
 
-    const prov = context.provider as any;
+    if (isNoApiKey && !bearerToken) {
+      delete outgoingHeaders["Authorization"];
+    }
+
     const isWebCookie =
       prov?.category === "webCookie" ||
       prov?.format === "grok-web" ||

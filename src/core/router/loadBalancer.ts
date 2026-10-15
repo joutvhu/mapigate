@@ -43,13 +43,21 @@ export class LoadBalancer {
     const allAccounts = ProviderRepository.getAccountsByProvider(providerId);
     if (allAccounts.length === 0) {
       const reg = getRegistryProvider(providerId);
-      if (reg?.noAuth || providerId === "opencode" || providerId === "oc") {
+      const isNoKey =
+        Boolean(reg?.noAuth) ||
+        reg?.requiresApiKey === false ||
+        reg?.authType === "none" ||
+        providerId === "opencode" ||
+        providerId === "oc";
+
+      if (isNoKey) {
+        const isOC = providerId === "opencode" || providerId === "oc";
         return {
-          id: "acc_opencode_free",
-          providerId: reg?.id || "opencode",
-          name: "OpenCode Free (Public)",
+          id: isOC ? "acc_opencode_free" : `acc_${reg?.id || providerId}_default`,
+          providerId: reg?.id || providerId,
+          name: isOC ? "OpenCode Free (Public)" : `${reg?.name || providerId} (Default)`,
           apiKeyEncrypted: "",
-          rawApiKey: "public",
+          rawApiKey: isOC ? "public" : "",
           isActive: true,
           rateLimitHits: 0,
           lastUsedAt: 0,

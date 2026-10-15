@@ -120,10 +120,12 @@ providerRouter.post("/validate", async (req, res) => {
   }
 
   const reg = getRegistryProvider(pId);
-  if (pId === "opencode" || pId === "oc" || reg?.noAuth) {
-    res.json({ valid: true });
-    return;
-  }
+  const isNoAuthOrNoKey =
+    pId === "opencode" ||
+    pId === "oc" ||
+    Boolean(reg?.noAuth) ||
+    reg?.requiresApiKey === false ||
+    reg?.authType === "none";
 
   // Ollama local check
   if (pId === "ollama-local" || pId.includes("ollama")) {
@@ -138,6 +140,41 @@ providerRouter.post("/validate", async (req, res) => {
       res.json({ valid: false, error: `Could not connect to Ollama at ${host}: ${err.message}` });
       return;
     }
+  }
+
+  // Local or zero-key provider probe (LM Studio, Jan, Local Device, etc.)
+  if (reg?.isLocal || pId === "lm-studio" || pId === "jan" || pId === "local-device") {
+    const dbProv = ProviderRepository.getProviderById(pId);
+    const host = (
+      providerSpecificData?.baseUrl ||
+      dbProv?.baseUrl ||
+      reg?.defaultBaseUrl ||
+      reg?.baseUrl ||
+      (pId === "lm-studio" ? "http://localhost:1234/v1" : pId === "jan" ? "http://localhost:1337/v1" : "")
+    ).replace(/\/+$/, "");
+
+    if (!host) {
+      res.json({ valid: true });
+      return;
+    }
+
+    try {
+      const probeUrl = host.endsWith("/v1") ? `${host}/models` : `${host}/v1/models`;
+      const probeRes = await fetch(probeUrl, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+        signal: AbortSignal.timeout(4000),
+      });
+      res.json({ valid: probeRes.ok || probeRes.status === 200 || probeRes.status === 404 });
+      return;
+    } catch (err: any) {
+      res.json({ valid: false, error: `Could not connect to ${reg?.name || pId} at ${host}: ${err.message}` });
+      return;
+    }
+  }
+
+  if (isNoAuthOrNoKey) {
+    res.json({ valid: true });
+    return;
   }
 
   // Cloudflare AI check
@@ -488,27 +525,44 @@ providerRouter.post("/:id/accounts", (req, res) => {
     const providerId = req.params.id;
 
     const reg = getRegistryProvider(providerId);
-    const isNoAuth = reg?.noAuth || providerId === "opencode" || providerId === "oc";
-    const isOllamaLocal = providerId === "ollama-local";
+    const isNoAuth =
+      reg?.noAuth ||
+      reg?.requiresApiKey === false ||
+      reg?.authType === "none" ||
+      providerId === "opencode" ||
+      providerId === "oc";
+    const isLocal =
+      Boolean(reg?.isLocal) ||
+      providerId === "ollama-local" ||
+      providerId === "lm-studio" ||
+      providerId === "jan" ||
+      providerId === "local-device";
     const hasProfile = Boolean(providerSpecificData?.profile);
 
-    if (!name && !isOllamaLocal && !isNoAuth) {
+    if (!name && !isLocal && !isNoAuth) {
       res.status(400).json({ error: "Account name is required." });
       return;
     }
 
-    if (!apiKey && !isOllamaLocal && !hasProfile && !isNoAuth) {
+    if (!apiKey && !isLocal && !hasProfile && !isNoAuth) {
       res.status(400).json({ error: "API key or credential profile is required." });
       return;
     }
 
     const ensured = ProviderRepository.ensureProviderExists(providerId);
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+    const defaultName = isNoAuth
+      ? (providerId === "opencode" || providerId === "oc" ? "OpenCode Free" : `${reg?.name || providerId} Default`)
+      : isLocal
+      ? `${reg?.name || providerId} Local`
+      : "Account";
+    const defaultKey = (providerId === "opencode" || providerId === "oc") ? "public" : "";
+
     ProviderRepository.addAccount({
       id: accountId,
       providerId: ensured.id,
-      name: name || (isNoAuth ? "OpenCode Free" : isOllamaLocal ? "Ollama Local" : "Account"),
-      rawApiKey: apiKey || (isNoAuth ? "public" : ""),
+      name: name || defaultName,
+      rawApiKey: apiKey || defaultKey,
       providerSpecificData,
     });
 
@@ -556,7 +610,7 @@ providerRouter.post("/:id/test", async (req, res) => {
   }
 
   const reg = getRegistryProvider(provider.id);
-  const isOpenCode = provider.id === "opencode" || provider.id === "oc" || Boolean(reg?.noAuth);
+  const isOpenCode = provider.id === "opencode" || provider.id === "oc";
 
   if (isOpenCode) {
     try {
@@ -589,13 +643,32 @@ providerRouter.post("/:id/test", async (req, res) => {
   }
 
   const account = accounts[0];
+  const isNoKey =
+    Boolean(reg?.noAuth) ||
+    reg?.requiresApiKey === false ||
+    reg?.authType === "none" ||
+    Boolean(reg?.isLocal);
+
   try {
-    const testUrl = `${provider.baseUrl.replace(/\/+$/, "")}/v1/models`;
+    const rawBase = (provider.baseUrl || reg?.baseUrl || "").replace(/\/+$/, "");
+    let testUrl = `${rawBase}/v1/models`;
+    if (provider.id === "ollama-local" || provider.id.includes("ollama")) {
+      const host = rawBase.replace(/\/api\/chat$/, "");
+      testUrl = `${host}/api/tags`;
+    } else if (rawBase.endsWith("/v1")) {
+      testUrl = `${rawBase}/models`;
+    }
+
+    const headers: Record<string, string> = {};
+    if (account.rawApiKey && !isNoKey) {
+      headers["Authorization"] = `Bearer ${account.rawApiKey}`;
+    } else if (account.rawApiKey) {
+      headers["Authorization"] = `Bearer ${account.rawApiKey}`;
+    }
+
     const upstream = await fetch(testUrl, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${account.rawApiKey}`,
-      },
+      headers,
       signal: AbortSignal.timeout(5000),
     });
 

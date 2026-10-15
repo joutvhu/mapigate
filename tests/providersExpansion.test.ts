@@ -147,7 +147,7 @@ test("Providers Expansion - Anti-Bloat Guard", () => {
     "ideogram", "leonardo", "udio", "haiper", "magnific", "segmind", "deepai",
     "adobe-firefly", "soniox", "gladia", "rev-ai", "speechmatics",
     "chatgpt-web", "claude-web", "deepseek-web", "copilot-web", "gemini-web",
-    "vllm", "lm-studio", "llama-cpp", "llamafile", "lemonade", "triton"
+    "vllm", "llama-cpp", "llamafile", "lemonade", "triton"
   ];
 
   for (const id of BANNED_PROVIDERS) {

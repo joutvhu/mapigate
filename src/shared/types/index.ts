@@ -16,6 +16,10 @@ export interface ProviderConfig {
   stickyLimit?: number | null;
   credentialForm?: string;
   noAuth?: boolean;
+  authType?: "api-key" | "none" | "oauth" | string;
+  requiresApiKey?: boolean;
+  isLocal?: boolean;
+  defaultBaseUrl?: string;
   createdAt: number;
   updatedAt: number;
 }

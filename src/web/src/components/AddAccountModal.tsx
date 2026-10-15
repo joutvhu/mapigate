@@ -18,6 +18,11 @@ interface AddAccountModalProps {
     apiKeyUrl?: string;
     regions?: { id: string; label: string }[];
     defaultRegion?: string;
+    requiresApiKey?: boolean;
+    authType?: string;
+    isLocal?: boolean;
+    defaultBaseUrl?: string;
+    noAuth?: boolean;
   };
   existingNames?: string[];
   onClose: () => void;
@@ -34,8 +39,19 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   onOpenOAuth,
 }) => {
   const pId = provider.id.toLowerCase();
-  const isNoAuth = pId === "opencode" || pId === "oc" || Boolean((provider as any).noAuth);
+  const isNoAuth =
+    pId === "opencode" ||
+    pId === "oc" ||
+    Boolean(provider.noAuth) ||
+    provider.requiresApiKey === false ||
+    provider.authType === "none";
   const isOllamaLocal = pId === "ollama-local" || pId.includes("ollama");
+  const isGenericLocal =
+    Boolean(provider.isLocal) ||
+    pId === "lm-studio" ||
+    pId === "jan" ||
+    pId === "local-device";
+  const isNoApiKey = isNoAuth || isOllamaLocal || isGenericLocal || provider.requiresApiKey === false;
   const isAzure = pId === "azure" || pId.includes("azure");
   const isCloudflareAi = pId === "cloudflare-ai";
   const isBedrock = pId === "bedrock" || pId.includes("bedrock");
@@ -60,6 +76,14 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
   // Specialized states
   const [ollamaHost, setOllamaHost] = useState("http://127.0.0.1:11434");
+  const [localHost, setLocalHost] = useState(
+    provider.defaultBaseUrl ||
+      (pId === "lm-studio"
+        ? "http://localhost:1234/v1"
+        : pId === "jan"
+        ? "http://localhost:1337/v1"
+        : "http://localhost:8000/v1")
+  );
   const [azureEndpoint, setAzureEndpoint] = useState("");
   const [azureDeployment, setAzureDeployment] = useState("gpt-4");
   const [azureApiVersion, setAzureApiVersion] = useState("2024-10-01-preview");
@@ -88,6 +112,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     if (isCookie) {
       return pId === "grok-web" ? "sso=xxxx... or raw cookie" : "eyJhbGciOi...";
     }
+    if (isNoApiKey) return "Optional / Not required";
     if (isXiaomiTokenPlan) return "tp-...";
     if (pId.startsWith("deepseek")) return "sk-...";
     if (pId.startsWith("xai")) return "xai-...";
@@ -100,6 +125,9 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const buildProviderSpecificData = (): Record<string, any> | undefined => {
     if (isOllamaLocal) {
       return { baseUrl: ollamaHost.trim() || "http://127.0.0.1:11434" };
+    }
+    if (isGenericLocal) {
+      return { baseUrl: localHost.trim() };
     }
     if (isAzure) {
       return {
@@ -132,8 +160,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   };
 
   const isFormValid = () => {
-    if (isNoAuth) return true;
-    if (isOllamaLocal) return true;
+    if (isNoApiKey) return true;
     if (isBedrock && bedrockMode === "profile") return Boolean(bedrockProfile.trim());
     if (isBedrock && bedrockMode === "static") return Boolean(apiKey.trim() && bedrockAccessKeyId.trim());
     if (isAzure) return Boolean(apiKey.trim() && azureEndpoint.trim() && azureDeployment.trim());
@@ -179,9 +206,11 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     setError(null);
 
     const defaultName = isNoAuth
-      ? "OpenCode Free"
+      ? (pId === "opencode" || pId === "oc" ? "OpenCode Free" : `${provider.name} (Public)`)
       : isOllamaLocal
       ? "Ollama Local"
+      : isGenericLocal
+      ? `${provider.name} Local`
       : isBedrock && bedrockMode === "profile"
       ? `Bedrock (${bedrockProfile})`
       : isXiaomiTokenPlan
@@ -197,7 +226,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
-          apiKey: apiKey.trim() || (isNoAuth ? "public" : ""),
+          apiKey: apiKey.trim() || (pId === "opencode" || pId === "oc" ? "public" : ""),
           providerSpecificData: psd,
         }),
       });
@@ -287,6 +316,10 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   ? "Configure Azure OpenAI deployment & endpoint"
                   : isOllamaLocal
                   ? "Connect local self-hosted model service"
+                  : isGenericLocal
+                  ? `Connect local ${provider.name} model server`
+                  : isNoApiKey
+                  ? "No API key required for this provider"
                   : isXiaomiTokenPlan
                   ? "Select cluster region & paste Token Plan API key"
                   : "API key is hardware-encrypted (AES-256-GCM)"}
@@ -316,7 +349,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         )}
 
         {/* Mode Selector for Standard Providers */}
-        {!isBedrock && !isOllamaLocal && (
+        {!isBedrock && !isOllamaLocal && !isNoApiKey && (
           <div className="flex bg-[#0A0D14] p-1 rounded-xl border border-[#1E293B] text-xs">
             <button
               onClick={() => { setMode("single"); setBulkResult(null); }}
@@ -338,7 +371,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         )}
 
         {/* Bulk Mode */}
-        {mode === "bulk" && !isBedrock && !isOllamaLocal ? (
+        {mode === "bulk" && !isBedrock && !isOllamaLocal && !isNoApiKey ? (
           <div className="space-y-3">
             <div className="text-xs text-slate-400 space-y-1">
               <p>One key per line. Format:</p>
@@ -382,16 +415,18 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 type="text"
                 value={accountName}
                 onChange={(e) => setAccountName(e.target.value)}
-                placeholder={isOllamaLocal ? "Ollama Local" : isNoAuth ? "OpenCode Free" : "Primary Key (Production)"}
+                placeholder={isOllamaLocal ? "Ollama Local" : isGenericLocal ? `${provider.name} Local` : isNoAuth ? "OpenCode Free" : "Primary Key (Production)"}
                 className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
 
-            {/* Zero-Auth Free Provider Notice */}
-            {isNoAuth && (
+            {/* Zero-Auth Free or Local Provider Notice */}
+            {isNoApiKey && (
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
                 <span className="material-symbols-outlined text-emerald-400 text-[18px]">verified</span>
-                <span>OpenCode Free requires no API key. You can add a connection label or click Add Connection directly.</span>
+                <span>
+                  {provider.name} does not require an API key. You can save immediately or customize the connection label.
+                </span>
               </div>
             )}
 
@@ -443,6 +478,35 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-400 mt-1.5">
                     Default is <code className="text-blue-300 font-mono">http://127.0.0.1:11434</code>. For remote Ollama instances, enter the full host URL.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Generic Local Provider Form (LM Studio, Jan, Local Device, etc.) */}
+            {isGenericLocal && (
+              <div className="space-y-3 p-3.5 bg-[#0A0D14] border border-[#1E293B] rounded-xl">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">{provider.name} Endpoint URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={localHost}
+                      onChange={(e) => setLocalHost(e.target.value)}
+                      placeholder={provider.defaultBaseUrl || "http://localhost:1234/v1"}
+                      className="flex-1 bg-[#0F1420] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleValidate}
+                      disabled={validating}
+                      className="rt-btn rt-btn--secondary shrink-0"
+                    >
+                      {validating ? "Checking..." : "Check"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    Default is <code className="text-blue-300 font-mono">{provider.defaultBaseUrl || "http://localhost:1234/v1"}</code>. Ensure {provider.name} local server is started.
                   </p>
                 </div>
               </div>
@@ -626,6 +690,8 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                     ? "Cloudflare API Token"
                     : isXiaomiTokenPlan
                     ? "Token Plan Key (tp-...)"
+                    : isNoApiKey
+                    ? "API Key (Optional)"
                     : "API Key"}
                 </label>
                 <div className="flex gap-2">

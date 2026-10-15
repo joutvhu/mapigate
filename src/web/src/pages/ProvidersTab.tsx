@@ -48,12 +48,30 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   }, []);
 
   const isFreeNoAuth = (p: ProviderItem) => {
-    return (p as any).noAuth || p.id === "opencode" || p.id === "oc";
+    return (
+      Boolean(p.noAuth) ||
+      p.requiresApiKey === false ||
+      p.authType === "none" ||
+      p.id === "opencode" ||
+      p.id === "oc" ||
+      p.id === "ollama-local" ||
+      p.id === "lm-studio" ||
+      p.id === "jan" ||
+      p.id === "local-device"
+    );
   };
 
   const getAccountCount = (providerId: string) => {
     const found = backendProviders.find((p) => p.id === providerId);
-    if (providerId === "opencode" || providerId === "oc" || (found as any)?.noAuth) {
+    const reg = getRegistryProvider(providerId);
+    if (
+      providerId === "opencode" ||
+      providerId === "oc" ||
+      Boolean((found as any)?.noAuth) ||
+      Boolean(reg?.noAuth) ||
+      reg?.requiresApiKey === false ||
+      reg?.authType === "none"
+    ) {
       return Math.max(1, found?.accountsCount ?? 0);
     }
     return found?.accountsCount ?? 0;
@@ -87,14 +105,14 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
         existing = await createRes.json();
       }
 
-      // 2. Add encrypted account if apiKeyInput provided
-      if (apiKeyInput.trim()) {
+      // 2. Add encrypted account if apiKeyInput provided or if noAuth
+      if (apiKeyInput.trim() || isFreeNoAuth(selectedProvider)) {
         await fetch(`/api/providers/${selectedProvider.id}/accounts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: accountName,
-            apiKey: apiKeyInput.trim(),
+            name: accountName || `${selectedProvider.name} Connection`,
+            apiKey: apiKeyInput.trim() || (selectedProvider.id === "opencode" || selectedProvider.id === "oc" ? "public" : ""),
           }),
         });
       }
@@ -188,11 +206,16 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             <h4 className="text-xs font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
               {p.name}
             </h4>
-            <div className="mt-1 flex items-center gap-1.5">
+            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+              {p.isLocal && (
+                <span className="rt-badge rt-badge--primary text-[10px]">
+                  Local
+                </span>
+              )}
               {isFreeNoAuth(p) ? (
                 <span className="rt-badge rt-badge--success">
                   <span className="size-1.5 rounded-full bg-emerald-400" />
-                  Ready (Free)
+                  {p.isLocal ? "Ready (Local)" : "Ready (Free)"}
                 </span>
               ) : count > 0 ? (
                 <span className="rt-badge rt-badge--success">

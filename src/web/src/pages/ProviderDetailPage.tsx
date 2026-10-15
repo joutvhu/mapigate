@@ -451,14 +451,20 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         </div>
       )}
 
-      {/* Zero-Auth Free Provider Banner */}
-      {(provider.id === "opencode" || (registryItem as any)?.noAuth) && (
+      {/* Zero-Auth Free / Local Provider Banner */}
+      {(provider.id === "opencode" || (registryItem as any)?.noAuth || (registryItem as any)?.requiresApiKey === false || (registryItem as any)?.authType === "none" || (registryItem as any)?.isLocal) && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 animate-rt-scale-in">
           <div className="flex items-center gap-2.5">
             <span className="material-symbols-outlined text-[20px] text-emerald-400 shrink-0">check_circle</span>
             <div>
-              <p className="font-semibold text-white">No Authentication Required (100% Free)</p>
-              <p className="text-slate-400 mt-0.5">OpenCode Free is ready to use immediately without an account or API key. Requests route automatically using the public gateway pool.</p>
+              <p className="font-semibold text-white">
+                {(registryItem as any)?.isLocal ? "Local Provider (No Paid Key Required)" : "No Authentication Required (100% Free)"}
+              </p>
+              <p className="text-slate-400 mt-0.5">
+                {(registryItem as any)?.isLocal
+                  ? `${provider.name} runs directly on your local device without external API tokens.`
+                  : `${provider.name} is ready to use immediately without an account or API key.`}
+              </p>
             </div>
           </div>
           <button
@@ -474,7 +480,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[15px]">speed</span>
-            Test Free Upstream
+            Test Connection
           </button>
         </div>
       )}
@@ -895,6 +901,11 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           apiKeyUrl: registryItem?.notice?.apiKeyUrl,
           regions: registryItem?.regions,
           defaultRegion: registryItem?.defaultRegion,
+          requiresApiKey: (registryItem as any)?.requiresApiKey,
+          authType: (registryItem as any)?.authType,
+          isLocal: (registryItem as any)?.isLocal,
+          defaultBaseUrl: (registryItem as any)?.defaultBaseUrl || registryItem?.baseUrl,
+          noAuth: (registryItem as any)?.noAuth,
         }}
         existingNames={connections.map((c) => c.name)}
         onClose={() => setShowAddModal(false)}
