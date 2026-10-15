@@ -12,7 +12,7 @@ export * from "./types.js";
 export async function handleProxyRequest(
   req: Request,
   res: Response,
-  clientFormat: "openai" | "anthropic"
+  clientFormat: "openai" | "anthropic" | "responses"
 ): Promise<void> {
   const endpointSettings = SettingsRepository.getEndpointSettings();
   if (endpointSettings.requireApiKey) {

@@ -44,6 +44,10 @@ export async function interceptKiro(
     }
 
     const body = JSON.parse(bodyBuffer.toString("utf-8"));
+    const conversationId =
+      body.conversationState?.conversationId ||
+      body.conversationId ||
+      "";
     const messages = codeWhispererToMessages(body);
     if (messages.length === 0) {
       throw new Error("codeWhispererToMessages produced 0 messages");
@@ -58,7 +62,7 @@ export async function interceptKiro(
     };
 
     const routerRes = await fetchRouter(openaiBody, "/v1/chat/completions", req.headers);
-    const state = initKiroState(mappedModel);
+    const state = initKiroState(mappedModel, conversationId);
 
     await pipeTransformedEventStream(routerRes, res, convertOpenAIToKiro, state);
   } catch (error: any) {

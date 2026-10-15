@@ -48,6 +48,14 @@ export function safeArgsString(value: any): string {
   }
 }
 
+const INLINE_IMAGE_MIME_BY_FORMAT = new Map([
+  ["png", "image/png"],
+  ["jpeg", "image/jpeg"],
+  ["jpg", "image/jpeg"],
+  ["gif", "image/gif"],
+  ["webp", "image/webp"],
+]);
+
 export function convertUserInputMessage(uim: any): any[] {
   const out: any[] = [];
   const toolResults = uim.userInputMessageContext?.toolResults || [];
@@ -61,8 +69,34 @@ export function convertUserInputMessage(uim: any): any[] {
     });
   }
 
+  const images = Array.isArray(uim.images) ? uim.images : [];
+  const imageParts = images
+    .filter(
+      (image: any) =>
+        image !== null &&
+        typeof image === "object" &&
+        !Array.isArray(image) &&
+        image.source !== null &&
+        typeof image.source === "object" &&
+        !Array.isArray(image.source) &&
+        INLINE_IMAGE_MIME_BY_FORMAT.has(image.format) &&
+        typeof image.source.bytes === "string" &&
+        image.source.bytes.length > 0
+    )
+    .map((image: any) => ({
+      type: "image_url",
+      image_url: {
+        url: `data:${INLINE_IMAGE_MIME_BY_FORMAT.get(image.format)};base64,${image.source.bytes}`,
+      },
+    }));
+
   const text = (uim.content || "").trim();
-  if (text || toolResults.length === 0) {
+  if (imageParts.length > 0) {
+    const content: any[] = [];
+    if (text) content.push({ type: "text", text });
+    content.push(...imageParts);
+    out.push({ role: "user", content });
+  } else if (text || toolResults.length === 0) {
     out.push({ role: "user", content: text });
   }
 
@@ -145,6 +179,21 @@ export function emitFinish(state: KiroState): Buffer[] | null {
       );
     }
   } else {
+    // If no text was ever emitted, Kiro IDE shows "Error sending prompt: <model> returned no response."
+    // Synthesize an assistantResponseEvent from thinking or fallback text so Kiro always receives content.
+    if (!state.hasEmittedContent) {
+      const fallbackText =
+        state.thinkBuf || "I processed your request, but no additional output was generated.";
+      state.hasEmittedContent = true;
+      state.thinkBuf = "";
+      state.inThink = false;
+      frames.push(
+        buildEventStreamFrame("assistantResponseEvent", {
+          content: fallbackText,
+          modelId: state.modelId || "kiro-unknown",
+        })
+      );
+    }
     frames.push(buildEventStreamFrame("messageStopEvent", {}));
   }
   state.finishSent = true;
@@ -165,19 +214,8 @@ export function emitFinish(state: KiroState): Buffer[] | null {
 export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer | Buffer[] | null {
   if (!chunk) {
     if (state.finishSent) return null;
-    if (state.inThink && state.thinkBuf) {
-      state.inThink = false;
-      const thinking = state.thinkBuf;
-      state.thinkBuf = "";
-      return withInitialFrame(
-        state,
-        buildEventStreamFrame("reasoningContentEvent", {
-          content: thinking,
-          modelId: state.modelId || "kiro-unknown",
-        })
-      );
-    }
-    return withInitialFrame(state, buildEventStreamFrame("messageStopEvent", {}));
+    const finishFrames = emitFinish(state);
+    return withInitialFrame(state, finishFrames);
   }
 
   const frames: Buffer[] = [];
@@ -240,6 +278,7 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
       );
     }
     if (text) {
+      state.hasEmittedContent = true;
       frames.push(
         buildEventStreamFrame("assistantResponseEvent", {
           content: text,

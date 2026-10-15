@@ -120,7 +120,7 @@ export interface ProviderRequestContext {
   req: Request;
   res?: Response;
   targetModel: string;
-  clientFormat: "openai" | "anthropic";
+  clientFormat: "openai" | "anthropic" | "responses";
   targetFormat: "openai" | "claude" | string;
   body: any;
   provider?: ProviderConfig;

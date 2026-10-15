@@ -1,6 +1,11 @@
 import type { Response } from "express";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { OpenAiAdapter } from "../../../core/adapters/openAiAdapter.js";
+import {
+  createResponsesStreamState,
+  openAiChunkToResponsesEvents,
+  finalizeResponsesStream,
+} from "../../../core/adapters/responsesAdapter.js";
 import { toolSchemaMap } from "../../../core/adapters/helpers/index.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
@@ -23,6 +28,7 @@ export async function pipeSseStream(
   const requestTools = context.req?.body?.tools || context.body?.tools;
   const toolSchemas = toolSchemaMap(requestTools);
   const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
+  const responsesState = clientFormat === "responses" ? createResponsesStreamState(requestId) : null;
 
   if (clientFormat === "anthropic" && targetFormat === "openai") {
     clientRes.write(
@@ -98,7 +104,12 @@ export async function pipeSseStream(
           logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
         });
 
-        if (clientFormat === "anthropic" && targetFormat === "openai") {
+        if (clientFormat === "responses" && responsesState) {
+          const responsesEvents = openAiChunkToResponsesEvents(jsonChunk, responsesState);
+          for (const ev of responsesEvents) {
+            clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+          }
+        } else if (clientFormat === "anthropic" && targetFormat === "openai") {
           const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
             jsonChunk,
             requestId,
@@ -136,7 +147,12 @@ export async function pipeSseStream(
     }
   }
 
-  if (clientFormat === "anthropic" && targetFormat === "openai") {
+  if (clientFormat === "responses" && responsesState) {
+    const finalEvents = finalizeResponsesStream(responsesState);
+    for (const ev of finalEvents) {
+      clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+    }
+  } else if (clientFormat === "anthropic" && targetFormat === "openai") {
     const finalEvents = AnthropicAdapter.finalizeStream(openAiToAnthropicState);
     for (const ev of finalEvents) {
       clientRes.write(ev);

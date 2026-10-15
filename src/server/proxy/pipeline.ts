@@ -19,7 +19,7 @@ import crypto from "node:crypto";
 export async function runProxyPipeline(
   req: Request,
   res: Response,
-  clientFormat: "openai" | "anthropic"
+  clientFormat: "openai" | "anthropic" | "responses"
 ): Promise<void> {
   const startTime = Date.now();
   const requestId = req.reqId || crypto.randomUUID();

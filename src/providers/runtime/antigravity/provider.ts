@@ -1,8 +1,9 @@
 import { BaseProvider } from "../../core/base/baseProvider.js";
-import type { ProviderRequestContext } from "../../core/types.js";
+import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getAntigravityUsage } from "./quota.js";
 import { refreshGoogleOAuthToken } from "./routes.js";
+import { executeAntigravity } from "./executor.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 
@@ -13,6 +14,13 @@ export class AntigravityProvider extends BaseProvider {
 
   public override supportsQuota(): boolean {
     return true;
+  }
+
+  public async execute(
+    context: ProviderRequestContext,
+    _dispatchSingleModel: SingleModelHandler
+  ): Promise<ModelCallResult> {
+    return await executeAntigravity(context, this);
   }
 
   public async fetchQuota(context: ProviderUsageContext): Promise<RawProviderQuotaResult> {

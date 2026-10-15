@@ -234,6 +234,17 @@ export async function pipeTransformedEventStream(
   transformFn: (parsedChunk: any | null, state: any) => Uint8Array | Uint8Array[] | null,
   state: any
 ): Promise<void> {
+  if (!routerRes.ok) {
+    const errorText = await routerRes.text().catch(() => "");
+    if (!res.headersSent) {
+      res.writeHead(routerRes.status, {
+        "Content-Type": routerRes.headers.get("content-type") || "application/json",
+      });
+    }
+    res.end(errorText);
+    return;
+  }
+
   res.writeHead(200, {
     "Content-Type": "application/vnd.amazon.eventstream",
     "Cache-Control": "no-cache",

@@ -199,6 +199,45 @@ describe("MITM Modular Tool Handlers", () => {
       const finishResult = convertOpenAIToKiro(finishChunk, state);
       assert.ok(finishResult);
     });
+
+    it("preserves conversationId in initial-response frame", () => {
+      const state = initKiroState("gemini-3.8-flash", "sess_74ab5020-2af8-4af6-984d-9b8cce631402");
+      const chunk = {
+        model: "gemini-3.8-flash",
+        choices: [{ delta: { content: "Hello" } }],
+      };
+
+      const result = convertOpenAIToKiro(chunk, state);
+      assert.ok(result);
+      const frames = Array.isArray(result) ? result : [result];
+      // First frame is initial-response
+      const initialFrame = frames[0];
+      const initialStr = initialFrame.toString("utf8");
+      assert.ok(initialStr.includes("sess_74ab5020-2af8-4af6-984d-9b8cce631402"));
+    });
+
+    it("synthesizes assistantResponseEvent when model produces only thinking to prevent 'returned no response'", () => {
+      const state = initKiroState("gemini-3.8-flash", "sess_1234");
+      // Chunk 1: reasoning only
+      const thinkChunk = {
+        model: "gemini-3.8-flash",
+        choices: [{ delta: { reasoning_content: "I am analyzing the problem." } }],
+      };
+      const r1 = convertOpenAIToKiro(thinkChunk, state);
+      assert.ok(r1);
+
+      // Finish with stop reason and 0 text tokens
+      const finishChunk = {
+        choices: [{ finish_reason: "stop" }],
+      };
+      const r2 = convertOpenAIToKiro(finishChunk, state);
+      assert.ok(r2);
+      const finishFrames = Array.isArray(r2) ? r2 : [r2];
+      const finishStr = Buffer.concat(finishFrames).toString("utf8");
+      // Must include assistantResponseEvent before messageStopEvent
+      assert.ok(finishStr.includes("assistantResponseEvent"));
+      assert.ok(finishStr.includes("messageStopEvent"));
+    });
   });
 
   describe("Generated Registry and Central Handlers Exports", () => {

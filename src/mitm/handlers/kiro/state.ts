@@ -19,8 +19,10 @@ export function crc32(buf: Buffer | Uint8Array): number {
 
 export interface KiroState {
   modelId: string | null;
+  conversationId: string;
   toolCallInit: Record<number, { id: string; name: string }>;
   hasToolCalls: boolean;
+  hasEmittedContent: boolean;
   finishSent: boolean;
   usage: any | null;
   inThink: boolean;
@@ -28,11 +30,13 @@ export interface KiroState {
   initialSent: boolean;
 }
 
-export function initKiroState(modelId?: string): KiroState {
+export function initKiroState(modelId?: string, conversationId?: string): KiroState {
   return {
     modelId: modelId || null,
+    conversationId: conversationId || "",
     toolCallInit: {},
     hasToolCalls: false,
+    hasEmittedContent: false,
     finishSent: false,
     usage: null,
     inThink: false,
@@ -99,7 +103,7 @@ export function withInitialFrame(state: KiroState, frames: Buffer | Buffer[] | n
     return list.length === 0 ? null : list.length === 1 ? list[0] : list;
   }
   state.initialSent = true;
-  const out = [buildInitialResponseFrame(""), ...list];
+  const out = [buildInitialResponseFrame(state.conversationId || ""), ...list];
   return out.length === 1 ? out[0] : out;
 }
 

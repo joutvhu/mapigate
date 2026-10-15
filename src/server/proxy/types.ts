@@ -8,7 +8,7 @@ export interface ExecuteSingleModelOptions {
   res: Response;
   body: any;
   modelStr: string;
-  clientFormat: "openai" | "anthropic";
+  clientFormat: "openai" | "anthropic" | "responses";
   isPanel?: boolean;
   requestId: string;
   startTime: number;

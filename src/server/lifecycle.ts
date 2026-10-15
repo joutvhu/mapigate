@@ -48,6 +48,13 @@ export class ServerLifecycle {
     }
 
     try {
+      const { mitmManager } = await import("../mitm/manager.js");
+      await mitmManager.stopServer();
+    } catch {
+      // Best-effort
+    }
+
+    try {
       PidFileManager.removePid();
     } catch {
       // Best-effort
