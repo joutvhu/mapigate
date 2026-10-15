@@ -105,9 +105,33 @@ export async function pipeSseStream(
         });
 
         if (clientFormat === "responses" && responsesState) {
-          const responsesEvents = openAiChunkToResponsesEvents(jsonChunk, responsesState);
-          for (const ev of responsesEvents) {
-            clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+          if (targetFormat === "claude") {
+            const eventPayload = {
+              type: currentEventName || jsonChunk.type,
+              ...jsonChunk,
+            };
+            const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+              eventPayload,
+              requestId,
+              claudeToOpenAiState
+            );
+            for (const ch of openAiChunks) {
+              const trimmed = ch.trim();
+              if (trimmed.startsWith("data:") && !trimmed.includes("[DONE]")) {
+                try {
+                  const parsedOpenAiChunk = JSON.parse(trimmed.slice(5).trim());
+                  const responsesEvents = openAiChunkToResponsesEvents(parsedOpenAiChunk, responsesState);
+                  for (const ev of responsesEvents) {
+                    clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+                  }
+                } catch {}
+              }
+            }
+          } else {
+            const responsesEvents = openAiChunkToResponsesEvents(jsonChunk, responsesState);
+            for (const ev of responsesEvents) {
+              clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+            }
           }
         } else if (clientFormat === "anthropic" && targetFormat === "openai") {
           const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(

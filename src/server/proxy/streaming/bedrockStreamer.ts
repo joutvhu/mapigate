@@ -1,5 +1,10 @@
 import type { Response } from "express";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
+import {
+  createResponsesStreamState,
+  openAiChunkToResponsesEvents,
+  finalizeResponsesStream,
+} from "../../../core/adapters/responsesAdapter.js";
 import { decodeEventStreamChunk } from "../../../providers/runtime/bedrock/eventStream.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
@@ -20,6 +25,8 @@ export async function pipeBedrockEventStream(
   const state = createStreamTrackingState(rtkStats.compressedTokens || 0);
   let residualBuffer: any = new Uint8Array(0);
   const bedrockOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState();
+  const responsesState =
+    clientFormat === "responses" ? createResponsesStreamState(requestId) : undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -60,7 +67,25 @@ export async function pipeBedrockEventStream(
           }
         }
 
-        if (clientFormat === "anthropic") {
+        if (clientFormat === "responses" && responsesState) {
+          const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+            eventObj,
+            requestId,
+            bedrockOpenAiState
+          );
+          for (const ch of openAiChunks) {
+            const trimmed = ch.trim();
+            if (trimmed.startsWith("data:") && !trimmed.includes("[DONE]")) {
+              try {
+                const parsed = JSON.parse(trimmed.slice(5).trim());
+                const responsesEvents = openAiChunkToResponsesEvents(parsed, responsesState);
+                for (const ev of responsesEvents) {
+                  clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+                }
+              } catch {}
+            }
+          }
+        } else if (clientFormat === "anthropic") {
           clientRes.write(`event: ${eventObj.type || "content_block_delta"}\ndata: ${rawEventString}\n\n`);
         } else {
           const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
@@ -76,7 +101,12 @@ export async function pipeBedrockEventStream(
     }
   }
 
-  if (clientFormat === "openai") {
+  if (clientFormat === "responses" && responsesState) {
+    const finalEvents = finalizeResponsesStream(responsesState);
+    for (const ev of finalEvents) {
+      clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+    }
+  } else if (clientFormat === "openai") {
     clientRes.write("data: [DONE]\n\n");
   }
   clientRes.end();

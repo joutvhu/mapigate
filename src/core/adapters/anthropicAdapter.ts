@@ -737,4 +737,54 @@ export class AnthropicAdapter {
 
     return events;
   }
+
+  /**
+   * Convert OpenAI non-streaming chat completion to Anthropic Message response
+   */
+  public static openAiResponseToAnthropic(openAiResponse: any, requestId?: string): any {
+    if (!openAiResponse || typeof openAiResponse !== "object") return openAiResponse;
+    const choice = openAiResponse.choices?.[0];
+    const message = choice?.message || {};
+    const contentBlocks: any[] = [];
+
+    const reasoning = message.reasoning_content || message.reasoning || message.thought;
+    if (reasoning) {
+      contentBlocks.push({ type: "thinking", thinking: reasoning });
+    }
+    if (message.content) {
+      contentBlocks.push({ type: "text", text: message.content });
+    }
+    if (Array.isArray(message.tool_calls)) {
+      for (const tc of message.tool_calls) {
+        let input: any = {};
+        try {
+          input = typeof tc.function?.arguments === "string" ? JSON.parse(tc.function.arguments) : (tc.function?.arguments || {});
+        } catch {
+          input = { raw: tc.function?.arguments };
+        }
+        contentBlocks.push({
+          type: "tool_use",
+          id: tc.id || `call_${Date.now()}`,
+          name: tc.function?.name,
+          input,
+        });
+      }
+    }
+
+    const finishReason = choice?.finish_reason;
+    const usage = openAiResponse.usage || {};
+
+    return {
+      id: requestId ? `msg_${requestId}` : (openAiResponse.id ? `msg_${openAiResponse.id}` : `msg_${Date.now()}`),
+      type: "message",
+      role: "assistant",
+      model: openAiResponse.model || "claude",
+      content: contentBlocks,
+      stop_reason: finishReason === "length" ? "max_tokens" : finishReason === "tool_calls" ? "tool_use" : "end_turn",
+      usage: {
+        input_tokens: usage.prompt_tokens || usage.input_tokens || 0,
+        output_tokens: usage.completion_tokens || usage.output_tokens || 0,
+      },
+    };
+  }
 }

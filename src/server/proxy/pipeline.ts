@@ -13,6 +13,8 @@ import {
 import { executeSingleModel } from "./singleModelExecutor.js";
 import { ResponseLogger } from "./responseLogger.js";
 import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
+import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
+import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import crypto from "node:crypto";
 
@@ -163,6 +165,22 @@ export async function runProxyPipeline(
       }
     } else {
       result = await handleSingleModel(body, cleanModel, false);
+    }
+
+    if (result.ok && !res.headersSent) {
+      let respData = result.json || result.text;
+      if (respData !== undefined) {
+        if (typeof respData === "object") {
+          if (clientFormat === "responses") {
+            respData = convertOpenAiResponseToResponsesApi(respData);
+          } else if (clientFormat === "anthropic") {
+            respData = AnthropicAdapter.openAiResponseToAnthropic(respData, requestId);
+          }
+          res.status(result.status || 200).json(respData);
+        } else {
+          res.status(result.status || 200).send(respData);
+        }
+      }
     }
 
     if (!result.ok && !res.headersSent) {

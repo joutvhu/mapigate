@@ -1,6 +1,12 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../core/types.js";
 import { metadata } from "./metadata.js";
+import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
+import {
+  createResponsesStreamState,
+  openAiChunkToResponsesEvents,
+  finalizeResponsesStream,
+} from "../../../core/adapters/responsesAdapter.js";
 
 const TRAE_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
@@ -86,7 +92,7 @@ export class TraeProvider extends OpenAiCompatibleProvider {
     context: ProviderRequestContext,
     _dispatchSingleModel: SingleModelHandler
   ): Promise<ModelCallResult> {
-    const { body, targetModel, isPanel, res } = context;
+    const { body, targetModel, isPanel, res, clientFormat, requestId } = context;
     const isStreaming = body.stream !== false && !isPanel;
     const headers = this.buildTraeHeaders(context, isStreaming);
     const psd = context.account?.providerSpecificData || {};
@@ -162,7 +168,40 @@ export class TraeProvider extends OpenAiCompatibleProvider {
       res.setHeader("X-Accel-Buffering", "no");
       res.flushHeaders?.();
 
-      const emit = (obj: any) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
+      const anthropicState =
+        clientFormat === "anthropic" ? AnthropicAdapter.createStreamState(`msg_${requestId}`, body.tools) : undefined;
+      const responsesState =
+        clientFormat === "responses" ? createResponsesStreamState(requestId) : undefined;
+
+      const emit = (obj: any) => {
+        if (clientFormat === "responses" && responsesState) {
+          const events = openAiChunkToResponsesEvents(obj, responsesState);
+          for (const ev of events) {
+            res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+          }
+        } else if (clientFormat === "anthropic" && anthropicState) {
+          const events = AnthropicAdapter.openAiChunkToAnthropicEvent(obj, `msg_${requestId}`, anthropicState);
+          for (const ev of events) res.write(ev);
+        } else {
+          res.write(`data: ${JSON.stringify(obj)}\n\n`);
+        }
+      };
+
+      if (clientFormat === "anthropic") {
+        res.write(
+          `event: message_start\ndata: ${JSON.stringify({
+            type: "message_start",
+            message: {
+              id: `msg_${requestId}`,
+              type: "message",
+              role: "assistant",
+              model: targetModel,
+              content: [],
+            },
+          })}\n\n`
+        );
+      }
+
       emit({
         id: responseId,
         object: "chat.completion.chunk",
@@ -218,7 +257,17 @@ export class TraeProvider extends OpenAiCompatibleProvider {
         model: targetModel,
         choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
       });
-      res.write("data: [DONE]\n\n");
+
+      if (clientFormat === "responses" && responsesState) {
+        const finalEvents = finalizeResponsesStream(responsesState);
+        for (const ev of finalEvents) {
+          res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+        }
+      } else if (clientFormat === "anthropic") {
+        res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+      } else {
+        res.write("data: [DONE]\n\n");
+      }
       res.end();
 
       return { ok: true, status: 200, modelUsed: targetModel };

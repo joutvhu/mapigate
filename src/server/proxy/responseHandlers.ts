@@ -7,6 +7,8 @@ import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import type { LogToolSnippet } from "../../shared/types/index.js";
 import { reasoningCache } from "../../core/caching/reasoningCache.js";
 import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
+import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
+import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -37,6 +39,11 @@ export async function handleNonStreamingResponse(
   }
 
   if (isJson) {
+    if (context.clientFormat === "responses") {
+      responseBody = convertOpenAiResponseToResponsesApi(responseBody);
+    } else if (context.clientFormat === "anthropic" && context.targetFormat === "openai") {
+      responseBody = AnthropicAdapter.openAiResponseToAnthropic(responseBody, context.requestId);
+    }
     res.status(200).json(responseBody);
   } else {
     res.status(200).send(responseBody);
