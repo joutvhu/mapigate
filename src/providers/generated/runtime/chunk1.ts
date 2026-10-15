@@ -12,6 +12,7 @@ import Prov_amazon_q from "../../catalog/amazon-q/provider.js";
 import Prov_ant_ling from "../../catalog/ant-ling/provider.js";
 import Prov_anthropic from "../../catalog/anthropic/provider.js";
 import Prov_antigravity from "../../runtime/antigravity/provider.js";
+import Prov_anyapi from "../../catalog/anyapi/provider.js";
 import Prov_api_airforce from "../../catalog/api-airforce/provider.js";
 import Prov_arcee_ai from "../../catalog/arcee-ai/provider.js";
 import Prov_assemblyai from "../../catalog/assemblyai/provider.js";
@@ -39,7 +40,6 @@ import Prov_claude from "../../runtime/claude/provider.js";
 import Prov_cline from "../../runtime/cline/provider.js";
 import Prov_clinepass from "../../catalog/clinepass/provider.js";
 import Prov_cloudflare from "../../runtime/cloudflare/provider.js";
-import Prov_cloudflare_ai from "../../catalog/cloudflare-ai/provider.js";
 
 export function registerRuntimeChunk1(registry: { register(p: any): void }): void {
   registry.register(new Prov_p_360ai());
@@ -54,6 +54,7 @@ export function registerRuntimeChunk1(registry: { register(p: any): void }): voi
   registry.register(new Prov_ant_ling());
   registry.register(new Prov_anthropic());
   registry.register(new Prov_antigravity());
+  registry.register(new Prov_anyapi());
   registry.register(new Prov_api_airforce());
   registry.register(new Prov_arcee_ai());
   registry.register(new Prov_assemblyai());
@@ -81,5 +82,4 @@ export function registerRuntimeChunk1(registry: { register(p: any): void }): voi
   registry.register(new Prov_cline());
   registry.register(new Prov_clinepass());
   registry.register(new Prov_cloudflare());
-  registry.register(new Prov_cloudflare_ai());
 }

@@ -1,5 +1,7 @@
 import type { Response } from "express";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
+import { OpenAiAdapter } from "../../../core/adapters/openAiAdapter.js";
+import { toolSchemaMap } from "../../../core/adapters/helpers/index.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
 import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
@@ -18,7 +20,9 @@ export async function pipeSseStream(
   }
 
   const state = createStreamTrackingState(rtkStats.compressedTokens || 0);
-  const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId);
+  const requestTools = context.req?.body?.tools || context.body?.tools;
+  const toolSchemas = toolSchemaMap(requestTools);
+  const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
 
   if (clientFormat === "anthropic" && targetFormat === "openai") {
     clientRes.write(
@@ -81,6 +85,10 @@ export async function pipeSseStream(
 
         if (provider.transformResponseChunk) {
           jsonChunk = provider.transformResponseChunk(jsonChunk, context);
+        }
+
+        if (jsonChunk?.choices?.[0]?.delta?.tool_calls) {
+          OpenAiAdapter.repairToolCalls(jsonChunk.choices[0].delta.tool_calls, toolSchemas);
         }
 
         extractTokensFromChunk(jsonChunk, state);

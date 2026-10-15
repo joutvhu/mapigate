@@ -13,6 +13,7 @@ import { metadata as amazon_q } from "../../catalog/amazon-q/metadata.js";
 import { metadata as ant_ling } from "../../catalog/ant-ling/metadata.js";
 import { metadata as anthropic } from "../../catalog/anthropic/metadata.js";
 import { metadata as antigravity } from "../../runtime/antigravity/metadata.js";
+import { metadata as anyapi } from "../../catalog/anyapi/metadata.js";
 import { metadata as api_airforce } from "../../catalog/api-airforce/metadata.js";
 import { metadata as arcee_ai } from "../../catalog/arcee-ai/metadata.js";
 import { metadata as assemblyai } from "../../catalog/assemblyai/metadata.js";
@@ -40,7 +41,6 @@ import { metadata as claude } from "../../runtime/claude/metadata.js";
 import { metadata as cline } from "../../runtime/cline/metadata.js";
 import { metadata as clinepass } from "../../catalog/clinepass/metadata.js";
 import { metadata as cloudflare } from "../../runtime/cloudflare/metadata.js";
-import { metadata as cloudflare_ai } from "../../catalog/cloudflare-ai/metadata.js";
 
 export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "360ai": p_360ai,
@@ -55,6 +55,7 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "ant-ling": ant_ling,
   "anthropic": anthropic,
   "antigravity": antigravity,
+  "anyapi": anyapi,
   "api-airforce": api_airforce,
   "arcee-ai": arcee_ai,
   "assemblyai": assemblyai,
@@ -82,5 +83,4 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "cline": cline,
   "clinepass": clinepass,
   "cloudflare": cloudflare,
-  "cloudflare-ai": cloudflare_ai,
 };

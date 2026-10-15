@@ -1,3 +1,11 @@
+import {
+  repairToolArguments,
+  toolSchemaMap,
+  extractToolNames,
+  type JsonSchemaish,
+} from "./helpers/toolArgsRepair.js";
+import { rescueInlineToolCalls } from "./helpers/toolCallRescue.js";
+
 export interface AnthropicStreamState {
   messageStartSent?: boolean;
   messageId?: string;
@@ -7,6 +15,7 @@ export interface AnthropicStreamState {
   toolCalls: Map<number, { id: string; name: string; blockIndex: number; started: boolean; stopped?: boolean }>;
   outputTokens?: number;
   messageStopSent?: boolean;
+  toolSchemas?: Map<string, JsonSchemaish>;
 }
 
 export interface AnthropicToOpenAiStreamState {
@@ -25,7 +34,7 @@ export class AnthropicAdapter {
   /**
    * Create a state tracker for OpenAI -> Anthropic streaming
    */
-  public static createStreamState(messageId?: string): AnthropicStreamState {
+  public static createStreamState(messageId?: string, tools?: any[]): AnthropicStreamState {
     return {
       messageStartSent: false,
       messageId: messageId || `msg_${Date.now()}`,
@@ -33,6 +42,7 @@ export class AnthropicAdapter {
       currentBlockType: null,
       currentBlockIndex: null,
       toolCalls: new Map(),
+      toolSchemas: tools ? toolSchemaMap(tools) : undefined,
     };
   }
 
@@ -176,6 +186,8 @@ export class AnthropicAdapter {
   public static openAiToAnthropic(openAiBody: any): any {
     let systemPrompt = "";
     const anthropicMessages: any[] = [];
+    const toolSchemas = toolSchemaMap(openAiBody.tools);
+    const toolNames = extractToolNames(openAiBody.tools);
 
     if (Array.isArray(openAiBody.messages)) {
       for (const msg of openAiBody.messages) {
@@ -218,15 +230,47 @@ export class AnthropicAdapter {
             }
             contentBlocks.push(thinkingBlock);
           }
-          if (msg.content) {
-            contentBlocks.push({ type: "text", text: msg.content });
+
+          let textContent = typeof msg.content === "string" ? msg.content : "";
+          const hasToolCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
+
+          // Inline dialect rescue if no structured tool_calls present
+          if (!hasToolCalls && textContent && toolNames.size > 0) {
+            const rescue = rescueInlineToolCalls(textContent, toolNames);
+            if (rescue.detected && rescue.calls && rescue.calls.length > 0) {
+              textContent = rescue.cleanText || "";
+              for (let i = 0; i < rescue.calls.length; i++) {
+                const c = rescue.calls[i];
+                const repaired = repairToolArguments(c.arguments, toolSchemas.get(c.name));
+                let parsedInput: any = {};
+                try {
+                  parsedInput = JSON.parse(repaired);
+                } catch {
+                  parsedInput = { raw: repaired };
+                }
+                contentBlocks.push({
+                  type: "tool_use",
+                  id: `toolu_rescued_${i + 1}`,
+                  name: c.name,
+                  input: parsedInput,
+                });
+              }
+            }
           }
-          if (Array.isArray(msg.tool_calls)) {
+
+          if (textContent) {
+            contentBlocks.push({ type: "text", text: textContent });
+          } else if (msg.content && typeof msg.content !== "string") {
+            contentBlocks.push({ type: "text", text: JSON.stringify(msg.content) });
+          }
+
+          if (hasToolCalls) {
             for (const tc of msg.tool_calls) {
               let parsedInput = {};
               if (tc.function?.arguments) {
                 try {
-                  parsedInput = typeof tc.function.arguments === "string" ? JSON.parse(tc.function.arguments) : tc.function.arguments;
+                  const repaired = repairToolArguments(tc.function.arguments, toolSchemas.get(tc.function?.name));
+                  parsedInput = typeof repaired === "string" ? JSON.parse(repaired) : repaired;
                 } catch {
                   parsedInput = { raw: tc.function.arguments };
                 }
@@ -431,13 +475,15 @@ export class AnthropicAdapter {
 
         if (tc.function?.arguments) {
           const blockIdx = toolInfo ? toolInfo.blockIndex : streamState.nextBlockIndex;
+          const schema = streamState.toolSchemas?.get(toolInfo?.name || tc.function?.name);
+          const sanitizedArgs = repairToolArguments(tc.function.arguments, schema);
           events.push(
             `event: content_block_delta\ndata: ${JSON.stringify({
               type: "content_block_delta",
               index: blockIdx,
               delta: {
                 type: "input_json_delta",
-                partial_json: tc.function.arguments,
+                partial_json: sanitizedArgs,
               },
             })}\n\n`
           );

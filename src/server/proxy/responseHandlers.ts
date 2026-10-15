@@ -6,6 +6,7 @@ import { formatDoneLine, logger, LogSymbol } from "../../shared/logger.js";
 import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import type { LogToolSnippet } from "../../shared/types/index.js";
 import { reasoningCache } from "../../core/caching/reasoningCache.js";
+import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -28,6 +29,11 @@ export async function handleNonStreamingResponse(
 
   if (provider.transformResponseBody) {
     responseBody = provider.transformResponseBody(responseBody, context);
+  }
+
+  const requestTools = context.req?.body?.tools || context.body?.tools;
+  if (isJson && responseBody && typeof responseBody === "object") {
+    responseBody = OpenAiAdapter.rescueAndRepairResponse(responseBody, requestTools);
   }
 
   if (isJson) {

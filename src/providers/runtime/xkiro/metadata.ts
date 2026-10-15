@@ -32,7 +32,7 @@ export const metadata: ProviderRegistryItem = {
   "baseUrls": [
     "https://api.xkiro.com/v1"
   ],
-  "validateUrl": "https://api.xkiro.com/v1/models",
+  "validateUrl": "https://api.xkiro.com/v1/usage",
   "format": "openai",
   "defaultHeaders": {
     "Content-Type": "application/json"

@@ -31,7 +31,7 @@ test("xKiro Provider - Registry Configuration", () => {
   assert.equal(xkiro.authType, "apikey");
   assert.equal(xkiro.baseUrl, "https://api.xkiro.com/v1");
   assert.deepEqual(xkiro.baseUrls, ["https://api.xkiro.com/v1"]);
-  assert.equal(xkiro.validateUrl, "https://api.xkiro.com/v1/models");
+  assert.equal(xkiro.validateUrl, "https://api.xkiro.com/v1/usage");
   assert.equal(xkiro.format, "openai");
   assert.deepEqual(xkiro.defaultHeaders, { "Content-Type": "application/json" });
   assert.equal(xkiro.passthroughModels, true);
