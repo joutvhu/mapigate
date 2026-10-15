@@ -10,6 +10,7 @@ import { PortalModal } from "../components/PortalModal";
 import { Select } from "../components/Select";
 import { ScanModelsModal } from "../components/ScanModelsModal";
 import { ToolIcon } from "../components/ui/ToolIcon";
+import { Checkbox } from "../components/ui/Checkbox";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 
@@ -564,7 +565,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                 className="flex items-center justify-between p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 transition-all text-xs"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <input type="checkbox" className="accent-blue-600 rounded" />
+                  <Checkbox size="sm" />
                   <div className="flex flex-col text-slate-500">
                     <button
                       onClick={() => moveConnection(idx, "up")}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
 import { ToolIcon } from "./ui/ToolIcon";
+import { Checkbox } from "./ui/Checkbox";
 import { scanProviderModels } from "../services/providerService";
 import type { ScannedModel } from "../../../shared/types";
 
@@ -140,6 +141,17 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
 
   const handleDeselectAll = () => {
     setSelectedIds(new Set());
+  };
+
+  const allSelected = filteredModels.length > 0 && filteredModels.every((m) => selectedIds.has(m.id));
+  const isSomeSelected = filteredModels.some((m) => selectedIds.has(m.id));
+
+  const handleToggleAll = (checked: boolean) => {
+    if (checked) {
+      handleSelectAll();
+    } else {
+      handleDeselectAll();
+    }
   };
 
   const handleApply = (mode: "merge" | "replace") => {
@@ -371,18 +383,18 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
-                  className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] transition-colors cursor-pointer"
-                >
-                  Select All
-                </button>
+              <div className="flex items-center gap-3 text-xs">
+                <Checkbox
+                  size="sm"
+                  checked={allSelected}
+                  indeterminate={isSomeSelected && !allSelected}
+                  onChange={handleToggleAll}
+                  label={<span className="text-xs font-medium text-slate-300">Select All</span>}
+                />
                 <button
                   type="button"
                   onClick={handleDeselectAll}
-                  className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 text-[11px] transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 text-[11px] transition-colors cursor-pointer"
                 >
                   Deselect All
                 </button>
@@ -425,12 +437,11 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <input
-                          type="checkbox"
+                        <Checkbox
+                          size="sm"
                           checked={isSelected}
                           onChange={() => toggleSelect(m.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="accent-blue-600 rounded"
                         />
                         <div className="min-w-0">
                           <span className="font-mono font-medium truncate block">{m.id}</span>

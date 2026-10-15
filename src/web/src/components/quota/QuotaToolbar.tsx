@@ -1,5 +1,6 @@
 import React from "react";
 import { Select } from "../Select";
+import { Checkbox } from "../ui/Checkbox";
 
 export type QuotaSortMode = "expiring-first" | "quota-asc" | "quota-desc";
 export type AccountStatusFilter = "all" | "active" | "inactive";
@@ -101,15 +102,12 @@ export const QuotaToolbar: React.FC<QuotaToolbarProps> = ({
 
         {/* Auto Refresh Toggle & Timer */}
         <div className="flex items-center gap-2 bg-[#0A0D14] border border-[#1E293B] px-3 py-1.5 rounded-xl select-none">
-          <label className="flex items-center gap-1.5 text-slate-300 cursor-pointer text-xs">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => onToggleAutoRefresh(e.target.checked)}
-              className="accent-blue-600 rounded cursor-pointer"
-            />
-            Autorefresh
-          </label>
+          <Checkbox
+            size="sm"
+            checked={autoRefresh}
+            onChange={(checked) => onToggleAutoRefresh(checked)}
+            label="Autorefresh"
+          />
           {autoRefresh && (
             <span className="font-mono text-[10px] text-blue-400 font-semibold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
               {countdownSeconds}s
