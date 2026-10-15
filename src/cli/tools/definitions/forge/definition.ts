@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "forge",
   name: "ForgeCode",
-  image: "/providers/forge.png",
+  image: "/assets/tools/forge/icon.png",
   color: "#EAB308",
   iconBg: "#FFFFFF",
   description: "Antinomy HQ ForgeCode agent harness",

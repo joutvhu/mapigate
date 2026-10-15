@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "droid",
   name: "Factory Droid",
-  image: "/providers/droid.png",
+  image: "/assets/tools/droid/icon.png",
   color: "#00D4FF",
   iconBg: "#FFFFFF",
   description: "Factory Droid AI Assistant",

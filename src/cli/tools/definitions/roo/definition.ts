@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "roo",
   name: "Roo Code",
-  image: "/providers/roo.png",
+  image: "/assets/tools/roo/icon.png",
   color: "#FF6B6B",
   iconBg: "#000000",
   description: "Roo AI Assistant",

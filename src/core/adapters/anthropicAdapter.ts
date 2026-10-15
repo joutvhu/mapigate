@@ -235,10 +235,12 @@ export class AnthropicAdapter {
           const hasToolCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
 
           // Inline dialect rescue if no structured tool_calls present
+          let rescuedBlocks: any[] = [];
           if (!hasToolCalls && textContent && toolNames.size > 0) {
             const rescue = rescueInlineToolCalls(textContent, toolNames);
             if (rescue.detected && rescue.calls && rescue.calls.length > 0) {
               textContent = rescue.cleanText || "";
+              const timestamp = Date.now();
               for (let i = 0; i < rescue.calls.length; i++) {
                 const c = rescue.calls[i];
                 const repaired = repairToolArguments(c.arguments, toolSchemas.get(c.name));
@@ -248,9 +250,9 @@ export class AnthropicAdapter {
                 } catch {
                   parsedInput = { raw: repaired };
                 }
-                contentBlocks.push({
+                rescuedBlocks.push({
                   type: "tool_use",
-                  id: `toolu_rescued_${i + 1}`,
+                  id: `toolu_rescued_${timestamp}_${i + 1}`,
                   name: c.name,
                   input: parsedInput,
                 });
@@ -262,6 +264,10 @@ export class AnthropicAdapter {
             contentBlocks.push({ type: "text", text: textContent });
           } else if (msg.content && typeof msg.content !== "string") {
             contentBlocks.push({ type: "text", text: JSON.stringify(msg.content) });
+          }
+
+          if (rescuedBlocks.length > 0) {
+            contentBlocks.push(...rescuedBlocks);
           }
 
           if (hasToolCalls) {

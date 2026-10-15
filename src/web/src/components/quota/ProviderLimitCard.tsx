@@ -86,7 +86,7 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
           <div className="flex items-center gap-3 min-w-0">
             {/* Provider Avatar */}
             <ToolIcon
-              src={regProvider?.image || `/providers/${account.providerId}.png`}
+              src={regProvider?.image || `/assets/providers/${account.providerId}/icon.png`}
               name={account.providerId}
               color={providerColor}
               iconBg={regProvider?.iconBg}

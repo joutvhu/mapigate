@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "smelt",
   name: "Smelt",
-  image: "/providers/smelt.svg",
+  image: "/assets/tools/smelt/icon.svg",
   color: "#EF4444",
   description: "Smelt terminal AI coding assistant",
   configType: "custom",

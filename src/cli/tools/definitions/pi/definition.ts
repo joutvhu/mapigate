@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "pi",
   name: "Pi (pi-coding-agent)",
-  image: "/providers/pi.svg",
+  image: "/assets/tools/pi/icon.svg",
   color: "#6366F1",
   description: "Pi coding agent — minimal, extensible agent harness",
   configType: "custom",

@@ -151,7 +151,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       return {
         id: bp.id,
         name: bp.name,
-        image: reg?.image || (bp.format === "anthropic" ? "/providers/anthropic.png" : "/providers/openai.png"),
+        image: reg?.image || (bp.format === "anthropic" ? "/assets/providers/anthropic/icon.png" : "/assets/providers/openai/icon.png"),
         color: reg?.color || (bp.format === "anthropic" ? "#D97706" : "#10A37F"),
         iconBg: reg?.iconBg || "#ffffff",
         category: "custom" as const,
@@ -302,7 +302,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                 setSelectedProvider({
                   id: `custom-anthropic-${Date.now().toString().slice(-4)}`,
                   name: "Custom Anthropic",
-                  image: "/providers/anthropic.png",
+                  image: "/assets/providers/anthropic/icon.png",
                   category: "custom",
                   format: "anthropic",
                   baseUrl: "https://api.anthropic.com",
@@ -318,7 +318,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                 setSelectedProvider({
                   id: `custom-openai-${Date.now().toString().slice(-4)}`,
                   name: "Custom OpenAI",
-                  image: "/providers/openai.png",
+                  image: "/assets/providers/openai/icon.png",
                   category: "custom",
                   format: "openai",
                   baseUrl: "https://api.openai.com",

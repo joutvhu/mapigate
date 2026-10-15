@@ -3,7 +3,7 @@ import type { MitmToolConfig } from "../../types.js";
 export const toolConfig: MitmToolConfig = {
   id: "antigravity",
   name: "Antigravity IDE",
-  image: "/providers/antigravity.png",
+  image: "/assets/providers/antigravity/icon.png",
   desc: "Intercept Google Antigravity IDE requests via MITM proxy",
   hosts: [
     "daily-cloudcode-pa.googleapis.com",

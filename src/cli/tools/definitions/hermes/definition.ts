@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "hermes",
   name: "Hermes Agent",
-  image: "/providers/hermes.png",
+  image: "/assets/tools/hermes/icon.png",
   color: "#8B5CF6",
   iconBg: "#FFFFFF",
   description: "Nous Research self-improving AI agent",

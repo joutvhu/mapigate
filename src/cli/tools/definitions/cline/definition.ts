@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "cline",
   name: "Cline",
-  image: "/providers/cline.png",
+  image: "/assets/providers/cline/icon.png",
   color: "#5B9BD5",
   description: "Cline AI Coding Assistant",
   configType: "file",

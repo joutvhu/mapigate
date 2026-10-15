@@ -3,7 +3,7 @@ import type { MitmToolConfig } from "../../types.js";
 export const toolConfig: MitmToolConfig = {
   id: "kiro",
   name: "Kiro IDE",
-  image: "/providers/kiro.png",
+  image: "/assets/providers/kiro/icon.png",
   desc: "Intercept Amazon Kiro IDE requests via MITM proxy",
   iconBg: "#9046ff",
   hosts: [

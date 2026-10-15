@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "codex",
   name: "OpenAI Codex CLI / App",
-  image: "/providers/codex.png",
+  image: "/assets/providers/codex/icon.png",
   color: "#10A37F",
   description: "OpenAI Codex CLI",
   configType: "env",

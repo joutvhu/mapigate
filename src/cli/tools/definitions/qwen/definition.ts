@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "qwen",
   name: "Qwen Code",
-  image: "/providers/qwen.png",
+  image: "/assets/providers/qwen/icon.png",
   color: "#10B981",
   description: "Alibaba Qwen Code CLI",
   configType: "file",

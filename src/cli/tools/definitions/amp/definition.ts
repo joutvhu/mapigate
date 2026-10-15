@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "amp",
   name: "Amp CLI",
-  image: "/providers/amp.png",
+  image: "/assets/tools/amp/icon.png",
   color: "#F97316",
   description: "Sourcegraph Amp coding assistant CLI",
   configType: "env",

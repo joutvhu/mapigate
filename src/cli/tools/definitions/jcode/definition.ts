@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "jcode",
   name: "Jcode",
-  image: "/providers/jcode.png",
+  image: "/assets/tools/jcode/icon.png",
   color: "#FF6B35",
   iconBg: "#FFFFFF",
   description: "High-performance Rust-based coding agent harness",

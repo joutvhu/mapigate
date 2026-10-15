@@ -144,7 +144,7 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
             <ToolIcon
-              src="/providers/github.png"
+              src="/assets/providers/github/icon.png"
               name="GitHub Copilot"
               color="#333333"
               iconBg="#FFFFFF"

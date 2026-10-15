@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "claude",
   name: "Claude Code",
-  image: "/providers/claude.png",
+  image: "/assets/providers/claude/icon.png",
   color: "#D97757",
   iconBg: "#FFFFFF",
   description: "Anthropic Claude Code CLI",

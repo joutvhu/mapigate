@@ -3,7 +3,7 @@ import type { MitmToolConfig } from "../../types.js";
 export const toolConfig: MitmToolConfig = {
   id: "cursor",
   name: "Cursor",
-  image: "/providers/cursor.png",
+  image: "/assets/providers/cursor/icon.png",
   desc: "Intercept Cursor IDE requests via MITM proxy (Coming Soon)",
   iconBg: "#FFFFFF",
   hosts: [

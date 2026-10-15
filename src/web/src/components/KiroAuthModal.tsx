@@ -145,7 +145,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
             <ToolIcon
-              src="/providers/kiro.png"
+              src="/assets/providers/kiro/icon.png"
               name="Kiro"
               color="#FF9900"
               size="md"

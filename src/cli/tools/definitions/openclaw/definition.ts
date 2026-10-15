@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "openclaw",
   name: "Open Claw",
-  image: "/providers/openclaw.png",
+  image: "/assets/tools/openclaw/icon.png",
   color: "#FF6B35",
   iconBg: "#FFFFFF",
   description: "Open Claw AI Assistant",

@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "devin",
   name: "Devin CLI",
-  image: "/providers/devin-cli.png",
+  image: "/assets/providers/devin-cli/icon.png",
   color: "#6366F1",
   description: "Cognition Devin CLI",
   configType: "guide",

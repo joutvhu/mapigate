@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "crush",
   name: "Crush",
-  image: "/providers/crush.png",
+  image: "/assets/tools/crush/icon.png",
   color: "#FB923C",
   description: "Charm Crush terminal AI coding agent",
   configType: "custom",

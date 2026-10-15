@@ -11,7 +11,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "cf",
   "color": "#F38020",
-  "image": "/assets/providers/cloudflare/icon.svg",
+  "image": "/assets/providers/cloudflare/icon.png",
   "website": "https://developers.cloudflare.com/workers-ai/",
   "notice": {
     "text": "Workers AI free tier. Requires a Cloudflare API token and Account ID.",

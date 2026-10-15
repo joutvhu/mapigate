@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "deepseek-tui",
   name: "DeepSeek TUI",
-  image: "/providers/deepseek-tui.png",
+  image: "/assets/tools/deepseek-tui/icon.png",
   color: "#4D6BFE",
   iconBg: "#FFFFFF",
   description: "DeepSeek Terminal Coding Agent (Rust TUI)",

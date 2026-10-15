@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "codewhale",
   name: "CodeWhale",
-  image: "/providers/codewhale.svg",
+  image: "/assets/tools/codewhale/icon.svg",
   color: "#4F46E5",
   description: "CodeWhale terminal coding agent",
   configType: "custom",

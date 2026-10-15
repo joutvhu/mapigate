@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "opencode",
   name: "OpenCode",
-  image: "/providers/opencode.png",
+  image: "/assets/providers/opencode/icon.png",
   color: "#E87040",
   description: "OpenCode AI Terminal Assistant",
   configType: "custom",

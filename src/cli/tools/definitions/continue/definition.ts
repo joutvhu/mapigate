@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "continue",
   name: "Continue",
-  image: "/providers/continue.png",
+  image: "/assets/tools/continue/icon.png",
   color: "#7C3AED",
   description: "Continue AI Assistant",
   configType: "file",

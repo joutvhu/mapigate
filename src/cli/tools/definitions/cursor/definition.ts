@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "cursor",
   name: "Cursor",
-  image: "/providers/cursor.png",
+  image: "/assets/providers/cursor/icon.png",
   color: "#000000",
   iconBg: "#FFFFFF",
   description: "Cursor AI Code Editor",

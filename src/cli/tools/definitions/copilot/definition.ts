@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "copilot",
   name: "GitHub Copilot",
-  image: "/providers/copilot.png",
+  image: "/assets/providers/github/icon.png",
   color: "#1F6FEB",
   iconBg: "#FFFFFF",
   description: "GitHub Copilot in VS Code / CLI",

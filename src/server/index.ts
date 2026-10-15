@@ -179,9 +179,10 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Provider custom assets endpoint (icons, branding)
-app.get("/assets/providers/:provider/:file", (req, res) => {
-  const { provider, file } = req.params;
+// Provider and tool custom assets endpoint (icons, branding)
+app.get(["/assets/providers/:provider/:file", "/assets/tools/:provider/:file", "/assets/cli-tools/:provider/:file"], (req, res) => {
+  const provider = typeof req.params.provider === "string" ? req.params.provider : String(req.params.provider || "");
+  const file = typeof req.params.file === "string" ? req.params.file : String(req.params.file || "");
 
   // Validate parameters against path traversal and invalid characters
   if (
@@ -210,8 +211,14 @@ app.get("/assets/providers/:provider/:file", (req, res) => {
     path.resolve(process.cwd(), "src", "providers", provider, "assets", file),
     path.resolve(__dirname, "../../src/providers", provider, "assets", file),
     path.resolve(__dirname, "../providers", provider, "assets", file),
+    path.resolve(process.cwd(), "src", "cli", "tools", "definitions", provider, "assets", file),
+    path.resolve(__dirname, "../../src/cli/tools/definitions", provider, "assets", file),
+    path.resolve(__dirname, "../cli/tools/definitions", provider, "assets", file),
+    path.resolve(process.cwd(), "src", "mitm", "handlers", provider, "assets", file),
+    path.resolve(__dirname, "../../src/mitm/handlers", provider, "assets", file),
+    path.resolve(__dirname, "../mitm/handlers", provider, "assets", file),
     path.resolve(process.cwd(), "dist", "web", "assets", "providers", provider, file),
-    path.resolve(process.cwd(), "src", "web", "public", "providers", file)
+    path.resolve(process.cwd(), "dist", "web", "assets", "tools", provider, file)
   );
 
   for (const filePath of candidatePaths) {

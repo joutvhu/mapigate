@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "opendesign",
   name: "OpenDesign",
-  image: "/providers/opendesign.png",
+  image: "/assets/tools/opendesign/icon.png",
   color: "#7C3AED",
   description: "Agent-native design skills pack",
   configType: "guide",

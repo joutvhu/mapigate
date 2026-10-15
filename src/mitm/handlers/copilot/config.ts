@@ -3,7 +3,7 @@ import type { MitmToolConfig } from "../../types.js";
 export const toolConfig: MitmToolConfig = {
   id: "copilot",
   name: "GitHub Copilot",
-  image: "/providers/copilot.png",
+  image: "/assets/providers/github/icon.png",
   desc: "Intercept GitHub Copilot requests in VS Code via MITM proxy",
   hosts: [
     "api.individual.githubcopilot.com",

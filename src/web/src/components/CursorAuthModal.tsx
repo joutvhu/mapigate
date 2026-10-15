@@ -87,7 +87,7 @@ export const CursorAuthModal: React.FC<CursorAuthModalProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
             <ToolIcon
-              src="/providers/cursor.png"
+              src="/assets/providers/cursor/icon.png"
               name="Cursor"
               color="#00D4AA"
               iconBg="#FFFFFF"

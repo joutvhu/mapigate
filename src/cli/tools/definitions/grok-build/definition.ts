@@ -3,7 +3,7 @@ import type { CliToolDefinition } from "../../types.js";
 export const definition: CliToolDefinition = {
   id: "grok-build",
   name: "Grok Build",
-  image: "/providers/grok-cli.png",
+  image: "/assets/tools/grok-build/icon.png",
   color: "#1DA1F2",
   iconBg: "#FFFFFF",
   description: "xAI Grok Build TUI coding agent",
