@@ -28,7 +28,7 @@ authRouter.get("/status", (req, res) => {
 });
 
 // POST /api/auth/login - Verify master password and generate session token
-authRouter.post("/login", (req, res) => {
+authRouter.post("/login", async (req, res) => {
   try {
     const { password } = req.body || {};
     if (!MasterAuth.isPasswordSet()) {
@@ -46,7 +46,7 @@ authRouter.post("/login", (req, res) => {
       });
     }
 
-    const isValid = MasterAuth.verifyPassword(password);
+    const isValid = await MasterAuth.verifyPassword(password);
     if (!isValid) {
       return res.status(401).json({
         error: "Invalid master password",
@@ -70,7 +70,7 @@ authRouter.post("/logout", (_req, res) => {
 });
 
 // POST /api/auth/setup - Initialize master password
-authRouter.post("/setup", (req, res) => {
+authRouter.post("/setup", async (req, res) => {
   try {
     if (MasterAuth.isPasswordSet()) {
       return res.status(400).json({
@@ -87,7 +87,7 @@ authRouter.post("/setup", (req, res) => {
       });
     }
 
-    MasterAuth.setPassword(password);
+    await MasterAuth.setPassword(password);
     const token = MasterAuth.createSessionToken();
 
     res.json({
@@ -101,7 +101,7 @@ authRouter.post("/setup", (req, res) => {
 });
 
 // PUT /api/auth/change-password - Change existing master password
-authRouter.put("/change-password", (req, res) => {
+authRouter.put("/change-password", async (req, res) => {
   try {
     if (!MasterAuth.isPasswordSet()) {
       return res.status(400).json({
@@ -125,7 +125,7 @@ authRouter.put("/change-password", (req, res) => {
       });
     }
 
-    const success = MasterAuth.changePassword(currentPassword, newPassword);
+    const success = await MasterAuth.changePassword(currentPassword, newPassword);
     if (!success) {
       return res.status(401).json({
         error: "Incorrect current password",
@@ -145,7 +145,7 @@ authRouter.put("/change-password", (req, res) => {
 });
 
 // DELETE /api/auth/remove-password - Disable master password
-authRouter.delete("/remove-password", (req, res) => {
+authRouter.delete("/remove-password", async (req, res) => {
   try {
     if (!MasterAuth.isPasswordSet()) {
       return res.status(400).json({
@@ -162,7 +162,7 @@ authRouter.delete("/remove-password", (req, res) => {
       });
     }
 
-    const success = MasterAuth.removePassword(currentPassword);
+    const success = await MasterAuth.removePassword(currentPassword);
     if (!success) {
       return res.status(401).json({
         error: "Incorrect current password",

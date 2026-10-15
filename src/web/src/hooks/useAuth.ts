@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { AuthService, onAuthLock } from "../services/authService";
+import { AuthService, onAuthLock, TOKEN_KEY } from "../services/authService";
 
 interface AuthState {
   isChecking: boolean;
@@ -93,5 +93,25 @@ export const useAuth = create<AuthState>((set, get) => ({
 if (typeof window !== "undefined") {
   onAuthLock(() => {
     useAuth.getState().lock();
+  });
+
+  // Cross-tab lock synchronization via localStorage storage event
+  window.addEventListener("storage", (event: StorageEvent) => {
+    if (event.key === TOKEN_KEY || event.key === null) {
+      const currentToken = AuthService.getToken();
+      if (!currentToken) {
+        if (useAuth.getState().isPasswordSet) {
+          useAuth.setState({
+            isAuthenticated: false,
+            isLocked: true,
+          });
+        }
+      } else {
+        useAuth.setState({
+          isAuthenticated: true,
+          isLocked: false,
+        });
+      }
+    }
   });
 }

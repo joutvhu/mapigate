@@ -9,6 +9,7 @@ import { StructuredLogCard } from "../components/console/StructuredLogCard.js";
 import { RawTerminalView } from "../components/console/RawTerminalView.js";
 import { LogDetailDrawer } from "../components/console/LogDetailDrawer.js";
 import { Layers } from "lucide-react";
+import { AuthService } from "../services/authService.js";
 
 export const ConsoleLogTab: React.FC = () => {
   const [rawLogs, setRawLogs] = useState<string[]>([]);
@@ -35,7 +36,11 @@ export const ConsoleLogTab: React.FC = () => {
 
     const connectSSE = () => {
       try {
-        es = new EventSource("/api/console-logs/stream");
+        const token = AuthService.getToken();
+        const streamUrl = token
+          ? `/api/console-logs/stream?token=${encodeURIComponent(token)}`
+          : "/api/console-logs/stream";
+        es = new EventSource(streamUrl);
 
         es.onopen = () => {
           if (isSubscribed) setConnected(true);

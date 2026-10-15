@@ -1,7 +1,9 @@
 import crypto from "node:crypto";
+import { promisify } from "node:util";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { CryptoVault } from "../../storage/crypto/vault.js";
 
+const scryptAsync = promisify(crypto.scrypt);
 const DEFAULT_SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface SessionTokenPayload {
@@ -21,11 +23,14 @@ export class MasterAuth {
   }
 
   /**
-   * Cryptographically hash a plaintext password with a random 16-byte salt using scrypt.
+   * Cryptographically hash a plaintext password with a random 16-byte salt using scrypt asynchronously.
    */
-  public static hashPassword(password: string, saltHex?: string): { hash: string; salt: string; algorithm: string } {
+  public static async hashPassword(
+    password: string,
+    saltHex?: string
+  ): Promise<{ hash: string; salt: string; algorithm: string }> {
     const salt = saltHex ? Buffer.from(saltHex, "hex") : crypto.randomBytes(16);
-    const hash = crypto.scryptSync(password, salt, 64);
+    const hash = (await scryptAsync(password, salt, 64)) as Buffer;
     return {
       hash: hash.toString("hex"),
       salt: salt.toString("hex"),
@@ -36,13 +41,13 @@ export class MasterAuth {
   /**
    * Verify password using timingSafeEqual to prevent timing attacks.
    */
-  public static verifyPassword(password: string): boolean {
+  public static async verifyPassword(password: string): Promise<boolean> {
     if (!password || typeof password !== "string") return false;
     const config = SettingsRepository.getMasterPasswordConfig();
     if (!config.enabled || !config.hash || !config.salt) return false;
 
     try {
-      const derived = crypto.scryptSync(password, Buffer.from(config.salt, "hex"), 64);
+      const derived = (await scryptAsync(password, Buffer.from(config.salt, "hex"), 64)) as Buffer;
       const expected = Buffer.from(config.hash, "hex");
       if (derived.length !== expected.length) {
         return false;
@@ -104,12 +109,12 @@ export class MasterAuth {
   /**
    * Set or initialize master password.
    */
-  public static setPassword(newPassword: string): void {
+  public static async setPassword(newPassword: string): Promise<void> {
     if (!newPassword || typeof newPassword !== "string" || newPassword.length < 4) {
       throw new Error("Master password must be at least 4 characters long");
     }
 
-    const { hash, salt, algorithm } = this.hashPassword(newPassword);
+    const { hash, salt, algorithm } = await this.hashPassword(newPassword);
     SettingsRepository.setMasterPasswordConfig({
       enabled: true,
       hash,
@@ -122,19 +127,19 @@ export class MasterAuth {
   /**
    * Change existing master password. Requires validating current password.
    */
-  public static changePassword(currentPassword: string, newPassword: string): boolean {
-    if (!this.verifyPassword(currentPassword)) {
+  public static async changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+    if (!(await this.verifyPassword(currentPassword))) {
       return false;
     }
-    this.setPassword(newPassword);
+    await this.setPassword(newPassword);
     return true;
   }
 
   /**
    * Remove/disable master password. Requires validating current password.
    */
-  public static removePassword(currentPassword: string): boolean {
-    if (!this.verifyPassword(currentPassword)) {
+  public static async removePassword(currentPassword: string): Promise<boolean> {
+    if (!(await this.verifyPassword(currentPassword))) {
       return false;
     }
     SettingsRepository.clearMasterPassword();

@@ -7,25 +7,25 @@ import app from "../src/server/index.js";
 import { SettingsRepository } from "../src/storage/repositories/settingsRepo.js";
 import { MasterAuth } from "../src/server/auth/masterAuth.js";
 
-test("Unit - MasterAuth hashing, verification, tokens, and invalidation", () => {
+test("Unit - MasterAuth hashing, verification, tokens, and invalidation", async () => {
   // Ensure clean state
   SettingsRepository.clearMasterPassword();
   assert.equal(MasterAuth.isPasswordSet(), false);
 
   // Hash password
-  const { hash, salt, algorithm } = MasterAuth.hashPassword("my-secret-master-pwd");
+  const { hash, salt, algorithm } = await MasterAuth.hashPassword("my-secret-master-pwd");
   assert.equal(algorithm, "scrypt");
   assert.ok(hash.length > 0);
   assert.ok(salt.length > 0);
 
   // Set password
-  MasterAuth.setPassword("my-secret-master-pwd");
+  await MasterAuth.setPassword("my-secret-master-pwd");
   assert.equal(MasterAuth.isPasswordSet(), true);
 
   // Password verification
-  assert.equal(MasterAuth.verifyPassword("my-secret-master-pwd"), true);
-  assert.equal(MasterAuth.verifyPassword("wrong-password"), false);
-  assert.equal(MasterAuth.verifyPassword(""), false);
+  assert.equal(await MasterAuth.verifyPassword("my-secret-master-pwd"), true);
+  assert.equal(await MasterAuth.verifyPassword("wrong-password"), false);
+  assert.equal(await MasterAuth.verifyPassword(""), false);
 
   // Token creation & verification
   const token = MasterAuth.createSessionToken();
@@ -34,10 +34,10 @@ test("Unit - MasterAuth hashing, verification, tokens, and invalidation", () => 
   assert.equal(MasterAuth.verifySessionToken("invalid:token:format"), false);
 
   // Token invalidation on password change
-  const successChange = MasterAuth.changePassword("my-secret-master-pwd", "new-secret-master-pwd-2");
+  const successChange = await MasterAuth.changePassword("my-secret-master-pwd", "new-secret-master-pwd-2");
   assert.equal(successChange, true);
-  assert.equal(MasterAuth.verifyPassword("new-secret-master-pwd-2"), true);
-  assert.equal(MasterAuth.verifyPassword("my-secret-master-pwd"), false);
+  assert.equal(await MasterAuth.verifyPassword("new-secret-master-pwd-2"), true);
+  assert.equal(await MasterAuth.verifyPassword("my-secret-master-pwd"), false);
 
   // Old token is now invalid because updatedAt changed!
   assert.equal(MasterAuth.verifySessionToken(token), false);
@@ -47,7 +47,7 @@ test("Unit - MasterAuth hashing, verification, tokens, and invalidation", () => 
   assert.equal(MasterAuth.verifySessionToken(newToken), true);
 
   // Token invalidation on password removal
-  const successRemove = MasterAuth.removePassword("new-secret-master-pwd-2");
+  const successRemove = await MasterAuth.removePassword("new-secret-master-pwd-2");
   assert.equal(successRemove, true);
   assert.equal(MasterAuth.isPasswordSet(), false);
 });
@@ -130,6 +130,14 @@ test("Integration - Master Password API and Route Protection Lifecycle", async (
       headers: { Authorization: `Bearer ${initialSessionToken}` },
     });
     assert.equal(modelsAuthRes.status, 200);
+
+    // With valid token via query parameter (?token=...) -> 200 (for SSE EventSource)
+    const modelsQueryAuthRes = await fetch(`${baseUrl}/api/models?token=${encodeURIComponent(initialSessionToken)}`);
+    assert.equal(modelsQueryAuthRes.status, 200);
+
+    // With invalid token via query parameter -> 401
+    const modelsBadQueryAuthRes = await fetch(`${baseUrl}/api/models?token=invalid-query-token`);
+    assert.equal(modelsBadQueryAuthRes.status, 401);
 
     // 6. Login endpoint
     // Bad password

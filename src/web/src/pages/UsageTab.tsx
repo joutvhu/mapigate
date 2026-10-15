@@ -13,6 +13,7 @@ import { ProviderBarChart } from "../components/usage/ProviderBarChart.js";
 import { UsageTable } from "../components/usage/UsageTable.js";
 import { RequestDetailsView } from "../components/usage/RequestDetailsView.js";
 import { Activity, LayoutDashboard, ListFilter, RefreshCw } from "lucide-react";
+import { AuthService } from "../services/authService.js";
 
 export const UsageTab: React.FC = () => {
   const [viewMode, setViewMode] = useState<"overview" | "details">("overview");
@@ -74,7 +75,11 @@ export const UsageTab: React.FC = () => {
 
     const connectSSE = () => {
       try {
-        sse = new EventSource("/api/usage/stream");
+        const token = AuthService.getToken();
+        const streamUrl = token
+          ? `/api/usage/stream?token=${encodeURIComponent(token)}`
+          : "/api/usage/stream";
+        sse = new EventSource(streamUrl);
         eventSourceRef.current = sse;
 
         sse.onopen = () => {
