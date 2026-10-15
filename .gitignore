@@ -24,7 +24,8 @@ Thumbs.db
 .vscode/
 .idea/
 
-
 # AI
 .agents/
 .kiro/
+
+.worktrees/
