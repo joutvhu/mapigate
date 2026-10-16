@@ -18,54 +18,11 @@ export function normalizeResponsesInput(input: any): any[] | null {
   return null;
 }
 
-/**
- * Normalize flat Responses API tools ({ type: "function", name: "...", parameters: {...} })
- * to standard OpenAI Chat Completions tools ({ type: "function", function: { name, description, parameters } })
- */
-export function normalizeToolsToOpenAi(tools?: any[]): any[] | undefined {
-  if (!Array.isArray(tools) || tools.length === 0) return undefined;
-  const normalized = tools
-    .map((t: any) => {
-      if (!t || typeof t !== "object") return null;
-
-      // Already in standard OpenAI Chat Completions format
-      if (t.function && typeof t.function === "object") {
-        return {
-          type: "function",
-          function: {
-            name: t.function.name || t.name || "",
-            description: t.function.description !== undefined ? t.function.description : t.description,
-            parameters: t.function.parameters || t.parameters || { type: "object", properties: {} },
-            ...(t.function.strict !== undefined && { strict: t.function.strict }),
-            ...(t.strict !== undefined && t.function.strict === undefined && { strict: t.strict }),
-          },
-        };
-      }
-
-      // Flat Responses API format: { type: "function", name: "...", description: "...", parameters: {...} }
-      if (t.type === "function" || t.name) {
-        const fn: any = {
-          name: t.name || "",
-          parameters: t.parameters || { type: "object", properties: {} },
-        };
-        if (t.description !== undefined) {
-          fn.description = t.description;
-        }
-        if (t.strict !== undefined) {
-          fn.strict = t.strict;
-        }
-        return {
-          type: "function",
-          function: fn,
-        };
-      }
-
-      return t;
-    })
-    .filter(Boolean);
-
-  return normalized.length > 0 ? normalized : undefined;
-}
+import {
+  normalizeToolsToOpenAi,
+  normalizeToolParameters,
+} from "./helpers/toolSchemaNormalize.js";
+export { normalizeToolsToOpenAi, normalizeToolParameters };
 
 export function normalizeToolChoiceToOpenAi(toolChoice: any): any {
   if (!toolChoice) return undefined;

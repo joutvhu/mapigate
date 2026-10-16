@@ -79,12 +79,16 @@ test("requiresReasoningReplay - identifies thinking vs non-thinking providers/mo
   assert.equal(requiresReasoningReplay("deepseek", "deepseek-chat"), true);
   assert.equal(requiresReasoningReplay("kimi-coding", "kimi-k2"), true);
   assert.equal(requiresReasoningReplay("xiaomi-mimo", "mimo-v1"), true);
+  assert.equal(requiresReasoningReplay("xiaomi-tokenplan", "any-model"), true);
+  assert.equal(requiresReasoningReplay("mimo", "any-model"), true);
   assert.equal(requiresReasoningReplay("command-code", "anything"), true);
 
   // Model pattern matches on arbitrary providers
   assert.equal(requiresReasoningReplay("custom", "deepseek-r1-distill"), true);
   assert.equal(requiresReasoningReplay("openrouter", "deepseek/deepseek-v4-pro"), true);
   assert.equal(requiresReasoningReplay("together", "Qwen/QwQ-32B-Preview"), true);
+  assert.equal(requiresReasoningReplay("custom", "mimo-v2.6-flash"), true);
+  assert.equal(requiresReasoningReplay("custom", "xiaomi-tokenplan/mimo-v2.6-flash"), true);
   assert.equal(requiresReasoningReplay("host", "glm-4-thinking"), true);
   assert.equal(requiresReasoningReplay("host", "claude-3-7-sonnet-thinking"), true);
 

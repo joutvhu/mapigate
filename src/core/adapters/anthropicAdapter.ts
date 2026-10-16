@@ -5,6 +5,7 @@ import {
   type JsonSchemaish,
 } from "./helpers/toolArgsRepair.js";
 import { rescueInlineToolCalls } from "./helpers/toolCallRescue.js";
+import { normalizeToolParameters } from "./helpers/toolSchemaNormalize.js";
 
 export interface AnthropicStreamState {
   messageStartSent?: boolean;
@@ -313,7 +314,7 @@ export class AnthropicAdapter {
         .map((t: any) => ({
           name: t.function.name,
           description: t.function.description || "",
-          input_schema: t.function.parameters || { type: "object", properties: {} },
+          input_schema: normalizeToolParameters(t.function.parameters),
         }));
     }
 

@@ -19,6 +19,7 @@ import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js";
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.js";
+import { normalizeToolsToOpenAi } from "../../core/adapters/helpers/toolSchemaNormalize.js";
 
 import fs from "node:fs";
 import path from "node:path";
@@ -191,9 +192,22 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     if (upstreamBody) {
       upstreamBody = cloneBodyForUpstream(upstreamBody);
       applyCacheControlPolicy(upstreamBody, provider.id, targetModel, targetFormat);
+      if ("client_metadata" in upstreamBody) {
+        delete upstreamBody.client_metadata;
+      }
     }
     if (upstreamBody && Array.isArray(upstreamBody.messages)) {
       applyReasoningReplayPolicy(upstreamBody.messages, provider.id, targetModel);
+    }
+    if (upstreamBody && Array.isArray(upstreamBody.tools) && targetFormat === "openai") {
+      try {
+        const normalizedTools = normalizeToolsToOpenAi(upstreamBody.tools);
+        if (normalizedTools && normalizedTools.length > 0) {
+          upstreamBody.tools = normalizedTools;
+        }
+      } catch {
+        // Fail-open: preserve original tools
+      }
     }
     if (!isPanel) {
       if (targetFormat === "openai" && upstreamBody && upstreamBody.stream !== false) {
