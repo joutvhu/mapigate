@@ -16,6 +16,7 @@ import { models } from "./models.js";
 import {
   cleanJSONSchemaForAntigravity,
   normalizeGeminiContents,
+  isGemini4Model,
   sanitizeGeminiFunctionName,
   convertOpenAIContentToParts,
   tryParseJSON,
@@ -218,7 +219,8 @@ export async function executeAntigravity(
     }
   }
 
-  const contents = normalizeGeminiContents(rawContents);
+  const isG4 = isGemini4Model(targetModel) || isGemini4Model(upstreamModel);
+  const contents = normalizeGeminiContents(rawContents, upstreamModel || targetModel);
 
   // Tools declaration
   let tools: any[] | undefined;
@@ -251,13 +253,23 @@ export async function executeAntigravity(
   }
 
   const generationConfig: any = {};
-  if (body.temperature != null) generationConfig.temperature = body.temperature;
-  if (body.top_p != null) generationConfig.topP = body.top_p;
-  if (body.top_k != null) generationConfig.topK = body.top_k;
+  if (!isG4) {
+    if (body.temperature != null) generationConfig.temperature = body.temperature;
+    if (body.top_p != null) generationConfig.topP = body.top_p;
+    if (body.top_k != null) generationConfig.topK = body.top_k;
+  }
   if (body.max_tokens != null) generationConfig.maxOutputTokens = body.max_tokens;
   if (thinkingLevel) {
+    let level = thinkingLevel.toLowerCase();
+    if (isG4 && (level === "minimal" || level === "none" || level === "off")) {
+      level = "low";
+    }
     generationConfig.thinkingConfig = {
-      thinkingLevel: thinkingLevel.toLowerCase(),
+      thinkingLevel: level,
+    };
+  } else if (isG4) {
+    generationConfig.thinkingConfig = {
+      thinkingLevel: "low",
     };
   }
 
@@ -283,7 +295,7 @@ export async function executeAntigravity(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${creds.accessToken}`,
-    "User-Agent": "antigravity/ide/2.11.0 darwin/arm64",
+    "User-Agent": "antigravity/ide/2.22.0 darwin/arm64",
     Accept: isStreaming ? "text/event-stream" : "application/json",
     "x-request-source": "local",
   };

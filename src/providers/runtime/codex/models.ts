@@ -17,8 +17,6 @@ export const models: RegistryModel[] = [
   {"id":"gpt-5.6-luna","name":"GPT 5.6 Luna","isDefault":false},
   {"id":"gpt-5.6-luna[1m]","name":"GPT 5.6 Luna (extended context)","upstreamModelId":"gpt-5.6-luna","isDefault":false},
   {"id":"gpt-5.6-luna-review","name":"GPT 5.6 Luna Review","upstreamModelId":"gpt-5.6-luna","isDefault":false},
-  {"id":"gpt-5.5","name":"GPT 5.5","isDefault":false},
-  {"id":"gpt-5.5-review","name":"GPT 5.5 Review","upstreamModelId":"gpt-5.5","isDefault":false},
   {"id":"gpt-daybreak-blue-latest","name":"GPT Daybreak Blue","isDefault":false},
   {"id":"gpt-reserve","name":"GPT Reserve","isDefault":false},
   {"id":"codex-auto-review","name":"Codex Auto Review","upstreamModelId":"codex-auto-review","isDefault":false},
@@ -30,6 +28,5 @@ export const models: RegistryModel[] = [
   {"id":"gpt-5.6-sol-image","name":"GPT 5.6 Sol Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
   {"id":"gpt-5.6-terra-image","name":"GPT 5.6 Terra Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
   {"id":"gpt-5.6-luna-image","name":"GPT 5.6 Luna Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
-  {"id":"gpt-5.5-image","name":"GPT 5.5 Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
   {"id":"gpt-5.3-image","name":"GPT 5.3 Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
 ];

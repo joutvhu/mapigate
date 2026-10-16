@@ -1,6 +1,7 @@
 import type { RegistryModel } from "../../core/types.js";
 
 export const models: RegistryModel[] = [
+  {"id":"gemini-4-argon","name":"Gemini 4 Argon","isDefault":false},
   {"id":"gemini-3.8-flash","name":"Gemini 3.8 Flash","isDefault":false},
   {"id":"gemini-3.7-flash","name":"Gemini 3.7 Flash","isDefault":false},
   {"id":"gemini-3.6-flash","name":"Gemini 3.6 Flash","isDefault":false},

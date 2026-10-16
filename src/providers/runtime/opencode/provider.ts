@@ -2,18 +2,20 @@ import { BaseProvider } from "../../core/base/baseProvider.js";
 import type { ProviderRequestContext } from "../../core/types.js";
 import {
   OPENCODE_UA,
+  OPENCODE_CLIENT,
   OPENCODE_BASE_URL,
   OPENCODE_SESSION_RE,
-  OPENCODE_REQUEST_RE,
   isMessagesModel,
+  isResponsesModel,
 } from "./types.js";
-import { getStableSessionId, generateRequestId } from "./sessions.js";
+import { getStableSessionId } from "./sessions.js";
 import { applyFingerprintTools, restoreToolNames } from "./tools.js";
 
 export function buildOpenCodeUrl(modelId?: string, baseUrl: string = OPENCODE_BASE_URL): string {
   const base = baseUrl.replace(/\/+$/, "");
-  if (isMessagesModel(modelId)) return `${base}/zen/v1/messages`;
-  return `${base}/zen/v1/chat/completions`;
+  if (isResponsesModel(modelId)) return `${base}/inference/v1/responses`;
+  if (isMessagesModel(modelId)) return `${base}/inference/v1/messages`;
+  return `${base}/inference/v1/chat/completions`;
 }
 
 export function buildOpenCodeHeaders(
@@ -28,7 +30,9 @@ export function buildOpenCodeHeaders(
   }
 
   const downstreamUa = lower["user-agent"] || "";
-  const isOpencodeDownstream = /opencode\/(\d+)\.(\d+)/i.test(downstreamUa);
+  const isOpencodeDownstream =
+    /opencode\/latest\/\d+\.\d+\.\d+/i.test(downstreamUa) ||
+    /opencode\/(?:[2-9]|\d{2,})\.\d+/i.test(downstreamUa);
 
   const session =
     sessionId ||
@@ -36,19 +40,15 @@ export function buildOpenCodeHeaders(
       ? lower["x-opencode-session"]
       : getStableSessionId("default"));
 
-  const reqId =
-    requestId ||
-    (lower["x-opencode-request"] && OPENCODE_REQUEST_RE.test(lower["x-opencode-request"])
-      ? lower["x-opencode-request"]
-      : generateRequestId());
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Authorization": "Bearer public",
     "User-Agent": isOpencodeDownstream ? downstreamUa : OPENCODE_UA,
-    "x-opencode-client": lower["x-opencode-client"] || "desktop",
+    "x-opencode-client": lower["x-opencode-client"] || OPENCODE_CLIENT,
     "x-opencode-session": session,
-    "x-opencode-request": reqId,
+    "x-opencode-session-id": session,
+    "x-session-affinity": session,
+    "x-session-id": session,
     "x-opencode-project": lower["x-opencode-project"] || "global",
     "Accept": "text/event-stream",
   };

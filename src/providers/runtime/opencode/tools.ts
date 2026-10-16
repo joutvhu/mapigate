@@ -1,5 +1,6 @@
 import {
   OPENCODE_FINGERPRINT_TOOLS,
+  FINGERPRINT_TOOL_DEFINITIONS,
   type FingerprintFormat,
 } from "./types.js";
 
@@ -56,39 +57,66 @@ export function concealFingerprintToolNames(tools: any[]): { tools: any[]; map: 
 export function appendMissingFingerprintTools(
   tools: any[],
   format: FingerprintFormat | boolean = "openai"
-): any[] {
+): { tools: any[]; appended: string[] } {
   const list = Array.isArray(tools) ? [...tools] : [];
   const isClaude = format === "claude";
   const isFlat = format === true || format === "flat";
+  const appended: string[] = [];
 
   for (const name of OPENCODE_FINGERPRINT_TOOLS) {
     if (list.some((tool) => fingerprintToolKey(toolNameOf(tool)) === name)) continue;
+    const def = FINGERPRINT_TOOL_DEFINITIONS[name] || {
+      description: "OpenCode workspace tool",
+      parameters: { type: "object", properties: {} },
+    };
 
     if (isClaude) {
       list.push({
         name,
-        description: "This tool is currently unavailable and must not be used.",
-        input_schema: { type: "object", properties: {} },
+        description: def.description,
+        input_schema: def.parameters,
       });
     } else if (isFlat) {
       list.push({
         type: "function",
         name,
-        description: "This tool is currently unavailable and must not be used.",
-        parameters: { type: "object", properties: {} },
+        description: def.description,
+        parameters: def.parameters,
+        strict: false,
       });
     } else {
       list.push({
         type: "function",
         function: {
           name,
-          description: "This tool is currently unavailable and must not be used.",
-          parameters: { type: "object", properties: {} },
+          description: def.description,
+          parameters: def.parameters,
         },
       });
     }
+    appended.push(name);
   }
-  return list;
+  return { tools: list, appended };
+}
+
+function noteUnavailableTools(body: any, flat: boolean, names: string[]): void {
+  const list = names.map((name) => `\`${name}\``).join(" or ");
+  const note = names.length > 1
+    ? `Do not call the ${list} tools; they are placeholders that do nothing. Use the other tools you have been given instead.`
+    : `Do not call the ${list} tool; it is a placeholder that does nothing. Use the other tools you have been given instead.`;
+  if (flat) {
+    body.instructions = typeof body.instructions === "string" && body.instructions.trim()
+      ? `${body.instructions}\n\n${note}`
+      : note;
+    return;
+  }
+  if (!Array.isArray(body.messages) || body.system !== undefined) return;
+  const first = body.messages[0];
+  if (first?.role === "system" && typeof first.content === "string") {
+    body.messages = [{ ...first, content: `${first.content}\n\n${note}` }, ...body.messages.slice(1)];
+  } else {
+    body.messages = [{ role: "system", content: note }, ...body.messages];
+  }
 }
 
 export function retargetToolChoice(
@@ -130,18 +158,22 @@ export function applyFingerprintTools(
   const isClaude = format === "claude";
   const isFlat = format === true || format === "flat";
 
-  const hadClientTools = Array.isArray(body.tools) && body.tools.length > 0;
   const { tools, map } = concealFingerprintToolNames(body.tools);
-  body.tools = appendMissingFingerprintTools(tools, format);
+  const { tools: finalTools, appended } = appendMissingFingerprintTools(tools, format);
+  body.tools = finalTools;
   retargetToolChoice(body, map, format);
 
+  if (appended.length > 0) {
+    noteUnavailableTools(body, isFlat, appended);
+  }
+
+  // Never default to "none": upstream answers tool_choice "none" with 403 FreeTierError
   if (isClaude) {
     if (body.tool_choice === "none") {
       delete body.tool_choice;
     }
   } else if (!body.tool_choice) {
     if (isFlat) body.tool_choice = "auto";
-    else if (!hadClientTools) body.tool_choice = "none";
   }
 
   return map;

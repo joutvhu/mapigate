@@ -63,11 +63,11 @@ describe("OpenCode Adapter - Session and Request IDs", () => {
 });
 
 describe("OpenCode Adapter - Fingerprint Tool Quartet Injection and Restoration", () => {
-  test("appends missing fingerprint quartet (bash, glob, grep, read) to empty tools array", () => {
+  test("appends missing fingerprint tools (read, shell) to empty tools array", () => {
     const body: any = { tools: [] };
     const map = applyFingerprintTools(body);
 
-    assert.equal(body.tools.length, 4);
+    assert.equal(body.tools.length, 2);
     const names = body.tools.map((t: any) => t.function?.name);
     for (const expected of OPENCODE_FINGERPRINT_TOOLS) {
       assert.ok(names.includes(expected));
@@ -78,28 +78,28 @@ describe("OpenCode Adapter - Fingerprint Tool Quartet Injection and Restoration"
   test("canonicalizes case variants of quartet tools and records mapping", () => {
     const body: any = {
       tools: [
-        { type: "function", function: { name: "Bash", description: "Run shell command" } },
+        { type: "function", function: { name: "Read", description: "Read file" } },
         { type: "function", function: { name: "CustomTool", description: "Other" } },
       ],
-      tool_choice: { type: "function", function: { name: "Bash" } },
+      tool_choice: { type: "function", function: { name: "Read" } },
     };
 
     const map = applyFingerprintTools(body);
 
-    assert.equal(map.get("bash"), "Bash");
-    const bashTool = body.tools.find((t: any) => t.function?.name === "bash");
-    assert.ok(bashTool);
-    assert.equal(body.tool_choice.function.name, "bash");
+    assert.equal(map.get("read"), "Read");
+    const readTool = body.tools.find((t: any) => t.function?.name === "read");
+    assert.ok(readTool);
+    assert.equal(body.tool_choice.function.name, "read");
 
-    // All 4 quartet tools must now be present
-    assert.equal(body.tools.length, 5); // Bash (canonicalized) + CustomTool + glob + grep + read
+    // All fingerprint tools must now be present: Read (canonicalized) + CustomTool + shell
+    assert.equal(body.tools.length, 3);
   });
 
   test("appends missing fingerprint quartet with Claude schema when format is claude", () => {
     const body: any = { tools: [] };
     const map = applyFingerprintTools(body, "claude");
 
-    assert.equal(body.tools.length, 4);
+    assert.equal(body.tools.length, 2);
     for (const tool of body.tools) {
       assert.ok(tool.name, "Must have tool name");
       assert.ok(tool.input_schema, "Must have Anthropic input_schema");
@@ -113,17 +113,17 @@ describe("OpenCode Adapter - Fingerprint Tool Quartet Injection and Restoration"
   test("retargets and canonicalizes Claude tools", () => {
     const body: any = {
       tools: [
-        { name: "Bash", description: "Run command", input_schema: { type: "object", properties: {} } },
+        { name: "Read", description: "Read file", input_schema: { type: "object", properties: {} } },
       ],
-      tool_choice: { type: "tool", name: "Bash" },
+      tool_choice: { type: "tool", name: "Read" },
     };
     const map = applyFingerprintTools(body, "claude");
 
-    assert.equal(map.get("bash"), "Bash");
-    const bashTool = body.tools.find((t: any) => t.name === "bash");
-    assert.ok(bashTool);
-    assert.equal(body.tool_choice.name, "bash");
-    assert.equal(body.tools.length, 4); // Bash (canonicalized) + glob + grep + read
+    assert.equal(map.get("read"), "Read");
+    const readTool = body.tools.find((t: any) => t.name === "read");
+    assert.ok(readTool);
+    assert.equal(body.tool_choice.name, "read");
+    assert.equal(body.tools.length, 2); // Read (canonicalized) + shell
   });
 
   test("restores original tool names in OpenAI chunk delta", () => {
@@ -166,17 +166,17 @@ describe("OpenCode Adapter - Fingerprint Tool Quartet Injection and Restoration"
 
 describe("OpenCode Adapter - URL Routing and Header Construction", () => {
   test("routes models correctly to their upstream endpoints", () => {
-    assert.equal(buildOpenCodeUrl("union-alpha"), "https://opencode.ai/zen/v1/messages");
+    assert.equal(buildOpenCodeUrl("union-alpha"), "https://opencode.ai/inference/v1/messages");
     assert.equal(
       buildOpenCodeUrl("muse-spark-1.2-contributor-free"),
-      "https://opencode.ai/zen/v1/chat/completions"
+      "https://opencode.ai/inference/v1/responses"
     );
     assert.equal(
       buildOpenCodeUrl("muse-spark-1.3-contributor-free"),
-      "https://opencode.ai/zen/v1/chat/completions"
+      "https://opencode.ai/inference/v1/responses"
     );
-    assert.equal(buildOpenCodeUrl("jev-1.13-free"), "https://opencode.ai/zen/v1/chat/completions");
-    assert.equal(buildOpenCodeUrl("unknown-model"), "https://opencode.ai/zen/v1/chat/completions");
+    assert.equal(buildOpenCodeUrl("jev-1.13-free"), "https://opencode.ai/inference/v1/chat/completions");
+    assert.equal(buildOpenCodeUrl("unknown-model"), "https://opencode.ai/inference/v1/chat/completions");
   });
 
   test("identifies model families correctly", () => {
@@ -192,23 +192,23 @@ describe("OpenCode Adapter - URL Routing and Header Construction", () => {
       { "User-Agent": "Claude-Code/1.0" },
       undefined,
       undefined,
-      "https://opencode.ai/zen/v1/messages"
+      "https://opencode.ai/inference/v1/messages"
     );
 
     assert.equal(headers["Authorization"], "Bearer public");
-    assert.equal(headers["User-Agent"], "opencode/1.18.31");
-    assert.equal(headers["x-opencode-client"], "desktop");
+    assert.equal(headers["User-Agent"], "opencode/latest/2.0.26/cli");
+    assert.equal(headers["x-opencode-client"], "cli");
     assert.equal(headers["x-opencode-project"], "global");
     assert.match(headers["x-opencode-session"], OPENCODE_SESSION_RE);
-    assert.match(headers["x-opencode-request"], OPENCODE_REQUEST_RE);
+    assert.match(headers["x-opencode-session-id"], OPENCODE_SESSION_RE);
     assert.equal(headers["anthropic-version"], "2023-06-01");
   });
 
   test("preserves downstream User-Agent if already a genuine OpenCode client", () => {
     const headers = buildOpenCodeHeaders({
-      "user-agent": "opencode/1.19.0 (darwin; arm64)",
+      "user-agent": "opencode/latest/2.0.29/desktop",
     });
 
-    assert.equal(headers["User-Agent"], "opencode/1.19.0 (darwin; arm64)");
+    assert.equal(headers["User-Agent"], "opencode/latest/2.0.29/desktop");
   });
 });

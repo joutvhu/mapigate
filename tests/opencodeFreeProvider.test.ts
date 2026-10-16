@@ -69,15 +69,15 @@ test("OpenCode Free Provider - Session Fingerprinting and Tool Cloaking", () => 
     tools: [
       {
         type: "function",
-        function: { name: "Bash", description: "Execute bash command", parameters: { type: "object", properties: {} } },
+        function: { name: "Read", description: "Read file contents", parameters: { type: "object", properties: {} } },
       },
     ],
   };
 
   const map = applyFingerprintTools(reqBody, false);
-  assert.equal(map.get("bash"), "Bash");
+  assert.equal(map.get("read"), "Read");
 
-  // All 4 fingerprint tools must now be present
+  // All fingerprint tools must now be present
   const toolNames = reqBody.tools.map((t: any) => t.function?.name);
   for (const name of OPENCODE_FINGERPRINT_TOOLS) {
     assert.ok(toolNames.includes(name), `Fingerprint tool ${name} must be present`);
@@ -92,7 +92,7 @@ test("OpenCode Free Provider - Session Fingerprinting and Tool Cloaking", () => 
             {
               id: "call_1",
               type: "function",
-              function: { name: "bash", arguments: '{"command":"git status"}' },
+              function: { name: "read", arguments: '{"path":"file.txt"}' },
             },
           ],
         },
@@ -101,18 +101,18 @@ test("OpenCode Free Provider - Session Fingerprinting and Tool Cloaking", () => 
   };
 
   restoreToolNames(streamChunk, map);
-  assert.equal(streamChunk.choices[0].delta.tool_calls[0].function.name, "Bash");
+  assert.equal(streamChunk.choices[0].delta.tool_calls[0].function.name, "Read");
 });
 
 test("OpenCode Free Provider - URL and Headers Contract", () => {
-  assert.equal(buildOpenCodeUrl("union-alpha"), "https://opencode.ai/zen/v1/messages");
-  assert.equal(buildOpenCodeUrl("muse-spark-1.3-contributor-free"), "https://opencode.ai/zen/v1/chat/completions");
-  assert.equal(buildOpenCodeUrl("jev-1.13-free"), "https://opencode.ai/zen/v1/chat/completions");
+  assert.equal(buildOpenCodeUrl("union-alpha"), "https://opencode.ai/inference/v1/messages");
+  assert.equal(buildOpenCodeUrl("muse-spark-1.3-contributor-free"), "https://opencode.ai/inference/v1/responses");
+  assert.equal(buildOpenCodeUrl("jev-1.13-free"), "https://opencode.ai/inference/v1/chat/completions");
 
-  const headers = buildOpenCodeHeaders({}, "ses_1234567890ab1234567890abcd", "msg_1234567890ab1234567890abcd", "https://opencode.ai/zen/v1/messages");
+  const headers = buildOpenCodeHeaders({}, "ses_1234567890ab1234567890abcd", undefined, "https://opencode.ai/inference/v1/messages");
   assert.equal(headers["Authorization"], "Bearer public");
-  assert.equal(headers["User-Agent"], "opencode/1.18.31");
-  assert.equal(headers["x-opencode-client"], "desktop");
+  assert.equal(headers["User-Agent"], "opencode/latest/2.0.26/cli");
+  assert.equal(headers["x-opencode-client"], "cli");
   assert.equal(headers["x-opencode-project"], "global");
   assert.equal(headers["anthropic-version"], "2023-06-01");
 });
@@ -122,13 +122,13 @@ test("OpenCode Free Provider - Claude Format Fingerprint Tools for Union Alpha",
     model: "union-alpha",
     messages: [{ role: "user", content: "Hello" }],
     tools: [
-      { name: "Bash", description: "Execute bash", input_schema: { type: "object", properties: {} } }
+      { name: "Read", description: "Read file", input_schema: { type: "object", properties: {} } }
     ]
   };
 
   const map = applyFingerprintTools(reqBody, "claude");
-  assert.equal(map.get("bash"), "Bash");
-  assert.equal(reqBody.tools.length, 4);
+  assert.equal(map.get("read"), "Read");
+  assert.equal(reqBody.tools.length, 2);
 
   for (const tool of reqBody.tools) {
     assert.ok(tool.name, "Tool must have name");

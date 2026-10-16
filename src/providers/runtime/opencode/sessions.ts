@@ -45,20 +45,30 @@ export function generateRequestId(timestamp = Date.now()): string {
   return `msg_${time}${unstableRandom()}`;
 }
 
+const translatedOpencodeSessions = new Map<string, { sessionId: string; lastUsed: number }>();
+const MAX_TRANSLATED_SESSIONS = 1000;
+const TRANSLATED_SESSION_TTL_MS = 30 * 60 * 1000;
+
 export function translateSessionId(sessionId: string, clientTool = ""): string {
   if (typeof sessionId === "string" && OPENCODE_SESSION_RE.test(sessionId.trim())) {
     return sessionId.trim();
   }
-  const digest = crypto
-    .createHash("sha256")
-    .update(`opencode\0${clientTool || "generic"}\0${sessionId || ""}`)
-    .digest();
-  const timeHex = digest.subarray(0, 6).toString("hex");
-  let randomPart = "";
-  for (let i = 6; i < 20; i++) {
-    randomPart += BASE62_CHARS[digest[i] % 62];
+  const key = `opencode:ses:${clientTool || "generic"}:${sessionId || ""}`;
+  const now = Date.now();
+  const existing = translatedOpencodeSessions.get(key);
+  if (existing && now - existing.lastUsed < TRANSLATED_SESSION_TTL_MS) {
+    existing.lastUsed = now;
+    translatedOpencodeSessions.delete(key);
+    translatedOpencodeSessions.set(key, existing);
+    return existing.sessionId;
   }
-  return `ses_${timeHex}${randomPart}`;
+  const id = generateSessionId();
+  if (translatedOpencodeSessions.size >= MAX_TRANSLATED_SESSIONS) {
+    const firstKey = translatedOpencodeSessions.keys().next().value;
+    if (firstKey) translatedOpencodeSessions.delete(firstKey);
+  }
+  translatedOpencodeSessions.set(key, { sessionId: id, lastUsed: now });
+  return id;
 }
 
 const stableOpencodeSessions = new Map<string, { sessionId: string; lastUsed: number }>();

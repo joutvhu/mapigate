@@ -22,7 +22,7 @@ export const metadata: ProviderRegistryItem = {
   "validateUrl": "",
   "format": "openai",
   "defaultHeaders": {
-    "x-opencode-client": "desktop"
+    "x-opencode-client": "cli"
   },
   "thinkingMode": "auto",
   "models": [

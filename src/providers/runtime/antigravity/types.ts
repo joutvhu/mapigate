@@ -1,7 +1,7 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 
-export const ANTIGRAVITY_IDE_VERSION = "2.11.0";
-export const ANTIGRAVITY_USER_AGENT = "antigravity/ide/2.11.0";
+export const ANTIGRAVITY_IDE_VERSION = "2.22.0";
+export const ANTIGRAVITY_USER_AGENT = "antigravity/ide/2.22.0";
 export const ANTIGRAVITY_LOAD_PROJECT_URL = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 export const ANTIGRAVITY_QUOTA_MODELS_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 export const ANTIGRAVITY_QUOTA_SUMMARY_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";

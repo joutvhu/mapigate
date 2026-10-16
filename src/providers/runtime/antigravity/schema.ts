@@ -270,14 +270,26 @@ export function convertOpenAIContentToParts(content: any): any[] {
   return parts;
 }
 
+export function isGemini4Model(model?: string): boolean {
+  return /(?:^|\/)gemini-4(?:$|[-.])/i.test(String(model || ""));
+}
+
+function moveFunctionResponsesLast(parts: any[]): any[] {
+  const responses = parts.filter((p: any) => p && p.functionResponse);
+  if (!responses.length) return parts;
+  return [...parts.filter((p: any) => !p || !p.functionResponse), ...responses];
+}
+
 /**
  * Normalizes Gemini contents array:
  * - strips empty turns
  * - merges consecutive same-role turns
  * - guarantees conversation starts with user turn
  * - guarantees assistant turn doesn't dangle at end without response
+ * - for Gemini 4: ensures functionResponse parts appear last in merged user turns
  */
-export function normalizeGeminiContents(contents: any[]): any[] {
+export function normalizeGeminiContents(contents: any[], model?: string): any[] {
+  const frLast = isGemini4Model(model);
   const out: any[] = [];
   for (const c of contents || []) {
     if (!c?.role || !Array.isArray(c.parts)) continue;
@@ -286,8 +298,15 @@ export function normalizeGeminiContents(contents: any[]): any[] {
     const last = out.at(-1);
     if (last?.role === c.role) {
       last.parts.push(...parts);
+      if (frLast && last.role === "user") {
+        last.parts = moveFunctionResponsesLast(last.parts);
+      }
     } else {
-      out.push({ role: c.role, parts: [...parts] });
+      let p = [...parts];
+      if (frLast && c.role === "user") {
+        p = moveFunctionResponsesLast(p);
+      }
+      out.push({ role: c.role, parts: p });
     }
   }
 
