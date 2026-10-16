@@ -11,6 +11,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "pa",
   "color": "#20808D",
+  "iconBg": "#000000",
   "image": "/assets/providers/perplexity-agent/icon.png",
   "website": "https://www.perplexity.ai",
   "notice": {

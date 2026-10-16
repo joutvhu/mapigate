@@ -7,6 +7,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "clinepass",
   "uiAlias": "clinepass",
   "color": "#5B9BD5",
+  "iconBg": "#2b203c",
   "image": "/assets/providers/clinepass/icon.png",
   "website": "https://cline.bot",
   "notice": {

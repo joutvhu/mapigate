@@ -13,6 +13,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "cx",
   "uiAlias": "cx",
   "color": "#3B82F6",
+  "iconBg": "#000000",
   "image": "/assets/providers/codex/icon.png",
   "website": "https://chatgpt.com/codex",
   "notice": {

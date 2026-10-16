@@ -9,6 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "pw",
   "color": "#20808D",
+  "iconBg": "#000000",
   "image": "/assets/providers/perplexity-web/icon.png",
   "website": "https://www.perplexity.ai",
   "category": "webCookie",

@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "cl",
   "uiAlias": "cl",
   "color": "#5B9BD5",
+  "iconBg": "#2b203c",
   "image": "/assets/providers/cline/icon.png",
   "website": "https://cline.bot",
   "notice": {

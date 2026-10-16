@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "alias": "kc",
   "uiAlias": "kc",
   "color": "#FF6B35",
+  "iconBg": "#000000",
   "image": "/assets/providers/kilocode/icon.png",
   "website": "https://kilocode.ai",
   "notice": {

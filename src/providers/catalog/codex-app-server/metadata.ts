@@ -10,6 +10,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "cxa",
   "color": "#10A37F",
+  "iconBg": "#000000",
   "image": "/assets/providers/codex-app-server/icon.png",
   "website": "https://developers.openai.com/codex/cli",
   "notice": {
