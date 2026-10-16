@@ -72,30 +72,35 @@ export async function startTerminalUI(port: number): Promise<void> {
     items: [
       {
         label: "Providers",
+        icon: "⚡",
         action: async () => {
           await showProvidersMenu([...basePath, "Providers"]);
         },
       },
       {
         label: "Gateway API Keys",
+        icon: "🔑",
         action: async () => {
           await showApiKeysMenu([...basePath, "API Keys"]);
         },
       },
       {
         label: "Combos & Fallback Chains",
+        icon: "🔀",
         action: async () => {
           await showCombosMenu([...basePath, "Combos"]);
         },
       },
       {
         label: "AI Coding Tools Integration",
+        icon: "🛠️",
         action: async () => {
           await showCliToolsMenu([...basePath, "CLI Tools"]);
         },
       },
       {
         label: "Settings & System Diagnostics",
+        icon: "⚙️",
         action: async () => {
           await showSettingsMenu([...basePath, "Settings"]);
         },

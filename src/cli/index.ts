@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import chalk from "chalk";
+import ora from "ora";
 import { APP_NAME, APP_VERSION, DEFAULT_PORT, DEFAULT_HOST } from "../shared/constants/index.js";
 import { ProcessManager } from "./daemon/processManager.js";
 import { PidFileManager } from "./daemon/pidFile.js";
@@ -17,54 +18,42 @@ import { runDoctor } from "./commands/doctor.js";
 import { runProviders } from "./commands/providers.js";
 import { runModels } from "./commands/models.js";
 
-async function showLauncherMenu(port: number, isListening: boolean, pid: number | null): Promise<string> {
+async function showInterfaceMenu(port: number, pid: number | null): Promise<string> {
   clearScreen();
   const host = DEFAULT_HOST === "0.0.0.0" ? "localhost" : DEFAULT_HOST;
   const webUrl = `http://${host}:${port}`;
-
-  const statusBadge = isListening
-    ? `\x1b[32m[RUNNING]\x1b[0m (PID: ${pid ?? "unknown"}, Port: ${port})`
-    : `\x1b[90m[STOPPED]\x1b[0m (Port: ${port})`;
-
-  const subtitle = `Status: ${statusBadge}${isListening ? `\n  URL:    \x1b[36m${webUrl}\x1b[0m` : ""}`;
+  const pidStr = pid ? ` (PID: ${pid})` : "";
+  const subtitle = `🚀 Server: \x1b[32m${webUrl}\x1b[0m\x1b[90m${pidStr}\x1b[0m`;
 
   const menuItems = [
-    { label: "Start Server (Foreground)" },
-    { label: "Start Server (Background Daemon)" },
-    { label: "Stop Background Server" },
-    { label: "Open Dashboard (Web UI)" },
-    { label: "Terminal UI (Interactive CLI)" },
-    { label: "Status & RTK Metrics" },
-    { label: "Exit CLI (keep background server running)" },
-    { label: "Exit CLI and Stop Server" },
+    { label: "Web UI (Open in Browser)", icon: "🌐" },
+    { label: "Terminal UI (Interactive CLI)", icon: "💻" },
+    { label: "Status & RTK Metrics", icon: "📊" },
+    { label: "Hide to Tray (Background)", icon: "🔔" },
+    { label: "Exit (Stop Gateway)", icon: "🚪" },
   ];
 
   const selected = await selectMenu(
-    `${APP_NAME} Launcher (v${APP_VERSION})`,
+    `Choose Interface (v${APP_VERSION})`,
     menuItems,
-    isListening ? 3 : 0,
+    0,
     subtitle
   );
 
   switch (selected) {
     case 0:
-      return "start-fg";
-    case 1:
-      return "start-bg";
-    case 2:
-      return "stop";
-    case 3:
       return "web";
-    case 4:
+    case 1:
       return "terminal";
-    case 5:
+    case 2:
       return "status";
-    case 6:
-      return "exit-keep";
-    case 7:
-      return "exit-stop";
+    case 3:
+      return "hide";
+    case 4:
+    case -1:
+      return "exit";
     default:
-      return "exit-keep";
+      return "hide";
   }
 }
 
@@ -72,80 +61,52 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
   const host = DEFAULT_HOST === "0.0.0.0" ? "localhost" : DEFAULT_HOST;
   const webUrl = `http://${host}:${port}`;
 
-  while (true) {
-    const isListening = await ProcessManager.isServerListening(port);
-    const pid = PidFileManager.readPid();
-    const choice = await showLauncherMenu(port, isListening, pid);
+  // 1. Auto-start server in background if not already listening
+  const isListening = await ProcessManager.isServerListening(port);
+  if (!isListening) {
+    const spinner = ora(`Starting ${APP_NAME} gateway server on port ${port}...`).start();
+    const res = await ProcessManager.startDaemon(port);
+    if (res.success) {
+      spinner.succeed(chalk.green(`${APP_NAME} gateway ready at ${webUrl}`));
+      await new Promise((r) => setTimeout(r, 600));
+    } else {
+      spinner.fail(chalk.red(`Failed to start ${APP_NAME}: ${res.message}`));
+      process.exit(1);
+    }
+  }
 
-    if (choice === "start-fg") {
-      clearScreen();
-      if (isListening) {
-        console.log(chalk.yellow(`\n[!] Server is already running on port ${port} (PID: ${pid ?? "unknown"}).`));
-        console.log(chalk.gray(`    Stop the running instance first if you wish to run in foreground.\n`));
-        await pause();
-        continue;
-      }
-      console.log(chalk.cyan(`\nStarting ${APP_NAME} in foreground on port ${port}...`));
-      await runStart({ port, daemon: false, noBrowser: false });
-      return;
-    } else if (choice === "start-bg") {
-      clearScreen();
-      if (isListening) {
-        console.log(chalk.yellow(`\n[!] Server is already running on port ${port} (PID: ${pid ?? "unknown"}).\n`));
-      } else {
-        console.log(chalk.cyan(`\nStarting ${APP_NAME} background daemon on port ${port}...`));
-        const res = await ProcessManager.startDaemon(port);
-        if (res.success) {
-          console.log(chalk.green(`[OK] ${res.message}\n`));
-        } else {
-          console.log(chalk.red(`[ERR] ${res.message}\n`));
-        }
-      }
-      await pause();
-    } else if (choice === "stop") {
-      clearScreen();
-      console.log(chalk.cyan(`\nStopping ${APP_NAME} on port ${port}...`));
-      const res = ProcessManager.stopDaemon(port);
-      console.log(res.success ? chalk.green(`[OK] ${res.message}\n`) : chalk.red(`[ERR] ${res.message}\n`));
-      await pause();
-    } else if (choice === "web") {
-      if (!isListening) {
-        console.log(chalk.cyan(`\nServer is not running. Starting background daemon first...`));
-        const res = await ProcessManager.startDaemon(port);
-        if (res.success) {
-          await ProcessManager.waitForReady(port, 5000);
-        } else {
-          console.log(chalk.red(`[ERR] Could not start server: ${res.message}`));
-          await pause();
-          continue;
-        }
-      }
+  // 2. Interactive Menu Loop
+  while (true) {
+    const pid = PidFileManager.readPid();
+    const choice = await showInterfaceMenu(port, pid);
+
+    if (choice === "web") {
       openBrowser(webUrl);
-      await pause("\nPress Enter to return to launcher menu...");
+      await pause("\nPress Enter to return to menu...");
     } else if (choice === "terminal") {
       await startTerminalUI(port);
     } else if (choice === "status") {
       clearScreen();
       await runStatus({ port });
-      await pause("\nPress Enter to return to launcher menu...");
-    } else if (choice === "exit-keep") {
+      await pause("\nPress Enter to return to menu...");
+    } else if (choice === "hide") {
       clearScreen();
-      if (isListening) {
-        console.log(`\nExiting CLI. ${APP_NAME} remains running in background on port ${port} (PID: ${pid ?? "unknown"}).\n`);
+      const currentPid = PidFileManager.readPid();
+      console.log(chalk.cyan(`\n🔔 ${APP_NAME} is running in background (PID: ${currentPid ?? "active"}).`));
+      console.log(chalk.gray(`   Web Dashboard: ${webUrl}`));
+      console.log(chalk.gray(`   API Endpoint:  ${webUrl}/v1\n`));
+      console.log(chalk.green(`💡 Mapigate is running in system tray. You can close this terminal.`));
+      console.log(chalk.gray(`   Right-click tray icon or run 'mpg stop' to quit.\n`));
+      process.exit(0);
+    } else if (choice === "exit") {
+      clearScreen();
+      console.log(chalk.cyan(`\nStopping ${APP_NAME} on port ${port}...`));
+      const res = ProcessManager.stopDaemon(port);
+      if (res.success) {
+        console.log(chalk.green(`[OK] ${res.message}\n`));
       } else {
-        console.log(`\nExiting CLI.\n`);
+        console.log(chalk.yellow(`[!] ${res.message}\n`));
       }
-      process.exit(0);
-    } else if (choice === "exit-stop") {
-      clearScreen();
-      if (isListening) {
-        console.log(chalk.cyan(`Stopping ${APP_NAME} on port ${port}...`));
-        const res = ProcessManager.stopDaemon(port);
-        console.log(res.success ? chalk.green(`[OK] ${res.message}\n`) : chalk.red(`[ERR] ${res.message}\n`));
-      }
-      console.log(`Exited CLI.\n`);
-      process.exit(0);
-    } else {
       process.exit(0);
     }
   }
@@ -157,7 +118,37 @@ program
   .name("mapigate")
   .alias("mpg")
   .description("AI Model API Gateway & Token Optimizer for coding assistants")
-  .version(APP_VERSION);
+  .version(APP_VERSION)
+  .option("-p, --port <number>", "Port to run the gateway server", String(DEFAULT_PORT))
+  .option("-H, --host <host>", "Host to bind on", DEFAULT_HOST)
+  .option("-t, --tray", "Run in system tray mode (background)")
+  .option("-n, --no-browser", "Don't open browser automatically")
+  .action(async (options) => {
+    const port = Number(options.port) || DEFAULT_PORT;
+    const host = (options.host || DEFAULT_HOST) === "0.0.0.0" ? "localhost" : (options.host || DEFAULT_HOST);
+
+    if (options.tray) {
+      const isListening = await ProcessManager.isServerListening(port);
+      if (!isListening) {
+        const res = await ProcessManager.startDaemon(port);
+        if (!res.success) {
+          console.error(chalk.red(`Failed to start ${APP_NAME}: ${res.message}`));
+          process.exit(1);
+        }
+      }
+      console.log(`\n🚀 ${APP_NAME} v${APP_VERSION}`);
+      console.log(`Server: http://${host}:${port}`);
+      console.log(chalk.green(`\n💡 Mapigate is running in system tray. You can close this terminal.`));
+      console.log(chalk.gray(`   Right-click tray icon or run 'mpg stop' to quit.\n`));
+      process.exit(0);
+    }
+
+    if (process.stdin.isTTY) {
+      await runInteractiveLauncher(port);
+    } else {
+      await runStatus({ port });
+    }
+  });
 
 program
   .command("start")
@@ -254,12 +245,7 @@ program
     await runModels(options);
   });
 
-// When run without arguments in an interactive terminal, launch the Interactive Menu
-if (process.argv.length <= 2 && process.stdin.isTTY) {
-  runInteractiveLauncher(DEFAULT_PORT).catch((err) => {
-    console.error(chalk.red("Launcher error:"), err.message || err);
-    process.exit(1);
-  });
-} else {
-  program.parse(process.argv);
-}
+program.parseAsync(process.argv).catch((err) => {
+  console.error(chalk.red("CLI error:"), err.message || err);
+  process.exit(1);
+});
