@@ -5,6 +5,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "Mistral",
   "alias": "mistral",
   "color": "#FF7000",
+  "iconBg": "linear-gradient(to top, #d20500, #fed504)",
   "image": "/assets/providers/mistral/icon.png",
   "website": "https://mistral.ai",
   "notice": {
