@@ -8,7 +8,7 @@ export const metadata: ProviderRegistryItem = {
   uiAlias: "jan",
   color: "#8B5CF6",
   iconBg: "#1E293B",
-  image: "/assets/providers/jan/icon.png",
+  image: "/assets/providers/jan/icon.svg",
   website: "https://jan.ai",
   category: "freeTier",
   authType: "none",
