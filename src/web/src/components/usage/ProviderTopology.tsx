@@ -92,14 +92,13 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border-2 transition-all duration-300 cursor-pointer select-none bg-[#0B0F19] ${
+      className={`w-[170px] max-w-[170px] flex items-center gap-2.5 px-3 py-2 rounded-xl border-2 transition-all duration-300 cursor-pointer select-none bg-[#0B0F19] ${
         active
           ? "shadow-[0_0_18px_rgba(56,189,248,0.35)]"
           : "border-[#1E293B] hover:border-slate-600"
       }`}
       style={{
         borderColor: active ? color : undefined,
-        minWidth: "150px",
       }}
     >
       <Handle type="target" position={Position.Top} id="top" className="!bg-transparent !border-0 !w-0 !h-0" />
@@ -115,10 +114,11 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
         size="sm"
       />
 
-      <div className="truncate">
+      <div className="min-w-0 flex-1 truncate">
         <span
           className="text-xs font-bold block truncate"
           style={{ color: active ? color : "#E2E8F0" }}
+          title={label}
         >
           {label}
         </span>
@@ -245,11 +245,18 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 }) => {
   const [focusedProvider, setFocusedProvider] = useState<string | null>(null);
 
-  // Return empty list if no providers recorded
+  // Filter out empty or placeholder/unknown names
   const displayProviders = useMemo(() => {
-    if (providers.length > 0) return Array.from(new Set(providers));
-    return [];
-  }, [providers]);
+    const rawList = [...providers];
+    for (const req of activeRequests) {
+      if (req.provider) rawList.push(req.provider);
+    }
+    return Array.from(new Set(rawList)).filter((p) => {
+      if (!p) return false;
+      const lower = p.toLowerCase().trim();
+      return lower !== "unknown" && lower !== "null" && lower !== "undefined";
+    });
+  }, [providers, activeRequests]);
 
   const activeProviderSet = useMemo(() => {
     const set = new Set<string>();
@@ -275,14 +282,17 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
     if (count === 0) {
       return { nodes: [], edges: [] };
     }
-    const rx = Math.max(260, (180 * count) / (2 * Math.PI));
-    const ry = Math.max(160, rx * 0.55);
+    // Allocate at least 220px circumference arc length per node so adjacent nodes never collide
+    const minArcPerNode = 220;
+    const targetCircumference = Math.max(count * minArcPerNode, 1400);
+    const rx = Math.max(300, (targetCircumference / (2 * Math.PI)) * 1.15);
+    const ry = Math.max(180, rx * 0.58);
 
     const nodesList: Node[] = [
       {
         id: "router",
         type: "router",
-        position: { x: 0, y: 0 },
+        position: { x: -70, y: -24 },
         data: { activeCount: activeRequests.length },
         draggable: false,
       },
@@ -322,7 +332,7 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       nodesList.push({
         id: nodeId,
         type: "provider",
-        position: { x: cx - 75, y: cy - 25 },
+        position: { x: cx - 85, y: cy - 24 },
         data: {
           label: meta.name,
           color: meta.color,

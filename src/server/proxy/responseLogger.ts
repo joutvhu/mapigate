@@ -1,5 +1,6 @@
 import { LogRepository } from "../../storage/repositories/logRepo.js";
 import { RequestDetailsRepository } from "../../storage/repositories/requestDetailsRepo.js";
+import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { calculateCostFromTokens } from "../../core/usage/pricing.js";
 
 export interface LogSuccessOptions {
@@ -130,6 +131,8 @@ export class ResponseLogger {
       },
     });
 
+    UsageRepository.endPendingRequest(requestId);
+
     return calculatedCost;
   }
 
@@ -187,5 +190,7 @@ export class ResponseLogger {
       request: { headers: requestHeaders, body: requestBody },
       errorMessage: errorMessage.slice(0, 500),
     });
+
+    UsageRepository.endPendingRequest(requestId, true, providerId);
   }
 }

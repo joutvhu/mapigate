@@ -19,7 +19,7 @@ import { CryptoVault } from "../src/storage/crypto/vault.js";
 
 test("Mapigate Rename - Constants", () => {
   assert.equal(APP_NAME, "Mapigate");
-  assert.equal(APP_VERSION, "0.1.0");
+  assert.equal(APP_VERSION, "0.3.1");
   assert.equal(MAPIGATE_PID_FILE, "mapigate.pid");
   assert.equal(MAPIGATE_DB_FILE, "mapigate.sqlite");
   assert.equal(MAPIGATE_LOG_FILE, "server.log");

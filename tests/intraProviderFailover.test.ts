@@ -6,6 +6,7 @@ import { handleProxyRequest } from "../src/server/proxy/chatProxy.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
 import { LogRepository } from "../src/storage/repositories/logRepo.js";
 import { RequestDetailsRepository, flushRequestDetailsBuffer } from "../src/storage/repositories/requestDetailsRepo.js";
+import { getDatabase } from "../src/storage/database.js";
 import type { Request, Response } from "express";
 
 test("isRateLimitOrQuotaError accurately classifies rate limits and quota exhaustion", () => {
@@ -691,6 +692,14 @@ test("executeSingleModel - handles fetch rejection and records infrastructure fa
     ProviderRepository.deleteAccount(accId);
     ProviderRepository.deleteProvider(providerId);
   }
+});
+
+test.after(() => {
+  try {
+    const db = getDatabase();
+    db.run("DELETE FROM request_logs WHERE provider_id LIKE 'test_prov_%' OR provider_id LIKE 'lb_test_prov_%'");
+    db.run("DELETE FROM request_details WHERE provider LIKE 'test_prov_%' OR provider LIKE 'lb_test_prov_%'");
+  } catch {}
 });
 
 

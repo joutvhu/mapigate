@@ -118,6 +118,12 @@ export async function runProxyPipeline(
     provider: comboName ? "combo" : (candidateModels[0]?.split("/")[0] || "unknown"),
   });
 
+  if (typeof res?.on === "function") {
+    res.on("close", () => {
+      UsageRepository.endPendingRequest(requestId);
+    });
+  }
+
   const handleSingleModel: SingleModelHandler = async (modelBody, modelStr, isPanel = false) => {
     return executeSingleModel({
       req,

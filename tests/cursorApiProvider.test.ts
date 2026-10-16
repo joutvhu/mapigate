@@ -40,7 +40,7 @@ test("Cursor API Provider - Metadata & Registry Configuration", () => {
   assert.deepEqual(cua.aliases, ["cua", "cursor-api"]);
   assert.equal(cua.uiAlias, "cua");
   assert.equal(cua.color, "#00D4AA");
-  assert.equal(cua.iconBg, "#00D4AA");
+  assert.equal(cua.iconBg, "#ffffff");
   assert.equal(cua.image, "/assets/providers/cursor-api/icon.png");
   assert.equal(cua.website, "https://cursor.com/dashboard/api");
   assert.equal(cua.category, "apikey");
