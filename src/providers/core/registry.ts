@@ -9,8 +9,7 @@ export class ProviderRegistry {
   private static providers: Map<string, IProvider> = new Map();
   private static aliases: Map<string, string> = new Map([
     ["copilot", "github"],
-    ["xiaomi-tokenplan", "mimo"],
-    ["xmtp", "mimo"],
+    ["xmtp", "xiaomi-tokenplan"],
     ["xiaomi-mimo", "mimo"],
     ["grok-cli", "grok"],
     ["xai", "grok"],

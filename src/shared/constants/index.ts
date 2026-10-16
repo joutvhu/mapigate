@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 
 export const APP_NAME = "Mapigate";
-export const APP_VERSION = "0.3.1";
+export const APP_VERSION = "0.3.2";
 
 export const DEFAULT_PORT = 20127;
 export const DEFAULT_HOST: string = "127.0.0.1";

@@ -162,7 +162,43 @@ describe("Responses API Adapter & Endpoints", () => {
       };
 
       const converted = convertResponsesApiFormat(standardBody);
-      assert.equal(converted, standardBody);
+      assert.deepEqual(converted.messages, standardBody.messages);
+    });
+
+    it("normalizes flat Responses API tools into OpenAI Chat Completions function tools", () => {
+      const responsesBody = {
+        model: "xiaomi-tokenplan/mimo-v2.6-flash",
+        input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "What files are here?" }] }],
+        tools: [
+          {
+            type: "function",
+            name: "fs_list_dir",
+            description: "Lists directory contents",
+            parameters: {
+              type: "object",
+              properties: { path: { type: "string" } },
+              required: ["path"],
+            },
+          },
+        ],
+        tool_choice: { type: "function", name: "fs_list_dir" },
+        max_output_tokens: 4096,
+      };
+
+      const converted = convertResponsesApiFormat(responsesBody);
+      assert.ok(Array.isArray(converted.tools));
+      assert.equal(converted.tools.length, 1);
+      assert.equal(converted.tools[0].type, "function");
+      assert.ok(converted.tools[0].function, "Expected function property to be set on tool");
+      assert.equal(converted.tools[0].function.name, "fs_list_dir");
+      assert.equal(converted.tools[0].function.description, "Lists directory contents");
+      assert.deepEqual(converted.tools[0].function.parameters.required, ["path"]);
+      assert.deepEqual(converted.tool_choice, {
+        type: "function",
+        function: { name: "fs_list_dir" },
+      });
+      assert.equal(converted.max_tokens, 4096);
+      assert.equal(converted.max_output_tokens, undefined);
     });
   });
 

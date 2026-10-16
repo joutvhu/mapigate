@@ -15,11 +15,10 @@ describe("Model Scanner - Candidate URL Resolution", () => {
   });
 
   test("resolves Xiaomi endpoint to regional token-plan URL defaulting to sgp", () => {
-    const urls = resolveCandidateUrls("https://api.xiaomimimo.com/v1/models");
+    const urls = resolveCandidateUrls("https://token-plan-sgp.xiaomimimo.com/v1/models", undefined, "xiaomi-tokenplan");
     assert.equal(urls[0], "https://token-plan-sgp.xiaomimimo.com/v1/models");
     assert.ok(urls.includes("https://token-plan-cn.xiaomimimo.com/v1/models"));
     assert.ok(urls.includes("https://token-plan-ams.xiaomimimo.com/v1/models"));
-    assert.ok(!urls.includes("https://api.xiaomimimo.com/v1/models"));
   });
 
   test("retains custom reverse-proxy host for xiaomi-tokenplan without bypassing to xiaomimimo.com", () => {
@@ -59,15 +58,22 @@ describe("Model Scanner - Candidate URL Resolution", () => {
     assert.ok(urlsCn.includes("https://token-plan-ams.xiaomimimo.com/v1/models"));
 
     const urlsAms = resolveCandidateUrls(
-      "https://api.xiaomimimo.com/v1/chat/completions",
+      "https://token-plan-sgp.xiaomimimo.com/v1/chat/completions",
       undefined,
-      "xiaomi-mimo",
+      "xiaomi-tokenplan",
       undefined,
       "ams"
     );
     assert.equal(urlsAms[0], "https://token-plan-ams.xiaomimimo.com/v1/models");
     assert.ok(urlsAms.includes("https://token-plan-sgp.xiaomimimo.com/v1/models"));
     assert.ok(urlsAms.includes("https://token-plan-cn.xiaomimimo.com/v1/models"));
+
+    const urlsMimo = resolveCandidateUrls(
+      "https://api.xiaomimimo.com/v1/chat/completions",
+      undefined,
+      "xiaomi-mimo"
+    );
+    assert.equal(urlsMimo[0], "https://api.xiaomimimo.com/v1/models");
   });
 
   test("preserves explicit /api/tags endpoint for Ollama", () => {

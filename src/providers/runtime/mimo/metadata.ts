@@ -29,7 +29,7 @@ export const metadata: ProviderRegistryItem = {
   "baseUrls": [
     "https://api.xiaomimimo.com/v1/chat/completions"
   ],
-  "validateUrl": "https://token-plan-sgp.xiaomimimo.com/v1/models",
+  "validateUrl": "https://api.xiaomimimo.com/v1/models",
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",

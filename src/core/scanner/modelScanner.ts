@@ -30,22 +30,17 @@ export function resolveCandidateUrls(
     lowerBase.includes(":11434") ||
     (providerId && providerId.toLowerCase().includes("ollama"));
 
-  // Xiaomi MiMo & Xiaomi Token Plan endpoint resolution
-  // https://api.xiaomimimo.com/v1/models is invalid; must use https://token-plan-${region}.xiaomimimo.com/v1/models
-  const isXiaomi =
+  // Xiaomi Token Plan endpoint resolution (cluster-specific for tp- keys)
+  const isTokenPlan =
     providerId === "xiaomi-tokenplan" ||
     providerId === "xmtp" ||
-    providerId === "xiaomi-mimo" ||
-    providerId === "mimo" ||
     (registryItem && (
       registryItem.id === "xiaomi-tokenplan" ||
-      registryItem.id === "xiaomi-mimo" ||
-      registryItem.alias === "xmtp" ||
-      registryItem.alias === "mimo"
+      registryItem.alias === "xmtp"
     )) ||
-    lowerBase.includes("xiaomimimo.com");
+    lowerBase.includes("token-plan-");
 
-  if (isXiaomi && lowerBase.includes("xiaomimimo.com")) {
+  if (isTokenPlan && lowerBase.includes("xiaomimimo.com")) {
     const urlRegionMatch = lowerBase.match(/token-plan-([a-z0-9_-]+)\.xiaomimimo\.com/);
     const targetRegion = (region || (urlRegionMatch ? urlRegionMatch[1] : "") || "sgp").toLowerCase().trim();
 
@@ -102,7 +97,7 @@ export function resolveCandidateUrls(
   if (registryItem?.validateUrl) {
     const vUrl = registryItem.validateUrl.trim();
     const isExternalXiaomiBypass =
-      isXiaomi && !lowerBase.includes("xiaomimimo.com") && vUrl.toLowerCase().includes("xiaomimimo.com");
+      isTokenPlan && !lowerBase.includes("xiaomimimo.com") && vUrl.toLowerCase().includes("xiaomimimo.com");
     if (!isExternalXiaomiBypass && (vUrl.toLowerCase().includes("/models") || vUrl.toLowerCase().includes("/api/tags"))) {
       add(vUrl);
     }

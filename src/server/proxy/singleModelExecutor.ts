@@ -20,6 +20,9 @@ import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.js";
 
+import fs from "node:fs";
+import path from "node:path";
+import { getDefaultDataDir } from "../../shared/constants/index.js";
 import { tryFailover, resolveTargetModelAndProvider } from "./executorHelpers.js";
 
 /**
@@ -113,8 +116,10 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   const triedAccountIds = new Set<string>();
   let lastFailureResult: ModelCallResult | undefined;
 
+  const targetProviderId = providerConfig.id || provider.id;
+
   while (true) {
-    const account = LoadBalancer.pickAccount(provider.id, {
+    const account = LoadBalancer.pickAccount(targetProviderId, {
       excludeAccountIds: triedAccountIds,
       targetModel,
       prefixHash: prefixHash || undefined,
@@ -161,20 +166,20 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       };
       const customResult = await provider.execute(context, dispatchSingleModel);
       if (customResult.ok) {
-        recordResilienceSuccess({ providerId: provider.id, accountId: account?.id, model: targetModel });
+        recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
         return customResult;
       }
 
       const errText = customResult.text || customResult.error || "";
       const cleanErrText = sanitizeErrorMessage(errText);
       const resFailure = recordResilienceFailure({
-        providerId: provider.id, accountId: account?.id, model: targetModel,
+        providerId: targetProviderId, accountId: account?.id, model: targetModel,
         status: customResult.status, errorText: cleanErrText,
       });
 
       if (resFailure.rateLimited && account) {
         const cdMs = resFailure.cooldownMs || 60_000;
-        if (tryFailover(provider.id, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true, prefixHash || undefined)) {
+        if (tryFailover(targetProviderId, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true, prefixHash || undefined)) {
           lastFailureResult = { ...customResult, error: cleanErrText, text: cleanErrText };
           continue;
         }
@@ -255,14 +260,32 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     if (!upstreamRes.ok) {
       const errText = await upstreamRes.text();
       const cleanErrText = sanitizeErrorMessage(errText);
+      try {
+        const debugFile = path.join(getDefaultDataDir(), "debug_failed_request.json");
+        fs.writeFileSync(
+          debugFile,
+          JSON.stringify(
+            {
+              timestamp: new Date().toISOString(),
+              url: upstreamUrl,
+              status: upstreamRes.status,
+              error: cleanErrText,
+              headers: outgoingHeaders,
+              body: upstreamBody,
+            },
+            null,
+            2
+          )
+        );
+      } catch {}
       const resFailure = recordResilienceFailure({
-        providerId: provider.id, accountId: account?.id, model: targetModel,
+        providerId: targetProviderId, accountId: account?.id, model: targetModel,
         status: upstreamRes.status, errorText: cleanErrText, headers: upstreamRes.headers,
       });
 
       if (resFailure.rateLimited && account) {
         const cdMs = resFailure.cooldownMs || 60_000;
-        if (tryFailover(provider.id, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined)) {
+        if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
           continue;
         }
@@ -270,11 +293,11 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
       const durationMs = Date.now() - startTime;
       const sanitizedErr = cleanErrText.slice(0, 500);
-      logger.errorLine(reqTag, LogSymbol.ERROR, `ERROR ${upstreamRes.status} · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${sanitizedErr}`);
+      logger.errorLine(reqTag, LogSymbol.ERROR, `ERROR ${upstreamRes.status} · ${targetProviderId}/${targetModel} · ${durationMs}ms\n    ${sanitizedErr}`);
       return { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
     }
 
-    recordResilienceSuccess({ providerId: provider.id, accountId: account?.id, model: targetModel });
+    recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
 
     if (isPanel) {
       try {

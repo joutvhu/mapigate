@@ -33,11 +33,35 @@ export class OpenAiCompatibleProvider extends BaseProvider {
   }
 
   public override transformRequestBody(context: ProviderRequestContext): any {
+    let body = context.body;
     if (context.clientFormat === "anthropic") {
-      const converted = AnthropicAdapter.anthropicToOpenAi(context.body);
-      converted.model = context.targetModel;
-      return converted;
+      body = AnthropicAdapter.anthropicToOpenAi(body);
     }
-    return { ...context.body, model: context.targetModel };
+    const converted: any = { ...body, model: context.targetModel };
+    if (Array.isArray(converted.tools)) {
+      converted.tools = converted.tools
+        .map((t: any) => {
+          if (!t || typeof t !== "object") return null;
+          if (t.function && typeof t.function === "object") return t;
+          if (t.type === "function" || t.name) {
+            return {
+              type: "function",
+              function: {
+                name: t.name || "",
+                description: t.description,
+                parameters: t.parameters || { type: "object", properties: {} },
+                ...(t.strict !== undefined && { strict: t.strict }),
+              },
+            };
+          }
+          return t;
+        })
+        .filter(Boolean);
+      if (converted.tools.length === 0) {
+        delete converted.tools;
+        delete converted.tool_choice;
+      }
+    }
+    return converted;
   }
 }
