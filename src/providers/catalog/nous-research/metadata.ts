@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "nous-research",
   "color": "#2563EB",
-  "image": "/assets/providers/nous-research/icon.svg",
+  "image": "/assets/providers/nous-research/icon.png",
   "website": "https://portal.nousresearch.com/help",
   "notice": {
     "apiKeyUrl": "",

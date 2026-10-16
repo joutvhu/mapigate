@@ -17,6 +17,7 @@ import { runShow } from "./commands/show.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runProviders } from "./commands/providers.js";
 import { runModels } from "./commands/models.js";
+import { runStartup } from "./commands/startup.js";
 
 async function showInterfaceMenu(port: number, pid: number | null): Promise<string> {
   clearScreen();
@@ -243,6 +244,14 @@ program
   .option("-p, --port <number>", "Port to query", String(DEFAULT_PORT))
   .action(async (options) => {
     await runModels(options);
+  });
+
+program
+  .command("startup [action]")
+  .alias("autostart")
+  .description("Configure Mapigate to start automatically on system boot (enable, disable, status)")
+  .action(async (action) => {
+    await runStartup(action);
   });
 
 program.parseAsync(process.argv).catch((err) => {

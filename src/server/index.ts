@@ -339,7 +339,13 @@ if (!isTest) {
     }
 
     // Initialize system tray if running in background daemon mode or tray explicitly requested
-    if (process.env.MAPIGATE_DAEMON === "1" || process.env.MAPIGATE_TRAY === "1") {
+    if (
+      process.env.MAPIGATE_DAEMON === "1" ||
+      process.env.MAPIGATE_TRAY === "1" ||
+      process.argv.includes("--tray") ||
+      process.argv.includes("--daemon") ||
+      process.argv.includes("-d")
+    ) {
       try {
         initTray({
           port,

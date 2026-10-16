@@ -11,7 +11,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   uiAlias: "cua",
   color: "#00D4AA",
-  iconBg: "#00D4AA",
+  iconBg: "#ffffff",
   image: "/assets/providers/cursor-api/icon.png",
   website: "https://cursor.com/dashboard/api",
   notice: {

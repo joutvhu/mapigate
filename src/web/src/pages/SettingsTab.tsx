@@ -25,6 +25,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const isPasswordSet = useAuth((s) => s.isPasswordSet);
   const [pwdModalMode, setPwdModalMode] = useState<MasterPasswordModalMode>(null);
+  const [autostartInfo, setAutostartInfo] = useState<{
+    enabled: boolean;
+    platform: string;
+    targetPath: string | null;
+  } | null>(null);
+  const [isUpdatingAutostart, setIsUpdatingAutostart] = useState(false);
 
   const handleOpenRestart = onRestartClick || (() => setIsRestartOpenInternal(true));
 
@@ -37,7 +43,37 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
         }
       })
       .catch(() => {});
+
+    fetch("/api/settings/autostart")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.enabled === "boolean") {
+          setAutostartInfo(data);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleToggleAutostart = async () => {
+    if (!autostartInfo || isUpdatingAutostart) return;
+    const targetState = !autostartInfo.enabled;
+    setIsUpdatingAutostart(true);
+    try {
+      const res = await fetch("/api/settings/autostart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: targetState }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAutostartInfo((prev) => (prev ? { ...prev, enabled: data.enabled } : data));
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsUpdatingAutostart(false);
+    }
+  };
 
   const handleConfirmShutdown = async () => {
     setIsShuttingDown(true);
@@ -126,6 +162,56 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
           <code className="text-blue-400 block bg-[#0F1420] p-2.5 rounded-lg border border-[#1E293B] break-all select-all">
             {systemInfo?.dbPath || systemInfo?.dataDir || "~/.mapigate/mapigate.sqlite"}
           </code>
+        </div>
+      </div>
+
+      {/* System Startup (Autostart on Boot) Card */}
+      <div className="rt-card p-6 space-y-4 border border-[#1E293B]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">rocket_launch</span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">System Startup (Autostart on Boot)</h3>
+              <p className="text-xs text-slate-400">Launch Mapigate gateway automatically in the background on computer boot</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleToggleAutostart}
+              disabled={isUpdatingAutostart || !autostartInfo}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                autostartInfo?.enabled ? "bg-blue-600" : "bg-slate-700"
+              }`}
+              title={autostartInfo?.enabled ? "Click to disable autostart" : "Click to enable autostart"}
+            >
+              <span
+                className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  autostartInfo?.enabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <span className={`text-xs font-semibold ${autostartInfo?.enabled ? "text-emerald-400" : "text-slate-400"}`}>
+              {autostartInfo?.enabled ? "Enabled" : "Disabled"}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2 text-xs text-slate-400 leading-relaxed">
+          <p>
+            When enabled, Mapigate will automatically start as a silent background daemon with system tray icon whenever you log in to this computer. Coding assistants (Claude Code, Cursor, Cline, Copilot) can access AI endpoints without having to manually start the gateway.
+          </p>
+          {autostartInfo?.targetPath && (
+            <div className="bg-[#0A0D14] p-3 rounded-xl border border-[#1E293B] text-slate-300 font-mono text-[11px] flex items-center justify-between gap-2">
+              <span className="text-slate-500 uppercase text-[10px] font-bold font-sans shrink-0">
+                Startup Target ({autostartInfo.platform}):
+              </span>
+              <code className="text-blue-400 truncate select-all">{autostartInfo.targetPath}</code>
+            </div>
+          )}
         </div>
       </div>
 

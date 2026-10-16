@@ -1,6 +1,11 @@
 import { exec } from "node:child_process";
 import { initWinTray, resolveIconPath, type TrayController } from "./trayWin.js";
 import { initUnixTray } from "./trayUnix.js";
+import {
+  isAutoStartEnabled,
+  enableAutoStart,
+  disableAutoStart,
+} from "../daemon/autostart.js";
 
 export interface TrayOptions {
   port: number;
@@ -15,8 +20,9 @@ export const MENU_INDEX = {
   HEADER: 0,
   DASHBOARD: 1,
   STATUS: 2,
-  RESTART: 3,
-  QUIT: 4,
+  AUTOSTART: 3,
+  RESTART: 4,
+  QUIT: 5,
 } as const;
 
 export function openBrowser(url: string): void {
@@ -44,11 +50,12 @@ export function isTraySupported(): boolean {
   return true;
 }
 
-export function buildTrayItems(port: number) {
+export function buildTrayItems(port: number, autostartEnabled: boolean = false) {
   return [
     { title: `Mapigate (Port ${port})`, enabled: false },
     { title: "Open Web Dashboard", enabled: true },
     { title: "Status", enabled: true },
+    { title: autostartEnabled ? "✓ Auto-start on Boot" : "Enable Auto-start on Boot", enabled: true },
     { title: "Restart Gateway", enabled: true },
     { title: "Quit / Shutdown", enabled: true },
   ];
@@ -64,6 +71,23 @@ function handleMenuClick(index: number, options: TrayOptions): void {
     }
   } else if (index === MENU_INDEX.STATUS) {
     openBrowser(`http://localhost:${port}`);
+  } else if (index === MENU_INDEX.AUTOSTART) {
+    try {
+      const currentlyEnabled = isAutoStartEnabled();
+      if (currentlyEnabled) {
+        disableAutoStart();
+      } else {
+        enableAutoStart();
+      }
+      const nextEnabled = !currentlyEnabled;
+      activeTray?.updateItem(
+        MENU_INDEX.AUTOSTART,
+        nextEnabled ? "✓ Auto-start on Boot" : "Enable Auto-start on Boot",
+        true
+      );
+    } catch {
+      // ignore
+    }
   } else if (index === MENU_INDEX.RESTART) {
     if (onRestart) {
       onRestart();
@@ -85,7 +109,8 @@ export function initTray(options: TrayOptions): TrayController | null {
   }
 
   try {
-    const items = buildTrayItems(options.port);
+    const autostart = isAutoStartEnabled();
+    const items = buildTrayItems(options.port, autostart);
 
     if (process.platform === "win32") {
       const iconPath = resolveIconPath();

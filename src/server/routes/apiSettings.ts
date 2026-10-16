@@ -8,6 +8,11 @@ import {
   APP_NAME,
   APP_VERSION,
 } from "../../shared/constants/index.js";
+import {
+  getAutoStartInfo,
+  enableAutoStart,
+  disableAutoStart,
+} from "../../cli/daemon/autostart.js";
 
 export const settingsRouter = Router();
 
@@ -247,3 +252,31 @@ settingsRouter.put("/", (req, res) => {
     res.status(400).json({ error: error.message || "Failed to update settings" });
   }
 });
+
+// GET /api/settings/autostart - Get autostart state and target path
+settingsRouter.get("/autostart", (_req, res) => {
+  try {
+    const info = getAutoStartInfo();
+    res.json(info);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to get autostart status" });
+  }
+});
+
+// POST /api/settings/autostart - Enable or disable autostart
+settingsRouter.post("/autostart", (req, res) => {
+  try {
+    const enabled = Boolean(req.body?.enabled);
+    const success = enabled ? enableAutoStart() : disableAutoStart();
+    const info = getAutoStartInfo();
+    res.json({
+      success,
+      enabled: info.enabled,
+      platform: info.platform,
+      targetPath: info.targetPath,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to update autostart setting" });
+  }
+});
+
