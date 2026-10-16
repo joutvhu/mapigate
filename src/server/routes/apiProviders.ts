@@ -178,7 +178,7 @@ providerRouter.post("/validate", async (req, res) => {
   }
 
   // Cloudflare AI check
-  if (pId === "cloudflare-ai") {
+  if (pId === "cloudflare-ai" || pId === "cloudflare") {
     const accountId = providerSpecificData?.accountId;
     if (!accountId) {
       res.json({ valid: false, error: "Cloudflare Account ID is required" });

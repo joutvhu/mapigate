@@ -6,12 +6,10 @@ export const metadata: ProviderRegistryItem = {
       "Weekly Quota"
   ],
   "id": "mimo",
-  "name": "Xiaomi MiMo / TokenPlan",
+  "name": "Xiaomi MiMo",
   "alias": "mimo",
   "aliases": [
     "xiaomi-mimo",
-    "xiaomi-tokenplan",
-    "xmtp",
     "mimo"
   ],
   "uiAlias": "mimo",

@@ -5,7 +5,7 @@ import { getMimoUsage } from "./quota.js";
 
 export class MimoProvider extends OpenAiCompatibleProvider {
   public override readonly id = "mimo";
-  public override readonly name = "Xiaomi MiMo / TokenPlan";
+  public override readonly name = "Xiaomi MiMo";
   public override readonly defaultFormat = "openai";
 
   public override supportsQuota(): boolean {

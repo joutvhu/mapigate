@@ -2,7 +2,7 @@ import type { ProviderRegistryItem } from "../../core/types.js";
 
 export const metadata: ProviderRegistryItem = {
   "id": "moonshot",
-  "name": "Kimi",
+  "name": "Moonshot AI",
   "alias": "moonshot",
   "aliases": [
     "moonshot"

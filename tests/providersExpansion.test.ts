@@ -77,7 +77,6 @@ const P2_PROVIDERS = [
   "liquid",
   "pioneer",
   "longcat",
-  "ollama-cloud",
 ];
 
 test("Providers Expansion - P1 Providers Registered and Configured", () => {
@@ -119,11 +118,37 @@ test("Providers Expansion - Deduplication Invariant", () => {
   assert.equal(PROVIDER_REGISTRY["ghe-copilot"], undefined, "ghe-copilot should not exist as a duplicate");
   assert.equal(PROVIDER_REGISTRY["gitlab-duo"], undefined, "gitlab-duo should not exist as a duplicate");
   assert.equal(PROVIDER_REGISTRY["qianfan"], undefined, "qianfan should be resolved via baidu alias, not duplicate root entry");
+  assert.equal(PROVIDER_REGISTRY["ollama-cloud"], undefined, "ollama-cloud should be resolved via ollama alias, not duplicate root entry");
+  assert.equal(PROVIDER_REGISTRY["xai"], undefined, "xai should be resolved via grok alias, not duplicate root entry");
+  assert.equal(PROVIDER_REGISTRY["cloudflare-ai"], undefined, "cloudflare-ai should be resolved via cloudflare alias, not duplicate root entry");
+  assert.equal(PROVIDER_REGISTRY["xiaomi-mimo"], undefined, "xiaomi-mimo should be resolved via mimo alias, not duplicate root entry");
+  assert.equal(PROVIDER_REGISTRY["mimo-free"], undefined, "mimo-free should not exist");
+  assert.equal(PROVIDER_REGISTRY["mmf"], undefined, "mmf should not exist");
 
   // Verify baidu alias resolves qianfan
   const resolvedQianfan = getRegistryProvider("qianfan");
   assert.ok(resolvedQianfan, "getRegistryProvider('qianfan') must resolve to baidu");
   assert.equal(resolvedQianfan.id, "baidu");
+
+  // Verify ollama alias resolves ollama-cloud
+  const resolvedOllamaCloud = getRegistryProvider("ollama-cloud");
+  assert.ok(resolvedOllamaCloud, "getRegistryProvider('ollama-cloud') must resolve to ollama");
+  assert.equal(resolvedOllamaCloud.id, "ollama");
+
+  // Verify grok alias resolves xai
+  const resolvedXai = getRegistryProvider("xai");
+  assert.ok(resolvedXai, "getRegistryProvider('xai') must resolve to grok");
+  assert.equal(resolvedXai.id, "grok");
+
+  // Verify cloudflare alias resolves cloudflare-ai
+  const resolvedCf = getRegistryProvider("cloudflare-ai");
+  assert.ok(resolvedCf, "getRegistryProvider('cloudflare-ai') must resolve to cloudflare");
+  assert.equal(resolvedCf.id, "cloudflare");
+
+  // Verify mimo alias resolves xiaomi-mimo
+  const resolvedMimo = getRegistryProvider("xiaomi-mimo");
+  assert.ok(resolvedMimo, "getRegistryProvider('xiaomi-mimo') must resolve to mimo");
+  assert.equal(resolvedMimo.id, "mimo");
 });
 
 test("Providers Expansion - Community Providers Catalog (P3)", () => {

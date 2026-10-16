@@ -53,7 +53,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     pId === "local-device";
   const isNoApiKey = isNoAuth || isOllamaLocal || isGenericLocal || provider.requiresApiKey === false;
   const isAzure = pId === "azure" || pId.includes("azure");
-  const isCloudflareAi = pId === "cloudflare-ai";
+  const isCloudflareAi = pId === "cloudflare-ai" || pId === "cloudflare";
   const isBedrock = pId === "bedrock" || pId.includes("bedrock");
   const isCookie = pId === "grok-web" || pId === "iflow";
   const isXiaomiTokenPlan = pId === "xiaomi-tokenplan";

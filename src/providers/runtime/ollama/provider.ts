@@ -4,13 +4,16 @@ import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 
 export class OllamaProvider extends BaseProvider {
   public readonly id = "ollama";
-  public readonly name = "Ollama Local";
+  public readonly name = "Ollama Cloud";
   public readonly defaultFormat = "openai";
   public override readonly requiresAccount = false;
 
   public override buildUrl(context: ProviderRequestContext): string {
     const psd = context.account?.providerSpecificData || {};
-    const host = (psd.baseUrl || context.provider?.baseUrl || "http://127.0.0.1:11434").replace(/\/+$/, "");
+    const host = (psd.baseUrl || context.provider?.baseUrl || "https://ollama.com").replace(/\/+$/, "");
+    if (host.includes("/v1") || host.includes("/api/chat")) {
+      return host;
+    }
     return `${host}/v1/chat/completions`;
   }
 

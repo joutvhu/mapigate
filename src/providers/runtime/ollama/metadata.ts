@@ -4,6 +4,9 @@ export const metadata: ProviderRegistryItem = {
   "id": "ollama",
   "name": "Ollama Cloud",
   "alias": "ollama",
+  "aliases": [
+    "ollama-cloud"
+  ],
   "color": "#ffffffff",
   "iconBg": "#FFFFFF",
   "image": "/assets/providers/ollama/icon.png",
