@@ -20,4 +20,22 @@ export const handleShutdownRequest = async (_req: Request, res: Response): Promi
   });
 };
 
+export const handleRestartRequest = async (_req: Request, res: Response): Promise<void> => {
+  res.json({
+    success: true,
+    message: "Mapigate server is restarting...",
+  });
+
+  const isTest =
+    process.env.NODE_ENV === "test" ||
+    Boolean(process.env.NODE_TEST_CONTEXT) ||
+    process.argv.some((arg) => arg.includes("test"));
+
+  // Gracefully initiate server restart after flushing HTTP response
+  serverLifecycle.restartServer({ delayMs: 150, exitProcess: !isTest }).catch((err) => {
+    console.error("[Lifecycle] Server restart error:", err);
+  });
+};
+
 serverRouter.post("/shutdown", handleShutdownRequest);
+serverRouter.post("/restart", handleRestartRequest);

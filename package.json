@@ -1,6 +1,6 @@
 {
   "name": "mapigate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI Model API Gateway & Token Optimizer for coding tools",
   "author": "Giao Ho",
   "main": "dist/server/index.js",

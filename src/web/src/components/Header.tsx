@@ -9,6 +9,7 @@ interface HeaderProps {
   onSearchChange: (query: string) => void;
   detailProvider?: ProviderItem | null;
   onBackToProviders?: () => void;
+  onRestartClick?: () => void;
 }
 
 const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string }> = {
@@ -70,6 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   detailProvider,
   onBackToProviders,
+  onRestartClick,
 }) => {
   const meta = PAGE_META[currentTab] || PAGE_META.providers;
   const isPasswordSet = useAuth((s) => s.isPasswordSet);
@@ -149,6 +151,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Action icons */}
         <div className="flex items-center gap-1 border-l border-[#1E293B] pl-2 text-slate-400">
+          {onRestartClick && (
+            <button
+              type="button"
+              onClick={onRestartClick}
+              title="Restart Mapigate Gateway (Hot Reload)"
+              className="p-2 rounded-lg hover:bg-white/5 hover:text-blue-400 text-slate-400 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+            </button>
+          )}
           <button
             title="Active Protocol: OpenAI & Anthropic"
             className="p-2 rounded-lg hover:bg-white/5 hover:text-white transition-colors"

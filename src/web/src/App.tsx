@@ -15,6 +15,7 @@ import { SettingsTab } from "./pages/SettingsTab";
 import { CallbackPage } from "./pages/CallbackPage";
 import { useAuth } from "./hooks/useAuth";
 import { LockScreen } from "./components/LockScreen";
+import { RestartModal } from "./components/RestartModal";
 import type { ProviderItem } from "./constants/providersData";
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
+  const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
 
   const handleSelectTab = (tab: NavTab) => {
     setCurrentTab(tab);
@@ -71,6 +73,7 @@ export default function App() {
           onSearchChange={setSearchQuery}
           detailProvider={detailProvider}
           onBackToProviders={() => setDetailProvider(null)}
+          onRestartClick={() => setIsRestartModalOpen(true)}
         />
 
         {/* Tab Pages Scrollable Container */}
@@ -97,9 +100,17 @@ export default function App() {
           {currentTab === "clitools" && <CliToolsTab />}
           {currentTab === "mitm" && <MitmTab />}
           {currentTab === "consolelog" && <ConsoleLogTab />}
-          {currentTab === "settings" && <SettingsTab />}
+          {currentTab === "settings" && (
+            <SettingsTab onRestartClick={() => setIsRestartModalOpen(true)} />
+          )}
         </main>
       </div>
+
+      {/* Global Restart Gateway Modal */}
+      <RestartModal
+        isOpen={isRestartModalOpen}
+        onClose={() => setIsRestartModalOpen(false)}
+      />
     </div>
   );
 }

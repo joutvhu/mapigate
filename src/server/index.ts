@@ -25,7 +25,7 @@ import { usageRouter } from "./routes/apiUsage.js";
 import { settingsRouter } from "./routes/apiSettings.js";
 import { authRouter } from "./routes/apiAuth.js";
 import { masterAuthMiddleware } from "./middlewares/masterAuthMiddleware.js";
-import { serverRouter, handleShutdownRequest } from "./routes/apiServer.js";
+import { serverRouter, handleShutdownRequest, handleRestartRequest } from "./routes/apiServer.js";
 import { serverLifecycle } from "./lifecycle.js";
 import { initTray } from "../cli/tray/tray.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
@@ -89,6 +89,7 @@ app.use("/api/usage", usageRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/server", serverRouter);
 app.post("/api/shutdown", handleShutdownRequest);
+app.post("/api/restart", handleRestartRequest);
 
 // OAuth Callback Relay Endpoint
 app.get(["/callback", "/auth/callback"], (_req, res) => {
@@ -344,6 +345,9 @@ if (!isTest) {
           port,
           onQuit: () => {
             serverLifecycle.shutdownServer({ delayMs: 0, exitProcess: true });
+          },
+          onRestart: () => {
+            serverLifecycle.restartServer({ delayMs: 0, exitProcess: true });
           },
         });
       } catch (err) {

@@ -5,6 +5,7 @@ import { initUnixTray } from "./trayUnix.js";
 export interface TrayOptions {
   port: number;
   onQuit?: () => void;
+  onRestart?: () => void;
   onOpenDashboard?: () => void;
 }
 
@@ -14,7 +15,8 @@ export const MENU_INDEX = {
   HEADER: 0,
   DASHBOARD: 1,
   STATUS: 2,
-  QUIT: 3,
+  RESTART: 3,
+  QUIT: 4,
 } as const;
 
 export function openBrowser(url: string): void {
@@ -47,12 +49,13 @@ export function buildTrayItems(port: number) {
     { title: `Mapigate (Port ${port})`, enabled: false },
     { title: "Open Web Dashboard", enabled: true },
     { title: "Status", enabled: true },
+    { title: "Restart Gateway", enabled: true },
     { title: "Quit / Shutdown", enabled: true },
   ];
 }
 
 function handleMenuClick(index: number, options: TrayOptions): void {
-  const { port, onQuit, onOpenDashboard } = options;
+  const { port, onQuit, onRestart, onOpenDashboard } = options;
   if (index === MENU_INDEX.DASHBOARD) {
     if (onOpenDashboard) {
       onOpenDashboard();
@@ -61,6 +64,10 @@ function handleMenuClick(index: number, options: TrayOptions): void {
     }
   } else if (index === MENU_INDEX.STATUS) {
     openBrowser(`http://localhost:${port}`);
+  } else if (index === MENU_INDEX.RESTART) {
+    if (onRestart) {
+      onRestart();
+    }
   } else if (index === MENU_INDEX.QUIT) {
     if (onQuit) {
       onQuit();

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
+import { RestartModal } from "../components/RestartModal";
 import { MasterPasswordModal, type MasterPasswordModalMode } from "../components/MasterPasswordModal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -11,14 +12,21 @@ interface SystemInfo {
   version?: string;
 }
 
-export const SettingsTab: React.FC = () => {
+export interface SettingsTabProps {
+  onRestartClick?: () => void;
+}
+
+export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRestartOpenInternal, setIsRestartOpenInternal] = useState(false);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const [isStopped, setIsStopped] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const isPasswordSet = useAuth((s) => s.isPasswordSet);
   const [pwdModalMode, setPwdModalMode] = useState<MasterPasswordModalMode>(null);
+
+  const handleOpenRestart = onRestartClick || (() => setIsRestartOpenInternal(true));
 
   useEffect(() => {
     fetch("/api/settings/system-info")
@@ -187,30 +195,41 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Gateway Server Control / Danger Zone Card */}
-      <div className="rt-card p-6 space-y-4 border border-rose-500/20">
+      {/* Gateway Server Control Card */}
+      <div className="rt-card p-6 space-y-4 border border-[#1E293B]">
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center shrink-0">
+            <div className="size-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[20px]">power_settings_new</span>
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Gateway Server Control</h3>
-              <p className="text-xs text-slate-400">Manage running server lifecycle and background processes</p>
+              <p className="text-xs text-slate-400">Manage running server lifecycle, hot restart, and daemon</p>
             </div>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="rt-btn rt-btn--danger text-xs py-2 px-4 flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[16px]">power_settings_new</span>
-            Shutdown Server
-          </button>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleOpenRestart}
+              className="rt-btn rt-btn--primary text-xs py-2 px-4 flex items-center gap-2 font-semibold cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+              Restart Gateway
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="rt-btn rt-btn--danger text-xs py-2 px-4 flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">power_settings_new</span>
+              Shutdown Server
+            </button>
+          </div>
         </div>
 
         <p className="text-xs text-slate-400 leading-relaxed">
-          Shutting down the server stops all active AI proxy routing, terminates the background process, and releases the listening port. To resume using Mapigate afterwards, start it again from your terminal.
+          Restarting the gateway applies any newly installed updates, re-initializes provider modules, and clears active sockets without needing to run terminal commands. Shutting down the server stops all active proxy routing, terminates the background process, and releases port 20127.
         </p>
 
         {errorMsg && (
@@ -276,6 +295,14 @@ export const SettingsTab: React.FC = () => {
         mode={pwdModalMode}
         onClose={() => setPwdModalMode(null)}
       />
+
+      {/* Internal Restart Modal (if not passed as external callback) */}
+      {!onRestartClick && (
+        <RestartModal
+          isOpen={isRestartOpenInternal}
+          onClose={() => setIsRestartOpenInternal(false)}
+        />
+      )}
     </div>
   );
 };
