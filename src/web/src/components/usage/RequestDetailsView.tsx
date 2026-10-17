@@ -11,6 +11,7 @@ import {
   Clock,
   Terminal,
   Cpu,
+  X,
 } from "lucide-react";
 
 export const RequestDetailsView: React.FC = () => {
@@ -119,8 +120,21 @@ export const RequestDetailsView: React.FC = () => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-[#070A11] border border-slate-800 text-xs text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
+              className="w-full pl-9 pr-8 py-1.5 rounded-lg bg-[#070A11] border border-slate-800 text-xs text-slate-200 placeholder-slate-500 focus:outline-hidden focus:border-blue-500"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Provider selector */}

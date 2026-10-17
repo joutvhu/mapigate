@@ -290,9 +290,22 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
         autoFocus={autoFocus}
         className={
           className ||
-          "w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+          "w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-3 pr-8 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
         }
       />
+      {value && !disabled && (
+        <button
+          type="button"
+          onClick={() => {
+            onChange("");
+            setHighlightIndex(-1);
+          }}
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+          title="Clear input"
+        >
+          <span className="material-symbols-outlined text-[15px]">close</span>
+        </button>
+      )}
 
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl bg-[#0A0D14] border border-[#1E293B] shadow-2xl overflow-hidden animate-rt-scale-in min-w-[280px]">

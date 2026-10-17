@@ -129,14 +129,16 @@ export class MitmManager {
     await removeAllDNSEntries(sudoPassword);
   }
 
-  public async stopServer() {
-    try {
-      await this.removeAllDns();
-    } catch {
-      this.cleanupDnsSync();
+  public async stopServer(options: { keepDns?: boolean } = {}) {
+    if (!options.keepDns) {
+      try {
+        await this.removeAllDns();
+      } catch {
+        this.cleanupDnsSync();
+      }
+      MitmRepository.setMitmServerRunning(false);
     }
-    await mitmServerInstance.stop();
-    MitmRepository.setMitmServerRunning(false);
+    await mitmServerInstance.stop(options);
   }
 
   public async installCertificate() {

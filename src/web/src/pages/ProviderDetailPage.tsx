@@ -13,6 +13,7 @@ import { ToolIcon } from "../components/ui/ToolIcon";
 import { Checkbox } from "../components/ui/Checkbox";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
+import { EditAccountModal, type EditAccountData } from "../components/EditAccountModal.js";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -24,6 +25,7 @@ interface ConnectionItem {
   name: string;
   isActive: boolean;
   order: number;
+  providerSpecificData?: Record<string, any>;
 }
 
 export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider, onBack }) => {
@@ -56,6 +58,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [copiedModelId, setCopiedModelId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<EditAccountData | null>(null);
 
   const isCustomProvider = provider.category === "custom" || !registryItem;
 
@@ -135,6 +138,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               name: a.name,
               isActive: a.isActive,
               order: i,
+              providerSpecificData: a.providerSpecificData,
             }))
           );
         } else {
@@ -201,6 +205,36 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     fetch(`/api/providers/${provider.id}/accounts/${id}`, { method: "DELETE" })
       .then(() => invalidateAvailableModelsCache())
       .catch(() => {});
+  };
+
+  const handleEditAccount = (conn: ConnectionItem) => {
+    setEditingAccount({
+      id: conn.id,
+      providerId: provider.id,
+      name: conn.name,
+      isActive: conn.isActive,
+      providerSpecificData: conn.providerSpecificData,
+    });
+  };
+
+  const handleSaveAccount = async (updates: {
+    name: string;
+    apiKey?: string;
+    isActive: boolean;
+    providerSpecificData?: Record<string, any>;
+  }) => {
+    if (!editingAccount) return;
+    const res = await fetch(`/api/providers/${provider.id}/accounts/${editingAccount.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to update account.");
+    }
+    loadProviderDetails();
+    invalidateAvailableModelsCache();
   };
 
   const testOneByOne = async () => {
@@ -600,7 +634,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                   )}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    title="Edit account"
+                    onClick={() => handleEditAccount(conn)}
+                    className="p-1 text-slate-500 hover:text-blue-400 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                  </button>
                   <button
                     title="Delete account"
                     onClick={() => handleDeleteAccount(conn.id)}
@@ -1001,6 +1042,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         }}
         onClose={() => setShowScanModal(false)}
         onApplyModels={handleApplyScannedModels}
+      />
+
+      {/* Edit Account Modal */}
+      <EditAccountModal
+        isOpen={Boolean(editingAccount)}
+        account={editingAccount}
+        onClose={() => setEditingAccount(null)}
+        onSave={handleSaveAccount}
       />
 
       {/* Confirm Delete Provider Modal */}

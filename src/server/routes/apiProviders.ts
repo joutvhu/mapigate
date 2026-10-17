@@ -429,6 +429,40 @@ providerRouter.get("/:id", (req, res) => {
   });
 });
 
+// PUT update account details
+providerRouter.put("/:id/accounts/:accountId", (req, res) => {
+  const { accountId } = req.params;
+  const { name, apiKey, isActive, providerSpecificData } = req.body || {};
+
+  try {
+    const existing = ProviderRepository.getAccountById(accountId);
+    if (!existing) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    ProviderRepository.updateAccount(accountId, {
+      name,
+      rawApiKey: apiKey !== undefined ? apiKey : undefined,
+      isActive,
+      providerSpecificData,
+    });
+
+    const updated = ProviderRepository.getAccountById(accountId);
+    res.json({
+      success: true,
+      account: {
+        id: updated?.id,
+        name: updated?.name,
+        isActive: updated?.isActive,
+        providerSpecificData: updated?.providerSpecificData,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to update account" });
+  }
+});
+
 // PUT toggle account active status
 providerRouter.put("/:id/accounts/:accountId/toggle", (req, res) => {
   ProviderRepository.toggleAccount(req.params.accountId, req.body.isActive);

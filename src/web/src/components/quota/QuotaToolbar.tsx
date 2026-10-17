@@ -2,7 +2,7 @@ import React from "react";
 import { Select } from "../Select";
 import { Checkbox } from "../ui/Checkbox";
 
-export type QuotaSortMode = "expiring-first" | "quota-asc" | "quota-desc";
+export type QuotaSortMode = "fixed" | "expiring-first" | "quota-asc" | "quota-desc";
 export type AccountStatusFilter = "all" | "active" | "inactive";
 
 export interface QuotaToolbarProps {
@@ -13,6 +13,8 @@ export interface QuotaToolbarProps {
   onSelectStatusFilter: (status: AccountStatusFilter) => void;
   sortMode: QuotaSortMode;
   onSelectSortMode: (mode: QuotaSortMode) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
   autoRefresh: boolean;
   onToggleAutoRefresh: (enabled: boolean) => void;
   countdownSeconds: number;
@@ -30,6 +32,8 @@ export const QuotaToolbar: React.FC<QuotaToolbarProps> = ({
   onSelectStatusFilter,
   sortMode,
   onSelectSortMode,
+  searchQuery = "",
+  onSearchQueryChange,
   autoRefresh,
   onToggleAutoRefresh,
   countdownSeconds,
@@ -70,12 +74,39 @@ export const QuotaToolbar: React.FC<QuotaToolbarProps> = ({
           value={sortMode}
           onChange={(val) => onSelectSortMode(val as QuotaSortMode)}
           options={[
+            { value: "fixed", label: "Fixed order" },
             { value: "expiring-first", label: "Expiring first" },
             { value: "quota-asc", label: "% Quota: low to high" },
             { value: "quota-desc", label: "% Quota: high to low" },
           ]}
-          className="min-w-[170px]"
+          className="min-w-[165px]"
         />
+
+        {/* Search accounts */}
+        {onSearchQueryChange && (
+          <div className="relative w-40 sm:w-48">
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-500">
+              search
+            </span>
+            <input
+              type="text"
+              placeholder="Search accounts..."
+              value={searchQuery}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+              className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-8 pr-7 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono transition-all"
+            />
+            {Boolean(searchQuery) && (
+              <button
+                type="button"
+                onClick={() => onSearchQueryChange("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+                title="Clear search"
+              >
+                <span className="material-symbols-outlined text-[15px]">close</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right Action Buttons */}

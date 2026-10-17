@@ -121,10 +121,10 @@ export const RestartModal: React.FC<RestartModalProps> = ({ isOpen, onClose }) =
 
             <div className="p-3.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] text-xs text-slate-300 space-y-2 leading-relaxed">
               <p>
-                Hot restarting the gateway reloads all provider modules, registries, and configuration.
+                Hot restarting the gateway reloads all provider modules, registries, and configuration. MITM proxy and tool DNS entries remain active across restart.
               </p>
               <p className="text-slate-400 text-[11px]">
-                If you recently installed an update (e.g. via <code className="text-blue-400">npm install -g mapigate</code> or <code className="text-blue-400">npm run local:publish</code>), the new code will take effect immediately without needing to open a terminal.
+                If you recently installed an update (e.g. via <code className="text-blue-400">npm install -g mapigate</code> or <code className="text-blue-400">npm run local:publish</code>), the new code will take effect immediately without needing to open a terminal or turn off DNS.
               </p>
             </div>
 

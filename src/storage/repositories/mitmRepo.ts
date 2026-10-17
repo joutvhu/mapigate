@@ -178,6 +178,28 @@ export class MitmRepository {
     return DEFAULT_HOSTS_ENTRIES;
   }
 
+  public static sortMappingsCanonical(ide: string, mappings: MitmMapping[]): MitmMapping[] {
+    const defaults = getDefaultMappings(ide);
+    const orderMap = new Map<string, number>();
+    defaults.forEach((m, idx) => {
+      orderMap.set(m.sourceModel.toLowerCase(), idx);
+    });
+
+    return [...mappings].sort((a, b) => {
+      const idxA = orderMap.has(a.sourceModel.toLowerCase())
+        ? orderMap.get(a.sourceModel.toLowerCase())!
+        : 10000;
+      const idxB = orderMap.has(b.sourceModel.toLowerCase())
+        ? orderMap.get(b.sourceModel.toLowerCase())!
+        : 10000;
+
+      if (idxA !== idxB) {
+        return idxA - idxB;
+      }
+      return a.sourceModel.localeCompare(b.sourceModel);
+    });
+  }
+
   public static getMappings(ide: string): MitmMapping[] {
     const db = getDatabase();
     const rows = db.all<any>("SELECT * FROM mitm_mappings WHERE ide = ?", ide);
@@ -186,11 +208,12 @@ export class MitmRepository {
       this.initDefaultMappings(ide, defaults);
       return defaults;
     }
-    return rows.map((r) => ({
+    const list = rows.map((r) => ({
       ide: r.ide,
       sourceModel: r.source_model,
       targetModel: r.target_model,
     }));
+    return this.sortMappingsCanonical(ide, list);
   }
 
   public static initDefaultMappings(ide: string, mappings: MitmMapping[]): void {
@@ -239,7 +262,7 @@ export class MitmRepository {
       );
     }
 
-    return restoredMappings;
+    return this.sortMappingsCanonical(ide, restoredMappings);
   }
 
   public static updateMapping(ide: string, sourceModel: string, targetModel: string): void {

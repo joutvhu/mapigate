@@ -218,6 +218,7 @@ export class QuotaService {
         lastFetchedAt: Date.now(),
         error: rawResult.error,
         message: rawResult.message,
+        providerSpecificData: account.providerSpecificData,
       };
 
       const ttl =
@@ -264,6 +265,7 @@ export class QuotaService {
         quotas: [],
         lastFetchedAt: Date.now(),
         error: err?.message || "Failed to fetch quota",
+        providerSpecificData: account.providerSpecificData,
       };
 
       return errorResult;

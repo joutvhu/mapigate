@@ -243,7 +243,7 @@ export class ProviderRepository {
   public static getAllAccounts(): (ProviderAccount & { rawApiKey: string })[] {
     const db = getDatabase();
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts ORDER BY provider_id ASC, rate_limit_hits ASC, last_used_at ASC"
+      "SELECT * FROM provider_accounts ORDER BY provider_id ASC, rate_limit_hits ASC, created_at ASC, rowid ASC"
     );
 
     return rows.map((r) => ({

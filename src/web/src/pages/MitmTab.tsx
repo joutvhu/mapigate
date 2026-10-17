@@ -7,6 +7,49 @@ interface MitmMappingRow {
   targetModel: string;
 }
 
+const DEFAULT_TOOL_MODEL_ORDER: Record<string, string[]> = {
+  kiro: [
+    "Auto (Kiro Agent)", "auto", "simple-task",
+    "Claude Sonnet 5", "Claude Sonnet 4.5", "Claude Sonnet 4", "Claude Haiku 4.5",
+    "DeepSeek 3.2", "MiniMax M2.5", "MiniMax M2.1",
+    "GPT 5.6 Sol", "gpt-5.6-sol", "GPT 5.6 Terra", "gpt-5.6-terra", "GPT 5.6 Luna", "gpt-5.6-luna",
+    "GLM 5", "Qwen3 Coder Next",
+  ],
+  antigravity: [
+    "Gemini 3.8 Flash (High)", "Gemini 3.8 Flash (Medium)", "Gemini 3.8 Flash (Low)",
+    "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Medium)", "Gemini 3.7 Flash (Low)",
+    "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Medium)", "Gemini 3.6 Flash (Low)",
+    "Gemini 3.1 Pro (High)", "Gemini 3.1 Pro (Low)", "Gemini 3.1 Pro (High) / Legacy",
+    "Claude Sonnet 5.5 (Thinking)", "Claude Sonnet 5.5 (High)", "Claude Sonnet 5.5 (Medium)", "Claude Sonnet 5.5 (Low)",
+    "Claude Opus 5.5 (Thinking)", "Claude Opus 5.5 (High)", "Claude Opus 5.5 (Medium)", "Claude Opus 5.5 (Low)",
+    "Claude Sonnet 4.6 (Thinking)", "Claude Opus 4.6 (Thinking)", "GPT-OSS 120B (Medium)",
+  ],
+  copilot: [
+    "gpt-4o", "claude-3.5-sonnet", "claude-3.7-sonnet", "o1",
+  ],
+  cursor: [
+    "claude-sonnet-4-5", "claude-opus-4", "gpt-4o",
+  ],
+};
+
+function sortMitmMappings(ide: string, mappings: MitmMappingRow[]): MitmMappingRow[] {
+  const known = DEFAULT_TOOL_MODEL_ORDER[ide.toLowerCase()] || [];
+  const rankMap = new Map<string, number>();
+  known.forEach((m, idx) => rankMap.set(m.toLowerCase(), idx));
+
+  return [...mappings].sort((a, b) => {
+    const rankA = rankMap.has(a.sourceModel.toLowerCase())
+      ? rankMap.get(a.sourceModel.toLowerCase())!
+      : 10000;
+    const rankB = rankMap.has(b.sourceModel.toLowerCase())
+      ? rankMap.get(b.sourceModel.toLowerCase())!
+      : 10000;
+
+    if (rankA !== rankB) return rankA - rankB;
+    return a.sourceModel.localeCompare(b.sourceModel);
+  });
+}
+
 import { MITM_TOOLS, type MitmToolConfig, type MitmToolId } from "../../../mitm/config.js";
 import { ToolIcon } from "../components/ui/ToolIcon";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
@@ -730,7 +773,7 @@ export const MitmTab: React.FC = () => {
           const isDnsOn = Boolean(dnsStatus[tool.id]);
           const isEditingHosts = Boolean(editingHostsByTool[tool.id]);
           const toolHosts = hostsByTool[tool.id] || tool.defaultHost;
-          const toolMappings = mappingsByTool[tool.id] || [];
+          const toolMappings = sortMitmMappings(tool.id, mappingsByTool[tool.id] || []);
           const savedMsg = hostsSavedMsgByTool[tool.id];
 
           return (

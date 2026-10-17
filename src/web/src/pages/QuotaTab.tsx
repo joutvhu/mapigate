@@ -11,8 +11,21 @@ import { ConfirmModal } from "../components/ConfirmModal.js";
 
 const AUTO_REFRESH_INTERVAL_SEC = 60;
 const LOCAL_STORAGE_QUOTA_KEY = "mapigate_cached_quota_accounts";
+const LOCAL_STORAGE_SORT_KEY = "mapigate_quota_sort_mode";
 
-export const QuotaTab: React.FC = () => {
+export interface QuotaTabProps {
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+}
+
+export const QuotaTab: React.FC<QuotaTabProps> = ({
+  searchQuery: externalSearchQuery,
+  onSearchQueryChange: externalOnSearchQueryChange,
+}) => {
+  const [internalSearchQuery, setInternalSearchQuery] = useState("");
+  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
+  const onSearchQueryChange = externalOnSearchQueryChange || setInternalSearchQuery;
+
   // Initialize from localStorage for instantaneous 0ms display on entry
   const [accounts, setAccounts] = useState<AccountQuotaResult[]>(() => {
     try {
@@ -30,7 +43,20 @@ export const QuotaTab: React.FC = () => {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState("all");
   const [statusFilter, setStatusFilter] = useState<AccountStatusFilter>("all");
-  const [sortMode, setSortMode] = useState<QuotaSortMode>("expiring-first");
+  const [sortMode, setSortMode] = useState<QuotaSortMode>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_SORT_KEY);
+      if (
+        saved === "fixed" ||
+        saved === "expiring-first" ||
+        saved === "quota-asc" ||
+        saved === "quota-desc"
+      ) {
+        return saved as QuotaSortMode;
+      }
+    } catch {}
+    return "fixed";
+  });
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [countdown, setCountdown] = useState(AUTO_REFRESH_INTERVAL_SEC);
 
@@ -146,6 +172,7 @@ export const QuotaTab: React.FC = () => {
     name: string;
     apiKey?: string;
     isActive: boolean;
+    providerSpecificData?: Record<string, any>;
   }) => {
     if (!editingAccount) return;
 
@@ -278,8 +305,27 @@ export const QuotaTab: React.FC = () => {
       list = list.filter((a) => !a.isActive);
     }
 
-    // 3. Sorting
-    if (sortMode === "expiring-first") {
+    // 3. Search Query Filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (a) =>
+          a.accountName.toLowerCase().includes(q) ||
+          a.providerId.toLowerCase().includes(q) ||
+          a.accountId.toLowerCase().includes(q)
+      );
+    }
+
+    // 4. Sorting
+    if (sortMode === "fixed") {
+      list.sort((a, b) => {
+        const pDiff = a.providerId.localeCompare(b.providerId);
+        if (pDiff !== 0) return pDiff;
+        const nDiff = a.accountName.localeCompare(b.accountName);
+        if (nDiff !== 0) return nDiff;
+        return a.accountId.localeCompare(b.accountId);
+      });
+    } else if (sortMode === "expiring-first") {
       const getEarliestExpiry = (acc: AccountQuotaResult): number => {
         const timestamps = acc.quotas
           .map((q) => q.resetAt)
@@ -290,7 +336,11 @@ export const QuotaTab: React.FC = () => {
       list.sort((a, b) => {
         const diff = getEarliestExpiry(a) - getEarliestExpiry(b);
         if (diff !== 0) return diff;
-        return a.accountName.localeCompare(b.accountName);
+        const pDiff = a.providerId.localeCompare(b.providerId);
+        if (pDiff !== 0) return pDiff;
+        const nDiff = a.accountName.localeCompare(b.accountName);
+        if (nDiff !== 0) return nDiff;
+        return a.accountId.localeCompare(b.accountId);
       });
     } else if (sortMode === "quota-asc") {
       const getMinPercentage = (acc: AccountQuotaResult): number => {
@@ -301,7 +351,11 @@ export const QuotaTab: React.FC = () => {
       list.sort((a, b) => {
         const diff = getMinPercentage(a) - getMinPercentage(b);
         if (diff !== 0) return diff;
-        return a.accountName.localeCompare(b.accountName);
+        const pDiff = a.providerId.localeCompare(b.providerId);
+        if (pDiff !== 0) return pDiff;
+        const nDiff = a.accountName.localeCompare(b.accountName);
+        if (nDiff !== 0) return nDiff;
+        return a.accountId.localeCompare(b.accountId);
       });
     } else if (sortMode === "quota-desc") {
       const getMaxPercentage = (acc: AccountQuotaResult): number => {
@@ -312,12 +366,39 @@ export const QuotaTab: React.FC = () => {
       list.sort((a, b) => {
         const diff = getMaxPercentage(b) - getMaxPercentage(a);
         if (diff !== 0) return diff;
-        return a.accountName.localeCompare(b.accountName);
+        const pDiff = a.providerId.localeCompare(b.providerId);
+        if (pDiff !== 0) return pDiff;
+        const nDiff = a.accountName.localeCompare(b.accountName);
+        if (nDiff !== 0) return nDiff;
+        return a.accountId.localeCompare(b.accountId);
       });
     }
 
     return list;
-  }, [accounts, selectedProvider, statusFilter, sortMode]);
+  }, [accounts, selectedProvider, statusFilter, sortMode, searchQuery]);
+
+  // Divide into 2 groups: with quota data (top) and without quota data (bottom)
+  const { accountsWithData, accountsWithoutData } = useMemo(() => {
+    const withData: AccountQuotaResult[] = [];
+    const withoutData: AccountQuotaResult[] = [];
+
+    for (const acc of visibleAccounts) {
+      if (Array.isArray(acc.quotas) && acc.quotas.length > 0 && !acc.error) {
+        withData.push(acc);
+      } else {
+        withoutData.push(acc);
+      }
+    }
+
+    return { accountsWithData: withData, accountsWithoutData: withoutData };
+  }, [visibleAccounts]);
+
+  const handleSelectSortMode = (mode: QuotaSortMode) => {
+    setSortMode(mode);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_SORT_KEY, mode);
+    } catch {}
+  };
 
   return (
     <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
@@ -329,7 +410,9 @@ export const QuotaTab: React.FC = () => {
         statusFilter={statusFilter}
         onSelectStatusFilter={setStatusFilter}
         sortMode={sortMode}
-        onSelectSortMode={setSortMode}
+        onSelectSortMode={handleSelectSortMode}
+        searchQuery={searchQuery}
+        onSearchQueryChange={onSearchQueryChange}
         autoRefresh={autoRefresh}
         onToggleAutoRefresh={setAutoRefresh}
         countdownSeconds={countdown}
@@ -376,23 +459,75 @@ export const QuotaTab: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
-          {visibleAccounts.map((account) => (
-            <ProviderLimitCard
-              key={account.accountId}
-              account={account}
-              onRefresh={handleRefreshAccount}
-              onEdit={(acc) =>
-                setEditingAccount({
-                  id: acc.accountId,
-                  providerId: acc.providerId,
-                  name: acc.accountName,
-                  isActive: acc.isActive,
-                })
-              }
-              onToggle={handleToggleAccount}
-            />
-          ))}
+        <div className="space-y-8 w-full">
+          {/* Group 1: Accounts with Quota Data */}
+          {accountsWithData.length > 0 && (
+            <div className="space-y-3">
+              {accountsWithoutData.length > 0 && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                  <span className="size-2 rounded-full bg-emerald-400" />
+                  <span>Accounts With Quota ({accountsWithData.length})</span>
+                </div>
+              )}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
+                {accountsWithData.map((account) => (
+                  <ProviderLimitCard
+                    key={account.accountId}
+                    account={account}
+                    onRefresh={handleRefreshAccount}
+                    onEdit={(acc) =>
+                      setEditingAccount({
+                        id: acc.accountId,
+                        providerId: acc.providerId,
+                        name: acc.accountName,
+                        isActive: acc.isActive,
+                        providerSpecificData: acc.providerSpecificData,
+                      })
+                    }
+                    onToggle={handleToggleAccount}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Group 2: Accounts without Quota Data (Placed below) */}
+          {accountsWithoutData.length > 0 && (
+            <div
+              className={`space-y-3 ${
+                accountsWithData.length > 0 ? "pt-6 border-t border-[#1E293B]/70" : ""
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                  <span className="size-2 rounded-full bg-slate-500" />
+                  <span>Accounts Without Quota Data ({accountsWithoutData.length})</span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  No active quota or unsupported metrics
+                </span>
+              </div>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
+                {accountsWithoutData.map((account) => (
+                  <ProviderLimitCard
+                    key={account.accountId}
+                    account={account}
+                    onRefresh={handleRefreshAccount}
+                    onEdit={(acc) =>
+                      setEditingAccount({
+                        id: acc.accountId,
+                        providerId: acc.providerId,
+                        name: acc.accountName,
+                        isActive: acc.isActive,
+                        providerSpecificData: acc.providerSpecificData,
+                      })
+                    }
+                    onToggle={handleToggleAccount}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

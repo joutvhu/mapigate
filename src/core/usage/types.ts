@@ -21,6 +21,7 @@ export interface AccountQuotaResult {
   lastFetchedAt: number;
   error?: string;
   message?: string;
+  providerSpecificData?: Record<string, any>;
 }
 
 export interface ProviderUsageContext {

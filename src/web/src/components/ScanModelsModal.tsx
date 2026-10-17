@@ -378,8 +378,18 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
                     placeholder="Search discovered models..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg pl-8 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+                      title="Clear search"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">close</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

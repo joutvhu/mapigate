@@ -74,10 +74,10 @@ quotaRouter.patch("/accounts/:accountId/toggle", (req, res) => {
   }
 });
 
-// PUT /api/quota/accounts/:accountId - Update account details (name, API key, isActive)
+// PUT /api/quota/accounts/:accountId - Update account details (name, API key, isActive, providerSpecificData)
 quotaRouter.put("/accounts/:accountId", async (req, res) => {
   const { accountId } = req.params;
-  const { name, apiKey, isActive } = req.body || {};
+  const { name, apiKey, isActive, providerSpecificData } = req.body || {};
 
   try {
     const existing = ProviderRepository.getAccountById(accountId);
@@ -90,6 +90,7 @@ quotaRouter.put("/accounts/:accountId", async (req, res) => {
       name,
       rawApiKey: apiKey !== undefined ? apiKey : undefined,
       isActive,
+      providerSpecificData,
     });
 
     // Re-fetch updated quota for this account

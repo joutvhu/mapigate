@@ -223,10 +223,17 @@ export class MitmServer {
     });
   }
 
-  public async stop(): Promise<void> {
-    removeAllDNSEntriesSync();
+  public async stop(options: { keepDns?: boolean } = {}): Promise<void> {
+    if (!options.keepDns) {
+      removeAllDNSEntriesSync();
+    }
     return new Promise((resolve) => {
       if (this.server) {
+        try {
+          (this.server as any).closeAllConnections?.();
+        } catch {
+          // ignore
+        }
         this.server.close(() => {
           this.server = null;
           this.running = false;
@@ -249,11 +256,14 @@ export class MitmServer {
 
 export const mitmServerInstance = new MitmServer();
 
-// Clean up DNS entries on unexpected process exit
+// Clean up DNS entries on unexpected process exit (skip during server restart)
 let shutdownHookRegistered = false;
 if (!shutdownHookRegistered) {
   shutdownHookRegistered = true;
   const onExit = () => {
+    if (process.env.MAPIGATE_RESTARTING === "1") {
+      return;
+    }
     removeAllDNSEntriesSync();
   };
   process.on("exit", onExit);

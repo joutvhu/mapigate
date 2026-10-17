@@ -71,7 +71,7 @@ export class ServerLifecycle {
 
     try {
       const { mitmManager } = await import("../mitm/manager.js");
-      await mitmManager.stopServer();
+      await mitmManager.stopServer({ keepDns: false });
     } catch {
       // Best-effort
     }
@@ -111,6 +111,7 @@ export class ServerLifecycle {
   public async restartServer(options: { delayMs?: number; exitProcess?: boolean } = {}): Promise<void> {
     if (this.shuttingDown) return;
     this.shuttingDown = true;
+    process.env.MAPIGATE_RESTARTING = "1";
 
     const delayMs = options.delayMs ?? 200;
     const exitProcess = options.exitProcess ?? true;
@@ -133,7 +134,7 @@ export class ServerLifecycle {
 
     try {
       const { mitmManager } = await import("../mitm/manager.js");
-      await mitmManager.stopServer();
+      await mitmManager.stopServer({ keepDns: true });
     } catch {
       // Best-effort
     }
