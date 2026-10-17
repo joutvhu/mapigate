@@ -3,6 +3,7 @@ import { PortalModal } from "../components/PortalModal";
 import { CLI_TOOLS_LIST, type CliToolItem } from "../constants/providersData";
 import { CLI_TOOLS, type CliToolDefinition } from "../../../shared/constants/cliTools";
 import { ToolIcon } from "../components/ui/ToolIcon";
+import { useSystemInfo } from "../hooks/useSystemInfo";
 
 interface ToolStatusData {
   id: string;
@@ -15,6 +16,18 @@ interface ToolStatusData {
 }
 
 export const CliToolsTab: React.FC = () => {
+  const systemInfo = useSystemInfo((s) => s.info);
+  const effectivePort = systemInfo?.port || 20127;
+  const effectiveHost = systemInfo?.host || "127.0.0.1";
+
+  const formatWithActivePort = (text?: string): string => {
+    if (!text) return "";
+    return text
+      .replace(/127\.0\.0\.1:20127/g, `${effectiveHost}:${effectivePort}`)
+      .replace(/localhost:20127/g, `localhost:${effectivePort}`)
+      .replace(/:20127\b/g, `:${effectivePort}`);
+  };
+
   const [activeModalTool, setActiveModalTool] = useState<CliToolItem | null>(null);
   const [activeTab, setActiveTab] = useState<"powershell" | "bash" | "file" | "guide">("powershell");
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
@@ -150,7 +163,7 @@ export const CliToolsTab: React.FC = () => {
           </button>
           <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            Port :20127 Ready
+            Port :{effectivePort} Ready
           </span>
         </div>
       </div>
@@ -300,8 +313,8 @@ export const CliToolsTab: React.FC = () => {
                     <button
                       onClick={() =>
                         copyText(
-                          selectedDef?.powershellTemplate ||
-                            `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"; $env:OPENAI_API_KEY = "mapigate-local"`
+                          formatWithActivePort(selectedDef?.powershellTemplate) ||
+                            `$env:OPENAI_BASE_URL = "http://${effectiveHost}:${effectivePort}/v1"; $env:OPENAI_API_KEY = "mapigate-local"`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
@@ -311,11 +324,11 @@ export const CliToolsTab: React.FC = () => {
                     </button>
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-3.5 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
-                    {selectedDef?.powershellTemplate ||
-                      `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"`}
+                    {formatWithActivePort(selectedDef?.powershellTemplate) ||
+                      `$env:OPENAI_BASE_URL = "http://${effectiveHost}:${effectivePort}/v1"\n$env:OPENAI_API_KEY = "mapigate-local"`}
                   </pre>
                   <p className="text-[11px] text-slate-400">
-                    💡 Sets environment variables in your current PowerShell session pointing to Mapigate port 20127.
+                    💡 Sets environment variables in your current PowerShell session pointing to Mapigate port {effectivePort}.
                   </p>
                 </div>
               )}
@@ -328,8 +341,8 @@ export const CliToolsTab: React.FC = () => {
                     <button
                       onClick={() =>
                         copyText(
-                          selectedDef?.bashTemplate ||
-                            `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"`
+                          formatWithActivePort(selectedDef?.bashTemplate) ||
+                            `export OPENAI_BASE_URL="http://${effectiveHost}:${effectivePort}/v1"\nexport OPENAI_API_KEY="mapigate-local"`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
@@ -339,8 +352,8 @@ export const CliToolsTab: React.FC = () => {
                     </button>
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-3.5 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
-                    {selectedDef?.bashTemplate ||
-                      `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"`}
+                    {formatWithActivePort(selectedDef?.bashTemplate) ||
+                      `export OPENAI_BASE_URL="http://${effectiveHost}:${effectivePort}/v1"\nexport OPENAI_API_KEY="mapigate-local"`}
                   </pre>
                   <p className="text-[11px] text-slate-400">
                     💡 Exports the environment variables for your current terminal session.
@@ -361,9 +374,9 @@ export const CliToolsTab: React.FC = () => {
                     <button
                       onClick={() =>
                         copyText(
-                          selectedDef?.configFileTemplate ||
-                            selectedDef?.codeBlock?.code ||
-                            `http://127.0.0.1:20127/v1`
+                          formatWithActivePort(
+                            selectedDef?.configFileTemplate || selectedDef?.codeBlock?.code
+                          ) || `http://${effectiveHost}:${effectivePort}/v1`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold"
@@ -373,9 +386,9 @@ export const CliToolsTab: React.FC = () => {
                     </button>
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-3.5 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
-                    {selectedDef?.configFileTemplate ||
-                      selectedDef?.codeBlock?.code ||
-                      `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`}
+                    {formatWithActivePort(
+                      selectedDef?.configFileTemplate || selectedDef?.codeBlock?.code
+                    ) || `{\n  "baseUrl": "http://${effectiveHost}:${effectivePort}/v1",\n  "apiKey": "mapigate-local"\n}`}
                   </pre>
                   <div className="flex items-center gap-2 pt-1">
                     <button
@@ -403,36 +416,39 @@ export const CliToolsTab: React.FC = () => {
                 <div className="space-y-3">
                   {selectedDef?.guideSteps && (
                     <div className="space-y-2.5">
-                      {selectedDef.guideSteps.map((step) => (
-                        <div
-                          key={step.step}
-                          className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex items-start gap-3"
-                        >
-                          <div className="size-6 rounded-full bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-500/30">
-                            {step.step}
+                      {selectedDef.guideSteps.map((step) => {
+                        const formattedValue = formatWithActivePort(step.value);
+                        return (
+                          <div
+                            key={step.step}
+                            className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex items-start gap-3"
+                          >
+                            <div className="size-6 rounded-full bg-blue-500/20 text-blue-400 font-bold text-xs flex items-center justify-center shrink-0 border border-blue-500/30">
+                              {step.step}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-xs font-bold text-white">{step.title}</h5>
+                              {step.desc && (
+                                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{step.desc}</p>
+                              )}
+                              {formattedValue && (
+                                <div className="mt-2 flex items-center justify-between gap-2 bg-[#0E1320] px-2.5 py-1.5 rounded-lg border border-[#1E293B]">
+                                  <code className="text-xs text-emerald-400 font-mono truncate">{formattedValue}</code>
+                                  {step.copyable && (
+                                    <button
+                                      onClick={() => copyText(formattedValue)}
+                                      className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-semibold shrink-0"
+                                    >
+                                      <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                                      {copiedCmd === formattedValue ? "Copied!" : "Copy"}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <h5 className="text-xs font-bold text-white">{step.title}</h5>
-                            {step.desc && (
-                              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{step.desc}</p>
-                            )}
-                            {step.value && (
-                              <div className="mt-2 flex items-center justify-between gap-2 bg-[#0E1320] px-2.5 py-1.5 rounded-lg border border-[#1E293B]">
-                                <code className="text-xs text-emerald-400 font-mono truncate">{step.value}</code>
-                                {step.copyable && (
-                                  <button
-                                    onClick={() => copyText(step.value!)}
-                                    className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 font-semibold shrink-0"
-                                  >
-                                    <span className="material-symbols-outlined text-[14px]">content_copy</span>
-                                    {copiedCmd === step.value ? "Copied!" : "Copy"}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -473,7 +489,7 @@ export const CliToolsTab: React.FC = () => {
             <div className="flex items-center justify-between pt-3 border-t border-[#1E293B]">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-slate-500 font-mono">
-                  Base URL: http://127.0.0.1:20127{selectedDef?.baseUrlPath || ""}
+                  Base URL: http://{effectiveHost}:{effectivePort}{selectedDef?.baseUrlPath || ""}
                 </span>
               </div>
               <button

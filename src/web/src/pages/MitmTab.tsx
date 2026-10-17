@@ -9,6 +9,7 @@ interface MitmMappingRow {
 
 import { MITM_TOOLS, type MitmToolConfig, type MitmToolId } from "../../../mitm/config.js";
 import { ToolIcon } from "../components/ui/ToolIcon";
+import { useSystemInfo } from "../hooks/useSystemInfo.js";
 
 interface MitmStatusData {
   running: boolean;
@@ -37,6 +38,12 @@ interface PortOwnerInfo {
 }
 
 export const MitmTab: React.FC = () => {
+  const systemInfo = useSystemInfo((s) => s.info);
+  const effectivePort = systemInfo?.port || 20127;
+  const effectiveHost = systemInfo?.host || "127.0.0.1";
+  const [routerBaseUrl, setRouterBaseUrl] = useState<string>("");
+  const localEndpoint = routerBaseUrl || `http://${effectiveHost}:${effectivePort}`;
+
   const [serverRunning, setServerRunning] = useState(true);
   const [mitmPort, setMitmPort] = useState(443);
   const [portConflict, setPortConflict] = useState<PortOwnerInfo | null>(null);
@@ -123,6 +130,7 @@ export const MitmTab: React.FC = () => {
         setCertTrusted(Boolean(d.certTrusted));
         if (d.certPath) setCertPath(d.certPath);
         if (d.fingerprint) setFingerprint(d.fingerprint);
+        if (d.routerBaseUrl) setRouterBaseUrl(d.routerBaseUrl);
         if (d.installCommands) setInstallCommands(d.installCommands);
         if (d.dnsStatus) {
           setDnsStatus((prev) => ({
@@ -490,7 +498,7 @@ export const MitmTab: React.FC = () => {
           <div className="flex items-center gap-3">
             <span className="font-semibold text-slate-300">Mapigate Local Endpoint:</span>
             <code className="text-blue-400 font-mono bg-[#0A0D14] px-3 py-1.5 rounded-lg border border-[#1E293B]">
-              http://127.0.0.1:20127
+              {localEndpoint}
             </code>
           </div>
 

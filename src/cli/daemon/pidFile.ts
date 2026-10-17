@@ -11,8 +11,9 @@ export class PidFileManager {
     return path.join(dir, MAPIGATE_PID_FILE);
   }
 
-  public static writePid(pid: number): void {
-    fs.writeFileSync(this.getPidFilePath(), String(pid), "utf8");
+  public static writePid(pid: number, port?: number): void {
+    const data = port ? JSON.stringify({ pid, port }) : String(pid);
+    fs.writeFileSync(this.getPidFilePath(), data, "utf8");
   }
 
   public static readPid(): number | null {
@@ -20,8 +21,29 @@ export class PidFileManager {
     if (fs.existsSync(file)) {
       try {
         const content = fs.readFileSync(file, "utf8").trim();
+        if (content.startsWith("{")) {
+          const obj = JSON.parse(content);
+          if (typeof obj.pid === "number") return obj.pid;
+        }
         const pid = parseInt(content, 10);
         if (!isNaN(pid)) return pid;
+      } catch {
+        // Fall through
+      }
+    }
+
+    return null;
+  }
+
+  public static readPort(): number | null {
+    const file = this.getPidFilePath();
+    if (fs.existsSync(file)) {
+      try {
+        const content = fs.readFileSync(file, "utf8").trim();
+        if (content.startsWith("{")) {
+          const obj = JSON.parse(content);
+          if (typeof obj.port === "number") return obj.port;
+        }
       } catch {
         // Fall through
       }

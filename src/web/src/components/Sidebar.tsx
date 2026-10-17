@@ -1,4 +1,5 @@
 import React from "react";
+import { useSystemInfo } from "../hooks/useSystemInfo";
 
 export type NavTab =
   | "endpoint"
@@ -18,6 +19,19 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => {
+  const systemInfo = useSystemInfo((s) => s.info);
+  const version = systemInfo?.version;
+  const runningPort =
+    systemInfo?.port ||
+    (typeof window !== "undefined" && window.location.port && window.location.port !== "5173"
+      ? Number(window.location.port)
+      : 20127);
+  const runningHost =
+    systemInfo?.host ||
+    (typeof window !== "undefined" && window.location.hostname
+      ? window.location.hostname
+      : "127.0.0.1");
+
   const mainNav = [
     { id: "endpoint" as NavTab, label: "Endpoint & Key", icon: "api" },
     { id: "providers" as NavTab, label: "Providers", icon: "dns" },
@@ -40,9 +54,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
               Mapigate
-              <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono">
-                AI
-              </span>
+              {version ? (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono font-medium">
+                  v{version}
+                </span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono">
+                  AI
+                </span>
+              )}
             </h1>
             <span className="text-[11px] text-slate-400">Local-first Gateway</span>
           </div>
@@ -105,10 +125,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
         <div className="flex items-center justify-between text-xs text-slate-400 bg-[#111827] px-3.5 py-2.5 rounded-xl border border-[#1E293B] shadow-inner">
           <div className="flex items-center gap-2">
             <span className="rt-beacon size-2 bg-emerald-400" />
-            <span className="font-semibold text-slate-200">Port 20127</span>
+            <span className="font-semibold text-slate-200">Port {runningPort}</span>
           </div>
           <span className="text-[10px] text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-            127.0.0.1
+            {runningHost}
           </span>
         </div>
       </div>

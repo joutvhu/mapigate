@@ -14,6 +14,7 @@ import { ConsoleLogTab } from "./pages/ConsoleLogTab";
 import { SettingsTab } from "./pages/SettingsTab";
 import { CallbackPage } from "./pages/CallbackPage";
 import { useAuth } from "./hooks/useAuth";
+import { useSystemInfo } from "./hooks/useSystemInfo";
 import { LockScreen } from "./components/LockScreen";
 import { RestartModal } from "./components/RestartModal";
 import type { ProviderItem } from "./constants/providersData";
@@ -32,10 +33,12 @@ export default function App() {
   const isChecking = useAuth((s) => s.isChecking);
   const isLocked = useAuth((s) => s.isLocked);
   const checkAuth = useAuth((s) => s.checkAuth);
+  const fetchSystemInfo = useSystemInfo((s) => s.fetchSystemInfo);
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth]);
+    fetchSystemInfo();
+  }, [checkAuth, fetchSystemInfo]);
 
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");

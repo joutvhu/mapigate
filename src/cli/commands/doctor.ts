@@ -8,12 +8,15 @@ import { ProcessManager } from "../daemon/processManager.js";
 import { ApiClient } from "../client/apiClient.js";
 import { showStatus } from "../ui/display.js";
 
+import { PidFileManager } from "../daemon/pidFile.js";
+
 export interface DoctorOptions {
   port?: string | number;
 }
 
 export async function runDoctor(options: DoctorOptions = {}): Promise<void> {
-  const port = Number(options.port) || DEFAULT_PORT;
+  const recordedPort = PidFileManager.readPort();
+  const port = Number(options.port) || recordedPort || (process.env.PORT ? Number(process.env.PORT) : DEFAULT_PORT);
   ApiClient.configure({ port });
 
   console.log(`\n${chalk.bold(`[Doctor] ${APP_NAME} v${APP_VERSION} System Doctor`)}`);

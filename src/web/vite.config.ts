@@ -120,21 +120,27 @@ function providerAssetsPlugin(): Plugin {
   };
 }
 
+const backendPort = process.env.PORT || 20127;
+const backendTarget = `http://127.0.0.1:${backendPort}`;
+
 export default defineConfig({
   plugins: [react(), tailwindcss(), providerAssetsPlugin()],
+  define: {
+    "process.env": {},
+  },
   server: {
     port: 5173,
     proxy: {
       "/v1": {
-        target: "http://127.0.0.1:20127",
+        target: backendTarget,
         changeOrigin: true,
       },
       "/api": {
-        target: "http://127.0.0.1:20127",
+        target: backendTarget,
         changeOrigin: true,
       },
       "/health": {
-        target: "http://127.0.0.1:20127",
+        target: backendTarget,
         changeOrigin: true,
       },
     },

@@ -5,6 +5,7 @@ import { OAuthHandlerRegistry } from "../../providers/core/oauthRegistry.js";
 import { registerAllProviderRoutes } from "../../providers/generated/routesRegistry.generated.js";
 import { parseJwtPayload } from "../../shared/utils/jwt.js";
 import { generatePKCE } from "../../shared/utils/pkce.js";
+import { serverLifecycle } from "../lifecycle.js";
 
 // Re-exports for backward compatibility
 export { generateCodeVerifier, generateCodeChallenge, generateState, generatePKCE } from "../../shared/utils/pkce.js";
@@ -27,7 +28,7 @@ const DEVICE_CODE_PROVIDERS = new Set([
 oauthRouter.get("/:provider/authorize", async (req, res) => {
   const { provider } = req.params;
   const pId = provider.toLowerCase();
-  const appPort = req.headers.host?.split(":")[1] || "20127";
+  const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
   const redirectUri = (req.query.redirect_uri as string) || `http://localhost:${appPort}/callback`;
   const { codeVerifier, codeChallenge, state } = generatePKCE(32);
   const handler = OAuthHandlerRegistry.get(provider);
@@ -112,7 +113,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
     return res.json({ success: true, account: { id: accountId, name: accountName, providerId: pId } });
   }
 
-  const appPort = req.headers.host?.split(":")[1] || "20127";
+  const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
   const defaultRedirect = pId === "codex" ? "http://localhost:1455/auth/callback" : `http://localhost:${appPort}/callback`;
   const effectiveRedirectUri = redirectUri || defaultRedirect;
 

@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import { DEFAULT_PORT } from "../../shared/constants/index.js";
+import { PidFileManager } from "../daemon/pidFile.js";
 import { ApiClient } from "../client/apiClient.js";
 import { showTable } from "../ui/display.js";
 
@@ -8,7 +9,8 @@ export interface ProvidersOptions {
 }
 
 export async function runProviders(options: ProvidersOptions = {}): Promise<void> {
-  const port = Number(options.port) || DEFAULT_PORT;
+  const recordedPort = PidFileManager.readPort();
+  const port = Number(options.port) || recordedPort || (process.env.PORT ? Number(process.env.PORT) : DEFAULT_PORT);
   ApiClient.configure({ port });
 
   const res = await ApiClient.getProviders();

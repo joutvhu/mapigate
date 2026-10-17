@@ -11,6 +11,7 @@ import {
   PortConflictError,
   type PortOwnerInfo,
 } from "./portConflict.js";
+import { getMapigateBaseUrl } from "../shared/constants/cliTools.js";
 
 export class MitmManager {
   private static instance: MitmManager;
@@ -48,7 +49,7 @@ export class MitmManager {
       installCommands,
       uninstallCommands,
       dnsStatus: mergedDnsStatus,
-      routerBaseUrl: "http://127.0.0.1:20127",
+      routerBaseUrl: getMapigateBaseUrl(),
     };
   }
 

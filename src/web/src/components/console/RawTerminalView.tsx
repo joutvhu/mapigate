@@ -1,5 +1,6 @@
 import React from "react";
 import { Terminal } from "lucide-react";
+import { useSystemInfo } from "../../hooks/useSystemInfo.js";
 
 interface RawTerminalViewProps {
   logs: string[];
@@ -54,6 +55,10 @@ export const RawTerminalView: React.FC<RawTerminalViewProps> = ({
   filterText,
   scrollRef,
 }) => {
+  const systemInfo = useSystemInfo((s) => s.info);
+  const effectivePort = systemInfo?.port || 20127;
+  const effectiveHost = systemInfo?.host || "127.0.0.1";
+
   return (
     <div className="flex-1 flex flex-col rounded-xl border border-[#1E293B] bg-[#05070B] overflow-hidden shadow-2xl min-h-0">
       {/* Terminal Header Chrome */}
@@ -85,7 +90,7 @@ export const RawTerminalView: React.FC<RawTerminalViewProps> = ({
                 : "No console logs yet. Gateway logs will stream here in real time."}
             </p>
             <span className="text-[10px] text-slate-600 font-mono">
-              Listening on http://127.0.0.1:20127/api/console-logs/stream
+              Listening on http://{effectiveHost}:{effectivePort}/api/console-logs/stream
             </span>
           </div>
         ) : (

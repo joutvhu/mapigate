@@ -10,6 +10,8 @@ interface SystemInfo {
   isDevelopmentMode: boolean;
   appName?: string;
   version?: string;
+  port?: number;
+  host?: string;
 }
 
 export interface SettingsTabProps {
@@ -134,7 +136,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1">
+            <span className="text-slate-500 uppercase text-[10px] font-bold">App Version & Gateway</span>
+            <p className="text-white font-mono font-semibold">Mapigate v{systemInfo?.version || "0.3.3"}</p>
+            <p className="text-blue-400 font-mono text-[11px]">Active on port {systemInfo?.port || 20127}</p>
+          </div>
+
           <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1">
             <span className="text-slate-500 uppercase text-[10px] font-bold">Storage Engine</span>
             <p className="text-white font-mono font-semibold">SQLite WAL (node:sqlite)</p>
@@ -315,7 +323,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
         </div>
 
         <p className="text-xs text-slate-400 leading-relaxed">
-          Restarting the gateway applies any newly installed updates, re-initializes provider modules, and clears active sockets without needing to run terminal commands. Shutting down the server stops all active proxy routing, terminates the background process, and releases port 20127.
+          Restarting the gateway applies any newly installed updates, re-initializes provider modules, and clears active sockets without needing to run terminal commands. Shutting down the server stops all active proxy routing, terminates the background process, and releases port {systemInfo?.port || 20127}.
         </p>
 
         {errorMsg && (

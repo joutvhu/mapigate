@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Select } from "../components/Select.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 import { PortalModal } from "../components/PortalModal.js";
+import { useSystemInfo } from "../hooks/useSystemInfo.js";
 
 interface EndpointSettings {
   host: string;
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS: EndpointSettings = {
 };
 
 export const EndpointTab: React.FC = () => {
+  const systemInfo = useSystemInfo((s) => s.info);
   // --- Endpoint Configuration State ---
   const [settings, setSettings] = useState<EndpointSettings>(DEFAULT_SETTINGS);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -264,7 +266,12 @@ export const EndpointTab: React.FC = () => {
   // Connectivity Test
   const effectiveHost =
     settings.host === "0.0.0.0" ? "127.0.0.1" : settings.host || "127.0.0.1";
-  const effectivePort = settings.port || 20127;
+  const fallbackPort =
+    systemInfo?.port ||
+    (typeof window !== "undefined" && window.location.port && window.location.port !== "5173"
+      ? Number(window.location.port)
+      : 20127);
+  const effectivePort = settings.port || fallbackPort;
   const openAiBaseUrl = `http://${effectiveHost}:${effectivePort}/v1`;
   const anthropicBaseUrl = `http://${effectiveHost}:${effectivePort}`;
 
@@ -462,7 +469,7 @@ export const EndpointTab: React.FC = () => {
                   className="w-full bg-[#0A0D14] border border-[#1E293B] focus:border-blue-500 rounded-xl px-3.5 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Default port is 20127. Change requires restarting Mapigate server.
+                  Active server listening on port <span className="text-blue-400 font-mono font-semibold">{effectivePort}</span>. Default port is 20127. Change requires restarting Mapigate server.
                 </p>
               </div>
             </div>

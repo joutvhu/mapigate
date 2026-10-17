@@ -18,8 +18,11 @@ import { PidFileManager } from "../src/cli/daemon/pidFile.js";
 import { CryptoVault } from "../src/storage/crypto/vault.js";
 
 test("Mapigate Rename - Constants", () => {
+  const pkgVersion = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), "package.json"), "utf8")
+  ).version;
   assert.equal(APP_NAME, "Mapigate");
-  assert.equal(APP_VERSION, "0.3.2");
+  assert.equal(APP_VERSION, pkgVersion);
   assert.equal(MAPIGATE_PID_FILE, "mapigate.pid");
   assert.equal(MAPIGATE_DB_FILE, "mapigate.sqlite");
   assert.equal(MAPIGATE_LOG_FILE, "server.log");

@@ -102,7 +102,7 @@ export const zedOAuthHandler: ProviderOAuthHandler = {
       privateKeyEncoding: { type: "pkcs1", format: "pem" },
     });
 
-    const nativeAppPort = Number(params.appPort) || 20127;
+    const nativeAppPort = Number(params.appPort) || Number(process.env.PORT) || 20127;
     const systemId = crypto.randomUUID();
     const publicKeyString = b64urlPadded(publicKey);
     const signInUrl = new URL("https://zed.dev/native_app_signin");

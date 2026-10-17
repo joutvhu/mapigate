@@ -409,7 +409,17 @@ ${registerCalls.join("\n")}
   );
 }
 
+function generateVersion() {
+  const pkgPath = path.join(rootDir, "package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  const version = pkg.version || "0.0.0";
+  const targetPath = path.join(rootDir, "src", "shared", "constants", "version.generated.ts");
+  const content = `// AUTO-GENERATED from package.json by scripts/generate-registries.mjs - DO NOT EDIT MANUALLY\nexport const APP_VERSION = "${version}";\n`;
+  fs.writeFileSync(targetPath, content, "utf8");
+}
+
 const startTime = Date.now();
+generateVersion();
 generateProviders();
 generateProviderRoutes();
 generateMitmHandlers();

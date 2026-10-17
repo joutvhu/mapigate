@@ -15,6 +15,9 @@ import {
   type PortOwnerInfo,
 } from "../../mitm/portConflict.js";
 
+import { getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
+import { serverLifecycle } from "../lifecycle.js";
+
 export const mitmRouter = Router();
 
 // GET MITM status
@@ -32,7 +35,7 @@ mitmRouter.get("/status", async (_req, res) => {
         ...MitmRepository.getAllToolDnsStatus(),
         ...checkAllDNSStatus(),
       },
-      routerBaseUrl: "http://127.0.0.1:20127",
+      routerBaseUrl: getMapigateBaseUrl(serverLifecycle.getPort()),
     });
   }
 });

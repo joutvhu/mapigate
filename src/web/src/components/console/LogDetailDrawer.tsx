@@ -4,6 +4,7 @@ import type { StructuredLogEntry } from "../../../../shared/types/logging.js";
 import { ToolIcon } from "../ui/ToolIcon.js";
 import { TokenEconomicsPanel } from "./TokenEconomicsPanel.js";
 import { ToolCallsPanel } from "./ToolCallsPanel.js";
+import { useSystemInfo } from "../../hooks/useSystemInfo.js";
 import {
   X,
   Copy,
@@ -27,6 +28,10 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
   isOpen,
   onClose,
 }) => {
+  const systemInfo = useSystemInfo((s) => s.info);
+  const effectivePort = systemInfo?.port || 20127;
+  const effectiveHost = systemInfo?.host || "127.0.0.1";
+
   const [copiedId, setCopiedId] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
@@ -70,7 +75,7 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
   const generateCurl = () => {
     const route = gateway?.route || "/v1/messages";
     const model = gateway?.actualModel || gateway?.requestedModel || "claude-3-7-sonnet";
-    return `curl -X POST http://127.0.0.1:20127${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '{"model": "${model}", "messages": [{"role": "user", "content": "Hello"}]}'`;
+    return `curl -X POST http://${effectiveHost}:${effectivePort}${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '{"model": "${model}", "messages": [{"role": "user", "content": "Hello"}]}'`;
   };
 
   return createPortal(

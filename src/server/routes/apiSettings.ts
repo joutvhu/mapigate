@@ -13,6 +13,7 @@ import {
   enableAutoStart,
   disableAutoStart,
 } from "../../cli/daemon/autostart.js";
+import { serverLifecycle } from "../lifecycle.js";
 
 export const settingsRouter = Router();
 
@@ -22,12 +23,16 @@ settingsRouter.get("/system-info", (_req, res) => {
     const dataDir = getDefaultDataDir();
     const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
     const isDev = isDevelopmentMode();
+    const runningPort = serverLifecycle.getPort();
+    const runningHost = serverLifecycle.getHost();
     res.json({
       dataDir,
       dbPath,
       isDevelopmentMode: isDev,
       appName: APP_NAME,
       version: APP_VERSION,
+      port: runningPort,
+      host: runningHost,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to fetch system info" });
@@ -72,7 +77,12 @@ settingsRouter.patch("/capacity-adapter", (req, res) => {
 settingsRouter.get("/endpoint", (_req, res) => {
   try {
     const config = SettingsRepository.getEndpointSettings();
-    res.json(config);
+    const runningPort = serverLifecycle.getPort();
+    res.json({
+      ...config,
+      runningPort,
+      activePort: runningPort,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to fetch endpoint settings" });
   }

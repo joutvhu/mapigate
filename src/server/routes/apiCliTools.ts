@@ -4,7 +4,8 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { CLI_TOOLS, MAPIGATE_BASE_URL } from "../../shared/constants/cliTools.js";
+import { CLI_TOOLS, MAPIGATE_BASE_URL, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
+import { serverLifecycle } from "../lifecycle.js";
 
 const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
@@ -81,7 +82,8 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
   if (fileExists && resolvedConfigPath) {
     try {
       fileContent = await fs.readFile(resolvedConfigPath, "utf-8");
-      if (fileContent.includes("20127") || fileContent.includes("mapigate")) {
+      const runningPortStr = String(serverLifecycle.getPort());
+      if (fileContent.includes(runningPortStr) || fileContent.includes("20127") || fileContent.includes("mapigate")) {
         hasMapigate = true;
       }
     } catch {
@@ -185,12 +187,17 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
       } catch {
         // fresh
       }
+      const runningPort = serverLifecycle.getPort();
       if (!currentSettings.env) currentSettings.env = {};
-      currentSettings.env.ANTHROPIC_BASE_URL = MAPIGATE_BASE_URL;
+      currentSettings.env.ANTHROPIC_BASE_URL = getMapigateBaseUrl(runningPort);
       currentSettings.env.ANTHROPIC_MODEL = req.body?.model || "claude-sonnet-4-6";
       await fs.writeFile(targetPath, JSON.stringify(currentSettings, null, 2), "utf-8");
     } else if (tool.configFileTemplate) {
-      await fs.writeFile(targetPath, tool.configFileTemplate, "utf-8");
+      const runningPort = serverLifecycle.getPort();
+      const renderedTemplate = tool.configFileTemplate
+        .replace(/127\.0\.0\.1:20127/g, `127.0.0.1:${runningPort}`)
+        .replace(/:20127/g, `:${runningPort}`);
+      await fs.writeFile(targetPath, renderedTemplate, "utf-8");
     } else {
       res.status(400).json({ error: `No config template available for ${toolId}` });
       return;

@@ -9,7 +9,8 @@ export interface StatusOptions {
 }
 
 export async function runStatus(options: StatusOptions = {}): Promise<void> {
-  const port = Number(options.port) || DEFAULT_PORT;
+  const recordedPort = PidFileManager.readPort();
+  const port = Number(options.port) || recordedPort || (process.env.PORT ? Number(process.env.PORT) : DEFAULT_PORT);
   const pid = PidFileManager.readPid();
   const isListening = await ProcessManager.isServerListening(port);
 

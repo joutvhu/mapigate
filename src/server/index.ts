@@ -31,6 +31,7 @@ import { initTray } from "../cli/tray/tray.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
+import { PidFileManager } from "../cli/daemon/pidFile.js";
 
 const app = express();
 const port = Number(process.env.PORT) || DEFAULT_PORT;
@@ -46,6 +47,7 @@ app.get("/health", (_req, res) => {
     status: "ok",
     app: APP_NAME,
     version: APP_VERSION,
+    port: serverLifecycle.getPort(),
     timestamp: Date.now(),
   });
 });
@@ -318,6 +320,11 @@ if (!isTest) {
 
   server = app.listen(port, host, () => {
     serverLifecycle.setServer(server);
+    try {
+      PidFileManager.writePid(process.pid, port);
+    } catch {
+      // Best-effort
+    }
     logger.info("SERVER", `[${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
     try {
       const dnsStatus = MitmRepository.getAllToolDnsStatus();

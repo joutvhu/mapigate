@@ -2,6 +2,7 @@ import React from "react";
 import type { NavTab } from "./Sidebar";
 import type { ProviderItem } from "../constants/providersData";
 import { useAuth } from "../hooks/useAuth";
+import { useSystemInfo } from "../hooks/useSystemInfo";
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -76,6 +77,8 @@ export const Header: React.FC<HeaderProps> = ({
   const meta = PAGE_META[currentTab] || PAGE_META.providers;
   const isPasswordSet = useAuth((s) => s.isPasswordSet);
   const lock = useAuth((s) => s.lock);
+  const systemInfo = useSystemInfo((s) => s.info);
+  const version = systemInfo?.version;
 
   return (
     <header className="rt-header">
@@ -135,6 +138,14 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="material-symbols-outlined text-[15px]">verified_user</span>
           100% Local-First
         </div>
+
+        {/* Version Badge */}
+        {version && (
+          <div className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#111827] text-slate-300 text-xs font-mono border border-[#1E293B] shadow-inner" title={`Mapigate Version v${version}`}>
+            <span className="text-slate-500 text-[10px]">v</span>
+            <span className="font-semibold text-slate-200">{version}</span>
+          </div>
+        )}
 
         {/* Lock Dashboard Button (visible when master password is configured) */}
         {isPasswordSet && (

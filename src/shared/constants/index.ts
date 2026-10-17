@@ -1,13 +1,18 @@
 import os from "node:os";
 import path from "node:path";
+import { APP_VERSION } from "./version.generated.js";
 
 export const APP_NAME = "Mapigate";
-export const APP_VERSION = "0.3.2";
+export { APP_VERSION };
 
 export const DEFAULT_PORT = 20127;
 export const DEFAULT_HOST: string = "127.0.0.1";
 
 export function isDevelopmentMode(): boolean {
+  if (typeof process === "undefined" || !process?.env) {
+    return false;
+  }
+
   if (
     process.env.MAPIGATE_PROD === "true" ||
     process.env.MAPIGATE_PROD === "1"
@@ -33,13 +38,17 @@ export function isDevelopmentMode(): boolean {
 }
 
 export function getDefaultDataDir(): string {
-  if (process.env.MAPIGATE_DATA_DIR) {
+  if (typeof process !== "undefined" && process?.env?.MAPIGATE_DATA_DIR) {
     return process.env.MAPIGATE_DATA_DIR;
   }
-  if (isDevelopmentMode()) {
+  if (isDevelopmentMode() && typeof process !== "undefined" && typeof process.cwd === "function") {
     return path.resolve(process.cwd(), ".mapigate");
   }
-  return path.join(os.homedir(), ".mapigate");
+  try {
+    return path.join(os.homedir(), ".mapigate");
+  } catch {
+    return ".mapigate";
+  }
 }
 
 export const MAPIGATE_PID_FILE = "mapigate.pid";

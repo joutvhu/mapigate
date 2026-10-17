@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
+import { useSystemInfo } from "../hooks/useSystemInfo.js";
 
 interface DeviceCodeData {
   device_code: string;
@@ -20,8 +21,10 @@ interface OAuthModalProps {
   onClose: () => void;
 }
 
-const DEFAULT_ANTIGRAVITY_AUTH_URL =
-  "https://accounts.google.com/o/oauth2/v2/auth?client_id=REDACTED_GOOGLE_CLIENT_ID.apps.googleusercontent.com&response_type=code&redirect_uri=http%3A%2F%2Flocalhost%3A20127%2Fcallback&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs&access_type=offline&prompt=consent";
+const getAntigravityAuthUrl = (port: number = 20127) =>
+  `https://accounts.google.com/o/oauth2/v2/auth?client_id=REDACTED_GOOGLE_CLIENT_ID.apps.googleusercontent.com&response_type=code&redirect_uri=${encodeURIComponent(
+    `http://localhost:${port}/callback`
+  )}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs&access_type=offline&prompt=consent`;
 
 export const OAuthModal: React.FC<OAuthModalProps> = ({
   isOpen,
@@ -30,10 +33,13 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   onSuccess,
   onClose,
 }) => {
+  const systemInfo = useSystemInfo((s) => s.info);
+  const effectivePort = systemInfo?.port || 20127;
+
   const [authUrl, setAuthUrl] = useState(
-    providerId === "antigravity" ? DEFAULT_ANTIGRAVITY_AUTH_URL : ""
+    providerId === "antigravity" ? getAntigravityAuthUrl(effectivePort) : ""
   );
-  const [redirectUri, setRedirectUri] = useState("http://localhost:20127/callback");
+  const [redirectUri, setRedirectUri] = useState(`http://localhost:${effectivePort}/callback`);
   const [callbackUrl, setCallbackUrl] = useState("");
   const [status, setStatus] = useState<"loading" | "waiting" | "processing" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -114,7 +120,10 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     codeVerifierRef.current = undefined;
     stateRef.current = undefined;
 
-    const currentRedirect = `${window.location.origin}/callback`;
+    const currentRedirect =
+      window.location.port === "5173"
+        ? `http://localhost:${effectivePort}/callback`
+        : `${window.location.origin}/callback`;
     setRedirectUri(currentRedirect);
 
     try {

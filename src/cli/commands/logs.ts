@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import chalk from "chalk";
 import { getDefaultDataDir, MAPIGATE_LOG_FILE, DEFAULT_PORT } from "../../shared/constants/index.js";
+import { PidFileManager } from "../daemon/pidFile.js";
 import { ApiClient } from "../client/apiClient.js";
 
 export interface LogsOptions {
@@ -12,7 +13,8 @@ export interface LogsOptions {
 
 export async function runLogs(options: LogsOptions = {}): Promise<void> {
   const lineCount = Number(options.lines) || 50;
-  const port = Number(options.port) || DEFAULT_PORT;
+  const recordedPort = PidFileManager.readPort();
+  const port = Number(options.port) || recordedPort || (process.env.PORT ? Number(process.env.PORT) : DEFAULT_PORT);
   const dataDir = getDefaultDataDir();
   const logFile = path.join(dataDir, MAPIGATE_LOG_FILE);
 

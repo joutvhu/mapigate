@@ -3,6 +3,8 @@ import { PidFileManager } from "../cli/daemon/pidFile.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 import { killTray } from "../cli/tray/tray.js";
 
+import { DEFAULT_PORT, DEFAULT_HOST } from "../shared/constants/index.js";
+
 export class ServerLifecycle {
   private server: Server | null = null;
   private shuttingDown = false;
@@ -13,6 +15,26 @@ export class ServerLifecycle {
 
   public getServer(): Server | null {
     return this.server;
+  }
+
+  public getPort(): number {
+    if (this.server) {
+      const addr = this.server.address();
+      if (addr && typeof addr === "object" && typeof addr.port === "number") {
+        return addr.port;
+      }
+    }
+    return Number(process.env.PORT) || DEFAULT_PORT;
+  }
+
+  public getHost(): string {
+    if (this.server) {
+      const addr = this.server.address();
+      if (addr && typeof addr === "object" && typeof addr.address === "string" && addr.address !== "::") {
+        return addr.address;
+      }
+    }
+    return process.env.HOST || DEFAULT_HOST;
   }
 
   public isShuttingDown(): boolean {

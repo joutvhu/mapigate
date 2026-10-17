@@ -97,7 +97,7 @@ export const codexOAuthHandler: ProviderOAuthHandler = {
       .join("&");
     const authUrl = `${CODEX_AUTHORIZE_URL}?${queryString}`;
 
-    const appPort = Number(params.appPort) || 20127;
+    const appPort = Number(params.appPort) || Number(process.env.PORT) || 20127;
     startCodexProxy(appPort);
 
     return {
