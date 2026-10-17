@@ -3,6 +3,7 @@ import { PortalModal } from "../components/PortalModal";
 import { RestartModal } from "../components/RestartModal";
 import { MasterPasswordModal, type MasterPasswordModalMode } from "../components/MasterPasswordModal";
 import { useAuth } from "../hooks/useAuth";
+import { Github } from "lucide-react";
 
 interface SystemInfo {
   dataDir: string;
@@ -136,7 +137,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1">
             <span className="text-slate-500 uppercase text-[10px] font-bold">App Version & Gateway</span>
             <p className="text-white font-mono font-semibold">Mapigate v{systemInfo?.version || "0.3.3"}</p>
@@ -153,6 +154,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
             <span className="text-slate-500 uppercase text-[10px] font-bold">Credential Vault</span>
             <p className="text-emerald-400 font-mono font-semibold">AES-256-GCM Hardware-salted</p>
             <p className="text-slate-400 text-[11px]">Tied to this machine ID</p>
+          </div>
+
+          <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1 flex flex-col justify-between">
+            <div>
+              <span className="text-slate-500 uppercase text-[10px] font-bold">Open Source</span>
+              <p className="text-white font-mono font-semibold">GitHub Repository</p>
+            </div>
+            <a
+              href="https://github.com/joutvhu/mapigate"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-[11px] font-medium hover:underline pt-1"
+            >
+              <Github className="size-3.5" />
+              <span>joutvhu/mapigate</span>
+              <span className="material-symbols-outlined text-[12px]">open_in_new</span>
+            </a>
           </div>
         </div>
 

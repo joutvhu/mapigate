@@ -1,5 +1,6 @@
 import React from "react";
 import { useSystemInfo } from "../hooks/useSystemInfo";
+import { Github } from "lucide-react";
 
 export type NavTab =
   | "endpoint"
@@ -120,8 +121,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
         </nav>
       </div>
 
-      {/* Footer Status Pill */}
-      <div className="p-4 border-t border-[#1E293B]">
+      {/* Footer Status Pill & Links */}
+      <div className="p-4 border-t border-[#1E293B] space-y-2">
         <div className="flex items-center justify-between text-xs text-slate-400 bg-[#111827] px-3.5 py-2.5 rounded-xl border border-[#1E293B] shadow-inner">
           <div className="flex items-center gap-2">
             <span className="rt-beacon size-2 bg-emerald-400" />
@@ -131,6 +132,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             {runningHost}
           </span>
         </div>
+
+        <a
+          href="https://github.com/joutvhu/mapigate"
+          target="_blank"
+          rel="noreferrer"
+          title="Mapigate on GitHub (joutvhu/mapigate)"
+          className="flex items-center justify-center gap-2 w-full py-1.5 px-3 rounded-xl bg-[#111827]/60 hover:bg-white/5 border border-[#1E293B]/60 hover:border-[#1E293B] text-[11px] font-medium text-slate-400 hover:text-white transition-all cursor-pointer"
+        >
+          <Github className="size-3.5 text-slate-400" />
+          <span>GitHub · joutvhu/mapigate</span>
+        </a>
       </div>
     </aside>
   );

@@ -3,6 +3,7 @@ import type { NavTab } from "./Sidebar";
 import type { ProviderItem } from "../constants/providersData";
 import { useAuth } from "../hooks/useAuth";
 import { useSystemInfo } from "../hooks/useSystemInfo";
+import { Github } from "lucide-react";
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -146,6 +147,18 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-semibold text-slate-200">{version}</span>
           </div>
         )}
+
+        {/* GitHub Repository Link */}
+        <a
+          href="https://github.com/joutvhu/mapigate"
+          target="_blank"
+          rel="noreferrer"
+          title="Mapigate on GitHub (joutvhu/mapigate)"
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111827] hover:bg-white/5 text-slate-300 hover:text-white text-xs font-medium border border-[#1E293B] transition-all cursor-pointer shadow-xs"
+        >
+          <Github className="size-3.5 text-slate-400" />
+          <span className="hidden lg:inline text-[11px]">GitHub</span>
+        </a>
 
         {/* Lock Dashboard Button (visible when master password is configured) */}
         {isPasswordSet && (
