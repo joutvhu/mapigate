@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { APP_VERSION } from "./version.generated.js";
+import { APP_VERSION } from "./version.js";
 
 export const APP_NAME = "Mapigate";
 export { APP_VERSION };
