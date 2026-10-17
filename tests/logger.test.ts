@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import {
   Logger,
   LogLevel,
+  parseLogLevel,
+  formatLogLevelName,
   formatTime,
   maskKey,
   sanitizeMetadata,
@@ -14,6 +16,7 @@ import {
   REQ_TAGS,
   LogSymbol,
 } from "../src/shared/logger.js";
+import { SettingsRepository } from "../src/storage/repositories/settingsRepo.js";
 import { requestLogger } from "../src/server/middlewares/requestLogger.js";
 import { getConsoleLogs, initConsoleLogCapture } from "../src/server/utils/consoleLogBuffer.js";
 
@@ -29,37 +32,58 @@ test("Logger - log level filtering suppresses lower severity logs", () => {
   console.error = (msg?: any, ...args: any[]) => captured.push([msg, ...args].join(" "));
 
   try {
+    // 0. TRACE level
+    logger.setLevel(LogLevel.TRACE);
+    assert.equal(logger.isTraceEnabled(), true);
+    assert.equal(logger.isDebugEnabled(), true);
+    assert.equal(logger.getLevelName(), "trace");
+    logger.trace("TEST", "Trace message should appear");
+    assert.equal(captured.length, 1);
+    assert.ok(captured[0].includes("Trace message should appear"));
+
     // 1. INFO level (default)
     logger.setLevel(LogLevel.INFO);
+    assert.equal(logger.isTraceEnabled(), false);
+    assert.equal(logger.isDebugEnabled(), false);
+    assert.equal(logger.getLevelName(), "info");
+    logger.trace("TEST", "Trace message should be suppressed");
     logger.debug("TEST", "Debug message should be suppressed");
-    assert.equal(captured.length, 0, "DEBUG should not be output when level is INFO");
+    assert.equal(captured.length, 1, "TRACE and DEBUG should not be output when level is INFO");
 
     logger.info("TEST", "Info message should appear");
-    assert.equal(captured.length, 1);
-    assert.ok(captured[0].includes("Info message should appear"));
+    assert.equal(captured.length, 2);
+    assert.ok(captured[1].includes("Info message should appear"));
 
     // 2. WARN level
-    logger.setLevel(LogLevel.WARN);
+    logger.setLevel("warn");
+    assert.equal(logger.getLevelName(), "warn");
     logger.info("TEST", "Info message should now be suppressed");
-    assert.equal(captured.length, 1, "INFO should be suppressed when level is WARN");
+    assert.equal(captured.length, 2, "INFO should be suppressed when level is WARN");
 
     logger.warn("TEST", "Warning message should appear");
-    assert.equal(captured.length, 2);
-    assert.ok(captured[1].includes("Warning message should appear"));
+    assert.equal(captured.length, 3);
+    assert.ok(captured[2].includes("Warning message should appear"));
 
     // 3. ERROR level
-    logger.setLevel(LogLevel.ERROR);
+    logger.setLevel("error");
+    assert.equal(logger.getLevelName(), "error");
     logger.warn("TEST", "Warn should now be suppressed");
-    assert.equal(captured.length, 2);
+    assert.equal(captured.length, 3);
 
     logger.error("TEST", "Error message should appear");
-    assert.equal(captured.length, 3);
-    assert.ok(captured[2].includes("Error message should appear"));
-
-    // 4. errorLine is ALWAYS printed regardless of log level
-    logger.errorLine("🔴", LogSymbol.ERROR, "Critical error line");
     assert.equal(captured.length, 4);
-    assert.ok(captured[3].includes("Critical error line"));
+    assert.ok(captured[3].includes("Error message should appear"));
+
+    // 4. OFF level
+    logger.setLevel(LogLevel.OFF);
+    assert.equal(logger.getLevelName(), "off");
+    logger.error("TEST", "Error message should be suppressed when OFF");
+    assert.equal(captured.length, 4);
+
+    // 5. errorLine is ALWAYS printed regardless of log level
+    logger.errorLine("🔴", LogSymbol.ERROR, "Critical error line");
+    assert.equal(captured.length, 5);
+    assert.ok(captured[4].includes("Critical error line"));
   } finally {
     console.log = originalLog;
     console.warn = originalWarn;
@@ -218,4 +242,40 @@ test("Integration - Logger output is captured by consoleLogBuffer", () => {
     logs.some((l) => l.includes(testMarker)),
     "Logs emitted by logger must appear in consoleLogBuffer for Web Dashboard streaming"
   );
+});
+
+test("Logger - parseLogLevel and formatLogLevelName utilities", () => {
+  assert.equal(parseLogLevel("trace"), LogLevel.TRACE);
+  assert.equal(parseLogLevel("TRACE"), LogLevel.TRACE);
+  assert.equal(parseLogLevel("debug"), LogLevel.DEBUG);
+  assert.equal(parseLogLevel("DEBUG"), LogLevel.DEBUG);
+  assert.equal(parseLogLevel("info"), LogLevel.INFO);
+  assert.equal(parseLogLevel("warn"), LogLevel.WARN);
+  assert.equal(parseLogLevel("warning"), LogLevel.WARN);
+  assert.equal(parseLogLevel("error"), LogLevel.ERROR);
+  assert.equal(parseLogLevel("off"), LogLevel.OFF);
+  assert.equal(parseLogLevel("unknown", LogLevel.WARN), LogLevel.WARN);
+
+  assert.equal(formatLogLevelName(LogLevel.TRACE), "trace");
+  assert.equal(formatLogLevelName(LogLevel.DEBUG), "debug");
+  assert.equal(formatLogLevelName(LogLevel.INFO), "info");
+  assert.equal(formatLogLevelName(LogLevel.WARN), "warn");
+  assert.equal(formatLogLevelName(LogLevel.ERROR), "error");
+  assert.equal(formatLogLevelName(LogLevel.OFF), "off");
+});
+
+test("SettingsRepository - logLevel settings persistence", () => {
+  const orig = SettingsRepository.getLogLevel();
+  try {
+    SettingsRepository.setLogLevel("debug");
+    assert.equal(SettingsRepository.getLogLevel(), "debug");
+
+    SettingsRepository.setLogLevel("trace");
+    assert.equal(SettingsRepository.getLogLevel(), "trace");
+
+    SettingsRepository.setLogLevel("warn");
+    assert.equal(SettingsRepository.getLogLevel(), "warn");
+  } finally {
+    SettingsRepository.setLogLevel(orig);
+  }
 });

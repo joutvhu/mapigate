@@ -13,6 +13,7 @@ import {
 import { executeSingleModel } from "./singleModelExecutor.js";
 import { ResponseLogger } from "./responseLogger.js";
 import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
+import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
@@ -198,10 +199,35 @@ export async function runProxyPipeline(
       logger.errorLine(
         reqTag,
         LogSymbol.ERROR,
-        `REQUEST FAILED ${status} · ${comboName || candidateModels[0] || rawModel} · ${durationMs}ms\n    ${errMsg}`
+        `REQUEST FAILED ${status} · ${comboName || candidateModels[0] || rawModel} · ${durationMs}ms [req: ${requestId}]\n    ${errMsg}`
       );
 
       UsageRepository.endPendingRequest(requestId, true);
+
+      appendStructuredLog({
+        id: requestId,
+        timestamp: Date.now(),
+        level: status === 429 ? "warn" : "error",
+        category: "proxy",
+        message: `Request failed ${status} (${comboName || candidateModels[0] || rawModel}): ${errMsg.slice(0, 150)}`,
+        requestId,
+        reqTag,
+        gateway: {
+          clientTool,
+          route: req.path,
+          method: req.method,
+          requestedModel: rawModel,
+          actualModel: candidateModels[0] || rawModel,
+          providerId: comboName ? "combo" : "unknown",
+          statusCode: status,
+          durationMs,
+        },
+        error: {
+          status,
+          message: errMsg,
+        },
+        rawText: `[${reqTag}] ❌ REQUEST FAILED ${status} · ${comboName || candidateModels[0] || rawModel} · ${durationMs}ms\n    ${errMsg}`,
+      });
 
       ResponseLogger.logFailure({
         requestId,
@@ -234,9 +260,33 @@ export async function runProxyPipeline(
     logger.errorLine(
       reqTag,
       LogSymbol.ERROR,
-      `REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms\n    ${sanitizedStack}`
+      `REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms [req: ${requestId}]\n    ${sanitizedStack}`
     );
     UsageRepository.endPendingRequest(requestId, true);
+
+    appendStructuredLog({
+      id: requestId,
+      timestamp: Date.now(),
+      level: "error",
+      category: "proxy",
+      message: `Request exception (${rawModel}): ${sanitizedMsg}`,
+      requestId,
+      reqTag,
+      gateway: {
+        clientTool,
+        route: req.path,
+        method: req.method,
+        requestedModel: rawModel,
+        statusCode: 500,
+        durationMs: totalDuration,
+      },
+      error: {
+        status: 500,
+        message: sanitizedMsg,
+        stack: sanitizedStack,
+      },
+      rawText: `[${reqTag}] ❌ REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms\n    ${sanitizedStack}`,
+    });
 
     if (!res.headersSent) {
       res.status(500).json({ error: { message: sanitizedMsg } });

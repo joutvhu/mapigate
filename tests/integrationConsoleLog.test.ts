@@ -137,6 +137,24 @@ test("Integration - /api/console-logs REST and SSE streaming with structured log
     assert.equal(clearedData.logs.length, 0);
     assert.equal(clearedData.structuredLogs.length, 0);
 
+    // 6. Test GET and PUT /api/console-logs/level
+    const levelRes = await fetch(`${baseUrl}/api/console-logs/level`);
+    assert.equal(levelRes.status, 200);
+    const levelData = (await levelRes.json()) as any;
+    assert.equal(levelData.success, true);
+    assert.ok(levelData.availableLevels.includes("trace"));
+    assert.ok(levelData.availableLevels.includes("debug"));
+
+    const putLevelRes = await fetch(`${baseUrl}/api/console-logs/level`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level: "trace" }),
+    });
+    assert.equal(putLevelRes.status, 200);
+    const putLevelData = (await putLevelRes.json()) as any;
+    assert.equal(putLevelData.success, true);
+    assert.equal(putLevelData.level, "trace");
+
     // Abort SSE client
     controller.abort();
     await streamPromise;

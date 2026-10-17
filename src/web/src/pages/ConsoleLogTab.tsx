@@ -22,6 +22,8 @@ export const ConsoleLogTab: React.FC = () => {
   const [clientToolFilter, setClientToolFilter] = useState<string>("all");
   const [providerFilter, setProviderFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [levelFilter, setLevelFilter] = useState<string>("all");
+  const [gatewayLogLevel, setGatewayLogLevel] = useState<string>("info");
   const [copied, setCopied] = useState<boolean>(false);
 
   const [selectedLog, setSelectedLog] = useState<StructuredLogEntry | null>(null);
@@ -81,7 +83,7 @@ export const ConsoleLogTab: React.FC = () => {
 
     connectSSE();
 
-    // Fallback snapshot load
+    // Fallback snapshot load & log level load
     fetch("/api/console-logs")
       .then((res) => res.json())
       .then((data) => {
@@ -92,6 +94,18 @@ export const ConsoleLogTab: React.FC = () => {
           if (Array.isArray(data.structuredLogs) && data.structuredLogs.length > 0) {
             setStructuredLogs((prev) => (prev.length === 0 ? data.structuredLogs : prev));
           }
+          if (data.level) {
+            setGatewayLogLevel(data.level);
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/console-logs/level")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isSubscribed && data.success && data.level) {
+          setGatewayLogLevel(data.level);
         }
       })
       .catch(() => {});
@@ -153,9 +167,7 @@ export const ConsoleLogTab: React.FC = () => {
       }
       if (
         categoryTab === "system" &&
-        entry.category !== "system" &&
-        entry.category !== "mitm" &&
-        entry.category !== "scheduler"
+        entry.category === "proxy"
       ) {
         return false;
       }
@@ -183,6 +195,11 @@ export const ConsoleLogTab: React.FC = () => {
         return false;
       }
 
+      // Log level filter
+      if (levelFilter !== "all" && entry.level !== levelFilter) {
+        return false;
+      }
+
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -197,14 +214,29 @@ export const ConsoleLogTab: React.FC = () => {
 
       return true;
     });
-  }, [structuredLogs, categoryTab, clientToolFilter, providerFilter, statusFilter, searchQuery]);
+  }, [structuredLogs, categoryTab, clientToolFilter, providerFilter, statusFilter, levelFilter, searchQuery]);
 
-  // Filtered Raw Logs
+  const handleGatewayLogLevelChange = async (newLevel: string) => {
+    setGatewayLogLevel(newLevel);
+    try {
+      await fetch("/api/console-logs/level", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: newLevel }),
+      });
+    } catch {}
+  };
+
+  // Filtered Raw Logs - fully synchronized with category, tool, provider, status, level, and query filters
   const filteredRawLogs = useMemo(() => {
+    if (structuredLogs.length > 0) {
+      return filteredStructuredLogs.map((entry) => entry.rawText);
+    }
+    // Fallback if structuredLogs are not yet populated
     if (!searchQuery.trim()) return rawLogs;
     const lower = searchQuery.toLowerCase();
     return rawLogs.filter((line) => line.toLowerCase().includes(lower));
-  }, [rawLogs, searchQuery]);
+  }, [structuredLogs.length, filteredStructuredLogs, rawLogs, searchQuery]);
 
   // Clear Action
   const handleClear = async () => {
@@ -256,6 +288,10 @@ export const ConsoleLogTab: React.FC = () => {
         onProviderFilterChange={setProviderFilter}
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
+        levelFilter={levelFilter}
+        onLevelFilterChange={setLevelFilter}
+        gatewayLogLevel={gatewayLogLevel}
+        onGatewayLogLevelChange={handleGatewayLogLevelChange}
         autoScroll={autoScroll}
         onAutoScrollToggle={() => setAutoScroll((prev) => !prev)}
         onCopy={handleCopy}

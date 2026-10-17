@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   Terminal,
   Layers,
@@ -9,8 +9,9 @@ import {
   Copy,
   Check,
   Trash2,
-  Filter,
+  RotateCcw,
 } from "lucide-react";
+import { Select, type SelectOption } from "../Select";
 
 export type ConsoleCategoryTab =
   | "all"
@@ -37,6 +38,10 @@ interface ConsoleToolbarProps {
   onProviderFilterChange: (prov: string) => void;
   statusFilter: string;
   onStatusFilterChange: (status: string) => void;
+  levelFilter: string;
+  onLevelFilterChange: (level: string) => void;
+  gatewayLogLevel: string;
+  onGatewayLogLevelChange: (level: string) => void;
   autoScroll: boolean;
   onAutoScrollToggle: () => void;
   onCopy: () => void;
@@ -45,6 +50,34 @@ interface ConsoleToolbarProps {
   availableTools: string[];
   availableProviders: string[];
 }
+
+const GATEWAY_LEVEL_OPTIONS: SelectOption[] = [
+  {
+    value: "trace",
+    label: "TRACE (Max)",
+    icon: <span className="size-2 rounded-full bg-purple-400 shadow-[0_0_6px_#c084fc]" />,
+  },
+  {
+    value: "debug",
+    label: "DEBUG",
+    icon: <span className="size-2 rounded-full bg-sky-400 shadow-[0_0_6px_#38bdf8]" />,
+  },
+  {
+    value: "info",
+    label: "INFO (Default)",
+    icon: <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />,
+  },
+  {
+    value: "warn",
+    label: "WARN",
+    icon: <span className="size-2 rounded-full bg-amber-400 shadow-[0_0_6px_#facc15]" />,
+  },
+  {
+    value: "error",
+    label: "ERROR",
+    icon: <span className="size-2 rounded-full bg-red-400 shadow-[0_0_6px_#f87171]" />,
+  },
+];
 
 export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
   connected,
@@ -62,6 +95,10 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
   onProviderFilterChange,
   statusFilter,
   onStatusFilterChange,
+  levelFilter,
+  onLevelFilterChange,
+  gatewayLogLevel,
+  onGatewayLogLevelChange,
   autoScroll,
   onAutoScrollToggle,
   onCopy,
@@ -70,6 +107,91 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
   availableTools,
   availableProviders,
 }) => {
+  const toolOptions: SelectOption[] = useMemo(
+    () => [
+      { value: "all", label: "Tool: All" },
+      ...availableTools.map((t) => ({ value: t, label: `Tool: ${t}` })),
+    ],
+    [availableTools]
+  );
+
+  const providerOptions: SelectOption[] = useMemo(
+    () => [
+      { value: "all", label: "Provider: All" },
+      ...availableProviders.map((p) => ({ value: p, label: `Provider: ${p}` })),
+    ],
+    [availableProviders]
+  );
+
+  const statusOptions: SelectOption[] = useMemo(
+    () => [
+      { value: "all", label: "Status: All" },
+      {
+        value: "200",
+        label: "200 OK",
+        icon: <span className="size-1.5 rounded-full bg-emerald-400" />,
+      },
+      {
+        value: "429",
+        label: "429 Rate Limit",
+        icon: <span className="size-1.5 rounded-full bg-amber-400" />,
+      },
+      {
+        value: "error",
+        label: "5xx / Errors",
+        icon: <span className="size-1.5 rounded-full bg-red-400" />,
+      },
+    ],
+    []
+  );
+
+  const levelOptions: SelectOption[] = useMemo(
+    () => [
+      { value: "all", label: "Level: All" },
+      {
+        value: "trace",
+        label: "Trace only",
+        icon: <span className="size-1.5 rounded-full bg-purple-400" />,
+      },
+      {
+        value: "debug",
+        label: "Debug only",
+        icon: <span className="size-1.5 rounded-full bg-sky-400" />,
+      },
+      {
+        value: "info",
+        label: "Info only",
+        icon: <span className="size-1.5 rounded-full bg-emerald-400" />,
+      },
+      {
+        value: "warn",
+        label: "Warn only",
+        icon: <span className="size-1.5 rounded-full bg-amber-400" />,
+      },
+      {
+        value: "error",
+        label: "Error only",
+        icon: <span className="size-1.5 rounded-full bg-red-400" />,
+      },
+    ],
+    []
+  );
+
+  const hasActiveFilters =
+    clientToolFilter !== "all" ||
+    providerFilter !== "all" ||
+    statusFilter !== "all" ||
+    levelFilter !== "all" ||
+    searchQuery.trim() !== "";
+
+  const handleResetFilters = () => {
+    onClientToolFilterChange("all");
+    onProviderFilterChange("all");
+    onStatusFilterChange("all");
+    onLevelFilterChange("all");
+    onSearchQueryChange("");
+  };
+
   return (
     <div className="space-y-2.5 shrink-0">
       {/* Top Bar: Connection, Mode Toggle, and Actions */}
@@ -121,6 +243,20 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
               <Terminal className="size-3.5" />
               <span>Raw Terminal</span>
             </button>
+          </div>
+
+          {/* Gateway Runtime Log Level Controller */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-slate-400 shrink-0">Log Level:</span>
+            <Select
+              value={gatewayLogLevel}
+              onChange={onGatewayLogLevelChange}
+              options={GATEWAY_LEVEL_OPTIONS}
+              size="sm"
+              className="min-w-[145px]"
+              triggerClassName="h-8 !py-1 !px-2.5 text-xs font-semibold rounded-lg bg-[#0A0D14] border-[#1E293B] hover:border-slate-700"
+              menuClassName="min-w-[145px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
+            />
           </div>
         </div>
 
@@ -181,10 +317,10 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
               key={tab.id}
               type="button"
               onClick={() => onCategoryTabChange(tab.id)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
                 categoryTab === tab.id
-                  ? "bg-[#1E293B] text-blue-400 font-semibold shadow-xs"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+                  ? "bg-blue-600/15 text-blue-400 font-semibold border border-blue-500/30 shadow-xs"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border border-transparent"
               }`}
             >
               {tab.label}
@@ -195,44 +331,77 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
         {/* Filter Dropdowns & Search Input */}
         <div className="flex items-center gap-2 flex-wrap flex-1 justify-end min-w-[280px]">
           {/* Client Tool Dropdown */}
-          <select
+          <Select
             value={clientToolFilter}
-            onChange={(e) => onClientToolFilterChange(e.target.value)}
-            className="bg-[#0A0D14] border border-[#1E293B] rounded-lg px-2 py-1 text-xs text-slate-300 font-mono focus:outline-hidden focus:border-blue-500"
-          >
-            <option value="all">Tool: All</option>
-            {availableTools.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+            onChange={onClientToolFilterChange}
+            options={toolOptions}
+            size="sm"
+            className="min-w-[115px]"
+            triggerClassName={`h-8 !py-1 !px-2.5 text-xs font-medium rounded-lg transition-colors ${
+              clientToolFilter !== "all"
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-300 font-semibold"
+                : "border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:border-slate-700"
+            }`}
+            menuClassName="min-w-[130px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
+          />
 
           {/* Provider Dropdown */}
-          <select
+          <Select
             value={providerFilter}
-            onChange={(e) => onProviderFilterChange(e.target.value)}
-            className="bg-[#0A0D14] border border-[#1E293B] rounded-lg px-2 py-1 text-xs text-slate-300 font-mono focus:outline-hidden focus:border-blue-500"
-          >
-            <option value="all">Provider: All</option>
-            {availableProviders.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+            onChange={onProviderFilterChange}
+            options={providerOptions}
+            size="sm"
+            className="min-w-[125px]"
+            triggerClassName={`h-8 !py-1 !px-2.5 text-xs font-medium rounded-lg transition-colors ${
+              providerFilter !== "all"
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-300 font-semibold"
+                : "border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:border-slate-700"
+            }`}
+            menuClassName="min-w-[140px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
+          />
 
           {/* Status Dropdown */}
-          <select
+          <Select
             value={statusFilter}
-            onChange={(e) => onStatusFilterChange(e.target.value)}
-            className="bg-[#0A0D14] border border-[#1E293B] rounded-lg px-2 py-1 text-xs text-slate-300 font-mono focus:outline-hidden focus:border-blue-500"
-          >
-            <option value="all">Status: All</option>
-            <option value="200">200 OK</option>
-            <option value="429">429 Rate Limit</option>
-            <option value="error">5xx / Errors</option>
-          </select>
+            onChange={onStatusFilterChange}
+            options={statusOptions}
+            size="sm"
+            className="min-w-[115px]"
+            triggerClassName={`h-8 !py-1 !px-2.5 text-xs font-medium rounded-lg transition-colors ${
+              statusFilter !== "all"
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-300 font-semibold"
+                : "border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:border-slate-700"
+            }`}
+            menuClassName="min-w-[130px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
+          />
+
+          {/* Level Filter Dropdown */}
+          <Select
+            value={levelFilter}
+            onChange={onLevelFilterChange}
+            options={levelOptions}
+            size="sm"
+            className="min-w-[115px]"
+            triggerClassName={`h-8 !py-1 !px-2.5 text-xs font-medium rounded-lg transition-colors ${
+              levelFilter !== "all"
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-300 font-semibold"
+                : "border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:border-slate-700"
+            }`}
+            menuClassName="right-0 left-auto min-w-[130px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
+          />
+
+          {/* Reset Filters Quick Button */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className="h-8 px-2 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/50 border border-transparent hover:border-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
+              title="Reset all filters to default"
+            >
+              <RotateCcw className="size-3" />
+              <span className="hidden xl:inline">Reset</span>
+            </button>
+          )}
 
           {/* Search Box */}
           <div className="relative w-44 sm:w-52">
@@ -242,7 +411,7 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
               placeholder="Search in logs..."
               value={searchQuery}
               onChange={(e) => onSearchQueryChange(e.target.value)}
-              className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg pl-8 pr-7 py-1 text-xs text-white placeholder-slate-500 font-mono focus:outline-hidden focus:border-blue-500"
+              className="h-8 w-full bg-[#0A0D14] border border-[#1E293B] rounded-lg pl-8 pr-7 text-xs text-white placeholder-slate-500 font-mono focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
             {searchQuery && (
               <button

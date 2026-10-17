@@ -15,6 +15,7 @@ import {
   Terminal,
   Code,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 
 interface LogDetailDrawerProps {
@@ -203,6 +204,35 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
           {/* Tools Invoked Section */}
           {gateway?.tools && gateway.tools.length > 0 && (
             <ToolCallsPanel tools={gateway.tools} />
+          )}
+
+          {/* Error Diagnostics Section */}
+          {entry.error && (
+            <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/30 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                  <AlertCircle className="size-4 text-red-400" /> Error Diagnostics
+                </span>
+                {entry.error.code && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                    {entry.error.code}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs font-mono text-red-200 bg-black/40 p-3 rounded-lg border border-red-500/20 whitespace-pre-wrap break-all leading-relaxed">
+                {entry.error.message || "Unknown error occurred"}
+              </div>
+              {entry.error.stack && (
+                <details className="text-[11px] font-mono text-slate-400">
+                  <summary className="cursor-pointer hover:text-slate-200 select-none">
+                    View Stack Trace
+                  </summary>
+                  <pre className="mt-2 p-2.5 rounded bg-black/60 text-[10px] text-slate-400 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-slate-800">
+                    {entry.error.stack}
+                  </pre>
+                </details>
+              )}
+            </div>
           )}
 
           {/* Raw Log & Summary Text */}

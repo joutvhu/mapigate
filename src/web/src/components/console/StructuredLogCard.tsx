@@ -103,6 +103,18 @@ export const StructuredLogCard: React.FC<StructuredLogCardProps> = ({
             {category}
           </span>
 
+          {/* Level Badge for Trace & Debug */}
+          {level === "trace" && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+              TRACE
+            </span>
+          )}
+          {level === "debug" && (
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+              DEBUG
+            </span>
+          )}
+
           {/* HTTP Status Code */}
           {getStatusBadge()}
 

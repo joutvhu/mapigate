@@ -1,4 +1,4 @@
-export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
 
 export type LogCategory =
   | "proxy"
@@ -19,11 +19,13 @@ export interface LogToolSnippet {
 export interface GatewayLogMetadata {
   clientTool?: string;
   route?: string;
+  method?: string;
   requestedModel?: string;
   actualModel?: string;
   providerId?: string;
   accountId?: string;
   accountName?: string;
+  upstreamUrl?: string;
   statusCode?: number;
   durationMs?: number;
   ttftMs?: number;
@@ -42,6 +44,8 @@ export interface GatewayLogMetadata {
     toAccount?: string;
     reason?: string;
   };
+  stage?: "incoming" | "dispatch" | "streaming" | "response" | "error" | "failover";
+  debugInfo?: Record<string, any>;
 }
 
 export interface StructuredLogEntry {

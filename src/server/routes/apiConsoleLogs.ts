@@ -7,15 +7,66 @@ import {
 } from "../utils/consoleLogBuffer.js";
 import { CONSOLE_LOG_CONFIG } from "../../shared/constants/index.js";
 import type { StructuredLogEntry } from "../../shared/types/logging.js";
+import { logger, parseLogLevel } from "../../shared/logger.js";
+import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 
 export const consoleLogsRouter = Router();
+
+// GET /api/console-logs/level - Get current gateway log level
+consoleLogsRouter.get("/level", (_req: Request, res: Response) => {
+  try {
+    res.json({
+      success: true,
+      level: logger.getLevelName(),
+      availableLevels: ["trace", "debug", "info", "warn", "error"],
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || "Failed to get log level" });
+  }
+});
+
+// PUT /api/console-logs/level - Dynamically update gateway log level
+consoleLogsRouter.put("/level", (req: Request, res: Response) => {
+  try {
+    const { level } = req.body || {};
+    if (!level || typeof level !== "string") {
+      return res.status(400).json({ success: false, error: "Missing or invalid 'level' parameter" });
+    }
+    const parsed = parseLogLevel(level);
+    logger.setLevel(parsed);
+    const updatedName = logger.getLevelName();
+    SettingsRepository.setLogLevel(updatedName);
+    logger.info("SYSTEM", `Gateway log level dynamically changed to [${updatedName.toUpperCase()}]`);
+    res.json({ success: true, level: updatedName });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || "Failed to update log level" });
+  }
+});
+
+// PATCH /api/console-logs/level - Dynamically update gateway log level
+consoleLogsRouter.patch("/level", (req: Request, res: Response) => {
+  try {
+    const { level } = req.body || {};
+    if (!level || typeof level !== "string") {
+      return res.status(400).json({ success: false, error: "Missing or invalid 'level' parameter" });
+    }
+    const parsed = parseLogLevel(level);
+    logger.setLevel(parsed);
+    const updatedName = logger.getLevelName();
+    SettingsRepository.setLogLevel(updatedName);
+    logger.info("SYSTEM", `Gateway log level dynamically changed to [${updatedName.toUpperCase()}]`);
+    res.json({ success: true, level: updatedName });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || "Failed to update log level" });
+  }
+});
 
 // GET snapshot of current console logs
 consoleLogsRouter.get("/", (_req: Request, res: Response) => {
   try {
     const logs = getConsoleLogs();
     const structuredLogs = getStructuredLogs();
-    res.json({ success: true, logs, structuredLogs });
+    res.json({ success: true, logs, structuredLogs, level: logger.getLevelName() });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error?.message || "Failed to get console logs" });
   }

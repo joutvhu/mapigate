@@ -15,6 +15,7 @@ import { stripHistoryForContext } from "../../core/router/capacityAdapter.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { handleNonStreamingResponse, handleStreamingResponse } from "./responseHandlers.js";
 import { logger, LogSymbol, maskKey, tagForSession } from "../../shared/logger.js";
+import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js";
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
@@ -240,6 +241,18 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       body: JSON.stringify(upstreamBody),
     };
 
+    if (logger.isDebugEnabled()) {
+      const accLabel = account?.name || account?.id ? `account: '${account?.name || account?.id}'` : "no account";
+      logger.debug(
+        "UPSTREAM",
+        `[${reqTag}] Dispatching to ${providerConfig.name} (${targetProviderId}/${targetModel}) · ${accLabel} · stream: ${upstreamBody?.stream !== false}`
+      );
+    }
+    if (logger.isTraceEnabled()) {
+      logger.trace("UPSTREAM", `[${reqTag}] URL: ${upstreamUrl}`);
+      logger.trace("UPSTREAM", `[${reqTag}] Headers: ${JSON.stringify(logger.sanitize(outgoingHeaders))}`);
+    }
+
     let upstreamRes: any;
     try {
       upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
@@ -266,8 +279,35 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       logger.errorLine(
         reqTag,
         LogSymbol.ERROR,
-        `FETCH ERROR · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${cleanErrText}`
+        `FETCH FAILED · ${provider.id}/${targetModel} · ${durationMs}ms [req: ${requestId}]\n    ${cleanErrText}`
       );
+      appendStructuredLog({
+        id: requestId,
+        timestamp: Date.now(),
+        level: "error",
+        category: "proxy",
+        message: `Network fetch failed (${provider.id}/${targetModel}): ${cleanErrText.slice(0, 150)}`,
+        requestId,
+        reqTag,
+        gateway: {
+          clientTool,
+          route: req.path,
+          method: req.method,
+          requestedModel: rawModel,
+          actualModel: targetModel,
+          providerId: targetProviderId,
+          accountId: account?.id,
+          accountName: account?.name,
+          upstreamUrl,
+          statusCode: 502,
+          durationMs,
+        },
+        error: {
+          status: 502,
+          message: cleanErrText,
+        },
+        rawText: `[${reqTag}] ❌ FETCH FAILED · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${cleanErrText}`,
+      });
       return { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
     }
 
@@ -305,9 +345,70 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         }
       }
 
+      let parsedErrObj: any = null;
+      try {
+        parsedErrObj = JSON.parse(errText);
+      } catch {}
+      const errorType = parsedErrObj?.error?.type || parsedErrObj?.type;
+      const errorCode = parsedErrObj?.error?.code || parsedErrObj?.code;
+      const errDetails = [
+        errorType ? `type: ${errorType}` : "",
+        errorCode ? `code: ${errorCode}` : "",
+        account?.name ? `account: '${account.name}'` : "",
+      ].filter(Boolean).join(" · ");
+      const detailSuffix = errDetails ? ` (${errDetails})` : "";
+
       const durationMs = Date.now() - startTime;
       const sanitizedErr = cleanErrText.slice(0, 500);
-      logger.errorLine(reqTag, LogSymbol.ERROR, `ERROR ${upstreamRes.status} · ${targetProviderId}/${targetModel} · ${durationMs}ms\n    ${sanitizedErr}`);
+      logger.errorLine(
+        reqTag,
+        LogSymbol.ERROR,
+        `UPSTREAM ERROR ${upstreamRes.status} · ${targetProviderId}/${targetModel}${detailSuffix} · ${durationMs}ms [req: ${requestId}]\n    ${sanitizedErr}`
+      );
+
+      if (logger.isDebugEnabled()) {
+        const respHeaders = Object.fromEntries(upstreamRes.headers.entries());
+        const diagHeaders: Record<string, string> = {};
+        for (const [k, v] of Object.entries(respHeaders)) {
+          const lk = k.toLowerCase();
+          if (lk.includes("ratelimit") || lk.includes("retry") || lk.includes("ray") || lk.includes("request-id")) {
+            diagHeaders[k] = v;
+          }
+        }
+        if (Object.keys(diagHeaders).length > 0) {
+          logger.debug("UPSTREAM", `[${reqTag}] Diagnostic headers: ${JSON.stringify(diagHeaders)}`);
+        }
+      }
+
+      appendStructuredLog({
+        id: requestId,
+        timestamp: Date.now(),
+        level: upstreamRes.status === 429 ? "warn" : "error",
+        category: "proxy",
+        message: `Upstream error ${upstreamRes.status} on ${targetProviderId}/${targetModel}: ${sanitizedErr.slice(0, 150)}`,
+        requestId,
+        reqTag,
+        gateway: {
+          clientTool,
+          route: req.path,
+          method: req.method,
+          requestedModel: rawModel,
+          actualModel: targetModel,
+          providerId: targetProviderId,
+          accountId: account?.id,
+          accountName: account?.name,
+          upstreamUrl,
+          statusCode: upstreamRes.status,
+          durationMs,
+        },
+        error: {
+          status: upstreamRes.status,
+          code: errorCode,
+          message: cleanErrText,
+        },
+        rawText: `[${reqTag}] ❌ UPSTREAM ERROR ${upstreamRes.status} · ${targetProviderId}/${targetModel}${detailSuffix} · ${durationMs}ms\n    ${sanitizedErr}`,
+      });
+
       return { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
     }
 

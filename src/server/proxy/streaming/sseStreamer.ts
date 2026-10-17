@@ -185,6 +185,13 @@ export async function pipeSseStream(
 
   clientRes.end();
 
+  if (logger.isDebugEnabled()) {
+    logger.debug(
+      "STREAM",
+      `[${reqTag || "STREAM"}] Completed in ${Date.now() - startTime}ms (TTFT: ${state.ttftMs || 0}ms, tools: ${state.tools.length})`
+    );
+  }
+
   if (state.capturedToolCallIds.length > 0 && state.capturedReasoningText) {
     reasoningCache.saveMultiple(
       state.capturedToolCallIds,

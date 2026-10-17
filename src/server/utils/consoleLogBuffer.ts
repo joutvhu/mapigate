@@ -100,7 +100,9 @@ export function parseRawLineToStructured(line: string, fallbackLevel: LogLevel =
     level = "error";
   } else if (upper.includes("[WARN]") || upper.includes("WARN:") || upper.includes("WARNING:") || cleanLine.includes("⚠️")) {
     level = "warn";
-  } else if (upper.includes("[DEBUG]") || fallbackLevel === "debug") {
+  } else if (cleanLine.includes("🔬") || upper.includes("[TRACE]") || fallbackLevel === "trace") {
+    level = "trace";
+  } else if (upper.includes("[DEBUG]") || cleanLine.includes("🔍") || fallbackLevel === "debug") {
     level = "debug";
   }
 

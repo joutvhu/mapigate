@@ -383,4 +383,20 @@ export class SettingsRepository {
   public static clearMasterPassword(): void {
     this.setSetting("masterPassword", { ...DEFAULT_MASTER_PASSWORD_CONFIG });
   }
+
+  // --- Gateway Log Level Settings ---
+
+  public static getLogLevel(): string {
+    const raw = this.getSetting<string>("logLevel");
+    if (typeof raw === "string" && raw.trim()) {
+      return raw.trim().toLowerCase();
+    }
+    return "info";
+  }
+
+  public static setLogLevel(level: string): string {
+    const normalized = level && typeof level === "string" ? level.trim().toLowerCase() : "info";
+    this.setSetting("logLevel", normalized);
+    return normalized;
+  }
 }

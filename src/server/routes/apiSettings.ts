@@ -14,6 +14,7 @@ import {
   disableAutoStart,
 } from "../../cli/daemon/autostart.js";
 import { serverLifecycle } from "../lifecycle.js";
+import { logger, parseLogLevel } from "../../shared/logger.js";
 
 export const settingsRouter = Router();
 
@@ -33,9 +34,39 @@ settingsRouter.get("/system-info", (_req, res) => {
       version: APP_VERSION,
       port: runningPort,
       host: runningHost,
+      logLevel: logger.getLevelName(),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to fetch system info" });
+  }
+});
+
+// GET /api/settings/logging - Get logging settings
+settingsRouter.get("/logging", (_req, res) => {
+  try {
+    res.json({
+      logLevel: logger.getLevelName(),
+      availableLevels: ["trace", "debug", "info", "warn", "error"],
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to fetch logging settings" });
+  }
+});
+
+// PUT /api/settings/logging - Update logging settings
+settingsRouter.put("/logging", (req, res) => {
+  try {
+    const { logLevel } = req.body || {};
+    if (logLevel && typeof logLevel === "string") {
+      const parsed = parseLogLevel(logLevel);
+      logger.setLevel(parsed);
+      const name = logger.getLevelName();
+      SettingsRepository.setLogLevel(name);
+      return res.json({ logLevel: name });
+    }
+    res.status(400).json({ error: "Missing or invalid 'logLevel' property" });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to update logging settings" });
   }
 });
 

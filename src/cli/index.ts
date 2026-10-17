@@ -192,6 +192,7 @@ program
   .description(`Inspect server logs and console outputs`)
   .option("-f, --follow", "Follow log output continuously")
   .option("-n, --lines <number>", "Number of recent lines to display", "50")
+  .option("-l, --level <level>", "Filter by minimum log level (trace, debug, info, warn, error)")
   .option("-p, --port <number>", "Port to query API logs from", String(DEFAULT_PORT))
   .action(async (options) => {
     await runLogs(options);

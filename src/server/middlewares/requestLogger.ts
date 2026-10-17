@@ -67,11 +67,31 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   } else if (isProxyRequest) {
     const clientTool = getClientTool(req);
     const model = req.body?.model ? ` · model: ${req.body.model}` : "";
+    const streamInfo = req.body?.stream !== undefined ? (req.body.stream ? " (stream)" : " (sync)") : "";
     logger.line(
       reqTag,
       LogSymbol.INCOMING,
-      `${req.method} ${req.path} · client: ${clientTool}${model}`
+      `${req.method} ${req.path} · client: ${clientTool}${model}${streamInfo}`
     );
+
+    if (logger.isDebugEnabled()) {
+      const msgCount = Array.isArray(req.body?.messages) ? req.body.messages.length : 0;
+      const toolCount = Array.isArray(req.body?.tools) ? req.body.tools.length : 0;
+      const details: string[] = [];
+      if (msgCount > 0) details.push(`${msgCount} msgs`);
+      if (toolCount > 0) details.push(`${toolCount} tools`);
+      if (req.body?.max_tokens) details.push(`max_tokens: ${req.body.max_tokens}`);
+      if (req.body?.temperature !== undefined) details.push(`temp: ${req.body.temperature}`);
+      const detailStr = details.length > 0 ? ` (${details.join(", ")})` : "";
+      logger.debug("PROXY", `[${reqTag}] Incoming request: ${req.method} ${req.path}${detailStr}`);
+    }
+
+    if (logger.isTraceEnabled()) {
+      try {
+        const preview = JSON.stringify(logger.sanitize(req.body)).slice(0, 1000);
+        logger.trace("PROXY", `[${reqTag}] Payload preview: ${preview}`);
+      } catch {}
+    }
   } else {
     logger.line(reqTag, LogSymbol.INCOMING, `${req.method} ${req.path}`);
   }
@@ -97,6 +117,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       const icon = isError ? "💥" : "📤";
       const color = isError ? ANSI.red : ANSI.green;
       const statusText = isError ? `${status} ERROR` : `${status} OK`;
+      const level = isError ? (status === 429 ? "warn" : "error") : "info";
       logger.line(
         reqTag,
         icon,
@@ -107,7 +128,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
         appendStructuredLog({
           id: incomingReqId,
           timestamp: Date.now(),
-          level: "error",
+          level,
           category: isProxyRequest ? "proxy" : "system",
           message: `${req.method} ${req.path} -> ${statusText} (${durationMs}ms)`,
           requestId: incomingReqId,
@@ -116,6 +137,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
             ? {
                 clientTool: getClientTool(req),
                 route: req.path,
+                method: req.method,
+                requestedModel: req.body?.model,
                 statusCode: status,
                 durationMs,
               }

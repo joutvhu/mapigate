@@ -5,10 +5,43 @@
  */
 
 export enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3,
+  TRACE = 0,
+  DEBUG = 1,
+  INFO = 2,
+  WARN = 3,
+  ERROR = 4,
+  OFF = 5,
+}
+
+export function parseLogLevel(lvl: string | number | undefined | null, fallback = LogLevel.INFO): LogLevel {
+  if (typeof lvl === "number" && lvl in LogLevel) return lvl as LogLevel;
+  if (typeof lvl === "string") {
+    const upper = lvl.trim().toUpperCase();
+    if (upper === "TRACE") return LogLevel.TRACE;
+    if (upper === "DEBUG") return LogLevel.DEBUG;
+    if (upper === "INFO") return LogLevel.INFO;
+    if (upper === "WARN" || upper === "WARNING") return LogLevel.WARN;
+    if (upper === "ERROR") return LogLevel.ERROR;
+    if (upper === "OFF" || upper === "NONE" || upper === "SILENT") return LogLevel.OFF;
+  }
+  return fallback;
+}
+
+export function formatLogLevelName(level: LogLevel): "trace" | "debug" | "info" | "warn" | "error" | "off" {
+  switch (level) {
+    case LogLevel.TRACE:
+      return "trace";
+    case LogLevel.DEBUG:
+      return "debug";
+    case LogLevel.INFO:
+      return "info";
+    case LogLevel.WARN:
+      return "warn";
+    case LogLevel.ERROR:
+      return "error";
+    default:
+      return "off";
+  }
 }
 
 export const ANSI = {
@@ -36,6 +69,8 @@ export const LogSymbol = {
   ERROR: "❌",
   SUCCESS: "✔",
   WARN: "⚠️",
+  TRACE: "🔬",
+  DEBUG: "🔍",
 } as const;
 
 /** Correlated colored dots to trace lines belonging to the same request */
@@ -198,9 +233,9 @@ export function formatDoneLine(params: DoneLineParams): string {
 }
 
 function resolveInitialLogLevel(): LogLevel {
-  const envLevel = process.env.LOG_LEVEL?.toUpperCase();
-  if (envLevel && envLevel in LogLevel) {
-    return (LogLevel as any)[envLevel];
+  const envLevel = process.env.LOG_LEVEL?.toUpperCase() || process.env.MAPIGATE_LOG_LEVEL?.toUpperCase();
+  if (envLevel) {
+    return parseLogLevel(envLevel);
   }
   if (
     process.env.MAPIGATE_DEBUG === "1" ||
@@ -217,12 +252,44 @@ function resolveInitialLogLevel(): LogLevel {
 export class Logger {
   private level: LogLevel = resolveInitialLogLevel();
 
-  public setLevel(level: LogLevel): void {
-    this.level = level;
+  public setLevel(level: LogLevel | string): void {
+    if (typeof level === "string") {
+      this.level = parseLogLevel(level);
+    } else {
+      this.level = level;
+    }
   }
 
   public getLevel(): LogLevel {
     return this.level;
+  }
+
+  public getLevelName(): "trace" | "debug" | "info" | "warn" | "error" | "off" {
+    return formatLogLevelName(this.level);
+  }
+
+  public isLevelEnabled(level: LogLevel): boolean {
+    return this.level <= level;
+  }
+
+  public isTraceEnabled(): boolean {
+    return this.level <= LogLevel.TRACE;
+  }
+
+  public isDebugEnabled(): boolean {
+    return this.level <= LogLevel.DEBUG;
+  }
+
+  public isInfoEnabled(): boolean {
+    return this.level <= LogLevel.INFO;
+  }
+
+  public isWarnEnabled(): boolean {
+    return this.level <= LogLevel.WARN;
+  }
+
+  public isErrorEnabled(): boolean {
+    return this.level <= LogLevel.ERROR;
   }
 
   public updateLevelFromEnv(): void {
@@ -240,8 +307,8 @@ export class Logger {
   }
 
   /** Print one correlated session line: [HH:MM:SS] 🟢 ▶ message */
-  public line(tag: string, symbol: string, message: string): void {
-    if (this.level > LogLevel.INFO) return;
+  public line(tag: string, symbol: string, message: string, minLevel: LogLevel = LogLevel.INFO): void {
+    if (this.level > minLevel) return;
     try {
       console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
     } catch {
@@ -253,6 +320,36 @@ export class Logger {
   public errorLine(tag: string, symbol: string, message: string): void {
     try {
       console.log(`[${formatTime()}] ${tag} ${symbol} ${message}`);
+    } catch {
+      // Fail-open
+    }
+  }
+
+  /** Print one debug line with correlation tag */
+  public debugLine(tag: string, symbol: string, message: string): void {
+    if (this.level > LogLevel.DEBUG) return;
+    try {
+      console.log(`${ANSI.gray}[${formatTime()}] ${tag} ${symbol} ${message}${ANSI.reset}`);
+    } catch {
+      // Fail-open
+    }
+  }
+
+  /** Print one trace line with correlation tag */
+  public traceLine(tag: string, symbol: string, message: string): void {
+    if (this.level > LogLevel.TRACE) return;
+    try {
+      console.log(`${ANSI.dim}${ANSI.gray}[${formatTime()}] ${tag} ${symbol} ${message}${ANSI.reset}`);
+    } catch {
+      // Fail-open
+    }
+  }
+
+  public trace(subsystem: string, message: string, data?: any): void {
+    if (this.level > LogLevel.TRACE) return;
+    try {
+      const dataStr = data !== undefined ? ` ${this.formatData(data)}` : "";
+      console.log(`${ANSI.dim}${ANSI.gray}[${formatTime()}] 🔬 [${subsystem}] ${message}${dataStr}${ANSI.reset}`);
     } catch {
       // Fail-open
     }

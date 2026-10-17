@@ -32,6 +32,20 @@ import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 import { PidFileManager } from "../cli/daemon/pidFile.js";
+import { SettingsRepository } from "../storage/repositories/settingsRepo.js";
+
+// Sync persisted log level from settings repository if env is not explicitly set
+const envLevel = process.env.LOG_LEVEL || process.env.MAPIGATE_LOG_LEVEL;
+if (envLevel) {
+  logger.setLevel(envLevel);
+} else {
+  try {
+    const savedLevel = SettingsRepository.getLogLevel();
+    if (savedLevel) {
+      logger.setLevel(savedLevel);
+    }
+  } catch {}
+}
 
 const app = express();
 const port = Number(process.env.PORT) || DEFAULT_PORT;
