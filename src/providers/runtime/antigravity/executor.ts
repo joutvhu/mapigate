@@ -262,33 +262,29 @@ export async function executeAntigravity(
               toolResponseCursor[origId] = cursor + 1;
             }
 
-            let name = callName || tcID2Name[origId] || "tool";
-            let parsedResp: any;
-            if (typeof resp === "object" && resp !== null) {
-              parsedResp = resp;
-            } else {
-              const p = tryParseJSON(resp);
-              if (p && typeof p === "object" && "raw" in p && Object.keys(p).length === 1) {
-                parsedResp = p.raw;
+            let name = callName || tcID2Name[origId];
+            if (!name) {
+              const idParts = String(origId).split("-");
+              if (idParts.length > 2) {
+                name = idParts.slice(0, -2).join("-");
               } else {
-                parsedResp = p ?? { result: resp };
+                name = origId || "tool";
               }
             }
 
-            const sanitized = sanitizeFunctionResponsePayload(parsedResp);
-            const finalResponse =
-              sanitized !== null &&
-              typeof sanitized === "object" &&
-              !Array.isArray(sanitized) &&
-              "result" in sanitized
-                ? sanitized
-                : { result: sanitized ?? "" };
+            let parsedResp = tryParseJSON(resp);
+            let responsePayload: any;
+            if (parsedResp === null || typeof parsedResp !== "object") {
+              responsePayload = { result: resp ?? "" };
+            } else {
+              responsePayload = { result: sanitizeFunctionResponsePayload(parsedResp) };
+            }
 
             toolParts.push({
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: finalResponse,
+                response: responsePayload,
               },
             });
           }
@@ -676,14 +672,33 @@ export async function executeAntigravity(
 
         const respObj = parsed.response || parsed;
         const candidate = respObj?.candidates?.[0];
-        const rawFinishReason = candidate?.finishReason ? mapFinishReason(candidate.finishReason) : null;
+        if (!candidate) continue;
+
+        const rawFinishReason = candidate.finishReason ? mapFinishReason(candidate.finishReason) : null;
 
         if (respObj?.usageMetadata) {
           promptTokens = respObj.usageMetadata.promptTokenCount || promptTokens;
           completionTokens = respObj.usageMetadata.candidatesTokenCount || completionTokens;
         }
 
-        const parts = candidate?.content?.parts || [];
+        if (!hasSentInitial) {
+          hasSentInitial = true;
+          writeChunk({
+            id: responseId,
+            object: "chat.completion.chunk",
+            created,
+            model: targetModel,
+            choices: [
+              {
+                index: 0,
+                delta: { role: "assistant" },
+                finish_reason: null,
+              },
+            ],
+          });
+        }
+
+        const parts = candidate.content?.parts || [];
         for (const part of parts) {
           if (part.thoughtSignature) {
             currentThoughtSignature = part.thoughtSignature;
@@ -701,14 +716,11 @@ export async function executeAntigravity(
                 choices: [
                   {
                     index: 0,
-                    delta: hasSentInitial
-                      ? { reasoning_content: part.text }
-                      : { role: "assistant", reasoning_content: part.text },
+                    delta: { reasoning_content: part.text },
                     finish_reason: null,
                   },
                 ],
               };
-              hasSentInitial = true;
               writeChunk(chunk);
             }
           } else if (part.text) {
@@ -720,12 +732,11 @@ export async function executeAntigravity(
               choices: [
                 {
                   index: 0,
-                  delta: hasSentInitial ? { content: part.text } : { role: "assistant", content: part.text },
+                  delta: { content: part.text },
                   finish_reason: null,
                 },
               ],
             };
-            hasSentInitial = true;
             writeChunk(chunk);
           } else if (part.functionCall) {
             const rawArgs = part.functionCall.args || {};
@@ -760,12 +771,11 @@ export async function executeAntigravity(
               choices: [
                 {
                   index: 0,
-                  delta: hasSentInitial ? { tool_calls: [toolCall] } : { role: "assistant", tool_calls: [toolCall] },
+                  delta: { tool_calls: [toolCall] },
                   finish_reason: null,
                 },
               ],
             };
-            hasSentInitial = true;
             writeChunk(chunk);
           }
         }

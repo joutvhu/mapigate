@@ -12,6 +12,12 @@ import {
   sanitizeFunctionResponsePayload,
   sanitizeFunctionResponsePart,
   toNumericSessionId,
+  convertConstToEnum,
+  convertEnumValuesToStrings,
+  mergeAllOf,
+  convertPrefixItems,
+  flattenTypeArrays,
+  removeUnsupportedKeywords,
 } from "../src/providers/runtime/antigravity/schema.js";
 import {
   storeGeminiThoughtSignature,
@@ -91,6 +97,139 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       const cleaned = cleanJSONSchemaForAntigravity(rawSchema);
       assert.equal(cleaned.type, "object");
       assert.deepEqual(cleaned.properties.itemsList.items, { type: "string" });
+    });
+
+    it("convertConstToEnum: converts const to enum array and deletes const", () => {
+      const schema: any = {
+        type: "object",
+        properties: {
+          status: { const: "running" },
+        },
+      };
+      convertConstToEnum(schema);
+      assert.equal(schema.properties.status.const, undefined);
+      assert.deepEqual(schema.properties.status.enum, ["running"]);
+    });
+
+    it("convertEnumValuesToStrings: stringifies enum elements and enforces type: string", () => {
+      const schema: any = {
+        properties: {
+          code: { enum: [200, 404, "500"] },
+        },
+      };
+      convertEnumValuesToStrings(schema);
+      assert.deepEqual(schema.properties.code.enum, ["200", "404", "500"]);
+      assert.equal(schema.properties.code.type, "string");
+    });
+
+    it("mergeAllOf: flattens allOf properties and merges required into parent", () => {
+      const schema: any = {
+        type: "object",
+        allOf: [
+          { properties: { name: { type: "string" } }, required: ["name"] },
+          { properties: { age: { type: "number" } }, required: ["age"] },
+        ],
+      };
+      mergeAllOf(schema);
+      assert.equal(schema.allOf, undefined);
+      assert.ok(schema.properties.name);
+      assert.ok(schema.properties.age);
+      assert.deepEqual(schema.required, ["name", "age"]);
+    });
+
+    it("convertPrefixItems: converts tuple validation prefixItems to items", () => {
+      const single: any = { type: "array", prefixItems: [{ type: "string" }] };
+      convertPrefixItems(single);
+      assert.equal(single.prefixItems, undefined);
+      assert.deepEqual(single.items, { type: "string" });
+
+      const multi: any = {
+        type: "array",
+        prefixItems: [{ type: "string" }, { type: "number" }],
+      };
+      convertPrefixItems(multi);
+      assert.equal(multi.prefixItems, undefined);
+      assert.deepEqual(multi.items, {
+        anyOf: [{ type: "string" }, { type: "number" }],
+      });
+    });
+
+    it("flattenTypeArrays: converts type array to single string and sets nullable", () => {
+      const nullableStr: any = { type: ["string", "null"] };
+      flattenTypeArrays(nullableStr);
+      assert.equal(nullableStr.type, "string");
+      assert.equal(nullableStr.nullable, true);
+
+      const pureType: any = { type: ["number"] };
+      flattenTypeArrays(pureType);
+      assert.equal(pureType.type, "number");
+      assert.equal(pureType.nullable, undefined);
+    });
+
+    it("removeUnsupportedKeywords: strips x- vendor properties and unsupported keywords recursively", () => {
+      const schema: any = {
+        type: "object",
+        "x-vendor-custom": true,
+        properties: {
+          cmd: {
+            type: "string",
+            minLength: 5,
+            maxLength: 100,
+            "x-taplo-info": "taplo",
+          },
+          items: [
+            {
+              format: "uri",
+              "x-inner": 123,
+            },
+          ],
+        },
+      };
+      removeUnsupportedKeywords(schema, ["minLength", "maxLength", "format"]);
+      assert.equal(schema["x-vendor-custom"], undefined);
+      assert.equal(schema.properties.cmd.minLength, undefined);
+      assert.equal(schema.properties.cmd.maxLength, undefined);
+      assert.equal(schema.properties.cmd["x-taplo-info"], undefined);
+      assert.equal(schema.properties.items[0].format, undefined);
+      assert.equal(schema.properties.items[0]["x-inner"], undefined);
+    });
+
+    it("cleanJSONSchemaForAntigravity end-to-end handles full 5-phase normalization", () => {
+      const complexSchema = {
+        type: "object",
+        "x-custom-rule": "internal",
+        allOf: [
+          {
+            properties: {
+              mode: { const: "fast" },
+              encoding: { enum: [1, 2] },
+            },
+            required: ["mode"],
+          },
+        ],
+        properties: {
+          target: { type: ["string", "null"], minLength: 3 },
+          tuple: { prefixItems: [{ type: "number" }] },
+        },
+      };
+
+      const cleaned = cleanJSONSchemaForAntigravity(complexSchema);
+      assert.equal(cleaned["x-custom-rule"], undefined);
+      assert.equal(cleaned.allOf, undefined);
+      // const -> enum
+      assert.deepEqual(cleaned.properties.mode.enum, ["fast"]);
+      // enum values -> string
+      assert.deepEqual(cleaned.properties.encoding.enum, ["1", "2"]);
+      assert.equal(cleaned.properties.encoding.type, "string");
+      // type array -> string + nullable, minLength stripped
+      assert.equal(cleaned.properties.target.type, "string");
+      assert.equal(cleaned.properties.target.nullable, true);
+      assert.equal(cleaned.properties.target.minLength, undefined);
+      // prefixItems -> items
+      assert.deepEqual(cleaned.properties.tuple.items, { type: "number" });
+      assert.equal(cleaned.properties.tuple.prefixItems, undefined);
+      // merged required
+      assert.ok(cleaned.required.includes("mode"));
     });
   });
 
@@ -535,6 +674,25 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         // Verify thought signature is cached
         const cachedSig = getGeminiThoughtSignatureSync("call_tool_test_999");
         assert.equal(cachedSig, "sig_crypto_verified_12345", "Thought signature must be cached in store");
+
+        // Verify separated SSE chunk delta between role and tool_calls
+        const dataChunks = emittedChunks
+          .map((c) => c.trim())
+          .filter((c) => c.startsWith("data:") && !c.includes("[DONE]"))
+          .map((c) => JSON.parse(c.slice(5).trim()));
+
+        assert.ok(dataChunks.length >= 2, "Must emit at least initial chunk and tool_calls chunk");
+        const initialChunk = dataChunks[0];
+        assert.equal(initialChunk.choices[0].delta.role, "assistant");
+        assert.equal(initialChunk.choices[0].delta.tool_calls, undefined, "Initial chunk must not have tool_calls");
+        assert.equal(initialChunk.choices[0].delta.content, undefined, "Initial chunk must not have content");
+
+        const toolCallChunk = dataChunks.find((c) => c.choices[0]?.delta?.tool_calls);
+        assert.ok(toolCallChunk, "Expected a chunk with tool_calls delta");
+        assert.equal(toolCallChunk.choices[0].delta.role, undefined, "Tool calls chunk must NOT contain role");
+        assert.equal(toolCallChunk.choices[0].delta.content, undefined, "Tool calls chunk must NOT contain content");
+        assert.equal(toolCallChunk.choices[0].delta.tool_calls.length, 1);
+        assert.equal(toolCallChunk.choices[0].delta.tool_calls[0].function.name, "readFile");
       } finally {
         global.fetch = originalFetch;
       }

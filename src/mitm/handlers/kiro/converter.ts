@@ -56,12 +56,40 @@ const INLINE_IMAGE_MIME_BY_FORMAT = new Map([
   ["webp", "image/webp"],
 ]);
 
+export function extractToolResultContent(tr: any): string {
+  if (!tr) return "";
+  if (typeof tr.content === "string") return tr.content;
+  if (Array.isArray(tr.content)) {
+    const parts = tr.content
+      .map((c: any) => {
+        if (typeof c === "string") return c;
+        if (c && typeof c.text === "string") return c.text;
+        if (c && c.json !== undefined) {
+          return typeof c.json === "string" ? c.json : JSON.stringify(c.json);
+        }
+        if (c && typeof c.data === "string") return c.data;
+        if (c && typeof c.output === "string") return c.output;
+        return "";
+      })
+      .filter((p: string) => p.length > 0);
+    if (parts.length > 0) return parts.join("\n");
+  }
+  if (tr.content && typeof tr.content === "object") {
+    if (typeof tr.content.text === "string") return tr.content.text;
+    if (tr.content.json !== undefined) return JSON.stringify(tr.content.json);
+  }
+  if (typeof tr.output === "string") return tr.output;
+  if (tr.output && typeof tr.output === "object") return JSON.stringify(tr.output);
+  if (tr.status === "error" && tr.message) return `Error: ${tr.message}`;
+  return "";
+}
+
 export function convertUserInputMessage(uim: any): any[] {
   const out: any[] = [];
   const toolResults = uim.userInputMessageContext?.toolResults || [];
 
   for (const tr of toolResults) {
-    const text = (tr.content || []).map((c: any) => c.text || "").join("\n");
+    const text = extractToolResultContent(tr);
     out.push({
       role: "tool",
       tool_call_id: tr.toolUseId || "",

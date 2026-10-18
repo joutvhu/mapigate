@@ -101,11 +101,11 @@ export function sanitizeGeminiFunctionName(name?: string): string {
 }
 
 export function tryParseJSON(val: any): any {
-  if (typeof val !== "string") return val ?? {};
+  if (typeof val !== "string") return val;
   try {
     return JSON.parse(val);
   } catch {
-    return { raw: val };
+    return null;
   }
 }
 
@@ -117,6 +117,113 @@ export function mapFinishReason(reason?: string | null): string {
   if (r === "SAFETY" || r === "CONTENT_FILTER") return "content_filter";
   if (r === "RECITATION") return "content_filter";
   return "stop";
+}
+
+export function convertConstToEnum(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+
+  if (obj.const !== undefined && !obj.enum) {
+    obj.enum = [obj.const];
+    delete obj.const;
+  }
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      convertConstToEnum(value);
+    }
+  }
+}
+
+export function convertEnumValuesToStrings(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+
+  if (obj.enum && Array.isArray(obj.enum)) {
+    obj.enum = obj.enum.map((v: any) => String(v));
+    // Gemini API requires type:"string" when enum is present
+    if (!obj.type) {
+      obj.type = "string";
+    }
+  }
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      convertEnumValuesToStrings(value);
+    }
+  }
+}
+
+export function mergeAllOf(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+
+  if (obj.allOf && Array.isArray(obj.allOf)) {
+    const merged: { properties?: Record<string, any>; required?: string[] } = {};
+
+    for (const item of obj.allOf) {
+      if (item && typeof item === "object") {
+        if (item.properties) {
+          if (!merged.properties) merged.properties = {};
+          Object.assign(merged.properties, item.properties);
+        }
+        if (item.required && Array.isArray(item.required)) {
+          if (!merged.required) merged.required = [];
+          for (const req of item.required) {
+            if (!merged.required.includes(req)) {
+              merged.required.push(req);
+            }
+          }
+        }
+      }
+    }
+
+    delete obj.allOf;
+    if (merged.properties) obj.properties = { ...obj.properties, ...merged.properties };
+    if (merged.required) obj.required = [...(obj.required || []), ...merged.required];
+  }
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      mergeAllOf(value);
+    }
+  }
+}
+
+export function convertPrefixItems(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+
+  if (Array.isArray(obj.prefixItems) && obj.prefixItems.length > 0) {
+    const variants = obj.prefixItems.filter((s: any) => s && s.type !== "null");
+    if (!obj.items && variants.length === 1) {
+      obj.items = variants[0];
+    } else if (!obj.items && variants.length > 1) {
+      obj.items = { anyOf: variants };
+    }
+    delete obj.prefixItems;
+  }
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      convertPrefixItems(value);
+    }
+  }
+}
+
+export function flattenTypeArrays(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+
+  if (obj.type && Array.isArray(obj.type)) {
+    const hasNull = obj.type.includes("null");
+    const nonNullTypes = obj.type.filter((t: any) => t !== "null");
+    obj.type = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    if (hasNull) {
+      obj.nullable = true;
+    }
+  }
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      flattenTypeArrays(value);
+    }
+  }
 }
 
 function selectBestSchema(items: any[]): number {
@@ -172,24 +279,30 @@ function flattenAnyOfOneOf(obj: any): void {
   }
 }
 
-function stripUnsupportedConstraints(obj: any): void {
+export function removeUnsupportedKeywords(obj: any, keywords: string[]): void {
   if (!obj || typeof obj !== "object") return;
 
-  for (const key of UNSUPPORTED_SCHEMA_CONSTRAINTS) {
-    delete obj[key];
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      removeUnsupportedKeywords(item, keywords);
+    }
+    return;
   }
 
-  if (Array.isArray(obj.type)) {
-    const nonNullType = obj.type.find((t: string) => t !== "null");
-    obj.type = nonNullType || "string";
-  }
+  for (const key of Object.keys(obj)) {
+    if (keywords.includes(key) || key.startsWith("x-")) {
+      delete obj[key];
+      continue;
+    }
 
-  for (const v of Object.values(obj)) {
-    if (v && typeof v === "object") {
-      stripUnsupportedConstraints(v);
+    const value = obj[key];
+    if (value && typeof value === "object") {
+      removeUnsupportedKeywords(value, keywords);
     }
   }
 }
+
+export const stripUnsupportedConstraints = removeUnsupportedKeywords;
 
 function ensureObjectType(obj: any): void {
   if (!obj || typeof obj !== "object") return;
@@ -292,15 +405,32 @@ export function cleanJSONSchemaForAntigravity(schema: any): any {
     };
   }
 
-  const cloned = structuredClone(schema);
-  flattenAnyOfOneOf(cloned);
-  ensureObjectType(cloned);
-  ensureArrayItems(cloned);
-  stripUnsupportedConstraints(cloned);
-  addPlaceholdersForEmptyObjects(cloned);
-  cleanupRequired(cloned);
+  const cleaned = structuredClone(schema);
 
-  return cloned;
+  // Phase 1: Convert and prepare
+  convertConstToEnum(cleaned);
+  convertEnumValuesToStrings(cleaned);
+
+  // Phase 2: Flatten complex structures
+  mergeAllOf(cleaned);
+  convertPrefixItems(cleaned);
+  flattenAnyOfOneOf(cleaned);
+  flattenTypeArrays(cleaned);
+
+  // Phase 2.5: Infer missing type=object and array items (Gemini requirements)
+  ensureObjectType(cleaned);
+  ensureArrayItems(cleaned);
+
+  // Phase 3: Remove unsupported constraints at ALL levels (including inside arrays and x- extensions)
+  removeUnsupportedKeywords(cleaned, UNSUPPORTED_SCHEMA_CONSTRAINTS);
+
+  // Phase 4: Cleanup required fields recursively
+  cleanupRequired(cleaned);
+
+  // Phase 5: Add placeholders for empty objects
+  addPlaceholdersForEmptyObjects(cleaned);
+
+  return cleaned;
 }
 
 /**
@@ -365,19 +495,26 @@ export function sanitizeFunctionResponsePayload(value: any): any {
 export function sanitizeFunctionResponsePart(part: any): any {
   if (!part?.functionResponse) return part;
   const response = part.functionResponse.response;
-  let finalResponse: any;
   if (response === undefined || response === null) {
-    finalResponse = { result: "" };
-  } else {
-    const sanitized = sanitizeFunctionResponsePayload(response);
-    finalResponse =
-      sanitized !== null &&
-      typeof sanitized === "object" &&
-      !Array.isArray(sanitized) &&
-      "result" in sanitized
-        ? sanitized
-        : { result: sanitized ?? "" };
+    return {
+      ...part,
+      functionResponse: {
+        ...part.functionResponse,
+        response: { result: "" },
+      },
+    };
   }
+  if (typeof response !== "object" || Array.isArray(response)) {
+    return {
+      ...part,
+      functionResponse: {
+        ...part.functionResponse,
+        response: { result: response },
+      },
+    };
+  }
+  const sanitized = sanitizeFunctionResponsePayload(response);
+  const finalResponse = "result" in sanitized ? sanitized : { result: sanitized };
   return {
     ...part,
     functionResponse: {
