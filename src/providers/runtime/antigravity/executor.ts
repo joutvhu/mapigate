@@ -22,7 +22,6 @@ import {
   tryParseJSON,
   mapFinishReason,
   DEFAULT_THINKING_AG_SIGNATURE,
-  fixMissingToolResponses,
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
   uuidFromSeed,
@@ -156,7 +155,7 @@ export async function executeAntigravity(
   const sessionId = toNumericSessionId(rawSessionId);
 
   const rawMessages: any[] = Array.isArray(body.messages) ? body.messages : [];
-  const messages: any[] = fixMissingToolResponses(rawMessages);
+  const messages: any[] = rawMessages;
   let systemText: string | undefined;
 
   const systemMsg = messages.find((m) => m.role === "system");
@@ -345,7 +344,8 @@ export async function executeAntigravity(
     if (body.top_p != null) generationConfig.topP = body.top_p;
     if (body.top_k != null) generationConfig.topK = body.top_k;
   }
-  if (body.max_tokens != null) generationConfig.maxOutputTokens = body.max_tokens;
+  const floorTokens = thinkingLevel?.toLowerCase() === "high" ? 65535 : 16384;
+  generationConfig.maxOutputTokens = Math.max(body.max_tokens || 0, floorTokens);
   if (thinkingLevel) {
     let level = thinkingLevel.toLowerCase();
     if (isG4 && (level === "minimal" || level === "none" || level === "off")) {
@@ -353,10 +353,12 @@ export async function executeAntigravity(
     }
     generationConfig.thinkingConfig = {
       thinkingLevel: level,
+      includeThoughts: true,
     };
   } else if (isG4) {
     generationConfig.thinkingConfig = {
       thinkingLevel: "low",
+      includeThoughts: true,
     };
   }
 

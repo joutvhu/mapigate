@@ -20,8 +20,9 @@ export function uuidFromSeed(seed: string): string {
 }
 
 export function toNumericSessionId(sessionId?: string | null): string {
-  if (!sessionId) return `-${Date.now()}`;
+  if (!sessionId) return "-1";
   const v = String(sessionId).trim();
+  if (!v) return "-1";
   if (/^-?\d+$/.test(v)) return v;
   const h = crypto.createHash("sha256").update(v).digest();
   const n = h.readBigUInt64BE(0) & 0x7fffffffffffffffn;

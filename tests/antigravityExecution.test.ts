@@ -2,6 +2,7 @@ process.env.NODE_ENV = "test";
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import {
   cleanJSONSchemaForAntigravity,
   normalizeGeminiContents,
@@ -10,6 +11,7 @@ import {
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
   sanitizeFunctionResponsePart,
+  toNumericSessionId,
 } from "../src/providers/runtime/antigravity/schema.js";
 import {
   storeGeminiThoughtSignature,
@@ -113,6 +115,32 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       assert.equal(u.next("call_1"), "call_1-2");
       assert.equal(u.next("call_1"), "call_1-3");
       assert.equal(u.next("call_2"), "call_2");
+    });
+  });
+
+  describe("toNumericSessionId", () => {
+    it("returns '-1' when sessionId is missing, null, undefined, or empty", () => {
+      assert.equal(toNumericSessionId(), "-1");
+      assert.equal(toNumericSessionId(null), "-1");
+      assert.equal(toNumericSessionId(""), "-1");
+      assert.equal(toNumericSessionId("   "), "-1");
+    });
+
+    it("preserves already-numeric string session IDs", () => {
+      assert.equal(toNumericSessionId("-1234567890"), "-1234567890");
+      assert.equal(toNumericSessionId("9876543210"), "9876543210");
+      assert.equal(toNumericSessionId("0"), "0");
+    });
+
+    it("hashes string to 64-bit masked negative bigint string deterministically", () => {
+      const id1 = toNumericSessionId("session_test_abc_123");
+      const id2 = toNumericSessionId("session_test_abc_123");
+      assert.equal(id1, id2);
+      assert.match(id1, /^-\d+$/);
+
+      const h = crypto.createHash("sha256").update("session_test_abc_123").digest();
+      const n = h.readBigUInt64BE(0) & 0x7fffffffffffffffn;
+      assert.equal(id1, `-${n.toString()}`);
     });
   });
 
@@ -400,6 +428,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
           `Expected model to start with gemini-3.8-flash but got ${capturedBody.model}`
         );
         assert.ok(capturedBody.request?.contents);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 16384);
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig?.includeThoughts, true);
 
         // Verify emitted OpenAI chunks
         assert.ok(emittedChunks.length > 0);
@@ -505,6 +535,97 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         // Verify thought signature is cached
         const cachedSig = getGeminiThoughtSignatureSync("call_tool_test_999");
         assert.equal(cachedSig, "sig_crypto_verified_12345", "Thought signature must be cached in store");
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("enforces maxOutputTokens floor of 65535 for thinkingLevel high and includeThoughts: true", async () => {
+      const originalFetch = global.fetch;
+      let capturedBody: any = null;
+
+      global.fetch = async (_url: any, init: any) => {
+        capturedBody = JSON.parse(init.body);
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        ) as any;
+      };
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash-high",
+          messages: [{ role: "user", content: "Hi" }],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash-high",
+        clientFormat: "openai",
+        requestId: `test-req-high-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 65535);
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig?.thinkingLevel, "high");
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig?.includeThoughts, true);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("respects custom max_tokens when exceeding floorTokens", async () => {
+      const originalFetch = global.fetch;
+      let capturedBody: any = null;
+
+      global.fetch = async (_url: any, init: any) => {
+        capturedBody = JSON.parse(init.body);
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        ) as any;
+      };
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          max_tokens: 70000,
+          messages: [{ role: "user", content: "Hi" }],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-req-custom-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 70000);
       } finally {
         global.fetch = originalFetch;
       }
