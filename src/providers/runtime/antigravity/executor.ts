@@ -22,7 +22,21 @@ import {
   tryParseJSON,
   mapFinishReason,
   DEFAULT_THINKING_AG_SIGNATURE,
+  fixMissingToolResponses,
+  createToolCallIdUniquifier,
+  sanitizeFunctionResponsePayload,
+  uuidFromSeed,
+  toNumericSessionId,
+  resolveSessionId,
+  buildIdeRequestId,
+  ANTIGRAVITY_PROMPT_REWRITES,
 } from "./schema.js";
+import {
+  storeGeminiThoughtSignature,
+  getGeminiThoughtSignatureSync,
+} from "./thoughtSignatureStore.js";
+import { sanitizeToolArguments } from "../../../shared/utils/toolArgsSanitizer.js";
+import { recordLoopTurnResult } from "../../../core/router/loopGuard.js";
 
 interface AntigravityAccountCredentials {
   accessToken: string;
@@ -138,7 +152,11 @@ export async function executeAntigravity(
   const thinkingLevel = match ? match[2].trim() : undefined;
 
   // 3. Build Google Cloud Code PA Request Envelope
-  const messages: any[] = Array.isArray(body.messages) ? body.messages : [];
+  const rawSessionId = resolveSessionId(req, body, context.account?.name || "local");
+  const sessionId = toNumericSessionId(rawSessionId);
+
+  const rawMessages: any[] = Array.isArray(body.messages) ? body.messages : [];
+  const messages: any[] = fixMissingToolResponses(rawMessages);
   let systemText: string | undefined;
 
   const systemMsg = messages.find((m) => m.role === "system");
@@ -147,8 +165,21 @@ export async function executeAntigravity(
   } else if (typeof body.system === "string") {
     systemText = body.system;
   }
+  if (systemText) {
+    for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
+      systemText = typeof to === "function" ? systemText.replaceAll(from as any, to as any) : systemText.replaceAll(from as any, to);
+    }
+  }
 
-  // Map tool_call_id to tool name
+  // Pre-build tool responses FIFO queue keyed by tool_call_id
+  const toolResponses: Record<string, any[]> = {};
+  for (const msg of messages) {
+    if (msg.role === "tool" && msg.tool_call_id) {
+      (toolResponses[msg.tool_call_id] ||= []).push(msg.content);
+    }
+  }
+  const toolResponseCursor: Record<string, number> = {};
+
   const tcID2Name: Record<string, string> = {};
   for (const m of messages) {
     if (m.role === "assistant" && Array.isArray(m.tool_calls)) {
@@ -160,8 +191,11 @@ export async function executeAntigravity(
     }
   }
 
+  const uniquifier = createToolCallIdUniquifier();
   const rawContents: any[] = [];
-  for (const m of messages) {
+
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i];
     if (m.role === "system") continue;
 
     if (m.role === "user") {
@@ -171,52 +205,105 @@ export async function executeAntigravity(
       }
     } else if (m.role === "assistant") {
       const parts: any[] = [];
-      if (m.reasoning_content || m.reasoning) {
-        parts.push({ text: m.reasoning_content || m.reasoning, thought: true });
-        parts.push({ thoughtSignature: DEFAULT_THINKING_AG_SIGNATURE, text: "" });
-      }
+      const hasToolCalls = Array.isArray(m.tool_calls) && m.tool_calls.length > 0;
+
+      // Note: Strip thought-only parts from historical assistant turns (Gemini rejects or loops on them)
       if (m.content) {
-        parts.push({ text: typeof m.content === "string" ? m.content : JSON.stringify(m.content) });
+        const text = typeof m.content === "string" ? m.content : JSON.stringify(m.content);
+        if (text) parts.push({ text });
       }
-      if (Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
-        let firstFunctionCall = true;
+
+      if (hasToolCalls) {
+        const toolCallIds: Array<{ origId: string; emitId: string; name: string }> = [];
+        let firstFunctionCallSeen = false;
+
         for (const tc of m.tool_calls) {
-          if (tc.type === "function" && tc.function) {
-            const args = tryParseJSON(tc.function.arguments);
-            const part: any = {
-              functionCall: {
-                id: tc.id || `call_${Date.now()}`,
-                name: sanitizeGeminiFunctionName(tc.function.name),
-                args,
-              },
-            };
-            if (firstFunctionCall) {
-              part.thoughtSignature = DEFAULT_THINKING_AG_SIGNATURE;
-              firstFunctionCall = false;
+          if (tc.type !== "function" || !tc.function) continue;
+          const rawArgs = tryParseJSON(tc.function.arguments);
+          const args = sanitizeToolArguments(rawArgs || tc.function.arguments);
+          const origId = tc.id || `call_${Date.now()}`;
+          const emitId = uniquifier.next(origId);
+
+          const cachedSig = getGeminiThoughtSignatureSync(origId, sessionId, targetModel);
+          const callSig = cachedSig || (!firstFunctionCallSeen ? DEFAULT_THINKING_AG_SIGNATURE : undefined);
+          firstFunctionCallSeen = true;
+
+          const part: any = {
+            functionCall: {
+              id: emitId,
+              name: sanitizeGeminiFunctionName(tc.function.name),
+              args,
+            },
+          };
+          if (callSig) {
+            part.thoughtSignature = callSig;
+          }
+          parts.push(part);
+          toolCallIds.push({ origId, emitId, name: tc.function.name });
+        }
+
+        if (parts.length > 0) {
+          rawContents.push({ role: "model", parts });
+        }
+
+        // Pair tool responses immediately with the calling function calls
+        const isIntermediate = i < messages.length - 1;
+        const hasActualResponses = toolCallIds.some(
+          ({ origId }) => (toolResponseCursor[origId] || 0) < (toolResponses[origId]?.length ?? 0)
+        );
+
+        if (hasActualResponses || isIntermediate) {
+          const toolParts: any[] = [];
+          for (const { origId, emitId, name: callName } of toolCallIds) {
+            const queue = toolResponses[origId];
+            const cursor = toolResponseCursor[origId] || 0;
+            let resp: any = "";
+            if (queue && cursor < queue.length) {
+              resp = queue[cursor];
+              toolResponseCursor[origId] = cursor + 1;
             }
-            parts.push(part);
+
+            let name = callName || tcID2Name[origId] || "tool";
+            let parsedResp: any;
+            if (typeof resp === "object" && resp !== null) {
+              parsedResp = resp;
+            } else {
+              const p = tryParseJSON(resp);
+              if (p && typeof p === "object" && "raw" in p && Object.keys(p).length === 1) {
+                parsedResp = p.raw;
+              } else {
+                parsedResp = p ?? { result: resp };
+              }
+            }
+
+            const sanitized = sanitizeFunctionResponsePayload(parsedResp);
+            const finalResponse =
+              sanitized !== null &&
+              typeof sanitized === "object" &&
+              !Array.isArray(sanitized) &&
+              "result" in sanitized
+                ? sanitized
+                : { result: sanitized ?? "" };
+
+            toolParts.push({
+              functionResponse: {
+                id: emitId,
+                name: sanitizeGeminiFunctionName(name),
+                response: finalResponse,
+              },
+            });
+          }
+
+          if (toolParts.length > 0) {
+            rawContents.push({ role: "user", parts: toolParts });
           }
         }
-      }
-      if (parts.length > 0) {
+      } else if (parts.length > 0) {
         rawContents.push({ role: "model", parts });
       }
-    } else if (m.role === "tool") {
-      const toolName = tcID2Name[m.tool_call_id] || "tool";
-      const parsedOutput = tryParseJSON(m.content);
-      rawContents.push({
-        role: "user",
-        parts: [
-          {
-            functionResponse: {
-              id: m.tool_call_id || "call_1",
-              name: sanitizeGeminiFunctionName(toolName),
-              response: { result: parsedOutput },
-            },
-          },
-        ],
-      });
     }
+    // Note: msg.role === "tool" is ignored here as all tool results are consumed
+    // in strict FIFO pairing with their initiating assistant function calls.
   }
 
   const isG4 = isGemini4Model(targetModel) || isGemini4Model(upstreamModel);
@@ -273,12 +360,19 @@ export async function executeAntigravity(
     };
   }
 
-  const sessionId = `antigravity:session:${context.account?.name || "local"}`;
+  const contentCount = Array.isArray(contents) ? contents.length : 1;
+  const ideRequestId = buildIdeRequestId({
+    sessionId: rawSessionId,
+    model: upstreamModel,
+    contentCount,
+    requestType: "agent",
+  });
+
   const envelope = {
     project: projectId,
     model: upstreamModel,
     userAgent: "antigravity",
-    requestId: `agent/${crypto.randomUUID()}/${Date.now()}/${crypto.randomUUID()}/1`,
+    requestId: ideRequestId,
     request: {
       contents,
       ...(systemText ? { systemInstruction: { role: "user", parts: [{ text: systemText }] } } : {}),
@@ -354,25 +448,46 @@ export async function executeAntigravity(
     let fullText = "";
     let reasoningText = "";
     const toolCalls: any[] = [];
+    let currentThoughtSignature: string | null = null;
+
+    for (const part of parts) {
+      if (part.thoughtSignature) {
+        currentThoughtSignature = part.thoughtSignature;
+      }
+    }
 
     for (const part of parts) {
       if (part.thought) {
-        reasoningText += part.text || "";
+        if (part.text) {
+          reasoningText += part.text;
+        }
       } else if (part.text) {
         fullText += part.text;
       } else if (part.functionCall) {
-        toolCalls.push({
+        const rawArgs = part.functionCall.args || {};
+        const cleanedArgs = sanitizeToolArguments(rawArgs);
+        const toolCall = {
           id: part.functionCall.id || `call_${Date.now()}`,
           type: "function",
           function: {
             name: part.functionCall.name,
-            arguments: JSON.stringify(part.functionCall.args || {}),
+            arguments: JSON.stringify(cleanedArgs),
           },
-        });
+        };
+        toolCalls.push(toolCall);
+        const sig = part.thoughtSignature || currentThoughtSignature;
+        if (sig) {
+          storeGeminiThoughtSignature(toolCall.id, sig, sessionId, targetModel);
+          currentThoughtSignature = null;
+        }
+        const argsStr = JSON.stringify(cleanedArgs);
+        const argsPreview = argsStr.length > 100 ? argsStr.slice(0, 100) + "..." : argsStr;
+        logger.line(reqTag, "🛠️", `Tool invoked: ${part.functionCall.name}(${argsPreview}) [${toolCall.id}]`);
       }
     }
 
-    const finishReason = mapFinishReason(candidate?.finishReason);
+    const rawFinishReason = mapFinishReason(candidate?.finishReason);
+    const finishReason = toolCalls.length > 0 && rawFinishReason === "stop" ? "tool_calls" : rawFinishReason;
     const usage = responseObj?.usageMetadata || {};
     const promptTokens = usage.promptTokenCount || 0;
     const completionTokens = usage.candidatesTokenCount || 0;
@@ -423,7 +538,7 @@ export async function executeAntigravity(
         role: "assistant",
         model: targetModel,
         content: contentBlocks,
-        stop_reason: finishReason === "length" ? "max_tokens" : "end_turn",
+        stop_reason: toolCalls.length > 0 ? "tool_use" : (finishReason === "length" ? "max_tokens" : "end_turn"),
         usage: { input_tokens: promptTokens, output_tokens: completionTokens },
       };
       res.status(200).json(anthropicRes);
@@ -462,6 +577,14 @@ export async function executeAntigravity(
     });
     logger.line(reqTag, LogSymbol.USAGE, `antigravity/${targetModel} · ${doneMsg}`);
 
+    if (context.loopSignature) {
+      const toolCalls = openAiResponse?.choices?.[0]?.message?.tool_calls?.map((tc: any) => ({
+        name: tc.function?.name || tc.name,
+        arguments: tc.function?.arguments || tc.arguments,
+      }));
+      recordLoopTurnResult(context.loopSignature, completionTokens, toolCalls);
+    }
+
     return { ok: true, status: 200, json: openAiResponse, modelUsed: targetModel };
   }
 
@@ -483,6 +606,9 @@ export async function executeAntigravity(
   let completionTokens = 0;
   let ttftMs = 0;
   let hasSentInitial = false;
+  let geminiToolCallCount = 0;
+  let currentThoughtSignature: string | null = null;
+  const collectedToolCalls: Array<{ name: string; arguments?: any }> = [];
 
   const anthropicState =
     clientFormat === "anthropic" ? AnthropicAdapter.createStreamState(`msg_${requestId}`, body.tools) : undefined;
@@ -548,7 +674,7 @@ export async function executeAntigravity(
 
         const respObj = parsed.response || parsed;
         const candidate = respObj?.candidates?.[0];
-        const finishReason = candidate?.finishReason ? mapFinishReason(candidate.finishReason) : null;
+        const rawFinishReason = candidate?.finishReason ? mapFinishReason(candidate.finishReason) : null;
 
         if (respObj?.usageMetadata) {
           promptTokens = respObj.usageMetadata.promptTokenCount || promptTokens;
@@ -557,24 +683,32 @@ export async function executeAntigravity(
 
         const parts = candidate?.content?.parts || [];
         for (const part of parts) {
+          if (part.thoughtSignature) {
+            currentThoughtSignature = part.thoughtSignature;
+          }
+        }
+
+        for (const part of parts) {
           if (part.thought) {
-            const chunk = {
-              id: responseId,
-              object: "chat.completion.chunk",
-              created,
-              model: targetModel,
-              choices: [
-                {
-                  index: 0,
-                  delta: hasSentInitial
-                    ? { reasoning_content: part.text || "" }
-                    : { role: "assistant", reasoning_content: part.text || "" },
-                  finish_reason: null,
-                },
-              ],
-            };
-            hasSentInitial = true;
-            writeChunk(chunk);
+            if (part.text && part.text.length > 0) {
+              const chunk = {
+                id: responseId,
+                object: "chat.completion.chunk",
+                created,
+                model: targetModel,
+                choices: [
+                  {
+                    index: 0,
+                    delta: hasSentInitial
+                      ? { reasoning_content: part.text }
+                      : { role: "assistant", reasoning_content: part.text },
+                    finish_reason: null,
+                  },
+                ],
+              };
+              hasSentInitial = true;
+              writeChunk(chunk);
+            }
           } else if (part.text) {
             const chunk = {
               id: responseId,
@@ -592,15 +726,30 @@ export async function executeAntigravity(
             hasSentInitial = true;
             writeChunk(chunk);
           } else if (part.functionCall) {
+            const rawArgs = part.functionCall.args || {};
+            const cleanedArgs = sanitizeToolArguments(rawArgs);
+            collectedToolCalls.push({
+              name: part.functionCall.name,
+              arguments: cleanedArgs,
+            });
             const toolCall = {
               id: part.functionCall.id || `call_${Date.now()}`,
-              index: 0,
+              index: geminiToolCallCount,
               type: "function",
               function: {
                 name: part.functionCall.name,
-                arguments: JSON.stringify(part.functionCall.args || {}),
+                arguments: JSON.stringify(cleanedArgs),
               },
             };
+            geminiToolCallCount++;
+            const sig = part.thoughtSignature || currentThoughtSignature;
+            if (sig) {
+              storeGeminiThoughtSignature(toolCall.id, sig, sessionId, targetModel);
+              currentThoughtSignature = null;
+            }
+            const argsStr = JSON.stringify(cleanedArgs);
+            const argsPreview = argsStr.length > 100 ? argsStr.slice(0, 100) + "..." : argsStr;
+            logger.line(reqTag, "🛠️", `Tool invoked: ${part.functionCall.name}(${argsPreview}) [${toolCall.id}]`);
             const chunk = {
               id: responseId,
               object: "chat.completion.chunk",
@@ -619,7 +768,8 @@ export async function executeAntigravity(
           }
         }
 
-        if (finishReason) {
+        if (rawFinishReason) {
+          const finishReason = geminiToolCallCount > 0 && rawFinishReason === "stop" ? "tool_calls" : rawFinishReason;
           const finishChunk = {
             id: responseId,
             object: "chat.completion.chunk",
@@ -645,8 +795,9 @@ export async function executeAntigravity(
     for (const ev of finalEvents) {
       res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
     }
-  } else if (clientFormat === "anthropic") {
-    res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
+  } else if (clientFormat === "anthropic" && anthropicState) {
+    const finalEvents = AnthropicAdapter.finalizeStream(anthropicState);
+    for (const ev of finalEvents) res.write(ev);
   } else {
     res.write("data: [DONE]\n\n");
   }
@@ -683,6 +834,10 @@ export async function executeAntigravity(
     cost: calculatedCost,
   });
   logger.line(reqTag, LogSymbol.USAGE, `antigravity/${targetModel} · ${doneMsg}`);
+
+  if (context.loopSignature) {
+    recordLoopTurnResult(context.loopSignature, completionTokens, collectedToolCalls);
+  }
 
   return { ok: true, status: 200, isStream: true, modelUsed: targetModel };
 }

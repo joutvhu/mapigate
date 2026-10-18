@@ -6,7 +6,16 @@ import {
   cleanJSONSchemaForAntigravity,
   normalizeGeminiContents,
   sanitizeGeminiFunctionName,
+  fixMissingToolResponses,
+  createToolCallIdUniquifier,
+  sanitizeFunctionResponsePayload,
+  sanitizeFunctionResponsePart,
 } from "../src/providers/runtime/antigravity/schema.js";
+import {
+  storeGeminiThoughtSignature,
+  getGeminiThoughtSignatureSync,
+  clearThoughtSignatureStore,
+} from "../src/providers/runtime/antigravity/thoughtSignatureStore.js";
 import { executeAntigravity } from "../src/providers/runtime/antigravity/executor.js";
 import { AntigravityProvider } from "../src/providers/runtime/antigravity/provider.js";
 
@@ -94,6 +103,175 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       assert.equal(normalized.length, 1);
       assert.equal(normalized[0].role, "user");
       assert.equal(normalized[0].parts.length, 2);
+    });
+  });
+
+  describe("createToolCallIdUniquifier", () => {
+    it("assigns unique IDs across multiple turns with identical base IDs", () => {
+      const u = createToolCallIdUniquifier();
+      assert.equal(u.next("call_1"), "call_1");
+      assert.equal(u.next("call_1"), "call_1-2");
+      assert.equal(u.next("call_1"), "call_1-3");
+      assert.equal(u.next("call_2"), "call_2");
+    });
+  });
+
+  describe("fixMissingToolResponses", () => {
+    it("synthesizes empty tool response for missing tool results in turn history", () => {
+      const messages = [
+        { role: "user", content: "read file" },
+        {
+          role: "assistant",
+          tool_calls: [
+            { id: "call_1", function: { name: "readFile", arguments: "{}" } },
+            { id: "call_2", function: { name: "listDir", arguments: "{}" } },
+          ],
+        },
+        { role: "tool", tool_call_id: "call_1", content: "file content" },
+        // call_2 is missing!
+        { role: "user", content: "next prompt" },
+      ];
+
+      const fixed = fixMissingToolResponses(messages);
+      assert.equal(fixed.length, 5);
+      const inserted = fixed.find((m) => m.role === "tool" && m.tool_call_id === "call_2");
+      assert.ok(inserted, "Missing tool response should be synthesized");
+      assert.equal(inserted.content, "");
+    });
+  });
+
+  describe("sanitizeFunctionResponsePayload", () => {
+    it("renames $ref to _ref recursively to avoid Gemini rejection", () => {
+      const payload = {
+        title: "Test",
+        schema: {
+          $ref: "#/definitions/Item",
+          items: [{ $ref: "#/definitions/SubItem" }],
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePayload(payload);
+      assert.equal(sanitized.schema.$ref, undefined);
+      assert.equal(sanitized.schema._ref, "#/definitions/Item");
+      assert.equal(sanitized.schema.items[0]._ref, "#/definitions/SubItem");
+    });
+  });
+
+  describe("sanitizeFunctionResponsePart & FunctionResponse Structure", () => {
+    it("wraps JSON object tool result lacking result key into { result: parsedResp }", () => {
+      const part = {
+        functionResponse: {
+          id: "call_search_1",
+          name: "file_search",
+          response: { files: ["a.ts", "b.ts"], total: 2 },
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: { files: ["a.ts", "b.ts"], total: 2 },
+      });
+    });
+
+    it("wraps JSON array tool result into { result: [...] } (never sends bare array Struct to Gemini)", () => {
+      const part = {
+        functionResponse: {
+          id: "call_list_1",
+          name: "list_files",
+          response: ["file1.txt", "file2.txt"],
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: ["file1.txt", "file2.txt"],
+      });
+    });
+
+    it("wraps plain text string tool result into { result: text }", () => {
+      const part = {
+        functionResponse: {
+          id: "call_read_1",
+          name: "read_file",
+          response: "function main() {\n  return 42;\n}",
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: "function main() {\n  return 42;\n}",
+      });
+    });
+
+    it("sanitizes $ref to _ref and wraps in { result: ... }", () => {
+      const part = {
+        functionResponse: {
+          id: "call_schema_1",
+          name: "describe_table",
+          response: {
+            $ref: "#/definitions/Table",
+            details: "sqlite",
+          },
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: {
+          _ref: "#/definitions/Table",
+          details: "sqlite",
+        },
+      });
+    });
+
+    it("preserves object that already has result key", () => {
+      const part = {
+        functionResponse: {
+          id: "call_ok_1",
+          name: "execute_pwsh",
+          response: {
+            result: "Command executed successfully with exit code 0",
+            exitCode: 0,
+          },
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: "Command executed successfully with exit code 0",
+        exitCode: 0,
+      });
+    });
+
+    it("normalizes null or undefined response to { result: '' }", () => {
+      const partNull = {
+        functionResponse: {
+          id: "call_null_1",
+          name: "noop",
+          response: null,
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(partNull);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: "",
+      });
+    });
+  });
+
+  describe("thoughtSignatureStore", () => {
+    it("stores and retrieves cryptographic signatures across turns", () => {
+      clearThoughtSignatureStore();
+      storeGeminiThoughtSignature("call_abc_123", "sig_crypto_valid_hex", "session_1", "gemini-3.8-flash");
+
+      const retrievedWithSession = getGeminiThoughtSignatureSync("call_abc_123", "session_1", "gemini-3.8-flash");
+      assert.equal(retrievedWithSession, "sig_crypto_valid_hex");
+
+      const retrievedDirect = getGeminiThoughtSignatureSync("call_abc_123");
+      assert.equal(retrievedDirect, "sig_crypto_valid_hex");
+
+      const missing = getGeminiThoughtSignatureSync("call_non_existent");
+      assert.equal(missing, null);
     });
   });
 
@@ -229,6 +407,104 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         assert.ok(combinedOutput.includes("Hello from Antigravity!"));
         assert.ok(combinedOutput.includes("I should greet the user."));
         assert.ok(combinedOutput.includes("[DONE]"));
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("emits finish_reason tool_calls when function calls are present and caches thoughtSignature", async () => {
+      const originalFetch = global.fetch;
+      const emittedChunks: string[] = [];
+
+      const mockSseStream = new ReadableStream({
+        start(controller) {
+          const geminiChunks = [
+            {
+              response: {
+                candidates: [
+                  {
+                    content: {
+                      parts: [
+                        {
+                          functionCall: {
+                            id: "call_tool_test_999",
+                            name: "readFile",
+                            args: { path: "README.md" },
+                          },
+                          thoughtSignature: "sig_crypto_verified_12345",
+                        },
+                      ],
+                    },
+                    finishReason: "STOP",
+                  },
+                ],
+              },
+            },
+          ];
+
+          for (const c of geminiChunks) {
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(c)}\n\n`));
+          }
+          controller.close();
+        },
+      });
+
+      global.fetch = async () =>
+        new Response(mockSseStream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }) as any;
+
+      const mockContext: any = {
+        req: {
+          headers: { authorization: "Bearer fake-test-key" },
+          body: {
+            model: "ag/gemini-3.8-flash",
+            messages: [{ role: "user", content: "read the readme" }],
+            stream: true,
+          },
+        },
+        res: {
+          setHeader: () => {},
+          flushHeaders: () => {},
+          write: (chunk: string) => {
+            emittedChunks.push(chunk);
+          },
+          end: () => {},
+        },
+        provider: {
+          id: "antigravity",
+          baseUrl: "https://daily-cloudcode-pa.googleapis.com",
+        },
+        account: {
+          id: "test-account",
+          name: "test-account-1",
+          rawApiKey: JSON.stringify({
+            access_token: "test-oauth-token-xyz",
+            project_id: "test-project-123",
+          }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-tool-req-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        const combinedOutput = emittedChunks.join("");
+        // Must emit tool_calls finish_reason, NOT stop
+        assert.ok(
+          combinedOutput.includes('"finish_reason":"tool_calls"'),
+          `Expected finish_reason to be tool_calls but got: ${combinedOutput}`
+        );
+        assert.ok(!combinedOutput.includes('"finish_reason":"stop"'), "Should not emit finish_reason stop for tool turn");
+
+        // Verify thought signature is cached
+        const cachedSig = getGeminiThoughtSignatureSync("call_tool_test_999");
+        assert.equal(cachedSig, "sig_crypto_verified_12345", "Thought signature must be cached in store");
       } finally {
         global.fetch = originalFetch;
       }

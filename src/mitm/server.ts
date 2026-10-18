@@ -83,7 +83,7 @@ function resolveModelMapping(tool: string, incomingModel?: string | null): strin
     }
   }
 
-  return mappings[0]?.targetModel || null;
+  return null;
 }
 
 function collectBody(req: IncomingMessage): Promise<Buffer> {
