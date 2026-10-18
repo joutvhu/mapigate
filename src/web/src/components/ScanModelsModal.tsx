@@ -49,6 +49,9 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         return "https://token-plan-sgp.xiaomimimo.com/v1/models";
       }
     }
+    if (provider.id === "kiro") {
+      return provider.validateUrl || "https://codewhisperer.us-east-1.amazonaws.com";
+    }
     return provider.validateUrl || provider.baseUrl || "";
   }, [provider.id, provider.baseUrl, provider.validateUrl]);
 

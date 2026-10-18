@@ -1,5 +1,6 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../../../core/usage/types.js";
 import { parseResetTime } from "../../../core/usage/utils.js";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 
 export const CW_HOST = "https://codewhisperer.us-east-1.amazonaws.com";
 export const Q_HOST = "https://q.us-east-1.amazonaws.com";
@@ -94,7 +95,7 @@ export async function getKiroUsage(
   providerSpecificData?: Record<string, any>,
   options?: { fetchFn?: typeof fetch }
 ): Promise<RawProviderQuotaResult> {
-  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const fetchFn = (options?.fetchFn as any) || fetchWithDnsBypass;
   const token = (accessToken || "").trim();
 
   if (!token) {

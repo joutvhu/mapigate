@@ -2,6 +2,10 @@ import type { ScannedModel, ScanModelsResult, ScanModelsOptions } from "../../sh
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { getRegistryProvider, type ProviderRegistryItem } from "../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel } from "../capabilities/index.js";
+import { ensureFreshCredentials } from "../usage/tokenHelper.js";
+import { getPublicDnsAgent } from "../../shared/utils/dnsResolver.js";
+import { resolveDefaultProfileArn } from "../../providers/runtime/kiro/quota.js";
+import { fetch as undiciFetch } from "undici";
 
 /**
  * Resolves candidate endpoint URLs for model discovery from a given baseUrl or provider info.
@@ -75,6 +79,34 @@ export function resolveCandidateUrls(
     return candidates;
   }
 
+  // AWS CodeWhisperer / Kiro / Amazon Q discovery endpoints
+  const isAwsCodeWhisperer =
+    providerId === "kiro" ||
+    providerId === "amazon-q" ||
+    format === "kiro" ||
+    format === "amazon-q" ||
+    registryItem?.id === "kiro" ||
+    registryItem?.id === "amazon-q" ||
+    registryItem?.format === "kiro" ||
+    registryItem?.format === "amazon-q" ||
+    lowerBase.includes("codewhisperer") ||
+    lowerBase.includes("kiro.dev");
+
+  if (isAwsCodeWhisperer) {
+    const targetRegion = (region || "us-east-1").toLowerCase().trim();
+    add(`https://codewhisperer.${targetRegion}.amazonaws.com`);
+    add(`https://q.${targetRegion}.amazonaws.com`);
+    if (lowerBase.endsWith("/generateassistantresponse")) {
+      cleanBase = cleanBase.slice(0, cleanBase.length - "/generateassistantresponse".length).replace(/\/+$/, "");
+    } else if (lowerBase.endsWith("/responses")) {
+      cleanBase = cleanBase.slice(0, cleanBase.length - "/responses".length).replace(/\/+$/, "");
+    }
+    if (cleanBase && !candidates.includes(cleanBase) && !cleanBase.includes("runtime.")) {
+      add(cleanBase);
+    }
+    return candidates;
+  }
+
   // 2. BaseUrl ends with /chat/completions or /messages -> strip path segment
   if (lowerBase.endsWith("/chat/completions")) {
     cleanBase = cleanBase.slice(0, cleanBase.length - "/chat/completions".length).replace(/\/+$/, "");
@@ -84,6 +116,12 @@ export function resolveCandidateUrls(
     cleanBase = cleanBase.slice(0, cleanBase.length - "/messages".length).replace(/\/+$/, "");
     lowerBase = cleanBase.toLowerCase();
     add(`${cleanBase}/models`);
+  } else if (lowerBase.endsWith("/generateassistantresponse")) {
+    cleanBase = cleanBase.slice(0, cleanBase.length - "/generateassistantresponse".length).replace(/\/+$/, "");
+    lowerBase = cleanBase.toLowerCase();
+  } else if (lowerBase.endsWith("/responses")) {
+    cleanBase = cleanBase.slice(0, cleanBase.length - "/responses".length).replace(/\/+$/, "");
+    lowerBase = cleanBase.toLowerCase();
   }
 
   // 3. Ollama special endpoints
@@ -128,10 +166,15 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
     rawList = data;
   } else {
     const obj = data as Record<string, unknown>;
-    if (Array.isArray(obj.data)) {
+    if (obj.defaultModel && typeof obj.defaultModel === "object") {
+      rawList.push(obj.defaultModel);
+    }
+    if (Array.isArray(obj.models)) {
+      rawList.push(...obj.models);
+    } else if (Array.isArray(obj.modelSummaries)) {
+      rawList.push(...obj.modelSummaries);
+    } else if (Array.isArray(obj.data)) {
       rawList = obj.data;
-    } else if (Array.isArray(obj.models)) {
-      rawList = obj.models;
     } else if (Array.isArray(obj.result)) {
       rawList = obj.result;
     } else if (Array.isArray(obj.results)) {
@@ -191,7 +234,7 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
 
     if (typeof item === "object") {
       const rec = item as Record<string, unknown>;
-      let rawId = rec.id || rec.name || rec.model || rec.model_name || rec.code;
+      let rawId = rec.id || rec.name || rec.model || rec.model_name || rec.code || rec.modelId;
       if (typeof rawId !== "string" && typeof rawId !== "number") continue;
       let id = String(rawId).trim();
       if (!id) continue;
@@ -208,17 +251,33 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
         ? rec.display_name
         : typeof rec.displayName === "string"
           ? rec.displayName
-          : typeof rec.name === "string" && !rec.name.startsWith("models/")
-            ? rec.name
-            : id;
+          : typeof rec.modelName === "string"
+            ? rec.modelName
+            : typeof rec.name === "string" && !rec.name.startsWith("models/")
+              ? rec.name
+              : id;
 
       const description = typeof rec.description === "string" ? rec.description : undefined;
 
       let contextLength: number | undefined;
-      const rawCtx = rec.context_length ?? rec.context_window ?? rec.max_tokens ?? rec.contextLength;
+      const rawCtx =
+        rec.context_length ??
+        rec.context_window ??
+        rec.max_tokens ??
+        rec.contextLength ??
+        (rec.tokenLimits as any)?.maxInputTokens;
       if (typeof rawCtx === "number" && rawCtx > 0) {
         contextLength = rawCtx;
       }
+
+      const isImageSupported =
+        Array.isArray((rec as any).supportedInputTypes) &&
+        (rec as any).supportedInputTypes.includes("IMAGE");
+      const isReasoning =
+        id.includes("thinking") ||
+        id.includes("r1") ||
+        id.includes("reasoning") ||
+        description?.toLowerCase().includes("reasoning");
 
       const caps = getCapabilitiesForModel(providerId || "openai", id);
       results.push({
@@ -227,8 +286,8 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
         description,
         contextLength: contextLength || caps.contextWindow || undefined,
         capabilities: {
-          vision: Boolean(rec.vision ?? caps.vision),
-          reasoning: Boolean(rec.reasoning ?? caps.reasoning),
+          vision: Boolean(rec.vision ?? isImageSupported ?? caps.vision),
+          reasoning: Boolean(rec.reasoning ?? isReasoning ?? caps.reasoning),
           audio: Boolean(rec.audio ?? caps.audioInput ?? caps.audioOutput),
         },
         raw: item,
@@ -351,6 +410,29 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       }];
     }
 
+    // Refresh OAuth / token credentials if needed
+    for (const acc of accountsToScan) {
+      if (acc.id !== "explicit" && acc.id !== "ad-hoc" && acc.id !== "acc_opencode_free") {
+        try {
+          const fresh = await ensureFreshCredentials(
+            acc.id,
+            providerId || "",
+            acc.apiKey,
+            acc.providerSpecificData
+          );
+          if (fresh.accessToken || fresh.apiKey) {
+            acc.apiKey = fresh.accessToken || fresh.apiKey || acc.apiKey;
+            acc.providerSpecificData = {
+              ...(acc.providerSpecificData || {}),
+              ...(fresh.providerSpecificData || {}),
+            };
+          }
+        } catch {
+          // If refresh fails, continue with existing key
+        }
+      }
+    }
+
     if (!baseUrl) {
       return {
         success: false,
@@ -400,7 +482,36 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         ...(customHeaders || {}),
       };
 
-      if (isOpenCodeFree) {
+      const isKiro =
+        providerId === "kiro" ||
+        format === "kiro" ||
+        registryItem?.id === "kiro" ||
+        baseUrl.toLowerCase().includes("kiro.dev");
+
+      const isAwsCodeWhisperer =
+        isKiro ||
+        providerId === "amazon-q" ||
+        format === "amazon-q" ||
+        registryItem?.id === "amazon-q" ||
+        registryItem?.format === "kiro" ||
+        registryItem?.format === "amazon-q" ||
+        baseUrl.toLowerCase().includes("codewhisperer") ||
+        baseUrl.toLowerCase().includes("q.us-east-1");
+
+      if (isAwsCodeWhisperer) {
+        reqHeaders["Content-Type"] = "application/x-amz-json-1.0";
+        reqHeaders["x-amz-target"] = "AmazonCodeWhispererService.ListAvailableModels";
+        reqHeaders["x-amz-user-agent"] = "aws-sdk-js/1.0.0 KiroIDE";
+        reqHeaders["user-agent"] = "aws-sdk-js/1.0.0 KiroIDE";
+        if (token) {
+          reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+        }
+        if (account.providerSpecificData?.authMethod === "api-key") {
+          reqHeaders["tokentype"] = "API_KEY";
+        } else if (account.providerSpecificData?.authMethod === "external_idp") {
+          reqHeaders["TokenType"] = "EXTERNAL_IDP";
+        }
+      } else if (isOpenCodeFree) {
         if (!token) {
           token = "public";
         }
@@ -462,11 +573,37 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
           // Capped timeout for secondary regional fallbacks to prevent cumulative latency on unreachable networks
           const candidateTimeout = candidateIdx === 0 ? timeoutMs : Math.min(timeoutMs, 3500);
 
-          const response = await fetch(url, {
-            method: "GET",
+          const isMitmTarget =
+            url.includes("kiro.dev") ||
+            url.includes("amazonaws.com") ||
+            url.includes("cursor.sh") ||
+            url.includes("githubcopilot.com");
+
+          const profileArn =
+            account.providerSpecificData?.profileArn ||
+            (isKiro ? resolveDefaultProfileArn(account.providerSpecificData?.authMethod) : undefined);
+
+          const reqBody = isAwsCodeWhisperer
+            ? JSON.stringify({
+                origin: "AI_EDITOR",
+                ...(profileArn ? { profileArn } : {}),
+              })
+            : undefined;
+
+          const fetchOptions: any = {
+            method: isAwsCodeWhisperer ? "POST" : "GET",
             headers: headersForUrl,
+            body: reqBody,
             signal: AbortSignal.timeout(candidateTimeout),
-          });
+          };
+
+          if (isMitmTarget) {
+            fetchOptions.dispatcher = getPublicDnsAgent();
+          }
+
+          const response = isMitmTarget
+            ? ((await undiciFetch(url, fetchOptions)) as unknown as globalThis.Response)
+            : await fetch(url, fetchOptions);
 
           if (response.ok || response.status === 200) {
             const payload = await response.json();
@@ -522,6 +659,38 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         models: Array.from(modelsById.values()),
         count: modelsById.size,
         scannedAccounts,
+        failedAccounts: failedAccounts.length > 0 ? failedAccounts : undefined,
+      };
+    }
+
+    // Graceful fallback to static catalog models for Kiro / Amazon Q if available
+    if (
+      modelsById.size === 0 &&
+      (providerId === "kiro" || providerId === "amazon-q" || registryItem?.id === "kiro" || registryItem?.id === "amazon-q") &&
+      registryItem?.models?.length
+    ) {
+      for (const m of registryItem.models) {
+        modelsById.set(m.id, {
+          id: m.id,
+          name: m.name || m.id,
+          contextLength: m.contextLength,
+          capabilities: {
+            vision: Boolean(m.capabilities?.includes("vision")),
+            reasoning: Boolean(m.capabilities?.includes("reasoning")),
+            audio: Boolean(m.capabilities?.includes("audio")),
+          },
+          raw: m,
+        });
+      }
+      return {
+        success: true,
+        endpointUrl: discoveredEndpointUrl || baseUrl,
+        models: Array.from(modelsById.values()),
+        count: modelsById.size,
+        scannedAccounts:
+          scannedAccounts.length > 0
+            ? scannedAccounts
+            : accountsToScan.map((a) => ({ id: a.id, name: a.name })),
         failedAccounts: failedAccounts.length > 0 ? failedAccounts : undefined,
       };
     }

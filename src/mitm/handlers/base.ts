@@ -18,23 +18,8 @@ const STRIP_HEADERS = new Set([
   "authorization",
 ]);
 
-// ── Custom DNS Resolver (Bypasses local hosts file 127.0.0.1 loop) ─────────────
-const cachedTargetIPs: Record<string, { ip: string; ts: number }> = {};
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
-export async function resolveTargetIP(hostname: string): Promise<string> {
-  const cached = cachedTargetIPs[hostname];
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-    return cached.ip;
-  }
-  const resolver = new dns.Resolver();
-  resolver.setServers(["8.8.8.8", "1.1.1.1"]);
-  const resolve4 = promisify(resolver.resolve4.bind(resolver));
-  const addresses = await resolve4(hostname);
-  const ip = addresses[0] || hostname;
-  cachedTargetIPs[hostname] = { ip, ts: Date.now() };
-  return ip;
-}
+import { resolveTargetIP } from "../../shared/utils/dnsResolver.js";
+export { resolveTargetIP };
 
 /**
  * Forward request to real upstream server bypassing local hosts file.
