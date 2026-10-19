@@ -44,7 +44,7 @@ function pruneMemoryExpired(): void {
 export function storeGeminiThoughtSignature(
   toolCallId: string,
   signature: string,
-  sessionId: string | null = null,
+  sessionId: string | number | null = null,
   model: string | null = null
 ): void {
   if (typeof toolCallId !== "string" || !toolCallId) return;
@@ -55,8 +55,9 @@ export function storeGeminiThoughtSignature(
   pruneMemoryExpired();
 
   const keys: string[] = [];
-  if (sessionId && typeof sessionId === "string") {
-    keys.push(`${sessionId}:${toolCallId}`);
+  const sidStr = sessionId != null ? String(sessionId).trim() : "";
+  if (sidStr) {
+    keys.push(`${sidStr}:${toolCallId}`);
   }
   keys.push(toolCallId);
 
@@ -74,15 +75,16 @@ export function storeGeminiThoughtSignature(
  */
 export function getGeminiThoughtSignatureSync(
   toolCallId: string,
-  sessionId: string | null = null,
+  sessionId: string | number | null = null,
   model: string | null = null
 ): string | null {
   if (typeof toolCallId !== "string" || !toolCallId) return null;
   const family = signatureFamily(model || undefined);
   pruneMemoryExpired();
 
-  if (sessionId && typeof sessionId === "string") {
-    const sessionKey = `${sessionId}:${toolCallId}`;
+  const sidStr = sessionId != null ? String(sessionId).trim() : "";
+  if (sidStr) {
+    const sessionKey = `${sidStr}:${toolCallId}`;
     const sessionEntry = memorySignatures.get(sessionKey);
     if (sessionEntry && sessionEntry.expiresAt > Date.now() && isCompatible(sessionEntry, family)) {
       return sessionEntry.signature;

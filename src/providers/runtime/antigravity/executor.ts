@@ -227,7 +227,7 @@ export async function executeAntigravity(
           const origId = tc.id || `call_${Date.now()}`;
           const emitId = uniquifier.next(origId);
 
-          const cachedSig = getGeminiThoughtSignatureSync(origId, sessionId, targetModel);
+          const cachedSig = getGeminiThoughtSignatureSync(origId, String(rawSessionId || sessionId), targetModel);
           const fallbackSig = getDefaultThinkingSignature(targetModel || upstreamModel);
           const callSig = cachedSig || (!firstFunctionCallSeen ? fallbackSig : undefined);
           firstFunctionCallSeen = true;
@@ -455,7 +455,7 @@ export async function executeAntigravity(
         const rawArgs = part.functionCall.args || {};
         const cleanedArgs = sanitizeToolArguments(rawArgs);
         const toolCall = {
-          id: part.functionCall.id || `call_${Date.now()}`,
+          id: part.functionCall.id || `${part.functionCall.name}-${Date.now()}-${toolCalls.length}`,
           type: "function",
           function: {
             name: part.functionCall.name,
@@ -465,7 +465,7 @@ export async function executeAntigravity(
         toolCalls.push(toolCall);
         const sig = part.thoughtSignature || (part as any).thought_signature || currentThoughtSignature;
         if (sig) {
-          storeGeminiThoughtSignature(toolCall.id, sig, sessionId, targetModel);
+          storeGeminiThoughtSignature(toolCall.id, sig, String(rawSessionId || sessionId), targetModel);
           currentThoughtSignature = null;
         }
         const argsStr = JSON.stringify(cleanedArgs);
@@ -729,7 +729,7 @@ export async function executeAntigravity(
               arguments: cleanedArgs,
             });
             const toolCall = {
-              id: part.functionCall.id || `call_${Date.now()}`,
+              id: part.functionCall.id || `${part.functionCall.name}-${Date.now()}-${geminiToolCallCount}`,
               index: geminiToolCallCount,
               type: "function",
               function: {
@@ -740,7 +740,7 @@ export async function executeAntigravity(
             geminiToolCallCount++;
             const sig = part.thoughtSignature || (part as any).thought_signature || currentThoughtSignature;
             if (sig) {
-              storeGeminiThoughtSignature(toolCall.id, sig, sessionId, targetModel);
+              storeGeminiThoughtSignature(toolCall.id, sig, String(rawSessionId || sessionId), targetModel);
               currentThoughtSignature = null;
             }
             const argsStr = JSON.stringify(cleanedArgs);

@@ -40,17 +40,32 @@ export async function runProxyPipeline(
   }
   const cleanModel = strippedModel || rawModel;
 
-  const tokenSaverSettings = SettingsRepository.getTokenSaverSettings();
-  const tokenSaverSummary = TokenSaverCoordinator.process(
-    body,
-    {
-      clientFormat,
-      targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
-      model: cleanModel,
-      clientTool,
-    },
-    tokenSaverSettings
-  );
+  // 9router parity: bypass RTK for Kiro MITM and Antigravity to preserve raw tool outputs & paths
+  const isKiroOrAntigravity =
+    clientTool.toLowerCase().includes("kiro") ||
+    cleanModel.startsWith("antigravity/") ||
+    cleanModel.startsWith("ag/");
+
+  let tokenSaverSummary = {
+    originalTokens: 0,
+    compressedTokens: 0,
+    tokensSaved: 0,
+    results: [] as any[],
+  };
+
+  if (!isKiroOrAntigravity) {
+    const tokenSaverSettings = SettingsRepository.getTokenSaverSettings();
+    tokenSaverSummary = TokenSaverCoordinator.process(
+      body,
+      {
+        clientFormat,
+        targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
+        model: cleanModel,
+        clientTool,
+      },
+      tokenSaverSettings
+    );
+  }
 
   const rtkStats = {
     originalTokens: tokenSaverSummary.originalTokens,

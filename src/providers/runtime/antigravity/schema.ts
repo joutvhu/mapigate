@@ -94,9 +94,11 @@ export function buildIdeRequestId(opts: {
   contentCount: number;
   requestType?: string;
 }): string {
-  const conversationId = uuidFromSeed(`antigravity:conversation:${opts.sessionId}`);
-  const trajectoryId = uuidFromSeed(`antigravity:trajectory:${opts.sessionId}:${opts.model}:${opts.requestType || "agent"}`);
-  const step = Math.max(1, opts.contentCount * 2 - 1);
+  const sid = opts.sessionId || "anonymous";
+  const conversationId = uuidFromSeed(`antigravity:conversation:${sid}`);
+  const trajectoryId = uuidFromSeed(`antigravity:trajectory:${sid}:${opts.model}:${opts.requestType || "agent"}`);
+  const count = Number.isFinite(opts.contentCount) ? opts.contentCount : 1;
+  const step = Math.max(1, count * 2 - 1);
   return `agent/${conversationId}/${Date.now()}/${trajectoryId}/${step}`;
 }
 
