@@ -41,7 +41,6 @@ import {
   getGeminiThoughtSignatureSync,
 } from "./thoughtSignatureStore.js";
 import { sanitizeToolArguments } from "../../../shared/utils/toolArgsSanitizer.js";
-import { recordLoopTurnResult } from "../../../core/router/loopGuard.js";
 
 interface AntigravityAccountCredentials {
   accessToken: string;
@@ -563,14 +562,6 @@ export async function executeAntigravity(
     });
     logger.line(reqTag, LogSymbol.USAGE, `antigravity/${targetModel} · ${doneMsg}`);
 
-    if (context.loopSignature) {
-      const toolCalls = openAiResponse?.choices?.[0]?.message?.tool_calls?.map((tc: any) => ({
-        name: tc.function?.name || tc.name,
-        arguments: tc.function?.arguments || tc.arguments,
-      }));
-      recordLoopTurnResult(context.loopSignature, completionTokens, toolCalls);
-    }
-
     return { ok: true, status: 200, json: openAiResponse, modelUsed: targetModel };
   }
 
@@ -836,10 +827,6 @@ export async function executeAntigravity(
     cost: calculatedCost,
   });
   logger.line(reqTag, LogSymbol.USAGE, `antigravity/${targetModel} · ${doneMsg}`);
-
-  if (context.loopSignature) {
-    recordLoopTurnResult(context.loopSignature, completionTokens, collectedToolCalls);
-  }
 
   return { ok: true, status: 200, isStream: true, modelUsed: targetModel };
 }

@@ -83,18 +83,6 @@ export const DEFAULT_MASTER_PASSWORD_CONFIG: MasterPasswordConfig = {
   enabled: false,
 };
 
-export interface LoopGuardSettings {
-  enabled: boolean;
-  maxConsecutiveEmpty: number;
-  maxConsecutiveToolCalls: number;
-}
-
-export const DEFAULT_LOOP_GUARD_SETTINGS: LoopGuardSettings = {
-  enabled: true,
-  maxConsecutiveEmpty: 3,
-  maxConsecutiveToolCalls: 3,
-};
-
 function upgradeLegacyModel(m: string): string {
   return m === "oc/mimo-v2.5-free" ? DEFAULT_FALLBACK_MODEL : m;
 }
@@ -410,44 +398,5 @@ export class SettingsRepository {
     const normalized = level && typeof level === "string" ? level.trim().toLowerCase() : "info";
     this.setSetting("logLevel", normalized);
     return normalized;
-  }
-
-  // --- Loop Guard Settings ---
-
-  public static getLoopGuardSettings(): LoopGuardSettings {
-    const raw = this.getSetting<any>("loopGuard");
-    if (!raw || typeof raw !== "object") {
-      return { ...DEFAULT_LOOP_GUARD_SETTINGS };
-    }
-    return {
-      enabled: raw.enabled !== undefined ? Boolean(raw.enabled) : DEFAULT_LOOP_GUARD_SETTINGS.enabled,
-      maxConsecutiveEmpty:
-        typeof raw.maxConsecutiveEmpty === "number" && raw.maxConsecutiveEmpty >= 2
-          ? Math.floor(raw.maxConsecutiveEmpty)
-          : DEFAULT_LOOP_GUARD_SETTINGS.maxConsecutiveEmpty,
-      maxConsecutiveToolCalls:
-        typeof raw.maxConsecutiveToolCalls === "number" && raw.maxConsecutiveToolCalls >= 2
-          ? Math.floor(raw.maxConsecutiveToolCalls)
-          : DEFAULT_LOOP_GUARD_SETTINGS.maxConsecutiveToolCalls,
-    };
-  }
-
-  public static setLoopGuardSettings(
-    settings: Partial<LoopGuardSettings>
-  ): LoopGuardSettings {
-    const current = this.getLoopGuardSettings();
-    const updated: LoopGuardSettings = {
-      enabled: settings.enabled !== undefined ? Boolean(settings.enabled) : current.enabled,
-      maxConsecutiveEmpty:
-        typeof settings.maxConsecutiveEmpty === "number" && settings.maxConsecutiveEmpty >= 2
-          ? Math.floor(settings.maxConsecutiveEmpty)
-          : current.maxConsecutiveEmpty,
-      maxConsecutiveToolCalls:
-        typeof settings.maxConsecutiveToolCalls === "number" && settings.maxConsecutiveToolCalls >= 2
-          ? Math.floor(settings.maxConsecutiveToolCalls)
-          : current.maxConsecutiveToolCalls,
-    };
-    this.setSetting("loopGuard", updated);
-    return updated;
   }
 }

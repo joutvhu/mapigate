@@ -1,4 +1,4 @@
-import { getDatabase } from "../database.js";
+import { getDatabase, type DatabaseDriver } from "../database.js";
 import {
   TOOL_HOSTS,
   formatToolDefaultHosts,
@@ -21,25 +21,39 @@ export const TOOL_DEFAULT_HOSTS: Record<string, string> = {
 export const DEFAULT_HOSTS_ENTRIES = Object.values(TOOL_DEFAULT_HOSTS).join("\n");
 
 export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = [
-  { ide: "kiro", sourceModel: "Auto (Kiro Agent)", targetModel: "" },
+  { ide: "kiro", sourceModel: "claude-sonnet-4.5", targetModel: "" },
+  { ide: "kiro", sourceModel: "claude-sonnet-4", targetModel: "" },
+  { ide: "kiro", sourceModel: "claude-haiku-4.5", targetModel: "" },
+  { ide: "kiro", sourceModel: "claude-sonnet-5", targetModel: "" },
+  { ide: "kiro", sourceModel: "deepseek-3.2", targetModel: "" },
+  { ide: "kiro", sourceModel: "minimax-m2.5", targetModel: "" },
+  { ide: "kiro", sourceModel: "minimax-m2.1", targetModel: "" },
+  { ide: "kiro", sourceModel: "glm-5", targetModel: "" },
   { ide: "kiro", sourceModel: "auto", targetModel: "" },
   { ide: "kiro", sourceModel: "simple-task", targetModel: "" },
-  { ide: "kiro", sourceModel: "Claude Sonnet 5", targetModel: "" },
-  { ide: "kiro", sourceModel: "Claude Sonnet 4.5", targetModel: "" },
-  { ide: "kiro", sourceModel: "Claude Sonnet 4", targetModel: "" },
-  { ide: "kiro", sourceModel: "Claude Haiku 4.5", targetModel: "" },
-  { ide: "kiro", sourceModel: "DeepSeek 3.2", targetModel: "" },
-  { ide: "kiro", sourceModel: "MiniMax M2.5", targetModel: "" },
-  { ide: "kiro", sourceModel: "MiniMax M2.1", targetModel: "" },
-  { ide: "kiro", sourceModel: "GPT 5.6 Sol", targetModel: "" },
   { ide: "kiro", sourceModel: "gpt-5.6-sol", targetModel: "" },
-  { ide: "kiro", sourceModel: "GPT 5.6 Terra", targetModel: "" },
   { ide: "kiro", sourceModel: "gpt-5.6-terra", targetModel: "" },
-  { ide: "kiro", sourceModel: "GPT 5.6 Luna", targetModel: "" },
   { ide: "kiro", sourceModel: "gpt-5.6-luna", targetModel: "" },
-  { ide: "kiro", sourceModel: "GLM 5", targetModel: "" },
-  { ide: "kiro", sourceModel: "Qwen3 Coder Next", targetModel: "" },
+  { ide: "kiro", sourceModel: "qwen3-coder-next", targetModel: "" },
 ];
+
+export const LEGACY_KIRO_DISPLAY_TO_SLUG: Record<string, string> = {
+  "auto (kiro agent)": "auto",
+  "auto": "auto",
+  "simple-task": "simple-task",
+  "claude sonnet 5": "claude-sonnet-5",
+  "claude sonnet 4.5": "claude-sonnet-4.5",
+  "claude sonnet 4": "claude-sonnet-4",
+  "claude haiku 4.5": "claude-haiku-4.5",
+  "deepseek 3.2": "deepseek-3.2",
+  "minimax m2.5": "minimax-m2.5",
+  "minimax m2.1": "minimax-m2.1",
+  "gpt 5.6 sol": "gpt-5.6-sol",
+  "gpt 5.6 terra": "gpt-5.6-terra",
+  "gpt 5.6 luna": "gpt-5.6-luna",
+  "glm 5": "glm-5",
+  "qwen3 coder next": "qwen3-coder-next",
+};
 
 export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = [
   { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (High)", targetModel: "" },
@@ -200,8 +214,71 @@ export class MitmRepository {
     });
   }
 
+  public static migrateKiroMappings(db: DatabaseDriver): void {
+    const rows = db.all<any>("SELECT source_model, target_model FROM mitm_mappings WHERE ide = 'kiro'");
+    if (rows.length === 0) return;
+
+    const hasLegacy = rows.some((r: any) => {
+      const lower = r.source_model.toLowerCase();
+      return (
+        LEGACY_KIRO_DISPLAY_TO_SLUG[lower] !== undefined ||
+        /[A-Z\s()]/.test(r.source_model)
+      );
+    });
+
+    if (!hasLegacy) return;
+
+    const targetMap = new Map<string, string>();
+    const customModels = new Set<string>();
+
+    for (const r of rows) {
+      const raw = r.source_model.trim();
+      const lower = raw.toLowerCase();
+      const canonical =
+        LEGACY_KIRO_DISPLAY_TO_SLUG[lower] ||
+        lower.replace(/[\s_]+/g, "-").replace(/[()]/g, "");
+
+      const target = (r.target_model || "").trim();
+      if (target) {
+        if (!targetMap.has(canonical) || !targetMap.get(canonical)) {
+          targetMap.set(canonical, target);
+        }
+      } else if (!targetMap.has(canonical)) {
+        targetMap.set(canonical, "");
+      }
+
+      const isDefault = DEFAULT_KIRO_MAPPINGS.some((m) => m.sourceModel === canonical);
+      if (!isDefault) {
+        customModels.add(canonical);
+      }
+    }
+
+    db.run("DELETE FROM mitm_mappings WHERE ide = 'kiro'");
+
+    for (const def of DEFAULT_KIRO_MAPPINGS) {
+      const tgt = targetMap.get(def.sourceModel) || "";
+      db.run(
+        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', ?, ?)",
+        def.sourceModel,
+        tgt
+      );
+    }
+
+    for (const cust of customModels) {
+      const tgt = targetMap.get(cust) || "";
+      db.run(
+        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', ?, ?)",
+        cust,
+        tgt
+      );
+    }
+  }
+
   public static getMappings(ide: string): MitmMapping[] {
     const db = getDatabase();
+    if (ide.toLowerCase() === "kiro") {
+      this.migrateKiroMappings(db);
+    }
     const rows = db.all<any>("SELECT * FROM mitm_mappings WHERE ide = ?", ide);
     if (rows.length === 0) {
       const defaults = getDefaultMappings(ide);
@@ -236,6 +313,11 @@ export class MitmRepository {
     for (const r of currentRows) {
       if (r.target_model && r.target_model.trim().length > 0) {
         existingTargetMap.set(r.source_model, r.target_model.trim());
+        const lower = r.source_model.toLowerCase();
+        const canonical =
+          LEGACY_KIRO_DISPLAY_TO_SLUG[lower] ||
+          lower.replace(/[\s_]+/g, "-").replace(/[()]/g, "");
+        existingTargetMap.set(canonical, r.target_model.trim());
       }
     }
 

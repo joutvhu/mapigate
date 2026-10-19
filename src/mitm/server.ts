@@ -14,6 +14,7 @@ import {
   getToolForHost,
   isChatRequest,
   extractModel,
+  normalizeModelSlug,
   MODEL_SYNONYMS,
   MODEL_PATTERNS,
   MODEL_NO_MAP,
@@ -48,38 +49,60 @@ function sniCallback(servername: string, cb: (err: Error | null, ctx?: tls.Secur
   }
 }
 
-function resolveModelMapping(tool: string, incomingModel?: string | null): string | null {
+export function resolveModelMapping(tool: string, incomingModel?: string | null): string | null {
   if (!incomingModel) return null;
   const mappings = MitmRepository.getMappings(tool);
   if (mappings.length === 0) return null;
 
-  const normalized = incomingModel.replace(/^models\//, "");
-  const synonym = MODEL_SYNONYMS[tool]?.[normalized] || normalized;
+  const rawNormalized = incomingModel.replace(/^models\//, "").trim();
+  const incomingSlug = normalizeModelSlug(incomingModel);
 
-  // 1. Exact match with synonym or normalized
-  const exact = mappings.find(
-    (m) =>
-      m.sourceModel.toLowerCase() === synonym.toLowerCase() ||
-      m.sourceModel.toLowerCase() === normalized.toLowerCase()
-  );
-  if (exact) return exact.targetModel;
+  const toolSynonyms = MODEL_SYNONYMS[tool] || {};
+  const synonymTarget =
+    toolSynonyms[rawNormalized] ||
+    toolSynonyms[rawNormalized.toLowerCase()] ||
+    toolSynonyms[incomingSlug] ||
+    rawNormalized;
+  const synonymSlug = normalizeModelSlug(synonymTarget);
+
+  // 1. Exact match with synonym or normalized or slug
+  for (const m of mappings) {
+    const mLower = m.sourceModel.toLowerCase();
+    const mSlug = normalizeModelSlug(m.sourceModel);
+    if (
+      mLower === rawNormalized.toLowerCase() ||
+      mLower === synonymTarget.toLowerCase() ||
+      mSlug === incomingSlug ||
+      mSlug === synonymSlug
+    ) {
+      return m.targetModel.trim() || null;
+    }
+  }
 
   // 2. Prefix match
-  const prefix = mappings.find(
-    (m) =>
-      synonym.toLowerCase().startsWith(m.sourceModel.toLowerCase()) ||
-      m.sourceModel.toLowerCase().startsWith(synonym.toLowerCase())
-  );
-  if (prefix) return prefix.targetModel;
+  for (const m of mappings) {
+    const mSlug = normalizeModelSlug(m.sourceModel);
+    const mLower = m.sourceModel.toLowerCase();
+    if (
+      incomingSlug.startsWith(mSlug) ||
+      synonymSlug.startsWith(mSlug) ||
+      mLower.startsWith(rawNormalized.toLowerCase())
+    ) {
+      return m.targetModel.trim() || null;
+    }
+  }
 
   // 3. Pattern match (catches renamed or generic flash/opus variants)
   const patterns = MODEL_PATTERNS[tool] || [];
   for (const { match, alias } of patterns) {
-    if (match.test(synonym)) {
+    if (match.test(rawNormalized) || match.test(synonymTarget) || match.test(incomingSlug)) {
+      const aliasSlug = normalizeModelSlug(alias);
       const patternMapped = mappings.find(
-        (m) => m.sourceModel.toLowerCase() === alias.toLowerCase()
+        (m) =>
+          m.sourceModel.toLowerCase() === alias.toLowerCase() ||
+          normalizeModelSlug(m.sourceModel) === aliasSlug
       );
-      if (patternMapped) return patternMapped.targetModel;
+      if (patternMapped) return patternMapped.targetModel.trim() || null;
     }
   }
 

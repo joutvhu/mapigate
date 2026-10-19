@@ -9,11 +9,11 @@ interface MitmMappingRow {
 
 const DEFAULT_TOOL_MODEL_ORDER: Record<string, string[]> = {
   kiro: [
-    "Auto (Kiro Agent)", "auto", "simple-task",
-    "Claude Sonnet 5", "Claude Sonnet 4.5", "Claude Sonnet 4", "Claude Haiku 4.5",
-    "DeepSeek 3.2", "MiniMax M2.5", "MiniMax M2.1",
-    "GPT 5.6 Sol", "gpt-5.6-sol", "GPT 5.6 Terra", "gpt-5.6-terra", "GPT 5.6 Luna", "gpt-5.6-luna",
-    "GLM 5", "Qwen3 Coder Next",
+    "claude-sonnet-4.5", "claude-sonnet-4", "claude-haiku-4.5", "claude-sonnet-5",
+    "deepseek-3.2", "minimax-m2.5", "minimax-m2.1", "glm-5",
+    "auto", "simple-task",
+    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
+    "qwen3-coder-next",
   ],
   antigravity: [
     "Gemini 3.8 Flash (High)", "Gemini 3.8 Flash (Medium)", "Gemini 3.8 Flash (Low)",

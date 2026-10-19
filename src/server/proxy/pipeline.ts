@@ -17,7 +17,6 @@ import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
-import { computeLoopSignature, checkLoopGuard, recordLoopTurnResult } from "../../core/router/loopGuard.js";
 import crypto from "node:crypto";
 
 export async function runProxyPipeline(
@@ -144,32 +143,6 @@ export async function runProxyPipeline(
     });
   };
 
-  const messages = Array.isArray(body.messages) ? body.messages : Array.isArray(body.input) ? body.input : [];
-  const lastMsg = messages.length > 0 ? messages[messages.length - 1] : undefined;
-  const lastMsgPreview = typeof lastMsg?.content === "string" ? lastMsg.content : (Array.isArray(lastMsg?.content) ? JSON.stringify(lastMsg.content) : "");
-  const loopSignature = computeLoopSignature(clientTool, cleanModel, messages.length, lastMsgPreview);
-
-  const loopCheck = checkLoopGuard(loopSignature, undefined, messages);
-  if (loopCheck.shouldHalt) {
-    const isToolLoop = loopCheck.reason === "tool_loop";
-    const logReason = isToolLoop
-      ? `Repeated tool call loop detected (${loopCheck.count} consecutive identical tool calls for model ${cleanModel})`
-      : `Repeated 0-token loop detected (${loopCheck.count} consecutive empty turns for model ${cleanModel})`;
-    logger.warn("LOOP-GUARD", `[${reqTag}] Halting request: ${logReason}. Loop guard engaged.`);
-    if (!res.headersSent) {
-      res.status(429).json({
-        error: {
-          message: isToolLoop
-            ? `[Mapigate Loop-Guard] Terminated turn: Model repeated the same tool call for ${loopCheck.count} consecutive requests without progress. Halting loop to prevent quota drain. Please send a new prompt or check your tools.`
-            : `[Mapigate Loop-Guard] Terminated turn: Upstream model produced 0 tokens for ${loopCheck.count} consecutive requests. Halting loop to prevent quota drain. Please send a new prompt or check your prompt/model settings.`,
-          type: "loop_detected_error",
-          code: "infinite_loop_prevented",
-        },
-      });
-    }
-    return;
-  }
-
   const context: ProviderRequestContext = {
     req,
     res,
@@ -185,7 +158,6 @@ export async function runProxyPipeline(
     clientTool,
     rawModel,
     rtkStats,
-    loopSignature,
   };
 
   try {
@@ -200,15 +172,6 @@ export async function runProxyPipeline(
       }
     } else {
       result = await handleSingleModel(body, cleanModel, false);
-    }
-
-    const resultUsage = (result.json as any)?.usage || (result.data as any)?.usage;
-    if (result.ok && resultUsage) {
-      const outTokens = resultUsage.completion_tokens ?? resultUsage.completionTokens ?? 1;
-      const toolCalls =
-        (result.json as any)?.choices?.[0]?.message?.tool_calls ||
-        (result as any).tools;
-      recordLoopTurnResult(loopSignature, outTokens, toolCalls);
     }
 
     if (result.ok && !res.headersSent) {

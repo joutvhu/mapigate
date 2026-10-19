@@ -9,7 +9,6 @@ import { reasoningCache } from "../../core/caching/reasoningCache.js";
 import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
-import { recordLoopTurnResult } from "../../core/router/loopGuard.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -160,14 +159,6 @@ export async function handleNonStreamingResponse(
   const doneSummary = `${provider.id}/${targetModel} · ${doneMsg}`;
   logger.line(reqTag, LogSymbol.USAGE, doneSummary);
 
-  if (context.loopSignature) {
-    const toolCalls = responseBody?.choices?.[0]?.message?.tool_calls?.map((tc: any) => ({
-      name: tc.function?.name || tc.name,
-      arguments: tc.function?.arguments || tc.arguments,
-    }));
-    recordLoopTurnResult(context.loopSignature, completionTokens, toolCalls);
-  }
-
   appendStructuredLog({
     id: context.requestId,
     timestamp: Date.now(),
@@ -306,14 +297,6 @@ export async function handleStreamingResponse(
     },
     rawText: doneSummary,
   });
-
-  if (context.loopSignature) {
-    const toolCalls = streamRes.tools?.map((tc: any) => ({
-      name: tc.name,
-      arguments: tc.arguments,
-    }));
-    recordLoopTurnResult(context.loopSignature, completionTokens, toolCalls);
-  }
 
   return { ok: true, status: 200, modelUsed: targetModel };
 }

@@ -106,6 +106,13 @@ export function isBinaryData(buffer: Buffer): boolean {
   return nonPrintable / sample.length > 0.3;
 }
 
+export function normalizeModelSlug(model?: string | null): string {
+  if (!model) return "";
+  let clean = String(model).trim().toLowerCase();
+  clean = clean.replace(/^models\//, "");
+  return clean.replace(/[\s_]+/g, "-").replace(/-+/g, "-");
+}
+
 export function extractModel(url: string = "", body: Buffer | string | any = ""): string | null {
   const urlMatch = url.match(/\/models\/([^/:]+)/);
   const urlModel = urlMatch?.[1] || null;
