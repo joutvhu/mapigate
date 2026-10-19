@@ -321,3 +321,33 @@ settingsRouter.post("/autostart", (req, res) => {
   }
 });
 
+// GET /api/settings/loop-guard - Get loop guard settings
+settingsRouter.get("/loop-guard", (_req, res) => {
+  try {
+    const config = SettingsRepository.getLoopGuardSettings();
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to fetch loop-guard settings" });
+  }
+});
+
+// PUT /api/settings/loop-guard - Update loop guard settings
+settingsRouter.put("/loop-guard", (req, res) => {
+  try {
+    const updated = SettingsRepository.setLoopGuardSettings(req.body || {});
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to update loop-guard settings" });
+  }
+});
+
+// PATCH /api/settings/loop-guard - Partial update loop guard settings
+settingsRouter.patch("/loop-guard", (req, res) => {
+  try {
+    const updated = SettingsRepository.setLoopGuardSettings(req.body || {});
+    res.json(updated);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to update loop-guard settings" });
+  }
+});
+

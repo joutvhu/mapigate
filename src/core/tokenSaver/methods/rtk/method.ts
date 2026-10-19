@@ -7,8 +7,6 @@ import type {
 import { rtkMetadata } from "./metadata.js";
 import { RAW_CAP, type FilterFunction } from "./constants.js";
 import { autoDetectFilter, safeApply } from "./autodetect.js";
-import { compressTerminalLogs } from "./filters/terminalLogs.js";
-import { compressGitDiff } from "./filters/gitDiff.js";
 
 export class RtkMethod implements ITokenSaverMethod {
   public readonly id = rtkMetadata.id;
@@ -84,14 +82,9 @@ export class RtkMethod implements ITokenSaverMethod {
         }
       }
 
-      // If no auto-detect or didn't compress, fallback to diff + terminal logs
-      if (result === output) {
-        result = compressGitDiff(result);
-        result = compressTerminalLogs(result);
-        result = result.replace(/\n{3,}/g, "\n\n");
-        if (result.length < origLen) {
-          appliedFilter = "gitDiff+terminalLogs";
-        }
+      // Safety invariant: Fail-open. Never return empty, never grow the input.
+      if (!result || result.trim().length === 0 || result.length >= origLen) {
+        return { text: output, tokensSaved: 0 };
       }
 
       const origEstimate = Math.ceil(origLen / 4);

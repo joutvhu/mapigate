@@ -216,7 +216,7 @@ describe("MITM Modular Tool Handlers", () => {
       assert.ok(initialStr.includes("sess_74ab5020-2af8-4af6-984d-9b8cce631402"));
     });
 
-    it("synthesizes assistantResponseEvent when model produces only thinking to prevent 'returned no response'", () => {
+    it("emits reasoningContentEvent and messageStopEvent without fake assistantResponseEvent when model produces only thinking (9router standard)", () => {
       const state = initKiroState("gemini-3.8-flash", "sess_1234");
       // Chunk 1: reasoning only
       const thinkChunk = {
@@ -225,6 +225,10 @@ describe("MITM Modular Tool Handlers", () => {
       };
       const r1 = convertOpenAIToKiro(thinkChunk, state);
       assert.ok(r1);
+      const r1Frames = Array.isArray(r1) ? r1 : [r1];
+      const r1Str = Buffer.concat(r1Frames).toString("utf8");
+      assert.ok(r1Str.includes("reasoningContentEvent"));
+      assert.ok(r1Str.includes("I am analyzing the problem."));
 
       // Finish with stop reason and 0 text tokens
       const finishChunk = {
@@ -234,9 +238,65 @@ describe("MITM Modular Tool Handlers", () => {
       assert.ok(r2);
       const finishFrames = Array.isArray(r2) ? r2 : [r2];
       const finishStr = Buffer.concat(finishFrames).toString("utf8");
-      // Must include assistantResponseEvent before messageStopEvent
-      assert.ok(finishStr.includes("assistantResponseEvent"));
+      // Must emit messageStopEvent and NOT fake assistantResponseEvent
       assert.ok(finishStr.includes("messageStopEvent"));
+      assert.ok(!finishStr.includes("assistantResponseEvent"));
+    });
+
+    it("emits toolUseEvent sequence and stop:true without messageStopEvent when model calls tools (9router standard)", () => {
+      const state = initKiroState("gemini-3.8-flash", "sess_5678");
+
+      // Chunk 1: role only
+      const roleChunk = {
+        model: "gemini-3.8-flash",
+        choices: [{ delta: { role: "assistant" } }],
+      };
+      const r1 = convertOpenAIToKiro(roleChunk, state);
+      assert.ok(r1);
+
+      // Chunk 2: reasoning
+      const thinkChunk = {
+        choices: [{ delta: { reasoning_content: "Looking up file." } }],
+      };
+      const r2 = convertOpenAIToKiro(thinkChunk, state);
+      assert.ok(r2);
+      const r2Str = Buffer.concat(Array.isArray(r2) ? r2 : [r2]).toString("utf8");
+      assert.ok(r2Str.includes("reasoningContentEvent"));
+
+      // Chunk 3: tool call init and arguments
+      const toolChunk = {
+        choices: [
+          {
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_file_search_1",
+                  function: { name: "file_search", arguments: '{"query":"test"}' },
+                },
+              ],
+            },
+          },
+        ],
+      };
+      const r3 = convertOpenAIToKiro(toolChunk, state);
+      assert.ok(r3);
+      const r3Str = Buffer.concat(Array.isArray(r3) ? r3 : [r3]).toString("utf8");
+      assert.ok(r3Str.includes("toolUseEvent"));
+      assert.ok(r3Str.includes("file_search"));
+      assert.ok(r3Str.includes("call_file_search_1"));
+
+      // Chunk 4: finish_reason: tool_calls
+      const finishChunk = {
+        choices: [{ finish_reason: "tool_calls" }],
+      };
+      const r4 = convertOpenAIToKiro(finishChunk, state);
+      assert.ok(r4);
+      const r4Str = Buffer.concat(Array.isArray(r4) ? r4 : [r4]).toString("utf8");
+      assert.ok(r4Str.includes("toolUseEvent"));
+      assert.ok(r4Str.includes('"stop":true'));
+      assert.ok(!r4Str.includes("messageStopEvent"));
+      assert.ok(!r4Str.includes("assistantResponseEvent"));
     });
   });
 

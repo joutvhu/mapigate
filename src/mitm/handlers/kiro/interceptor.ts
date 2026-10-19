@@ -5,12 +5,15 @@ import {
   convertOpenAIToKiro,
   codeWhispererToMessages,
   extractTools,
+  extractToolResultContent,
 } from "./converter.js";
+import { logger } from "../../../shared/logger.js";
 
 export {
   convertOpenAIToKiro,
   extractThinking,
   safeArgsString,
+  extractToolResultContent,
   convertUserInputMessage,
   convertAssistantResponseMessage,
   codeWhispererToMessages,
@@ -38,7 +41,11 @@ export async function interceptKiro(
       if (mappedModel) {
         body.model = mappedModel;
       }
-      const routerRes = await fetchRouter(body, "/v1/responses", req.headers);
+      const routerHeaders: Record<string, string> = {
+        ...(req.headers as Record<string, string>),
+        "x-client-tool": "kiro",
+      };
+      const routerRes = await fetchRouter(body, "/v1/responses", routerHeaders);
       await pipeSSE(routerRes, res);
       return;
     }
@@ -48,20 +55,36 @@ export async function interceptKiro(
       body.conversationState?.conversationId ||
       body.conversationId ||
       "";
+
+    const toolResults = body.conversationState?.currentMessage?.userInputMessage?.userInputMessageContext?.toolResults || [];
+    if (toolResults.length > 0 && logger.isDebugEnabled()) {
+      const summary = toolResults.map((tr: any) => {
+        const content = extractToolResultContent(tr);
+        return `${tr.toolUseId || "unknown"} (${content.length} chars${content.length === 0 ? ", EMPTY!" : ""})`;
+      }).join(", ");
+      logger.debug("MITM:KIRO", `[Kiro] Received ${toolResults.length} tool results: ${summary}`);
+    }
+
     const messages = codeWhispererToMessages(body);
     if (messages.length === 0) {
       throw new Error("codeWhispererToMessages produced 0 messages");
     }
 
     const tools = extractTools(body);
-    const openaiBody = {
+    const openaiBody: any = {
       model: mappedModel,
       messages,
       stream: true,
       ...(tools.length > 0 && { tools, tool_choice: "auto" }),
+      ...(conversationId ? { conversation_id: conversationId } : {}),
     };
 
-    const routerRes = await fetchRouter(openaiBody, "/v1/chat/completions", req.headers);
+    const routerHeaders: Record<string, string> = {
+      ...(req.headers as Record<string, string>),
+      "x-client-tool": "kiro",
+      ...(conversationId ? { "x-session-id": conversationId } : {}),
+    };
+    const routerRes = await fetchRouter(openaiBody, "/v1/chat/completions", routerHeaders);
     const state = initKiroState(mappedModel, conversationId);
 
     await pipeTransformedEventStream(routerRes, res, convertOpenAIToKiro, state);

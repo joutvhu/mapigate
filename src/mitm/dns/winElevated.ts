@@ -72,8 +72,11 @@ export function runElevatedPowerShell(script: string): Promise<string> {
           const msg = stderr || error.message;
           if (msg.includes("canceled by the user") || msg.includes("operation was canceled")) {
             reject(new Error("User canceled UAC prompt"));
+          } else if (msg.includes("The request is not supported")) {
+            reject(new Error("UAC elevation not supported in background process (run as Administrator)"));
           } else {
-            reject(new Error(msg));
+            const cleanMsg = msg.replace(/#<\s*CLIXML[\s\S]*$/, "").trim() || msg;
+            reject(new Error(cleanMsg));
           }
         } else {
           resolve(stdout);

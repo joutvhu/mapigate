@@ -134,6 +134,7 @@ export interface ProviderRequestContext {
   clientTool: string;
   rawModel: string;
   rtkStats: { compressedTokens: number; tokensSaved: number };
+  loopSignature?: string;
 }
 
 export interface IProvider {

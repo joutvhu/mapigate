@@ -1,6 +1,9 @@
 import { buildEventStreamFrame, withInitialFrame, type KiroState } from "./state.js";
 
-export function extractThinking(text: string, state: KiroState): { thinking: string | null; text: string | null } {
+export function extractThinking(
+  text: string,
+  state: { inThink: boolean; thinkBuf: string }
+): { thinking: string | null; text: string | null } {
   if (!text) return { thinking: null, text: null };
 
   let working = text;
@@ -10,7 +13,8 @@ export function extractThinking(text: string, state: KiroState): { thinking: str
     state.inThink = false;
   }
 
-  const startMatch = working.match(/<thinking>|<think>/i);
+  const startRe = /<thinking>|<think>/i;
+  const startMatch = working.match(startRe);
   if (!startMatch) {
     return { thinking: null, text: working };
   }
@@ -32,9 +36,13 @@ export function extractThinking(text: string, state: KiroState): { thinking: str
   const after = working.slice(endIdx + closeTag.length).trim();
   const rest = [before, after].filter(Boolean).join("");
 
+  const recurse = rest
+    ? extractThinking(rest, { inThink: false, thinkBuf: "" })
+    : { thinking: null, text: null };
+
   return {
     thinking: thinking || null,
-    text: rest || null,
+    text: recurse.text || null,
   };
 }
 
@@ -196,6 +204,7 @@ export function extractTools(body: any): any[] {
 export function emitFinish(state: KiroState): Buffer[] | null {
   const frames: Buffer[] = [];
   if (state.hasToolCalls) {
+    // Tool-call response: emit stop:true for each tool
     for (const idx of Object.keys(state.toolCallInit).sort()) {
       const tc = state.toolCallInit[Number(idx)];
       frames.push(
@@ -207,25 +216,12 @@ export function emitFinish(state: KiroState): Buffer[] | null {
       );
     }
   } else {
-    // If no text was ever emitted, Kiro IDE shows "Error sending prompt: <model> returned no response."
-    // Synthesize an assistantResponseEvent from thinking or fallback text so Kiro always receives content.
-    if (!state.hasEmittedContent) {
-      const fallbackText =
-        state.thinkBuf || "I processed your request, but no additional output was generated.";
-      state.hasEmittedContent = true;
-      state.thinkBuf = "";
-      state.inThink = false;
-      frames.push(
-        buildEventStreamFrame("assistantResponseEvent", {
-          content: fallbackText,
-          modelId: state.modelId || "kiro-unknown",
-        })
-      );
-    }
+    // Text-only response: emit messageStopEvent
     frames.push(buildEventStreamFrame("messageStopEvent", {}));
   }
   state.finishSent = true;
 
+  // Emit usage if available
   if (state.usage) {
     frames.push(
       buildEventStreamFrame("usageEvent", {
@@ -240,25 +236,41 @@ export function emitFinish(state: KiroState): Buffer[] | null {
 }
 
 export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer | Buffer[] | null {
+  // Flush: ensure clean stream termination
   if (!chunk) {
     if (state.finishSent) return null;
-    const finishFrames = emitFinish(state);
-    return withInitialFrame(state, finishFrames);
+    // Flush any remaining buffered thinking
+    if (state.inThink && state.thinkBuf) {
+      state.inThink = false;
+      const thinking = state.thinkBuf;
+      state.thinkBuf = "";
+      return withInitialFrame(
+        state,
+        buildEventStreamFrame("reasoningContentEvent", {
+          content: thinking,
+          modelId: state.modelId || "kiro-unknown",
+        })
+      );
+    }
+    return withInitialFrame(state, buildEventStreamFrame("messageStopEvent", {}));
   }
 
   const frames: Buffer[] = [];
   const choice = chunk.choices?.[0];
   const delta = choice?.delta || {};
 
+  // Capture modelId from first chunk (real API includes it in every content frame)
   if (!state.modelId && chunk.model) {
     state.modelId = chunk.model;
   }
   const modelId = state.modelId || "unknown";
 
+  // Handle usage (may arrive standalone or with other chunks)
   if (chunk.usage) {
     state.usage = chunk.usage;
   }
 
+  // Handle tool calls — stream incrementally, matching real API format
   if (delta.tool_calls) {
     state.hasToolCalls = true;
     for (const tc of delta.tool_calls) {
@@ -286,15 +298,18 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
     }
   }
 
-  if (delta.reasoning_content) {
+  // Handle explicit reasoning_content (type-specific thinking channel)
+  const reasoning = delta.reasoning_content || delta.reasoningContent || delta.reasoning;
+  if (reasoning) {
     frames.push(
       buildEventStreamFrame("reasoningContentEvent", {
-        content: delta.reasoning_content,
+        content: reasoning,
         modelId,
       })
     );
   }
 
+  // Handle text content — extract thinking blocks, emit rest as assistantResponseEvent
   if (delta.content) {
     const { thinking, text } = extractThinking(delta.content, state);
     if (thinking) {
@@ -306,7 +321,6 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
       );
     }
     if (text) {
-      state.hasEmittedContent = true;
       frames.push(
         buildEventStreamFrame("assistantResponseEvent", {
           content: text,
@@ -316,6 +330,7 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
     }
   }
 
+  // Handle finish_reason
   if (choice?.finish_reason) {
     const finishFrames = emitFinish(state);
     if (finishFrames) {

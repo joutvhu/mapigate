@@ -65,10 +65,34 @@ export class MitmManager {
     }
 
     try {
+      if (mitmServerInstance.getStatus().running && mitmServerInstance.getStatus().port === targetPort) {
+        return targetPort;
+      }
+
       // Pre-flight check: is port already occupied?
       const portOwner = await inspectPortOwner(targetPort);
       if (portOwner.inUse) {
-        if (opts.forceKill && !portOwner.isSystemProcess && portOwner.pid && portOwner.pid > 4) {
+        if (portOwner.pid === process.pid) {
+          // Port is held by this Mapigate process (e.g. previous instance closing). Wait for release without killing ourselves.
+          let released = false;
+          for (let i = 0; i < 15; i++) {
+            if (await checkPortFree(targetPort)) {
+              released = true;
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 200));
+          }
+          if (!released) {
+            if (mitmServerInstance.getStatus().running) {
+              return targetPort;
+            }
+            throw new PortConflictError(
+              `Port ${targetPort} is held by this Mapigate process and is still releasing. Please wait a moment.`,
+              "PORT_443_BUSY",
+              portOwner
+            );
+          }
+        } else if (opts.forceKill && !portOwner.isSystemProcess && portOwner.pid && portOwner.pid > 4) {
           console.log(
             `[MITM] Terminating process occupying port ${targetPort} (PID ${portOwner.pid}, name=${portOwner.processName})...`
           );

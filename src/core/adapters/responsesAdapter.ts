@@ -643,9 +643,9 @@ export function finalizeResponsesStream(state: ResponsesStreamState): ResponsesS
   closeReasoning(state, emit);
   for (const i of Object.keys(state.funcCallIds).map(Number)) closeToolCall(state, emit, i);
 
-  // Anti-empty fallback: If zero output items were completed, emit a clean fallback message
+  // Anti-empty fallback: If zero output items were completed, emit an informative fallback message
   if (state.completedOutputItems.size === 0) {
-    emitTextContent(state, emit, 0, "I am ready. How can I help you?");
+    emitTextContent(state, emit, 0, "The upstream model produced no output for this turn. Please check model logs or try another prompt.");
     closeMessage(state, emit, 0);
   }
 

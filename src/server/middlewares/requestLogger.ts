@@ -27,6 +27,78 @@ function isNoisyPath(reqPath: string): boolean {
 }
 
 /** Extract client tool identification */
+function formatMessagePreview(msg: any, maxLen = 140): string {
+  if (!msg) return "";
+  const role = msg.role || msg.type || "unknown";
+
+  if (role === "tool") {
+    const callId = msg.tool_call_id ? ` [id: ${msg.tool_call_id}]` : "";
+    const rawContent = msg.content;
+    const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent ?? "");
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return `[tool${callId}] ⚠️ EMPTY RESULT (0 chars)`;
+    }
+    const snippet = trimmed.length > maxLen ? trimmed.slice(0, maxLen) + "..." : trimmed;
+    return `[tool${callId} (${content.length} chars)] ${snippet.replace(/\r?\n/g, " ")}`;
+  }
+
+  if (role === "assistant") {
+    if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+      const calls = msg.tool_calls
+        .map((tc: any) => {
+          const name = tc.function?.name || "tool";
+          const args = tc.function?.arguments ? tc.function.arguments.slice(0, maxLen) : "";
+          return `${name}(${args})` + (tc.id ? ` [id: ${tc.id}]` : "");
+        })
+        .join(", ");
+      return `[assistant] 🛠️ tool_calls: ${calls}`;
+    }
+    const content = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content ?? "");
+    const trimmed = content.trim();
+    const snippet = trimmed.length > maxLen ? trimmed.slice(0, maxLen) + "..." : trimmed;
+    return `[assistant] ${snippet.replace(/\r?\n/g, " ")}`;
+  }
+
+  if (role === "user") {
+    let text = "";
+    if (typeof msg.content === "string") {
+      text = msg.content;
+    } else if (Array.isArray(msg.content)) {
+      text = msg.content.map((p: any) => p?.text || (p?.type ? `[${p.type}]` : "")).filter(Boolean).join(" ");
+    } else {
+      text = JSON.stringify(msg.content ?? "");
+    }
+    const trimmed = text.trim();
+    const snippet = trimmed.length > maxLen ? trimmed.slice(0, maxLen) + "..." : trimmed;
+    return `[user] ${snippet.replace(/\r?\n/g, " ")}`;
+  }
+
+  if (role === "function_call") {
+    const args = typeof msg.arguments === "string" ? msg.arguments.slice(0, maxLen) : JSON.stringify(msg.arguments || "").slice(0, maxLen);
+    return `[function_call] 🛠️ ${msg.name}(${args}) [id: ${msg.call_id || ""}]`;
+  }
+
+  if (role === "function_call_output") {
+    const outStr = typeof msg.output === "string" ? msg.output : JSON.stringify(msg.output ?? "");
+    const trimmed = outStr.trim();
+    if (!trimmed) {
+      return `[function_call_output id:${msg.call_id || ""}] ⚠️ EMPTY OUTPUT (0 chars)`;
+    }
+    const snippet = trimmed.length > maxLen ? trimmed.slice(0, maxLen) + "..." : trimmed;
+    return `[function_call_output id:${msg.call_id || ""} (${outStr.length} chars)] ${snippet.replace(/\r?\n/g, " ")}`;
+  }
+
+  return `[${role}]`;
+}
+
+function formatTurnTail(messages: any[], count = 2, maxLen = 140): string[] {
+  if (!Array.isArray(messages) || messages.length === 0) return [];
+  const tail = messages.slice(-count);
+  return tail.map((m) => formatMessagePreview(m, maxLen));
+}
+
+/** Extract client tool identification */
 function getClientTool(req: Request): string {
   const custom = req.headers["x-client-tool"];
   if (custom && typeof custom === "string") return custom;
@@ -37,6 +109,7 @@ function getClientTool(req: Request): string {
     if (ua.includes("Cline") || ua.includes("cline")) return "cline";
     if (ua.includes("Copilot") || ua.includes("copilot")) return "copilot";
     if (ua.includes("OpenCode") || ua.includes("opencode")) return "opencode";
+    if (ua.includes("kiro") || ua.includes("Kiro") || ua.includes("aws-sdk-js")) return "kiro";
     if (ua.length > 30) return ua.slice(0, 30) + "...";
     return ua || "unknown";
   }
@@ -74,22 +147,49 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       `${req.method} ${req.path} · client: ${clientTool}${model}${streamInfo}`
     );
 
+    const messages = Array.isArray(req.body?.messages)
+      ? req.body.messages
+      : Array.isArray(req.body?.input)
+      ? req.body.input
+      : [];
+    const msgCount = messages.length;
+    const tools = Array.isArray(req.body?.tools) ? req.body.tools : [];
+    const toolNames = tools.map((t: any) => t.function?.name || t.name).filter(Boolean);
+
     if (logger.isDebugEnabled()) {
-      const msgCount = Array.isArray(req.body?.messages) ? req.body.messages.length : 0;
-      const toolCount = Array.isArray(req.body?.tools) ? req.body.tools.length : 0;
       const details: string[] = [];
       if (msgCount > 0) details.push(`${msgCount} msgs`);
-      if (toolCount > 0) details.push(`${toolCount} tools`);
+      if (toolNames.length > 0) {
+        const toolList = toolNames.length <= 5
+          ? `[${toolNames.join(", ")}]`
+          : `[${toolNames.slice(0, 4).join(", ")}, +${toolNames.length - 4} more]`;
+        details.push(`${toolNames.length} tools: ${toolList}`);
+      }
       if (req.body?.max_tokens) details.push(`max_tokens: ${req.body.max_tokens}`);
       if (req.body?.temperature !== undefined) details.push(`temp: ${req.body.temperature}`);
       const detailStr = details.length > 0 ? ` (${details.join(", ")})` : "";
       logger.debug("PROXY", `[${reqTag}] Incoming request: ${req.method} ${req.path}${detailStr}`);
+
+      if (msgCount > 0) {
+        const tailLines = formatTurnTail(messages, 2, 140);
+        for (const line of tailLines) {
+          logger.debug("PROXY", `[${reqTag}]   ↳ ${line}`);
+        }
+      }
     }
 
     if (logger.isTraceEnabled()) {
       try {
-        const preview = JSON.stringify(logger.sanitize(req.body)).slice(0, 1000);
-        logger.trace("PROXY", `[${reqTag}] Payload preview: ${preview}`);
+        if (msgCount > 2) {
+          const tailLines = formatTurnTail(messages, 4, 300);
+          logger.trace("PROXY", `[${reqTag}] Conversation turn tail (last ${tailLines.length} msgs):`);
+          for (const line of tailLines) {
+            logger.trace("PROXY", `[${reqTag}]     ${line}`);
+          }
+        } else {
+          const preview = JSON.stringify(logger.sanitize(req.body)).slice(0, 1000);
+          logger.trace("PROXY", `[${reqTag}] Payload preview: ${preview}`);
+        }
       } catch {}
     }
   } else {

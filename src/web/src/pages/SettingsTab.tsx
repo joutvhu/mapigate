@@ -34,6 +34,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
     targetPath: string | null;
   } | null>(null);
   const [isUpdatingAutostart, setIsUpdatingAutostart] = useState(false);
+  const [loopGuardSettings, setLoopGuardSettings] = useState<{
+    enabled: boolean;
+    maxConsecutiveEmpty: number;
+  }>({ enabled: true, maxConsecutiveEmpty: 3 });
+  const [isSavingLoopGuard, setIsSavingLoopGuard] = useState(false);
 
   const handleOpenRestart = onRestartClick || (() => setIsRestartOpenInternal(true));
 
@@ -55,7 +60,37 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
         }
       })
       .catch(() => {});
+
+    fetch("/api/settings/loop-guard")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.enabled === "boolean") {
+          setLoopGuardSettings(data);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  const handleUpdateLoopGuard = async (partial: Partial<{ enabled: boolean; maxConsecutiveEmpty: number }>) => {
+    setIsSavingLoopGuard(true);
+    const updated = { ...loopGuardSettings, ...partial };
+    setLoopGuardSettings(updated);
+    try {
+      const res = await fetch("/api/settings/loop-guard", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partial),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLoopGuardSettings(data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSavingLoopGuard(false);
+    }
+  };
 
   const handleToggleAutostart = async () => {
     if (!autostartInfo || isUpdatingAutostart) return;
@@ -305,6 +340,77 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
             </>
           )}
         </div>
+      </div>
+
+      {/* Loop-Guard Protection Card */}
+      <div className="rt-card p-6 space-y-4 border border-[#1E293B]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">security_update_good</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-white">Loop-Guard Protection</h3>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${
+                    loopGuardSettings.enabled
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                      : "bg-slate-800 text-slate-400 border border-slate-700"
+                  }`}
+                >
+                  {loopGuardSettings.enabled ? "Active" : "Disabled"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Prevent infinite request ping-pong loops when AI coding assistants retry 0-token turns
+              </p>
+            </div>
+          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={loopGuardSettings.enabled}
+              onChange={(e) => handleUpdateLoopGuard({ enabled: e.target.checked })}
+              className="sr-only peer"
+              disabled={isSavingLoopGuard}
+            />
+            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+          </label>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          When coding assistants (e.g., Kiro, Cursor, Claude Code) encounter empty model responses or malformed tool schemas, they may repeatedly send identical queries every second. Loop-Guard detects consecutive 0-token responses and safely halts the loop to protect your quota.
+        </p>
+
+        {loopGuardSettings.enabled && (
+          <div className="p-3.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div>
+              <span className="font-semibold text-white block">Maximum Consecutive Empty Retries</span>
+              <span className="text-slate-400 text-[11px]">
+                Halt turn after this many consecutive 0-token responses (default: 3)
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={2}
+                max={10}
+                value={loopGuardSettings.maxConsecutiveEmpty}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 2 && val <= 10) {
+                    handleUpdateLoopGuard({ maxConsecutiveEmpty: val });
+                  }
+                }}
+                disabled={isSavingLoopGuard}
+                className="w-16 bg-[#161B26] border border-[#1E293B] rounded-lg px-2.5 py-1.5 text-center text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+              />
+              <span className="text-slate-400 text-xs">attempts</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Gateway Server Control Card */}

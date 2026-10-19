@@ -22,7 +22,6 @@ export interface KiroState {
   conversationId: string;
   toolCallInit: Record<number, { id: string; name: string }>;
   hasToolCalls: boolean;
-  hasEmittedContent: boolean;
   finishSent: boolean;
   usage: any | null;
   inThink: boolean;
@@ -36,7 +35,6 @@ export function initKiroState(modelId?: string, conversationId?: string): KiroSt
     conversationId: conversationId || "",
     toolCallInit: {},
     hasToolCalls: false,
-    hasEmittedContent: false,
     finishSent: false,
     usage: null,
     inThink: false,

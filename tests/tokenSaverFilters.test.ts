@@ -18,6 +18,7 @@ import {
   smartTruncate,
   autoDetectFilter,
   safeApply,
+  RtkMethod,
 } from "../src/core/tokenSaver/index.js";
 
 test("TokenSaver Filters - gitDiff compaction", () => {
@@ -242,3 +243,51 @@ test("TokenSaver Autodetection - detects various shapes accurately", () => {
   const fallback = safeApply(crashingFilter, "original raw text");
   assert.equal(fallback, "original raw text");
 });
+
+test("TokenSaver RTK - Fail-Open Non-Empty Safety Invariant preserves non-diff tool outputs", () => {
+  // Test case 1: file_search output (previously erroneously wiped to "")
+  const fileSearchOutput = `You searched for and received the following incomplete results:
+---
+f:\\Documents\\Library\\AI\\mcp-sentinel\\CHANGELOG.md
+f:\\Documents\\Library\\AI\\mcp-sentinel\\Cargo.toml
+f:\\Documents\\Library\\AI\\mcp-sentinel\\Cargo.lock
+f:\\Documents\\Library\\AI\\mcp-sentinel\\LICENSE
+f:\\Documents\\Library\\AI\\mcp-sentinel\\install.sh
+f:\\Documents\\Library\\AI\\mcp-sentinel\\install.ps1
+---
+Refine your search, or use the excludePattern to retrieve all results.`;
+
+  const res1 = RtkMethod.compressText(fileSearchOutput);
+  assert.equal(res1.text, fileSearchOutput, "file_search output must be preserved untouched");
+  assert.equal(res1.tokensSaved, 0);
+
+  // Test case 2: powershell file list
+  const pwshOutput = `.gitignore
+Cargo.lock
+Cargo.toml
+CHANGELOG.md
+install.ps1
+install.sh
+LICENSE
+README.md
+src\\main.rs
+src\\lib.rs`;
+
+  const res2 = RtkMethod.compressText(pwshOutput);
+  assert.equal(res2.text, pwshOutput, "pwsh output must be preserved untouched");
+  assert.equal(res2.tokensSaved, 0);
+
+  // Test case 3: payload compression in-place preserves tool messages
+  const body = {
+    messages: [
+      { role: "user", content: "list files" },
+      { role: "assistant", tool_calls: [{ id: "call_1", type: "function", function: { name: "file_search", arguments: "{}" } }] },
+      { role: "tool", tool_call_id: "call_1", content: fileSearchOutput },
+    ],
+  };
+
+  const payloadRes = RtkMethod.compressPayloadInPlace(body);
+  assert.equal(body.messages[2].content, fileSearchOutput, "tool message content must not be emptied");
+  assert.equal(payloadRes.tokensSaved, 0);
+});
+
