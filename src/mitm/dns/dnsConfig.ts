@@ -215,33 +215,43 @@ export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
 }
 
 /**
- * Add dual-stack DNS entries (127.0.0.1 and ::1) for a specific tool.
+ * Add dual-stack DNS entries (127.0.0.1 and ::1) for multiple tools in a single batch operation.
  */
-export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<void> {
-  const toolKey = tool.toLowerCase() as MitmToolId;
-  const hosts = TOOL_HOSTS[toolKey];
-  if (!hosts) throw new Error(`Unknown tool: ${tool}`);
+export async function addMultipleDNSEntries(tools: string[], sudoPassword?: string): Promise<void> {
+  const validTools = tools
+    .map((t) => t.toLowerCase() as MitmToolId)
+    .filter((t) => Boolean(TOOL_HOSTS[t]));
+
+  if (validTools.length === 0) return;
 
   const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
+  const currentLines = current.split(/\r?\n/);
   const linesToAdd: string[] = [];
+  const addedHosts: string[] = [];
 
-  for (const h of hosts) {
-    for (const entry of dnsLines(h)) {
-      const [ip, host] = entry.split(/\s+/);
-      const exists = current.split(/\r?\n/).some((l) => {
-        const trimmed = l.trim();
-        if (trimmed.startsWith("#")) return false;
-        const parts = trimmed.split(/\s+/).filter(Boolean);
-        return parts.length >= 2 && parts[0] === ip && parts.includes(host);
-      });
-      if (!exists) {
-        linesToAdd.push(entry);
+  for (const tool of validTools) {
+    const hosts = TOOL_HOSTS[tool];
+    for (const h of hosts) {
+      for (const entry of dnsLines(h)) {
+        const [ip, host] = entry.split(/\s+/);
+        const exists = currentLines.some((l) => {
+          const trimmed = l.trim();
+          if (trimmed.startsWith("#")) return false;
+          const parts = trimmed.split(/\s+/).filter(Boolean);
+          return parts.length >= 2 && parts[0] === ip && parts.includes(host);
+        });
+        if (!exists && !linesToAdd.includes(entry)) {
+          linesToAdd.push(entry);
+          if (!addedHosts.includes(h)) {
+            addedHosts.push(h);
+          }
+        }
       }
     }
   }
 
   if (linesToAdd.length === 0) {
-    console.log(`[MITM DNS] ${tool}: already active in hosts file`);
+    console.log(`[MITM DNS] Tools (${validTools.join(", ")}): already active in hosts file`);
     return;
   }
 
@@ -258,13 +268,24 @@ export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<
       await execWithPassword(`printf '%s' '${escaped}' | tee ${HOSTS_FILE} > /dev/null`, sudoPassword);
       await flushDNS(sudoPassword);
     }
-    console.log(`[MITM DNS] ${tool}: added dual-stack entries for ${hosts.join(", ")}`);
+    console.log(`[MITM DNS] Tools (${validTools.join(", ")}): added dual-stack entries for ${addedHosts.join(", ")}`);
   } catch (error: any) {
     const msg = error.message?.includes("incorrect password")
       ? "Wrong sudo password"
-      : `Failed to add DNS entry: ${error.message}`;
+      : `Failed to add DNS entries: ${error.message}`;
     throw new Error(msg);
   }
+}
+
+/**
+ * Add dual-stack DNS entries (127.0.0.1 and ::1) for a specific tool.
+ */
+export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<void> {
+  const toolKey = tool.toLowerCase() as MitmToolId;
+  const hosts = TOOL_HOSTS[toolKey];
+  if (!hosts) throw new Error(`Unknown tool: ${tool}`);
+
+  await addMultipleDNSEntries([toolKey], sudoPassword);
 }
 
 /**
@@ -309,15 +330,41 @@ export async function removeDNSEntry(tool: string, sudoPassword?: string): Promi
 }
 
 /**
- * Remove ALL tool DNS entries (used when stopping server).
+ * Remove ALL tool DNS entries (used when stopping server) in a single batched pass.
  */
 export async function removeAllDNSEntries(sudoPassword?: string): Promise<void> {
-  for (const tool of Object.keys(TOOL_HOSTS)) {
-    try {
-      await removeDNSEntry(tool, sudoPassword);
-    } catch (e: any) {
-      console.error(`[MITM DNS] ${tool}: failed to remove — ${e.message}`);
+  const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
+  const allHosts = Object.values(TOOL_HOSTS).flat();
+  const hasMatchingLines = current.split(/\r?\n/).some((l) => isLineMatchingHosts(l, allHosts));
+
+  if (!hasMatchingLines) {
+    console.log("[MITM DNS] All tools: already inactive in hosts file");
+    return;
+  }
+
+  try {
+    const eol = IS_WIN ? "\r\n" : "\n";
+    const filtered = current
+      .split(/\r?\n/)
+      .filter((l) => !isLineMatchingHosts(l, allHosts))
+      .join(eol);
+    const trimmed = filtered.replace(/[\r\n\s]+$/g, "");
+    const next = trimmed ? `${trimmed}${eol}` : "";
+
+    if (IS_WIN) {
+      await writeHostsFileWin(HOSTS_FILE, current, next);
+    } else {
+      const escaped = next.replace(/'/g, "'\\''");
+      await execWithPassword(`printf '%s' '${escaped}' | tee ${HOSTS_FILE} > /dev/null`, sudoPassword);
+      await flushDNS(sudoPassword);
     }
+    console.log("[MITM DNS] All tools: removed hosts entries in single operation");
+  } catch (error: any) {
+    const msg = error.message?.includes("incorrect password")
+      ? "Wrong sudo password"
+      : `Failed to remove DNS entries: ${error.message}`;
+    console.error(`[MITM DNS] ${msg}`);
+    throw new Error(msg);
   }
 }
 

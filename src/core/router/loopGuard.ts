@@ -77,7 +77,8 @@ const META_TOOL_NAMES = new Set([
 
 function normalizeToolArguments(toolName: string, rawArgs: any): any {
   const canon = canonicalizeValue(rawArgs);
-  const lowerName = (toolName || "").toLowerCase();
+  const baseName = (toolName || "").split(":").pop() || "";
+  const lowerName = baseName.toLowerCase();
 
   // Meta-tools: signature strictly by tool name (ignore description or any parameters)
   if (META_TOOL_NAMES.has(lowerName)) {

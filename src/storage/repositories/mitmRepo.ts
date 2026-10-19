@@ -94,7 +94,7 @@ export class MitmRepository {
     const key = `mitm_dns_${tool.toLowerCase()}`;
     const row = db.get<any>("SELECT value FROM settings WHERE key = ?", key);
     if (!row) {
-      return tool.toLowerCase() === "kiro";
+      return false;
     }
     return row.value === "true" || row.value === "1";
   }

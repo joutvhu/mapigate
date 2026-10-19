@@ -53,6 +53,15 @@ export function runElevatedPowerShell(script: string): Promise<string> {
     });
   }
 
+  // In test mode, never spawn interactive UAC dialog that hangs automated runners
+  const isTest =
+    process.env.MAPIGATE_TEST === "1" ||
+    process.env.NODE_ENV === "test" ||
+    Boolean(process.env.MAPIGATE_DATA_DIR?.includes("mapigate-test"));
+  if (isTest) {
+    return Promise.reject(new Error("UAC elevation skipped in test environment"));
+  }
+
   // Not admin — wrap with Start-Process -Verb RunAs (UAC popup)
   const wrapper = `
     $proc = Start-Process powershell -ArgumentList @(

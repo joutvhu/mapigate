@@ -27,7 +27,7 @@ describe("Safe Teardown Ordering & Startup Rollback", () => {
     }
   });
 
-  it("startServer triggers DNS cleanup and rolls back if binding fails", async () => {
+  it("startServer does not trigger DNS cleanup or elevation if binding fails", async () => {
     let dnsCleanedUp = false;
 
     const origRemoveAll = mitmManager.removeAllDns.bind(mitmManager);
@@ -52,7 +52,7 @@ describe("Safe Teardown Ordering & Startup Rollback", () => {
           return true;
         }
       );
-      assert.equal(dnsCleanedUp, true, "DNS should have been rolled back upon startup failure");
+      assert.equal(dnsCleanedUp, false, "DNS cleanup should not be triggered when startup fails to avoid spurious elevation");
     } finally {
       mitmManager.removeAllDns = origRemoveAll;
       mitmServerInstance.start = origStart;

@@ -3,7 +3,12 @@ import { mitmServerInstance } from "./server.js";
 import { ROOT_CA_CERT_PATH, ROOT_CA_KEY_PATH, getCertFingerprint, generateRootCA } from "./cert/rootCA.js";
 import { checkCertInstalled, installCert, uninstallCert, getInstallCommand, getUninstallCommand } from "./cert/install.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
-import { checkAllDNSStatus, removeAllDNSEntries, removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
+import {
+  checkAllDNSStatus,
+  addMultipleDNSEntries,
+  removeAllDNSEntries,
+  removeAllDNSEntriesSync,
+} from "./dns/dnsConfig.js";
 import {
   inspectPortOwner,
   killProcessByPid,
@@ -33,7 +38,7 @@ export class MitmManager {
 
     // Merge repo state with live /etc/hosts file entries
     const repoDns = MitmRepository.getAllToolDnsStatus();
-    const liveDns = checkAllDNSStatus();
+    const liveDns = this.checkLiveDns();
     const mergedDnsStatus: Record<string, boolean> = {
       ...repoDns,
       ...liveDns,
@@ -131,11 +136,6 @@ export class MitmManager {
       return activePort;
     } catch (err: any) {
       MitmRepository.setMitmServerRunning(false);
-      try {
-        await this.removeAllDns();
-      } catch {
-        this.cleanupDnsSync();
-      }
       if (err instanceof PortConflictError || err.name === "PortConflictError") {
         throw err;
       }
@@ -149,6 +149,54 @@ export class MitmManager {
     }
   }
 
+  /**
+   * Reconcile tool DNS entries on application startup.
+   * Modifies hosts file IF and ONLY IF:
+   * 1. MITM proxy is running;
+   * 2. Tools were previously marked active in SQLite settings;
+   * 3. Those tool entries are currently missing in the live hosts file.
+   * If all conditions are met, restores missing tools in a single batched write.
+   */
+  public async restoreDnsOnStartup(
+    sudoPassword?: string
+  ): Promise<{ restored: string[]; skipped: string[] }> {
+    const status = mitmServerInstance.getStatus();
+    if (!status.running) {
+      return { restored: [], skipped: [] };
+    }
+
+    const repoDns = MitmRepository.getAllToolDnsStatus();
+    const liveDns = this.checkLiveDns();
+
+    const toolsToRestore: string[] = [];
+    const skipped: string[] = [];
+
+    for (const [tool, isEnabledInRepo] of Object.entries(repoDns)) {
+      if (!isEnabledInRepo) {
+        continue;
+      }
+      if (liveDns[tool as keyof typeof liveDns]) {
+        skipped.push(tool);
+      } else {
+        toolsToRestore.push(tool);
+      }
+    }
+
+    if (toolsToRestore.length > 0) {
+      await this.addMultipleDns(toolsToRestore, sudoPassword);
+    }
+
+    return { restored: toolsToRestore, skipped };
+  }
+
+  public checkLiveDns(): Record<string, boolean> {
+    return checkAllDNSStatus();
+  }
+
+  public async addMultipleDns(tools: string[], sudoPassword?: string): Promise<void> {
+    await addMultipleDNSEntries(tools, sudoPassword);
+  }
+
   public async removeAllDns(sudoPassword?: string): Promise<void> {
     await removeAllDNSEntries(sudoPassword);
   }
@@ -160,8 +208,8 @@ export class MitmManager {
       } catch {
         this.cleanupDnsSync();
       }
-      MitmRepository.setMitmServerRunning(false);
     }
+    MitmRepository.setMitmServerRunning(false);
     await mitmServerInstance.stop(options);
   }
 
