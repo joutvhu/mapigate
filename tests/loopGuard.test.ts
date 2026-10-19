@@ -225,6 +225,199 @@ describe("LoopGuard Engine", () => {
       assert.equal(check.reason, "tool_loop");
       assert.equal(check.count, 3);
     });
+
+    it("detects loop for meta-tools (update_session_information, set_session_info, heartbeat) even when description/summary changes", () => {
+      const messages = [
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_meta_1",
+              type: "function",
+              function: {
+                name: "update_session_information",
+                arguments: JSON.stringify({ summary: "First update", description: "Step 1" }),
+              },
+            },
+          ],
+        },
+        { role: "tool", content: "ok" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_meta_2",
+              type: "function",
+              function: {
+                name: "update_session_information",
+                arguments: JSON.stringify({ summary: "Second update", description: "Step 2" }),
+              },
+            },
+          ],
+        },
+        { role: "tool", content: "ok" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_meta_3",
+              type: "function",
+              function: {
+                name: "update_session_information",
+                arguments: JSON.stringify({ summary: "Third update", description: "Step 3" }),
+              },
+            },
+          ],
+        },
+      ];
+
+      const detected = detectToolCallLoopInMessages(messages, 3);
+      assert.equal(detected.isLoop, true);
+      assert.equal(detected.count, 3);
+      assert.equal(detected.toolName, "update_session_information");
+    });
+
+    it("detects loop for file_search when query is identical even if explanation changes", () => {
+      const messages = [
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_fs_1",
+              type: "function",
+              function: {
+                name: "file_search",
+                arguments: JSON.stringify({ query: "find_user", explanation: "Looking for user service" }),
+              },
+            },
+          ],
+        },
+        { role: "tool", content: "found 0 files" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_fs_2",
+              type: "function",
+              function: {
+                name: "file_search",
+                arguments: JSON.stringify({ query: "find_user", explanation: "Searching repository again" }),
+              },
+            },
+          ],
+        },
+        { role: "tool", content: "found 0 files" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_fs_3",
+              type: "function",
+              function: {
+                name: "file_search",
+                arguments: JSON.stringify({ query: "find_user", explanation: "Retrying file search" }),
+              },
+            },
+          ],
+        },
+      ];
+
+      const detected = detectToolCallLoopInMessages(messages, 3);
+      assert.equal(detected.isLoop, true);
+      assert.equal(detected.count, 3);
+      assert.equal(detected.toolName, "file_search");
+    });
+
+    it("does not detect file_search loop when query changes", () => {
+      const messages = [
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_fs_1",
+              type: "function",
+              function: { name: "file_search", arguments: JSON.stringify({ query: "user_a" }) },
+            },
+          ],
+        },
+        { role: "tool", content: "none" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_fs_2",
+              type: "function",
+              function: { name: "file_search", arguments: JSON.stringify({ query: "user_b" }) },
+            },
+          ],
+        },
+        { role: "tool", content: "none" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_fs_3",
+              type: "function",
+              function: { name: "file_search", arguments: JSON.stringify({ query: "user_c" }) },
+            },
+          ],
+        },
+      ];
+
+      const detected = detectToolCallLoopInMessages(messages, 3);
+      assert.equal(detected.isLoop, false);
+    });
+
+    it("detects loop for read_file when path is identical even if explanation changes", () => {
+      const messages = [
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_rf_1",
+              type: "function",
+              function: {
+                name: "read_file",
+                arguments: JSON.stringify({ path: "src/main.ts", explanation: "Inspect entry point" }),
+              },
+            },
+          ],
+        },
+        { role: "tool", content: "file content" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_rf_2",
+              type: "function",
+              function: {
+                name: "read_file",
+                arguments: JSON.stringify({ path: "src/main.ts", explanation: "Re-read entry point" }),
+              },
+            },
+          ],
+        },
+        { role: "tool", content: "file content" },
+        {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_rf_3",
+              type: "function",
+              function: {
+                name: "read_file",
+                arguments: JSON.stringify({ path: "src/main.ts", explanation: "Check entry point again" }),
+              },
+            },
+          ],
+        },
+      ];
+
+      const detected = detectToolCallLoopInMessages(messages, 3);
+      assert.equal(detected.isLoop, true);
+      assert.equal(detected.count, 3);
+      assert.equal(detected.toolName, "read_file");
+    });
   });
 
   describe("In-Memory Consecutive Tool Call Loop Tracking", () => {
@@ -283,6 +476,38 @@ describe("LoopGuard Engine", () => {
 
       // Next turn with messagesCount 16
       const sig4 = computeLoopSignature("kiro", "gemini", 16, "third tool result");
+      const check = checkLoopGuard(sig4, { enabled: true, maxConsecutiveEmpty: 3, maxConsecutiveToolCalls: 3 });
+      assert.equal(check.shouldHalt, true);
+      assert.equal(check.reason, "tool_loop");
+      assert.equal(check.count, 3);
+    });
+
+    it("tracks in-memory file_search tool loops across turns when explanation changes but query is identical", () => {
+      const sig1 = computeLoopSignature("kiro", "gemini", 10, "prompt 1");
+      const sig2 = computeLoopSignature("kiro", "gemini", 12, "prompt 2");
+      const sig3 = computeLoopSignature("kiro", "gemini", 14, "prompt 3");
+
+      recordLoopTurnResult(sig1, 30, [{ name: "file_search", arguments: { query: "search_target", explanation: "First try" } }]);
+      recordLoopTurnResult(sig2, 35, [{ name: "file_search", arguments: { query: "search_target", explanation: "Second try" } }]);
+      recordLoopTurnResult(sig3, 32, [{ name: "file_search", arguments: { query: "search_target", explanation: "Third try" } }]);
+
+      const sig4 = computeLoopSignature("kiro", "gemini", 16, "prompt 4");
+      const check = checkLoopGuard(sig4, { enabled: true, maxConsecutiveEmpty: 3, maxConsecutiveToolCalls: 3 });
+      assert.equal(check.shouldHalt, true);
+      assert.equal(check.reason, "tool_loop");
+      assert.equal(check.count, 3);
+    });
+
+    it("tracks in-memory meta-tool loops across turns regardless of description changes", () => {
+      const sig1 = computeLoopSignature("kiro", "gemini", 10, "prompt 1");
+      const sig2 = computeLoopSignature("kiro", "gemini", 12, "prompt 2");
+      const sig3 = computeLoopSignature("kiro", "gemini", 14, "prompt 3");
+
+      recordLoopTurnResult(sig1, 20, [{ name: "update_session_information", arguments: { description: "state A" } }]);
+      recordLoopTurnResult(sig2, 25, [{ name: "update_session_information", arguments: { description: "state B" } }]);
+      recordLoopTurnResult(sig3, 22, [{ name: "update_session_information", arguments: { description: "state C" } }]);
+
+      const sig4 = computeLoopSignature("kiro", "gemini", 16, "prompt 4");
       const check = checkLoopGuard(sig4, { enabled: true, maxConsecutiveEmpty: 3, maxConsecutiveToolCalls: 3 });
       assert.equal(check.shouldHalt, true);
       assert.equal(check.reason, "tool_loop");

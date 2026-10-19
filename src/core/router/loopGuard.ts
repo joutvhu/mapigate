@@ -69,6 +69,51 @@ function canonicalizeValue(val: any): any {
   return val;
 }
 
+const META_TOOL_NAMES = new Set([
+  "update_session_information",
+  "set_session_info",
+  "heartbeat",
+]);
+
+function normalizeToolArguments(toolName: string, rawArgs: any): any {
+  const canon = canonicalizeValue(rawArgs);
+  const lowerName = (toolName || "").toLowerCase();
+
+  // Meta-tools: signature strictly by tool name (ignore description or any parameters)
+  if (META_TOOL_NAMES.has(lowerName)) {
+    return {};
+  }
+
+  // file_search: strip explanation, compare only query and excludePattern
+  if (
+    (lowerName === "file_search" || lowerName === "filesearch") &&
+    canon &&
+    typeof canon === "object" &&
+    !Array.isArray(canon)
+  ) {
+    const filtered: Record<string, any> = {};
+    if ("query" in canon) filtered.query = canon.query;
+    if ("excludePattern" in canon) filtered.excludePattern = canon.excludePattern;
+    return filtered;
+  }
+
+  // read_file: compare only path, offset, limit, ignoring explanation fields
+  if (
+    (lowerName === "read_file" || lowerName === "readfile") &&
+    canon &&
+    typeof canon === "object" &&
+    !Array.isArray(canon)
+  ) {
+    const filtered: Record<string, any> = {};
+    if ("path" in canon) filtered.path = canon.path;
+    if ("offset" in canon) filtered.offset = canon.offset;
+    if ("limit" in canon) filtered.limit = canon.limit;
+    return filtered;
+  }
+
+  return canon;
+}
+
 /**
  * Computes a normalized signature for a set of tool calls to detect identical repetitions.
  */
@@ -81,7 +126,7 @@ export function computeToolCallSignature(
     const name = tc?.function?.name || tc?.name || "";
     if (!name) continue;
     const rawArgs = tc?.function?.arguments ?? tc?.arguments ?? "";
-    const canon = canonicalizeValue(rawArgs);
+    const canon = normalizeToolArguments(name, rawArgs);
     items.push(`${name}:${JSON.stringify(canon)}`);
   }
   if (items.length === 0) return null;

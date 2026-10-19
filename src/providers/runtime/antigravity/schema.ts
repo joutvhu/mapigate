@@ -527,34 +527,45 @@ export function sanitizeFunctionResponsePayload(value: any): any {
   return out;
 }
 
+export function formatFunctionResponsePayload(raw: any): Record<string, any> {
+  if (raw === undefined || raw === null) {
+    return { result: "" };
+  }
+  if (typeof raw !== "object") {
+    return { result: raw ?? "" };
+  }
+  if (Array.isArray(raw)) {
+    return { result: sanitizeFunctionResponsePayload(raw) };
+  }
+
+  let sanitized = sanitizeFunctionResponsePayload(raw);
+  while (
+    sanitized &&
+    typeof sanitized === "object" &&
+    !Array.isArray(sanitized) &&
+    Object.keys(sanitized).length === 1 &&
+    typeof sanitized.result === "object" &&
+    sanitized.result !== null &&
+    !Array.isArray(sanitized.result) &&
+    "result" in sanitized.result
+  ) {
+    sanitized = sanitized.result;
+  }
+
+  if (!sanitized || Object.keys(sanitized).length === 0) {
+    return { result: "" };
+  }
+
+  return sanitized;
+}
+
 export function sanitizeFunctionResponsePart(part: any): any {
   if (!part?.functionResponse) return part;
-  const response = part.functionResponse.response;
-  if (response === undefined || response === null) {
-    return {
-      ...part,
-      functionResponse: {
-        ...part.functionResponse,
-        response: { result: "" },
-      },
-    };
-  }
-  if (typeof response !== "object" || Array.isArray(response)) {
-    return {
-      ...part,
-      functionResponse: {
-        ...part.functionResponse,
-        response: { result: response },
-      },
-    };
-  }
-  const sanitized = sanitizeFunctionResponsePayload(response);
-  const finalResponse = "result" in sanitized ? sanitized : { result: sanitized };
   return {
     ...part,
     functionResponse: {
       ...part.functionResponse,
-      response: finalResponse,
+      response: formatFunctionResponsePayload(part.functionResponse.response),
     },
   };
 }

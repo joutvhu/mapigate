@@ -26,6 +26,7 @@ import {
   getDefaultThinkingSignature,
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
+  formatFunctionResponsePayload,
   toNumericSessionId,
   resolveSessionId,
   ANTIGRAVITY_PROMPT_REWRITES,
@@ -279,15 +280,13 @@ export async function executeAntigravity(
             }
 
             let parsedResp = tryParseJSON(resp);
-            if (parsedResp === null || typeof parsedResp !== "object") {
-              parsedResp = { result: resp ?? "" };
-            }
+            const payload = parsedResp !== null ? parsedResp : resp;
 
             toolParts.push({
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: { result: sanitizeFunctionResponsePayload(parsedResp) },
+                response: formatFunctionResponsePayload(payload),
               },
             });
           }
@@ -797,6 +796,7 @@ export async function executeAntigravity(
     for (const ev of finalEvents) {
       res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
     }
+    res.write("data: [DONE]\n\n");
   } else if (clientFormat === "anthropic" && anthropicState) {
     const finalEvents = AnthropicAdapter.finalizeStream(anthropicState);
     for (const ev of finalEvents) res.write(ev);

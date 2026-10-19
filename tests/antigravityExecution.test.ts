@@ -11,6 +11,7 @@ import {
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
   sanitizeFunctionResponsePart,
+  formatFunctionResponsePayload,
   toNumericSessionId,
   convertConstToEnum,
   convertEnumValuesToStrings,
@@ -418,7 +419,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
   });
 
   describe("sanitizeFunctionResponsePart & FunctionResponse Structure", () => {
-    it("wraps JSON object tool result lacking result key into { result: parsedResp }", () => {
+    it("preserves JSON object tool result lacking result key directly as single-layer struct", () => {
       const part = {
         functionResponse: {
           id: "call_search_1",
@@ -429,7 +430,23 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
 
       const sanitized = sanitizeFunctionResponsePart(part);
       assert.deepEqual(sanitized.functionResponse.response, {
-        result: { files: ["a.ts", "b.ts"], total: 2 },
+        files: ["a.ts", "b.ts"],
+        total: 2,
+      });
+    });
+
+    it("strictly unnests double-wrapped { result: { result: '...' } } to single layer", () => {
+      const part = {
+        functionResponse: {
+          id: "call_double_1",
+          name: "read_file",
+          response: { result: { result: "content of file" } },
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: "content of file",
       });
     });
 
@@ -463,7 +480,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       });
     });
 
-    it("sanitizes $ref to _ref and wraps in { result: ... }", () => {
+    it("sanitizes $ref to _ref and keeps single-layer struct", () => {
       const part = {
         functionResponse: {
           id: "call_schema_1",
@@ -477,10 +494,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
 
       const sanitized = sanitizeFunctionResponsePart(part);
       assert.deepEqual(sanitized.functionResponse.response, {
-        result: {
-          _ref: "#/definitions/Table",
-          details: "sqlite",
-        },
+        _ref: "#/definitions/Table",
+        details: "sqlite",
       });
     });
 
@@ -500,6 +515,21 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       assert.deepEqual(sanitized.functionResponse.response, {
         result: "Command executed successfully with exit code 0",
         exitCode: 0,
+      });
+    });
+
+    it("normalizes empty object to { result: '' }", () => {
+      const part = {
+        functionResponse: {
+          id: "call_empty_1",
+          name: "noop",
+          response: {},
+        },
+      };
+
+      const sanitized = sanitizeFunctionResponsePart(part);
+      assert.deepEqual(sanitized.functionResponse.response, {
+        result: "",
       });
     });
 
@@ -1038,7 +1068,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("packages functionResponse properly: string results into { result: { result: string } } and JSON objects into { result: object }", async () => {
+    it("packages functionResponse properly: string results into single-layer { result: string } and JSON objects into struct { files: [...], count: 2 }", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -1104,19 +1134,103 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         assert.equal(toolTurn.role, "user");
         assert.equal(toolTurn.parts.length, 2);
 
-        // String result must be packaged as { result: { result: "..." } }
+        // String result must be packaged as single-layer { result: "..." }
         const resp1 = toolTurn.parts[0].functionResponse;
         assert.equal(resp1.name, "execute_pwsh");
         assert.deepEqual(resp1.response, {
-          result: { result: "Directory: C:\\workspace\r\nfile1.txt" },
+          result: "Directory: C:\\workspace\r\nfile1.txt",
         });
 
-        // JSON object result must be packaged as { result: { files: [...], count: 2 } }
+        // JSON object result must be packaged directly as struct { files: [...], count: 2 }
         const resp2 = toolTurn.parts[1].functionResponse;
         assert.equal(resp2.name, "file_search");
         assert.deepEqual(resp2.response, {
-          result: { files: ["a.ts", "b.ts"], count: 2 },
+          files: ["a.ts", "b.ts"],
+          count: 2,
         });
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("emits data: [DONE]\\n\\n after response.completed event when clientFormat is responses", async () => {
+      const originalFetch = global.fetch;
+      const emittedChunks: string[] = [];
+
+      const mockSseStream = new ReadableStream({
+        start(controller) {
+          const geminiChunks = [
+            {
+              response: {
+                candidates: [
+                  {
+                    content: {
+                      role: "model",
+                      parts: [{ text: "Responses API stream test" }],
+                    },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: {
+                  promptTokenCount: 10,
+                  candidatesTokenCount: 5,
+                  totalTokenCount: 15,
+                },
+              },
+            },
+          ];
+
+          for (const chunk of geminiChunks) {
+            controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+          }
+          controller.close();
+        },
+      });
+
+      global.fetch = async () =>
+        new Response(mockSseStream, {
+          status: 200,
+          headers: { "Content-Type": "text/event-stream" },
+        }) as any;
+
+      const mockRes: any = {
+        setHeader: () => {},
+        flushHeaders: () => {},
+        write: (chunk: string) => {
+          emittedChunks.push(chunk);
+        },
+        end: () => {},
+      };
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [{ role: "user", content: "hello" }],
+          stream: true,
+        },
+        res: mockRes,
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "responses",
+        requestId: `test-responses-done-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        const joined = emittedChunks.join("");
+        assert.ok(joined.includes("response.completed"), "Must emit response.completed event");
+        assert.ok(joined.includes("data: [DONE]\n\n"), "Must emit data: [DONE]\\n\\n sentinel");
+        // Verify data: [DONE]\n\n comes after response.completed
+        const completedIndex = joined.indexOf("response.completed");
+        const doneIndex = joined.indexOf("data: [DONE]\n\n");
+        assert.ok(doneIndex > completedIndex, "data: [DONE]\\n\\n must follow response.completed");
       } finally {
         global.fetch = originalFetch;
       }
