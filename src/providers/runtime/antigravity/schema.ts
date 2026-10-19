@@ -20,6 +20,25 @@ export function getDefaultThinkingSignature(model?: string): string {
   return DEFAULT_THINKING_GEMINI_CLI_SIGNATURE;
 }
 
+// Fields Google generateContent / Cloud Code PA rejects (Claude/OpenAI/Qwen thinking fields set at body root or generationConfig)
+export const ANTIGRAVITY_REQUEST_BLACKLIST = [
+  "output_config",
+  "thinking",
+  "reasoning_effort",
+  "reasoning",
+  "enable_thinking",
+  "thinking_budget",
+  "thinkingConfig",
+];
+
+// Strip blacklisted fields from an object (used for generationConfig and request envelopes)
+export function stripBlacklisted(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+  for (const key of ANTIGRAVITY_REQUEST_BLACKLIST) {
+    delete obj[key];
+  }
+}
+
 export const ANTIGRAVITY_PROMPT_REWRITES: Array<{ from: string | RegExp; to: string | ((m: string) => string) }> = [
   { from: "You are a Claude agent, built on Anthropic's Claude Agent SDK.", to: "" },
   { from: /You are Hermes(?: Agent)?(?:,\s*(?:an intelligent AI assistant|an AI assistant|an AI agent))?(?:,?\s*(?:built|created)\s+by\s+Nous Research)?\./gi, to: "You are an AI assistant." },

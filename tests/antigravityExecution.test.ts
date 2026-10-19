@@ -21,6 +21,9 @@ import {
   DEFAULT_THINKING_AG_SIGNATURE,
   DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
   getDefaultThinkingSignature,
+  ANTIGRAVITY_REQUEST_BLACKLIST,
+  stripBlacklisted,
+  buildIdeRequestId,
 } from "../src/providers/runtime/antigravity/schema.js";
 import {
   storeGeminiThoughtSignature,
@@ -58,6 +61,73 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
       assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+    });
+  });
+
+  describe("ANTIGRAVITY_REQUEST_BLACKLIST & stripBlacklisted", () => {
+    it("defines the exact rejected fields from Google Cloud Code PA", () => {
+      assert.deepEqual(ANTIGRAVITY_REQUEST_BLACKLIST, [
+        "output_config",
+        "thinking",
+        "reasoning_effort",
+        "reasoning",
+        "enable_thinking",
+        "thinking_budget",
+        "thinkingConfig",
+      ]);
+    });
+
+    it("strips blacklisted fields from an object in-place while preserving safe fields", () => {
+      const obj: any = {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        thinking: { type: "enabled" },
+        thinkingConfig: { thinkingLevel: "high" },
+        reasoning_effort: "low",
+        output_config: {},
+        enable_thinking: true,
+        thinking_budget: 1024,
+        reasoning: "none",
+      };
+      stripBlacklisted(obj);
+      assert.deepEqual(obj, {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+      });
+    });
+
+    it("handles null, undefined, and non-object inputs gracefully", () => {
+      assert.doesNotThrow(() => stripBlacklisted(null));
+      assert.doesNotThrow(() => stripBlacklisted(undefined));
+      assert.doesNotThrow(() => stripBlacklisted("string"));
+      assert.doesNotThrow(() => stripBlacklisted(123));
+    });
+  });
+
+  describe("buildIdeRequestId", () => {
+    it("generates trajectory ID adhering to agent/conversationId/timestamp/trajectoryId/step pattern", () => {
+      const id = buildIdeRequestId({
+        sessionId: "session_123",
+        model: "gemini-3.8-flash",
+        contentCount: 2,
+        requestType: "agent",
+      });
+      assert.match(
+        id,
+        /^agent\/[0-9a-f-]+\/\d+\/[0-9a-f-]+\/3$/,
+        `Expected trajectory ID with step 3, got: ${id}`
+      );
+    });
+
+    it("calculates trajectory step index based on contentCount: max(1, contentCount * 2 - 1)", () => {
+      const id1 = buildIdeRequestId({ sessionId: "s", model: "m", contentCount: 1 });
+      assert.ok(id1.endsWith("/1"));
+
+      const id2 = buildIdeRequestId({ sessionId: "s", model: "m", contentCount: 3 });
+      assert.ok(id2.endsWith("/5"));
+
+      const id0 = buildIdeRequestId({ sessionId: "s", model: "m", contentCount: 0 });
+      assert.ok(id0.endsWith("/1"));
     });
   });
 
@@ -591,7 +661,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         );
         assert.ok(capturedBody.request?.contents);
         assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 16384);
-        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig?.includeThoughts, true);
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
 
         // Verify emitted OpenAI chunks
         assert.ok(emittedChunks.length > 0);
@@ -721,7 +791,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("enforces maxOutputTokens floor of 65535 for thinkingLevel high and includeThoughts: true", async () => {
+    it("enforces maxOutputTokens floor of 65535 for thinkingLevel high and excludes thinkingConfig", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -760,8 +830,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         await executeAntigravity(mockContext, provider);
 
         assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 65535);
-        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig?.thinkingLevel, "high");
-        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig?.includeThoughts, true);
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
       } finally {
         global.fetch = originalFetch;
       }
@@ -812,7 +881,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("standardizes requestId to agent-${uuid} format matching 9router", async () => {
+    it("standardizes requestId to trajectory format agent/${conversationId}/${Date.now()}/${trajectoryId}/${step} matching 9router", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -852,8 +921,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
 
         assert.match(
           capturedBody.requestId,
-          /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-          `Expected requestId to match agent-\${uuid} format, got: ${capturedBody.requestId}`
+          /^agent\/[0-9a-f-]+\/\d+\/[0-9a-f-]+\/\d+$/,
+          `Expected requestId to match trajectory regex, got: ${capturedBody.requestId}`
         );
       } finally {
         global.fetch = originalFetch;

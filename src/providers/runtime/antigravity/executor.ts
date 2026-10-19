@@ -29,7 +29,12 @@ import {
   toNumericSessionId,
   resolveSessionId,
   ANTIGRAVITY_PROMPT_REWRITES,
+  buildIdeRequestId,
+  ANTIGRAVITY_REQUEST_BLACKLIST,
+  stripBlacklisted,
 } from "./schema.js";
+
+export { ANTIGRAVITY_REQUEST_BLACKLIST, stripBlacklisted };
 import {
   storeGeminiThoughtSignature,
   getGeminiThoughtSignatureSync,
@@ -340,23 +345,14 @@ export async function executeAntigravity(
   }
   const floorTokens = thinkingLevel?.toLowerCase() === "high" ? 65535 : 16384;
   generationConfig.maxOutputTokens = Math.max(body.max_tokens || 0, floorTokens);
-  if (thinkingLevel) {
-    let level = thinkingLevel.toLowerCase();
-    if (isG4 && (level === "minimal" || level === "none" || level === "off")) {
-      level = "low";
-    }
-    generationConfig.thinkingConfig = {
-      thinkingLevel: level,
-      includeThoughts: true,
-    };
-  } else if (isG4) {
-    generationConfig.thinkingConfig = {
-      thinkingLevel: "low",
-      includeThoughts: true,
-    };
-  }
+  stripBlacklisted(generationConfig);
 
-  const ideRequestId = `agent-${crypto.randomUUID()}`;
+  const ideRequestId = buildIdeRequestId({
+    sessionId: String(sessionId),
+    model: upstreamModel,
+    contentCount: contents.length,
+    requestType: "agent",
+  });
 
   const envelope = {
     project: projectId,
