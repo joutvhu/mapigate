@@ -18,6 +18,9 @@ import {
   convertPrefixItems,
   flattenTypeArrays,
   removeUnsupportedKeywords,
+  DEFAULT_THINKING_AG_SIGNATURE,
+  DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
+  getDefaultThinkingSignature,
 } from "../src/providers/runtime/antigravity/schema.js";
 import {
   storeGeminiThoughtSignature,
@@ -35,6 +38,26 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
 
     it("replaces invalid characters with underscores", () => {
       assert.equal(sanitizeGeminiFunctionName("my!tool?action"), "my_tool_action");
+    });
+  });
+
+  describe("getDefaultThinkingSignature", () => {
+    it("returns DEFAULT_THINKING_AG_SIGNATURE for Claude models", () => {
+      assert.equal(getDefaultThinkingSignature("claude-3-5-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("claude-opus-4-6-thinking"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("ag/claude-3-7-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
+    });
+
+    it("returns DEFAULT_THINKING_GEMINI_CLI_SIGNATURE for Gemini models", () => {
+      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+    });
+
+    it("defaults to DEFAULT_THINKING_GEMINI_CLI_SIGNATURE when model is undefined or other", () => {
+      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
     });
   });
 
@@ -784,6 +807,402 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         await executeAntigravity(mockContext, provider);
 
         assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 70000);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("standardizes requestId to agent-${uuid} format matching 9router", async () => {
+      const originalFetch = global.fetch;
+      let capturedBody: any = null;
+
+      global.fetch = async (_url: any, init: any) => {
+        capturedBody = JSON.parse(init.body);
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        ) as any;
+      };
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [{ role: "user", content: "test requestId" }],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-req-id-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        assert.match(
+          capturedBody.requestId,
+          /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+          `Expected requestId to match agent-\${uuid} format, got: ${capturedBody.requestId}`
+        );
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("selects model-family signature for historical tool calls without cached signature", async () => {
+      const originalFetch = global.fetch;
+      let capturedGeminiBody: any = null;
+      let capturedClaudeBody: any = null;
+
+      global.fetch = async (_url: any, init: any) => {
+        const parsed = JSON.parse(init.body);
+        if (parsed.model.includes("gemini")) {
+          capturedGeminiBody = parsed;
+        } else {
+          capturedClaudeBody = parsed;
+        }
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        ) as any;
+      };
+
+      const toolCallIdGemini = `call_gemini_${Date.now()}`;
+      const mockGeminiContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [
+            { role: "user", content: "run tool" },
+            {
+              role: "assistant",
+              tool_calls: [
+                {
+                  id: toolCallIdGemini,
+                  type: "function",
+                  function: { name: "test_tool", arguments: "{}" },
+                },
+              ],
+            },
+            { role: "tool", tool_call_id: toolCallIdGemini, content: "ok" },
+          ],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-sig-gemini-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      const toolCallIdClaude = `call_claude_${Date.now()}`;
+      const mockClaudeContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/claude-3.5-sonnet",
+          messages: [
+            { role: "user", content: "run tool" },
+            {
+              role: "assistant",
+              tool_calls: [
+                {
+                  id: toolCallIdClaude,
+                  type: "function",
+                  function: { name: "test_tool", arguments: "{}" },
+                },
+              ],
+            },
+            { role: "tool", tool_call_id: toolCallIdClaude, content: "ok" },
+          ],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/claude-3.5-sonnet",
+        clientFormat: "openai",
+        requestId: `test-sig-claude-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockGeminiContext, provider);
+        await executeAntigravity(mockClaudeContext, provider);
+
+        const geminiModelPart = capturedGeminiBody.request.contents[1].parts[0];
+        assert.equal(
+          geminiModelPart.thoughtSignature,
+          DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
+          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_GEMINI_CLI_SIGNATURE"
+        );
+
+        const claudeModelPart = capturedClaudeBody.request.contents[1].parts[0];
+        assert.equal(
+          claudeModelPart.thoughtSignature,
+          DEFAULT_THINKING_AG_SIGNATURE,
+          "Claude fallback thoughtSignature must match DEFAULT_THINKING_AG_SIGNATURE"
+        );
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("packages functionResponse properly: string results into { result: { result: string } } and JSON objects into { result: object }", async () => {
+      const originalFetch = global.fetch;
+      let capturedBody: any = null;
+
+      global.fetch = async (_url: any, init: any) => {
+        capturedBody = JSON.parse(init.body);
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        ) as any;
+      };
+
+      const callId1 = `call_str_${Date.now()}`;
+      const callId2 = `call_json_${Date.now()}`;
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [
+            { role: "user", content: "run commands" },
+            {
+              role: "assistant",
+              tool_calls: [
+                {
+                  id: callId1,
+                  type: "function",
+                  function: { name: "execute_pwsh", arguments: '{"command":"ls"}' },
+                },
+                {
+                  id: callId2,
+                  type: "function",
+                  function: { name: "file_search", arguments: '{"query":"test"}' },
+                },
+              ],
+            },
+            // Tool 1: raw string (e.g. CLI stdout)
+            { role: "tool", tool_call_id: callId1, content: "Directory: C:\\workspace\r\nfile1.txt" },
+            // Tool 2: JSON string
+            { role: "tool", tool_call_id: callId2, content: '{"files":["a.ts","b.ts"],"count":2}' },
+          ],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-func-resp-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        const toolTurn = capturedBody.request.contents[2];
+        assert.equal(toolTurn.role, "user");
+        assert.equal(toolTurn.parts.length, 2);
+
+        // String result must be packaged as { result: { result: "..." } }
+        const resp1 = toolTurn.parts[0].functionResponse;
+        assert.equal(resp1.name, "execute_pwsh");
+        assert.deepEqual(resp1.response, {
+          result: { result: "Directory: C:\\workspace\r\nfile1.txt" },
+        });
+
+        // JSON object result must be packaged as { result: { files: [...], count: 2 } }
+        const resp2 = toolTurn.parts[1].functionResponse;
+        assert.equal(resp2.name, "file_search");
+        assert.deepEqual(resp2.response, {
+          result: { files: ["a.ts", "b.ts"], count: 2 },
+        });
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("captures and caches snake_case thought_signature in streaming execution", async () => {
+      const originalFetch = global.fetch;
+      clearThoughtSignatureStore();
+
+      const toolCallId = `call_snake_stream_${Date.now()}`;
+      const mockSseStream = new ReadableStream({
+        start(controller) {
+          const chunk = {
+            response: {
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        functionCall: {
+                          id: toolCallId,
+                          name: "testSnakeTool",
+                          args: { foo: "bar" },
+                        },
+                        thought_signature: "sig_from_snake_case_stream_xyz",
+                      },
+                    ],
+                  },
+                  finishReason: "STOP",
+                },
+              ],
+            },
+          };
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
+          controller.close();
+        },
+      });
+
+      global.fetch = async () =>
+        new Response(mockSseStream, {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        }) as any;
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [{ role: "user", content: "test snake stream" }],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-snake-stream-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        const cachedSig = getGeminiThoughtSignatureSync(toolCallId);
+        assert.equal(
+          cachedSig,
+          "sig_from_snake_case_stream_xyz",
+          "Snake_case thought_signature must be cached in streaming mode"
+        );
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it("captures and caches snake_case thought_signature in non-streaming execution", async () => {
+      const originalFetch = global.fetch;
+      clearThoughtSignatureStore();
+
+      const toolCallId = `call_snake_nonstream_${Date.now()}`;
+      const nonStreamResponse = {
+        response: {
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    functionCall: {
+                      id: toolCallId,
+                      name: "testSnakeNonStream",
+                      args: { key: "val" },
+                    },
+                    thought_signature: "sig_from_snake_case_nonstream_123",
+                  },
+                ],
+              },
+              finishReason: "STOP",
+            },
+          ],
+        },
+      };
+
+      global.fetch = async () =>
+        new Response(JSON.stringify(nonStreamResponse), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }) as any;
+
+      let sentStatus = 0;
+      let sentJson: any = null;
+      const mockRes: any = {
+        status: (code: number) => {
+          sentStatus = code;
+          return {
+            json: (payload: any) => {
+              sentJson = payload;
+            },
+          };
+        },
+      };
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [{ role: "user", content: "test snake non-stream" }],
+          stream: false,
+        },
+        res: mockRes,
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "openai",
+        requestId: `test-snake-nonstream-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        const result = await executeAntigravity(mockContext, provider);
+
+        assert.equal(result.ok, true);
+        assert.equal(sentStatus, 200);
+        assert.equal(sentJson.choices[0].message.tool_calls[0].function.name, "testSnakeNonStream");
+
+        const cachedSig = getGeminiThoughtSignatureSync(toolCallId);
+        assert.equal(
+          cachedSig,
+          "sig_from_snake_case_nonstream_123",
+          "Snake_case thought_signature must be cached in non-streaming mode"
+        );
       } finally {
         global.fetch = originalFetch;
       }

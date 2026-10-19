@@ -22,12 +22,12 @@ import {
   tryParseJSON,
   mapFinishReason,
   DEFAULT_THINKING_AG_SIGNATURE,
+  DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
+  getDefaultThinkingSignature,
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
-  uuidFromSeed,
   toNumericSessionId,
   resolveSessionId,
-  buildIdeRequestId,
   ANTIGRAVITY_PROMPT_REWRITES,
 } from "./schema.js";
 import {
@@ -224,7 +224,8 @@ export async function executeAntigravity(
           const emitId = uniquifier.next(origId);
 
           const cachedSig = getGeminiThoughtSignatureSync(origId, sessionId, targetModel);
-          const callSig = cachedSig || (!firstFunctionCallSeen ? DEFAULT_THINKING_AG_SIGNATURE : undefined);
+          const fallbackSig = getDefaultThinkingSignature(targetModel || upstreamModel);
+          const callSig = cachedSig || (!firstFunctionCallSeen ? fallbackSig : undefined);
           firstFunctionCallSeen = true;
 
           const part: any = {
@@ -273,18 +274,15 @@ export async function executeAntigravity(
             }
 
             let parsedResp = tryParseJSON(resp);
-            let responsePayload: any;
             if (parsedResp === null || typeof parsedResp !== "object") {
-              responsePayload = { result: resp ?? "" };
-            } else {
-              responsePayload = { result: sanitizeFunctionResponsePayload(parsedResp) };
+              parsedResp = { result: resp ?? "" };
             }
 
             toolParts.push({
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: responsePayload,
+                response: { result: sanitizeFunctionResponsePayload(parsedResp) },
               },
             });
           }
@@ -358,13 +356,7 @@ export async function executeAntigravity(
     };
   }
 
-  const contentCount = Array.isArray(contents) ? contents.length : 1;
-  const ideRequestId = buildIdeRequestId({
-    sessionId: rawSessionId,
-    model: upstreamModel,
-    contentCount,
-    requestType: "agent",
-  });
+  const ideRequestId = `agent-${crypto.randomUUID()}`;
 
   const envelope = {
     project: projectId,
@@ -449,8 +441,9 @@ export async function executeAntigravity(
     let currentThoughtSignature: string | null = null;
 
     for (const part of parts) {
-      if (part.thoughtSignature) {
-        currentThoughtSignature = part.thoughtSignature;
+      const sig = part.thoughtSignature || (part as any).thought_signature;
+      if (sig) {
+        currentThoughtSignature = sig;
       }
     }
 
@@ -473,7 +466,7 @@ export async function executeAntigravity(
           },
         };
         toolCalls.push(toolCall);
-        const sig = part.thoughtSignature || currentThoughtSignature;
+        const sig = part.thoughtSignature || (part as any).thought_signature || currentThoughtSignature;
         if (sig) {
           storeGeminiThoughtSignature(toolCall.id, sig, sessionId, targetModel);
           currentThoughtSignature = null;
@@ -700,8 +693,9 @@ export async function executeAntigravity(
 
         const parts = candidate.content?.parts || [];
         for (const part of parts) {
-          if (part.thoughtSignature) {
-            currentThoughtSignature = part.thoughtSignature;
+          const sig = part.thoughtSignature || (part as any).thought_signature;
+          if (sig) {
+            currentThoughtSignature = sig;
           }
         }
 
@@ -755,7 +749,7 @@ export async function executeAntigravity(
               },
             };
             geminiToolCallCount++;
-            const sig = part.thoughtSignature || currentThoughtSignature;
+            const sig = part.thoughtSignature || (part as any).thought_signature || currentThoughtSignature;
             if (sig) {
               storeGeminiThoughtSignature(toolCall.id, sig, sessionId, targetModel);
               currentThoughtSignature = null;
