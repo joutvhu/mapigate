@@ -11,7 +11,6 @@ import {
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
   sanitizeFunctionResponsePart,
-  formatFunctionResponsePayload,
   toNumericSessionId,
   convertConstToEnum,
   convertEnumValuesToStrings,
@@ -46,22 +45,16 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
   });
 
   describe("getDefaultThinkingSignature", () => {
-    it("returns DEFAULT_THINKING_AG_SIGNATURE for Claude models", () => {
+    it("returns DEFAULT_THINKING_AG_SIGNATURE for all Antigravity models", () => {
       assert.equal(getDefaultThinkingSignature("claude-3-5-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("claude-opus-4-6-thinking"), DEFAULT_THINKING_AG_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("ag/claude-3-7-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
-    });
-
-    it("returns DEFAULT_THINKING_GEMINI_CLI_SIGNATURE for Gemini models", () => {
-      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-    });
-
-    it("defaults to DEFAULT_THINKING_GEMINI_CLI_SIGNATURE when model is undefined or other", () => {
-      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_AG_SIGNATURE);
     });
   });
 
@@ -419,133 +412,43 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
   });
 
   describe("sanitizeFunctionResponsePart & FunctionResponse Structure", () => {
-    it("preserves JSON object tool result lacking result key directly as single-layer struct", () => {
-      const part = {
-        functionResponse: {
-          id: "call_search_1",
-          name: "file_search",
-          response: { files: ["a.ts", "b.ts"], total: 2 },
-        },
-      };
-
-      const sanitized = sanitizeFunctionResponsePart(part);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        files: ["a.ts", "b.ts"],
-        total: 2,
-      });
-    });
-
-    it("strictly unnests double-wrapped { result: { result: '...' } } to single layer", () => {
-      const part = {
-        functionResponse: {
-          id: "call_double_1",
-          name: "read_file",
-          response: { result: { result: "content of file" } },
-        },
-      };
-
-      const sanitized = sanitizeFunctionResponsePart(part);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        result: "content of file",
-      });
-    });
-
-    it("wraps JSON array tool result into { result: [...] } (never sends bare array Struct to Gemini)", () => {
-      const part = {
-        functionResponse: {
-          id: "call_list_1",
-          name: "list_files",
-          response: ["file1.txt", "file2.txt"],
-        },
-      };
-
-      const sanitized = sanitizeFunctionResponsePart(part);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        result: ["file1.txt", "file2.txt"],
-      });
-    });
-
-    it("wraps plain text string tool result into { result: text }", () => {
-      const part = {
-        functionResponse: {
-          id: "call_read_1",
-          name: "read_file",
-          response: "function main() {\n  return 42;\n}",
-        },
-      };
-
-      const sanitized = sanitizeFunctionResponsePart(part);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        result: "function main() {\n  return 42;\n}",
-      });
-    });
-
-    it("sanitizes $ref to _ref and keeps single-layer struct", () => {
+    it("preserves response structure and renames $ref to _ref", () => {
       const part = {
         functionResponse: {
           id: "call_schema_1",
           name: "describe_table",
           response: {
-            $ref: "#/definitions/Table",
-            details: "sqlite",
+            result: {
+              $ref: "#/definitions/Table",
+              details: "sqlite",
+            },
           },
         },
       };
 
       const sanitized = sanitizeFunctionResponsePart(part);
       assert.deepEqual(sanitized.functionResponse.response, {
-        _ref: "#/definitions/Table",
-        details: "sqlite",
+        result: {
+          _ref: "#/definitions/Table",
+          details: "sqlite",
+        },
       });
     });
 
-    it("preserves object that already has result key", () => {
+    it("returns part unchanged if response is not an object", () => {
       const part = {
         functionResponse: {
-          id: "call_ok_1",
-          name: "execute_pwsh",
-          response: {
-            result: "Command executed successfully with exit code 0",
-            exitCode: 0,
-          },
+          id: "call_1",
+          name: "test",
+          response: "raw string",
         },
       };
-
-      const sanitized = sanitizeFunctionResponsePart(part);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        result: "Command executed successfully with exit code 0",
-        exitCode: 0,
-      });
+      assert.deepEqual(sanitizeFunctionResponsePart(part), part);
     });
 
-    it("normalizes empty object to { result: '' }", () => {
-      const part = {
-        functionResponse: {
-          id: "call_empty_1",
-          name: "noop",
-          response: {},
-        },
-      };
-
-      const sanitized = sanitizeFunctionResponsePart(part);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        result: "",
-      });
-    });
-
-    it("normalizes null or undefined response to { result: '' }", () => {
-      const partNull = {
-        functionResponse: {
-          id: "call_null_1",
-          name: "noop",
-          response: null,
-        },
-      };
-
-      const sanitized = sanitizeFunctionResponsePart(partNull);
-      assert.deepEqual(sanitized.functionResponse.response, {
-        result: "",
-      });
+    it("returns part unchanged if functionResponse is missing", () => {
+      const part = { text: "hello" };
+      assert.deepEqual(sanitizeFunctionResponsePart(part), part);
     });
   });
 
@@ -959,7 +862,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("selects model-family signature for historical tool calls without cached signature", async () => {
+    it("selects AG fallback signature for historical tool calls without cached signature", async () => {
       const originalFetch = global.fetch;
       let capturedGeminiBody: any = null;
       let capturedClaudeBody: any = null;
@@ -1053,8 +956,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         const geminiModelPart = capturedGeminiBody.request.contents[1].parts[0];
         assert.equal(
           geminiModelPart.thoughtSignature,
-          DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
-          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_GEMINI_CLI_SIGNATURE"
+          DEFAULT_THINKING_AG_SIGNATURE,
+          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_AG_SIGNATURE"
         );
 
         const claudeModelPart = capturedClaudeBody.request.contents[1].parts[0];
@@ -1068,7 +971,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("packages functionResponse properly: string results into single-layer { result: string } and JSON objects into struct { files: [...], count: 2 }", async () => {
+    it("packages functionResponse properly: wraps in { result: ... } matching 9router", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -1134,19 +1037,23 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         assert.equal(toolTurn.role, "user");
         assert.equal(toolTurn.parts.length, 2);
 
-        // String result must be packaged as single-layer { result: "..." }
+        // String result must be packaged as { result: { result: "..." } }
         const resp1 = toolTurn.parts[0].functionResponse;
         assert.equal(resp1.name, "execute_pwsh");
         assert.deepEqual(resp1.response, {
-          result: "Directory: C:\\workspace\r\nfile1.txt",
+          result: {
+            result: "Directory: C:\\workspace\r\nfile1.txt",
+          },
         });
 
-        // JSON object result must be packaged directly as struct { files: [...], count: 2 }
+        // JSON object result must be packaged directly as struct { result: { files: [...], count: 2 } }
         const resp2 = toolTurn.parts[1].functionResponse;
         assert.equal(resp2.name, "file_search");
         assert.deepEqual(resp2.response, {
-          files: ["a.ts", "b.ts"],
-          count: 2,
+          result: {
+            files: ["a.ts", "b.ts"],
+            count: 2,
+          },
         });
       } finally {
         global.fetch = originalFetch;

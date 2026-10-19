@@ -26,7 +26,6 @@ import {
   getDefaultThinkingSignature,
   createToolCallIdUniquifier,
   sanitizeFunctionResponsePayload,
-  formatFunctionResponsePayload,
   toNumericSessionId,
   resolveSessionId,
   ANTIGRAVITY_PROMPT_REWRITES,
@@ -279,13 +278,17 @@ export async function executeAntigravity(
             }
 
             let parsedResp = tryParseJSON(resp);
-            const payload = parsedResp !== null ? parsedResp : resp;
+            if (parsedResp === null) {
+              parsedResp = { result: resp };
+            } else if (typeof parsedResp !== "object") {
+              parsedResp = { result: parsedResp };
+            }
 
             toolParts.push({
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: formatFunctionResponsePayload(payload),
+                response: { result: sanitizeFunctionResponsePayload(parsedResp) },
               },
             });
           }

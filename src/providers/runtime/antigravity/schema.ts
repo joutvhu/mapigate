@@ -9,15 +9,11 @@ export const DEFAULT_THINKING_GEMINI_CLI_SIGNATURE =
   "CiQBjz1rX/AlslZWMe5RgBt4Tv9j4+YNZTTez+JH2/+5oAlICygKXgGPPWtf7/Sux9eLYap/bmYAdPqFThLXj+l7o0DLu/hdgU98MA9ZrlRDNHXx+T0tuY8AcnjPZbiDyOq2bE11Fjhsk6p5axqayaapC/Pt9GczcgIQf1z15WTxCeKWAPYKYQGPPWtfDYj0nlNFNoTlU39RC91Z16xFKJ2MLEmkm+NvimsoOJ6be3g2BssNPtJ/9BKDXRA5cVs17tBeeW72lH8TMB5999udtxHM2SiUsnWsrHlfVuGSCpNQQ+5REw8HNvEKkgEBjz1rXzBNWrqZGbjun55K+vgYPBhJO2qZ67uRWXUA5/qcU12U/mbi5XoA3swoxYE8LEXfZvFFC9WG/W28QNCA0Qd4Trk/WkWiAwZmB8a84Fs14rkv3wqyxwFavPkJorqurAfd2XzGiFy0sB0ITCOPYi1HzDGV5WfXk6b9k+jT66/RuzGa8EcSOWo/QtC3Bkhgowo4AY89a1/f/tw8A02zjIoK7JVDAbf8W4UfmbApJJhwXIiGtu1M0JItObx7g2reYqT+HHL2Q/R4VDc=";
 
 /**
- * Resolves the appropriate default thinking signature by model family.
- * Claude models use Antigravity Claude signature; Gemini models (and default fallback) use Gemini CLI Protobuf signature.
+ * Resolves the appropriate default thinking signature.
+ * Antigravity backend (Google Cloud Code PA) uses DEFAULT_THINKING_AG_SIGNATURE.
  */
-export function getDefaultThinkingSignature(model?: string): string {
-  const m = (model || "").toLowerCase();
-  if (m.includes("claude")) {
-    return DEFAULT_THINKING_AG_SIGNATURE;
-  }
-  return DEFAULT_THINKING_GEMINI_CLI_SIGNATURE;
+export function getDefaultThinkingSignature(_model?: string): string {
+  return DEFAULT_THINKING_AG_SIGNATURE;
 }
 
 // Fields Google generateContent / Cloud Code PA rejects (Claude/OpenAI/Qwen thinking fields set at body root or generationConfig)
@@ -527,45 +523,15 @@ export function sanitizeFunctionResponsePayload(value: any): any {
   return out;
 }
 
-export function formatFunctionResponsePayload(raw: any): Record<string, any> {
-  if (raw === undefined || raw === null) {
-    return { result: "" };
-  }
-  if (typeof raw !== "object") {
-    return { result: raw ?? "" };
-  }
-  if (Array.isArray(raw)) {
-    return { result: sanitizeFunctionResponsePayload(raw) };
-  }
-
-  let sanitized = sanitizeFunctionResponsePayload(raw);
-  while (
-    sanitized &&
-    typeof sanitized === "object" &&
-    !Array.isArray(sanitized) &&
-    Object.keys(sanitized).length === 1 &&
-    typeof sanitized.result === "object" &&
-    sanitized.result !== null &&
-    !Array.isArray(sanitized.result) &&
-    "result" in sanitized.result
-  ) {
-    sanitized = sanitized.result;
-  }
-
-  if (!sanitized || Object.keys(sanitized).length === 0) {
-    return { result: "" };
-  }
-
-  return sanitized;
-}
-
+// Return the part with a sanitized functionResponse.response (same reference when untouched)
 export function sanitizeFunctionResponsePart(part: any): any {
-  if (!part?.functionResponse) return part;
+  const response = part?.functionResponse?.response;
+  if (!response || typeof response !== "object") return part;
   return {
     ...part,
     functionResponse: {
       ...part.functionResponse,
-      response: formatFunctionResponsePayload(part.functionResponse.response),
+      response: sanitizeFunctionResponsePayload(response),
     },
   };
 }
