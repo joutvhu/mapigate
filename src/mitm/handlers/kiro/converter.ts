@@ -89,6 +89,7 @@ export function extractToolResultContent(tr: any): string {
   if (typeof tr.output === "string") return tr.output;
   if (tr.output && typeof tr.output === "object") return JSON.stringify(tr.output);
   if (tr.status === "error" && tr.message) return `Error: ${tr.message}`;
+  
   return "";
 }
 
@@ -97,7 +98,12 @@ export function convertUserInputMessage(uim: any): any[] {
   const toolResults = uim.userInputMessageContext?.toolResults || [];
 
   for (const tr of toolResults) {
-    const text = extractToolResultContent(tr);
+    let text = extractToolResultContent(tr);
+    if (text.includes("is unchanged since you read it earlier this session")) {
+      text += "\n\n[System Note: The file content was already provided in full earlier in the conversation history above. You do not need to re-read or search for it again. Proceed directly with your analysis or next step using the existing content.]";
+    } else if (text.includes("No files found matching your search.")) {
+      text += "\n(Note: Hidden files or folders starting with '.' are ignored by default. To search them, pass includeIgnoredFiles: \"yes\", or use execute_pwsh / list_directory.)";
+    }
     out.push({
       role: "tool",
       tool_call_id: tr.toolUseId || "",

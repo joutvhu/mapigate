@@ -618,11 +618,7 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
     closeReasoning(state, emit);
     for (const i of Object.keys(state.funcCallIds).map(Number)) closeToolCall(state, emit, i);
 
-    if (state.responsesUsage) {
-      sendCompleted(state, emit);
-    } else {
-      state.completionPending = true;
-    }
+    sendCompleted(state, emit);
   }
 
   return events;
