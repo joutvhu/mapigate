@@ -647,8 +647,11 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
           `Expected model to start with gemini-3.8-flash but got ${capturedBody.model}`
         );
         assert.ok(capturedBody.request?.contents);
-        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, undefined);
-        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 16384);
+        assert.deepEqual(capturedBody.request?.generationConfig?.thinkingConfig, {
+          thinkingBudget: 8192,
+          includeThoughts: true,
+        });
 
         // Verify emitted OpenAI chunks
         assert.ok(emittedChunks.length > 0);
@@ -778,7 +781,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("does not set maxOutputTokens when body.max_tokens is not specified and excludes thinkingConfig", async () => {
+    it("sets appropriate thinkingConfig and maxOutputTokens floor for Gemini models", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -816,8 +819,11 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         const provider = new AntigravityProvider();
         await executeAntigravity(mockContext, provider);
 
-        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, undefined);
-        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 65535);
+        assert.deepEqual(capturedBody.request?.generationConfig?.thinkingConfig, {
+          thinkingBudget: 24576,
+          includeThoughts: true,
+        });
       } finally {
         global.fetch = originalFetch;
       }
