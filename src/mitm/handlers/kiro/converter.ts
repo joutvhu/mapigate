@@ -217,8 +217,9 @@ export function emitFinish(state: KiroState): Buffer[] | null {
       );
     }
   } else {
-    // Text-only response: emit messageStopEvent
+    // Text-only response: emit messageStopEvent and metadataEvent with stopReason: "END_TURN"
     frames.push(buildEventStreamFrame("messageStopEvent", {}));
+    frames.push(buildEventStreamFrame("metadataEvent", { stopReason: "END_TURN" }));
   }
   state.finishSent = true;
 
@@ -253,7 +254,10 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
         })
       );
     }
-    return withInitialFrame(state, buildEventStreamFrame("messageStopEvent", {}));
+    return withInitialFrame(state, [
+      buildEventStreamFrame("messageStopEvent", {}),
+      buildEventStreamFrame("metadataEvent", { stopReason: "END_TURN" }),
+    ]);
   }
 
   const frames: Buffer[] = [];

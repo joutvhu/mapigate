@@ -12,6 +12,7 @@ import {
   sanitizeFunctionResponsePayload,
   sanitizeFunctionResponsePart,
   toNumericSessionId,
+  resolveSessionId,
   convertConstToEnum,
   convertEnumValuesToStrings,
   mergeAllOf,
@@ -370,6 +371,56 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
     });
   });
 
+  describe("resolveSessionId", () => {
+    it("prefers client session from headers if present", () => {
+      const sid = resolveSessionId(
+        { headers: { "x-session-id": "sess_hdr_123" } },
+        {},
+        "test-account"
+      );
+      assert.equal(sid, "sess_hdr_123");
+    });
+
+    it("prefers client session from body if present", () => {
+      const sid1 = resolveSessionId(null, { _clientSessionId: "client_body_sid" }, "acc");
+      assert.equal(sid1, "client_body_sid");
+
+      const sid2 = resolveSessionId(null, { conversation_id: "conv_id_abc" }, "acc");
+      assert.equal(sid2, "conv_id_abc");
+    });
+
+    it("falls back to stable account identifier when client session is absent", () => {
+      const sidStr = resolveSessionId(null, {}, "my-google-acc");
+      assert.equal(sidStr, "antigravity:account:my-google-acc");
+
+      const sidObj = resolveSessionId(null, {}, { id: "acc-id-1", name: "acc-name-1" });
+      assert.equal(sidObj, "antigravity:account:acc-id-1");
+
+      const sidAnon = resolveSessionId(null, {}, null);
+      assert.equal(sidAnon, "antigravity:account:anonymous");
+    });
+
+    it("produces identical toNumericSessionId across multiple turns for the same account (enabling Cloud Code Prompt Caching)", () => {
+      const acc = { id: "user_developer_1", name: "Dev 1", email: "dev1@example.com" };
+
+      // Turn 1
+      const turn1Raw = resolveSessionId({ headers: {} }, { messages: [{ role: "user", content: "turn 1" }] }, acc);
+      const turn1Numeric = toNumericSessionId(turn1Raw);
+
+      // Turn 2
+      const turn2Raw = resolveSessionId({ headers: {} }, { messages: [{ role: "user", content: "turn 2" }] }, acc);
+      const turn2Numeric = toNumericSessionId(turn2Raw);
+
+      // Turn 100
+      const turn100Raw = resolveSessionId({ headers: {} }, { messages: [{ role: "user", content: "turn 100" }] }, acc);
+      const turn100Numeric = toNumericSessionId(turn100Raw);
+
+      assert.equal(turn1Numeric, turn2Numeric);
+      assert.equal(turn1Numeric, turn100Numeric);
+      assert.match(turn1Numeric, /^-\d+$/);
+    });
+  });
+
   describe("fixMissingToolResponses", () => {
     it("synthesizes empty tool response for missing tool results in turn history", () => {
       const messages = [
@@ -593,7 +644,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
           `Expected model to start with gemini-3.8-flash but got ${capturedBody.model}`
         );
         assert.ok(capturedBody.request?.contents);
-        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 16384);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, undefined);
         assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
 
         // Verify emitted OpenAI chunks
@@ -724,7 +775,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("enforces maxOutputTokens floor of 65535 for thinkingLevel high and excludes thinkingConfig", async () => {
+    it("does not set maxOutputTokens when body.max_tokens is not specified and excludes thinkingConfig", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -762,14 +813,14 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         const provider = new AntigravityProvider();
         await executeAntigravity(mockContext, provider);
 
-        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 65535);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, undefined);
         assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
       } finally {
         global.fetch = originalFetch;
       }
     });
 
-    it("respects custom max_tokens when exceeding floorTokens", async () => {
+    it("respects custom max_tokens when specified", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 

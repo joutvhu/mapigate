@@ -60,32 +60,36 @@ export function toNumericSessionId(sessionId?: string | null): string {
   return `-${n.toString()}`;
 }
 
-export function resolveSessionId(req: any, body: any, fallbackScope = "local"): string {
-  const headerSessionId = req?.headers?.["x-session-id"] || req?.headers?.["session-id"] || req?.headers?.["x-amp-thread-id"];
+export function resolveSessionId(
+  req: any,
+  body: any,
+  fallbackAccount?: string | { id?: string; name?: string; email?: string } | null
+): string {
+  const headerSessionId =
+    req?.headers?.["x-session-id"] ||
+    req?.headers?.["session-id"] ||
+    req?.headers?.["x-amp-thread-id"];
   if (headerSessionId && typeof headerSessionId === "string" && headerSessionId.trim()) {
     return headerSessionId.trim();
   }
-  if (body?.conversation_id && typeof body.conversation_id === "string" && body.conversation_id.trim()) {
-    return body.conversation_id.trim();
+
+  const clientBodyId =
+    body?._clientSessionId ||
+    body?.sessionId ||
+    body?.session_id ||
+    body?.conversation_id;
+  if (clientBodyId && typeof clientBodyId === "string" && clientBodyId.trim()) {
+    return clientBodyId.trim();
   }
-  if (body?.session_id && typeof body.session_id === "string" && body.session_id.trim()) {
-    return body.session_id.trim();
+
+  let accountIdentifier = "anonymous";
+  if (typeof fallbackAccount === "string" && fallbackAccount.trim()) {
+    accountIdentifier = fallbackAccount.trim();
+  } else if (fallbackAccount && typeof fallbackAccount === "object") {
+    accountIdentifier = fallbackAccount.id || fallbackAccount.name || fallbackAccount.email || "anonymous";
   }
-  const items = Array.isArray(body?.messages) ? body.messages : [];
-  let assistantText = "";
-  for (const item of items) {
-    if (item?.role === "assistant") {
-      if (typeof item.content === "string") assistantText += item.content;
-      else if (Array.isArray(item.content)) {
-        for (const c of item.content) assistantText += c?.text || "";
-      }
-      if (assistantText.length >= 50) break;
-    }
-  }
-  if (assistantText.length >= 50) {
-    return crypto.createHash("sha256").update(`ag:${assistantText.slice(0, 50)}`).digest("hex").slice(0, 16);
-  }
-  return `antigravity:session:${fallbackScope}`;
+
+  return `antigravity:account:${accountIdentifier}`;
 }
 
 export function buildIdeRequestId(opts: {

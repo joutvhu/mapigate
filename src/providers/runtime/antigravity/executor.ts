@@ -155,7 +155,13 @@ export async function executeAntigravity(
   const thinkingLevel = match ? match[2].trim() : undefined;
 
   // 3. Build Google Cloud Code PA Request Envelope
-  const rawSessionId = resolveSessionId(req, body, context.account?.name || "local");
+  const accountIdentifier =
+    context.account?.id ||
+    context.account?.name ||
+    (context.account?.providerSpecificData as any)?.email ||
+    (context.account as any)?.email ||
+    "anonymous";
+  const rawSessionId = resolveSessionId(req, body, accountIdentifier);
   const sessionId = toNumericSessionId(rawSessionId);
 
   const rawMessages: any[] = Array.isArray(body.messages) ? body.messages : [];
@@ -344,8 +350,9 @@ export async function executeAntigravity(
     if (body.top_p != null) generationConfig.topP = body.top_p;
     if (body.top_k != null) generationConfig.topK = body.top_k;
   }
-  const floorTokens = thinkingLevel?.toLowerCase() === "high" ? 65535 : 16384;
-  generationConfig.maxOutputTokens = Math.max(body.max_tokens || 0, floorTokens);
+  if (body.max_tokens != null) {
+    generationConfig.maxOutputTokens = body.max_tokens;
+  }
   stripBlacklisted(generationConfig);
 
   const ideRequestId = buildIdeRequestId({
