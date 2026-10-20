@@ -12,8 +12,12 @@ export const DEFAULT_THINKING_GEMINI_CLI_SIGNATURE =
  * Resolves the appropriate default thinking signature.
  * Antigravity backend (Google Cloud Code PA) uses DEFAULT_THINKING_AG_SIGNATURE.
  */
-export function getDefaultThinkingSignature(_model?: string): string {
-  return DEFAULT_THINKING_AG_SIGNATURE;
+export function getDefaultThinkingSignature(model?: string): string {
+  const m = (model || "").toLowerCase();
+  if (m.includes("claude")) {
+    return DEFAULT_THINKING_AG_SIGNATURE;
+  }
+  return DEFAULT_THINKING_GEMINI_CLI_SIGNATURE;
 }
 
 // Fields Google generateContent / Cloud Code PA rejects (Claude/OpenAI/Qwen thinking fields set at body root or generationConfig)

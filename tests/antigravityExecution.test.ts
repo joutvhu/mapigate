@@ -46,16 +46,19 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
   });
 
   describe("getDefaultThinkingSignature", () => {
-    it("returns DEFAULT_THINKING_AG_SIGNATURE for all Antigravity models", () => {
+    it("returns DEFAULT_THINKING_AG_SIGNATURE for Claude models", () => {
       assert.equal(getDefaultThinkingSignature("claude-3-5-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("claude-opus-4-6-thinking"), DEFAULT_THINKING_AG_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("ag/claude-3-7-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_AG_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_AG_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_AG_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_AG_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_AG_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_AG_SIGNATURE);
+    });
+
+    it("returns DEFAULT_THINKING_GEMINI_CLI_SIGNATURE for Gemini models and fallbacks", () => {
+      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
     });
   });
 
@@ -1007,8 +1010,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         const geminiModelPart = capturedGeminiBody.request.contents[1].parts[0];
         assert.equal(
           geminiModelPart.thoughtSignature,
-          DEFAULT_THINKING_AG_SIGNATURE,
-          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_AG_SIGNATURE"
+          DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
+          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_GEMINI_CLI_SIGNATURE"
         );
 
         const claudeModelPart = capturedClaudeBody.request.contents[1].parts[0];
