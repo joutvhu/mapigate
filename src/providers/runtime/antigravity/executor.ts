@@ -288,7 +288,7 @@ export async function executeAntigravity(
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: { result: sanitizeFunctionResponsePayload(parsedResp) },
+                response: { result: parsedResp },
               },
             });
           }
