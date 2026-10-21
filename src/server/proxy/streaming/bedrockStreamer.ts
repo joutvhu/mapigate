@@ -106,6 +106,7 @@ export async function pipeBedrockEventStream(
     for (const ev of finalEvents) {
       clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
     }
+    clientRes.write("data: [DONE]\n\n");
   } else if (clientFormat === "openai") {
     clientRes.write("data: [DONE]\n\n");
   }

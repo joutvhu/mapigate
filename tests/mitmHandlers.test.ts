@@ -200,7 +200,7 @@ describe("MITM Modular Tool Handlers", () => {
       assert.ok(finishResult);
     });
 
-    it("preserves conversationId in initial-response frame", () => {
+    it("emits initial-response frame with empty conversationId (9router standard)", () => {
       const state = initKiroState("gemini-3.8-flash", "sess_74ab5020-2af8-4af6-984d-9b8cce631402");
       const chunk = {
         model: "gemini-3.8-flash",
@@ -213,7 +213,7 @@ describe("MITM Modular Tool Handlers", () => {
       // First frame is initial-response
       const initialFrame = frames[0];
       const initialStr = initialFrame.toString("utf8");
-      assert.ok(initialStr.includes("sess_74ab5020-2af8-4af6-984d-9b8cce631402"));
+      assert.ok(initialStr.includes('"conversationId":""'));
     });
 
     it("emits reasoningContentEvent and messageStopEvent without metadataEvent or fake assistantResponseEvent when model produces only thinking (9router standard)", () => {

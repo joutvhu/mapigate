@@ -101,7 +101,7 @@ export function withInitialFrame(state: KiroState, frames: Buffer | Buffer[] | n
     return list.length === 0 ? null : list.length === 1 ? list[0] : list;
   }
   state.initialSent = true;
-  const out = [buildInitialResponseFrame(state.conversationId || ""), ...list];
+  const out = [buildInitialResponseFrame(""), ...list];
   return out.length === 1 ? out[0] : out;
 }
 

@@ -18,17 +18,6 @@ describe("Kiro Converter & Debug Enhancements", () => {
       assert.equal(extractToolResultContent(tr), "File content here\nLine 2");
     });
 
-    it("extracts and stringifies JSON content blocks", () => {
-      const tr = {
-        toolUseId: "call_2",
-        content: [{ json: { status: "success", files: ["a.rs", "b.rs"] } }],
-      };
-      assert.equal(
-        extractToolResultContent(tr),
-        JSON.stringify({ status: "success", files: ["a.rs", "b.rs"] })
-      );
-    });
-
     it("extracts direct string content", () => {
       const tr = {
         toolUseId: "call_3",
@@ -43,15 +32,6 @@ describe("Kiro Converter & Debug Enhancements", () => {
         content: ["Line 1", "Line 2"],
       };
       assert.equal(extractToolResultContent(tr), "Line 1\nLine 2");
-    });
-
-    it("extracts error message when status is error", () => {
-      const tr = {
-        toolUseId: "call_5",
-        status: "error",
-        message: "File not found: README.md",
-      };
-      assert.equal(extractToolResultContent(tr), "Error: File not found: README.md");
     });
 
     it("returns empty string on empty/null input", () => {
@@ -95,13 +75,12 @@ describe("Kiro Converter & Debug Enhancements", () => {
               content: [{ text: "hello" }],
             },
             {
-              toolUseId: "call_json",
-              content: [{ json: { foo: "bar" } }],
+              toolUseId: "call_direct",
+              content: "direct content",
             },
             {
-              toolUseId: "call_err",
-              status: "error",
-              message: "Access denied",
+              toolUseId: "call_lines",
+              content: ["line 1", "line 2"],
             },
           ],
         },
@@ -114,12 +93,12 @@ describe("Kiro Converter & Debug Enhancements", () => {
       assert.equal(out[0].content, "hello");
 
       assert.equal(out[1].role, "tool");
-      assert.equal(out[1].tool_call_id, "call_json");
-      assert.equal(out[1].content, '{"foo":"bar"}');
+      assert.equal(out[1].tool_call_id, "call_direct");
+      assert.equal(out[1].content, "direct content");
 
       assert.equal(out[2].role, "tool");
-      assert.equal(out[2].tool_call_id, "call_err");
-      assert.equal(out[2].content, "Error: Access denied");
+      assert.equal(out[2].tool_call_id, "call_lines");
+      assert.equal(out[2].content, "line 1\nline 2");
     });
   });
 

@@ -176,6 +176,7 @@ export async function pipeSseStream(
     for (const ev of finalEvents) {
       clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
     }
+    clientRes.write("data: [DONE]\n\n");
   } else if (clientFormat === "anthropic" && targetFormat === "openai") {
     const finalEvents = AnthropicAdapter.finalizeStream(openAiToAnthropicState);
     for (const ev of finalEvents) {

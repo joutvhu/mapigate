@@ -1125,14 +1125,16 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         assert.equal(toolTurn.role, "user");
         assert.equal(toolTurn.parts.length, 4);
 
-        // String result must be packaged as { result: "..." } (1 level, no double wrapping)
+        // String result is packaged as { result: { result: "..." } } matching 9router
         const resp1 = toolTurn.parts[0].functionResponse;
         assert.equal(resp1.name, "execute_pwsh");
         assert.deepEqual(resp1.response, {
-          result: "Directory: C:\\workspace\r\nfile1.txt",
+          result: {
+            result: "Directory: C:\\workspace\r\nfile1.txt",
+          },
         });
 
-        // JSON object result must be packaged as { result: { files: [...], count: 2 } }
+        // JSON object result is packaged as { result: { files: [...], count: 2 } }
         const resp2 = toolTurn.parts[1].functionResponse;
         assert.equal(resp2.name, "file_search");
         assert.deepEqual(resp2.response, {
@@ -1142,18 +1144,22 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
           },
         });
 
-        // Code file result must be packaged as { result: "<file..." } (1 level, never { result: { result: ... } })
+        // Code file result is packaged matching 9router
         const resp3 = toolTurn.parts[2].functionResponse;
         assert.equal(resp3.name, "read_file");
         assert.deepEqual(resp3.response, {
-          result: '<file name="src/main.rs">\nfn main() {}\n</file>',
+          result: {
+            result: '<file name="src/main.rs">\nfn main() {}\n</file>',
+          },
         });
 
-        // JSON object that already has `result` must not be double-wrapped
+        // JSON object that already has `result` is packaged matching 9router
         const resp4 = toolTurn.parts[3].functionResponse;
         assert.equal(resp4.name, "custom_op");
         assert.deepEqual(resp4.response, {
-          result: "operation succeeded",
+          result: {
+            result: "operation succeeded",
+          },
         });
       } finally {
         global.fetch = originalFetch;
