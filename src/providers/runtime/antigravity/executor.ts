@@ -283,18 +283,17 @@ export async function executeAntigravity(
               }
             }
 
-            let parsedResp = tryParseJSON(resp);
-            if (parsedResp === null) {
-              parsedResp = { result: resp };
-            } else if (typeof parsedResp !== "object") {
-              parsedResp = { result: parsedResp };
-            }
+            const parsedResp = tryParseJSON(resp);
+            const finalResult = parsedResp !== null ? sanitizeFunctionResponsePayload(parsedResp) : resp;
 
             toolParts.push({
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: { result: parsedResp },
+                response:
+                  typeof finalResult === "object" && finalResult !== null && "result" in finalResult
+                    ? finalResult
+                    : { result: finalResult },
               },
             });
           }

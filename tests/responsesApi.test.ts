@@ -122,6 +122,67 @@ describe("Responses API Adapter & Endpoints", () => {
       assert.equal(converted.messages[2].tool_call_id, "call_123");
     });
 
+    it("preserves strict chronological turn order across multi-turn tool calling", () => {
+      const body = {
+        model: "ag/gemini-3.8-flash",
+        input: [
+          {
+            type: "message",
+            role: "user",
+            content: "Inspect project",
+          },
+          {
+            type: "function_call",
+            call_id: "call_pwsh_1",
+            name: "execute_pwsh",
+            arguments: JSON.stringify({ command: "dir" }),
+          },
+          {
+            type: "function_call_output",
+            call_id: "call_pwsh_1",
+            output: "Directory: src\r\npackage.json",
+          },
+          {
+            type: "function_call",
+            call_id: "call_read_2",
+            name: "read_file",
+            arguments: JSON.stringify({ path: "src/main.rs" }),
+          },
+          {
+            type: "function_call_output",
+            call_id: "call_read_2",
+            output: '<file name="src/main.rs">\nfn main() {}\n</file>',
+          },
+        ],
+      };
+
+      const converted = convertResponsesApiFormat(body);
+      assert.equal(converted.messages.length, 5);
+      // Turn 0: user message
+      assert.equal(converted.messages[0].role, "user");
+      assert.equal(converted.messages[0].content, "Inspect project");
+
+      // Turn 1: assistant call_pwsh_1
+      assert.equal(converted.messages[1].role, "assistant");
+      assert.equal(converted.messages[1].tool_calls.length, 1);
+      assert.equal(converted.messages[1].tool_calls[0].id, "call_pwsh_1");
+
+      // Turn 2: tool output call_pwsh_1
+      assert.equal(converted.messages[2].role, "tool");
+      assert.equal(converted.messages[2].tool_call_id, "call_pwsh_1");
+      assert.equal(converted.messages[2].content, "Directory: src\r\npackage.json");
+
+      // Turn 3: assistant call_read_2
+      assert.equal(converted.messages[3].role, "assistant");
+      assert.equal(converted.messages[3].tool_calls.length, 1);
+      assert.equal(converted.messages[3].tool_calls[0].id, "call_read_2");
+
+      // Turn 4: tool output call_read_2
+      assert.equal(converted.messages[4].role, "tool");
+      assert.equal(converted.messages[4].tool_call_id, "call_read_2");
+      assert.equal(converted.messages[4].content, '<file name="src/main.rs">\nfn main() {}\n</file>');
+    });
+
     it("converts Kiro conversationState wire format to OpenAI messages and tools", () => {
       const kiroBody = {
         model: "ag/gemini-3.8-flash",

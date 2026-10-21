@@ -1061,6 +1061,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
 
       const callId1 = `call_str_${Date.now()}`;
       const callId2 = `call_json_${Date.now()}`;
+      const callId3 = `call_file_${Date.now()}`;
+      const callId4 = `call_res_${Date.now()}`;
 
       const mockContext: any = {
         req: { headers: {} },
@@ -1081,12 +1083,26 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
                   type: "function",
                   function: { name: "file_search", arguments: '{"query":"test"}' },
                 },
+                {
+                  id: callId3,
+                  type: "function",
+                  function: { name: "read_file", arguments: '{"path":"src/main.rs"}' },
+                },
+                {
+                  id: callId4,
+                  type: "function",
+                  function: { name: "custom_op", arguments: '{}' },
+                },
               ],
             },
             // Tool 1: raw string (e.g. CLI stdout)
             { role: "tool", tool_call_id: callId1, content: "Directory: C:\\workspace\r\nfile1.txt" },
-            // Tool 2: JSON string
+            // Tool 2: JSON string without result key
             { role: "tool", tool_call_id: callId2, content: '{"files":["a.ts","b.ts"],"count":2}' },
+            // Tool 3: Code file content (XML/Markdown/Rust)
+            { role: "tool", tool_call_id: callId3, content: '<file name="src/main.rs">\nfn main() {}\n</file>' },
+            // Tool 4: JSON object with existing result key
+            { role: "tool", tool_call_id: callId4, content: '{"result":"operation succeeded"}' },
           ],
           stream: true,
         },
@@ -1107,18 +1123,16 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
 
         const toolTurn = capturedBody.request.contents[2];
         assert.equal(toolTurn.role, "user");
-        assert.equal(toolTurn.parts.length, 2);
+        assert.equal(toolTurn.parts.length, 4);
 
-        // String result must be packaged as { result: { result: "..." } }
+        // String result must be packaged as { result: "..." } (1 level, no double wrapping)
         const resp1 = toolTurn.parts[0].functionResponse;
         assert.equal(resp1.name, "execute_pwsh");
         assert.deepEqual(resp1.response, {
-          result: {
-            result: "Directory: C:\\workspace\r\nfile1.txt",
-          },
+          result: "Directory: C:\\workspace\r\nfile1.txt",
         });
 
-        // JSON object result must be packaged directly as struct { result: { files: [...], count: 2 } }
+        // JSON object result must be packaged as { result: { files: [...], count: 2 } }
         const resp2 = toolTurn.parts[1].functionResponse;
         assert.equal(resp2.name, "file_search");
         assert.deepEqual(resp2.response, {
@@ -1126,6 +1140,20 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
             files: ["a.ts", "b.ts"],
             count: 2,
           },
+        });
+
+        // Code file result must be packaged as { result: "<file..." } (1 level, never { result: { result: ... } })
+        const resp3 = toolTurn.parts[2].functionResponse;
+        assert.equal(resp3.name, "read_file");
+        assert.deepEqual(resp3.response, {
+          result: '<file name="src/main.rs">\nfn main() {}\n</file>',
+        });
+
+        // JSON object that already has `result` must not be double-wrapped
+        const resp4 = toolTurn.parts[3].functionResponse;
+        assert.equal(resp4.name, "custom_op");
+        assert.deepEqual(resp4.response, {
+          result: "operation succeeded",
         });
       } finally {
         global.fetch = originalFetch;

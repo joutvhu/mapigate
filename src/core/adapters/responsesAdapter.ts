@@ -120,6 +120,12 @@ export function convertResponsesApiFormat(body: any): any {
 
       result.messages.push({ role: item.role, content });
     } else if (itemType === "function_call") {
+      if (pendingToolResults.length > 0) {
+        for (const tr of pendingToolResults) {
+          result.messages.push(tr);
+        }
+        pendingToolResults = [];
+      }
       if (!currentAssistantMsg) {
         currentAssistantMsg = {
           role: "assistant",
@@ -141,7 +147,13 @@ export function convertResponsesApiFormat(body: any): any {
         result.messages.push(currentAssistantMsg);
         currentAssistantMsg = null;
       }
-      pendingToolResults.push({
+      if (pendingToolResults.length > 0) {
+        for (const tr of pendingToolResults) {
+          result.messages.push(tr);
+        }
+        pendingToolResults = [];
+      }
+      result.messages.push({
         role: "tool",
         tool_call_id: item.call_id,
         content: typeof item.output === "string" ? item.output : JSON.stringify(item.output ?? ""),
