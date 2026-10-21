@@ -152,7 +152,7 @@ export async function executeAntigravity(
 
   const match = rawUpstream.match(/^(.*)\(([^()]+)\)\s*$/);
   const upstreamModel = match ? match[1].trim() : rawUpstream;
-  const thinkingLevel = match ? match[2].trim() : undefined;
+  const _thinkingLevel = match ? match[2].trim() : undefined;
 
   // 3. Build Google Cloud Code PA Request Envelope
   const accountIdentifier =
@@ -350,18 +350,10 @@ export async function executeAntigravity(
     if (body.top_p != null) generationConfig.topP = body.top_p;
     if (body.top_k != null) generationConfig.topK = body.top_k;
   }
-  const isClaude = (upstreamModel || targetModel || "").toLowerCase().includes("claude");
-  if (!isClaude) {
-    const budget = thinkingLevel?.toLowerCase() === "high" ? 24576 : thinkingLevel?.toLowerCase() === "low" ? 1024 : 8192;
-    const floor = thinkingLevel?.toLowerCase() === "high" ? 65535 : thinkingLevel?.toLowerCase() === "low" ? 8192 : 16384;
-    generationConfig.thinkingConfig = {
-      thinkingBudget: budget,
-      includeThoughts: true,
-    };
-    generationConfig.maxOutputTokens = Math.max(body.max_tokens || 0, floor);
-  } else if (body.max_tokens != null) {
+  if (body.max_tokens != null) {
     generationConfig.maxOutputTokens = body.max_tokens;
   }
+  stripBlacklisted(generationConfig);
 
   const ideRequestId = buildIdeRequestId({
     sessionId: String(sessionId),

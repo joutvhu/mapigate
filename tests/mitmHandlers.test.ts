@@ -216,7 +216,7 @@ describe("MITM Modular Tool Handlers", () => {
       assert.ok(initialStr.includes("sess_74ab5020-2af8-4af6-984d-9b8cce631402"));
     });
 
-    it("emits reasoningContentEvent and messageStopEvent without fake assistantResponseEvent when model produces only thinking (9router standard)", () => {
+    it("emits reasoningContentEvent and messageStopEvent without metadataEvent or fake assistantResponseEvent when model produces only thinking (9router standard)", () => {
       const state = initKiroState("gemini-3.8-flash", "sess_1234");
       // Chunk 1: reasoning only
       const thinkChunk = {
@@ -238,14 +238,14 @@ describe("MITM Modular Tool Handlers", () => {
       assert.ok(r2);
       const finishFrames = Array.isArray(r2) ? r2 : [r2];
       const finishStr = Buffer.concat(finishFrames).toString("utf8");
-      // Must emit messageStopEvent, metadataEvent with END_TURN, and NOT fake assistantResponseEvent
+      // Must emit messageStopEvent and NOT metadataEvent or fake assistantResponseEvent
       assert.ok(finishStr.includes("messageStopEvent"));
-      assert.ok(finishStr.includes("metadataEvent"));
-      assert.ok(finishStr.includes("END_TURN"));
+      assert.ok(!finishStr.includes("metadataEvent"));
+      assert.ok(!finishStr.includes("END_TURN"));
       assert.ok(!finishStr.includes("assistantResponseEvent"));
     });
 
-    it("emits metadataEvent with stopReason END_TURN on flush (null chunk) for text-only responses", () => {
+    it("emits clean messageStopEvent without metadataEvent on flush (null chunk) for text-only responses (9router standard)", () => {
       const state = initKiroState("gemini-3.8-flash", "sess_flush_1");
       // Deliver content without finish_reason
       convertOpenAIToKiro({ choices: [{ delta: { content: "Some text" } }] }, state);
@@ -256,8 +256,8 @@ describe("MITM Modular Tool Handlers", () => {
       const flushFrames = Array.isArray(flushed) ? flushed : [flushed];
       const flushStr = Buffer.concat(flushFrames).toString("utf8");
       assert.ok(flushStr.includes("messageStopEvent"));
-      assert.ok(flushStr.includes("metadataEvent"));
-      assert.ok(flushStr.includes("END_TURN"));
+      assert.ok(!flushStr.includes("metadataEvent"));
+      assert.ok(!flushStr.includes("END_TURN"));
     });
 
     it("emits toolUseEvent sequence and stop:true without messageStopEvent when model calls tools (9router standard)", () => {

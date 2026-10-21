@@ -208,6 +208,13 @@ function initSchema(db: DatabaseDriver) {
       expires_at INTEGER NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS kv_store (
+      scope TEXT NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      PRIMARY KEY (scope, key)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_logs_provider ON request_logs(provider_id);
     CREATE INDEX IF NOT EXISTS idx_request_details_timestamp ON request_details(timestamp);
@@ -215,6 +222,7 @@ function initSchema(db: DatabaseDriver) {
     CREATE INDEX IF NOT EXISTS idx_request_details_model ON request_details(model);
     CREATE INDEX IF NOT EXISTS idx_request_details_status ON request_details(status);
     CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_kv_store_scope ON kv_store(scope);
   `);
 
   // Safe migrations for newly added columns

@@ -33,6 +33,7 @@ import {
 } from "../src/providers/runtime/antigravity/thoughtSignatureStore.js";
 import { executeAntigravity } from "../src/providers/runtime/antigravity/executor.js";
 import { AntigravityProvider } from "../src/providers/runtime/antigravity/provider.js";
+import { getDatabase } from "../src/storage/database.js";
 
 describe("Google Antigravity Provider Execution & Schemas", () => {
   describe("sanitizeGeminiFunctionName", () => {
@@ -46,19 +47,16 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
   });
 
   describe("getDefaultThinkingSignature", () => {
-    it("returns DEFAULT_THINKING_AG_SIGNATURE for Claude models", () => {
+    it("always returns DEFAULT_THINKING_AG_SIGNATURE as the universal fallback for Antigravity (9router standard)", () => {
       assert.equal(getDefaultThinkingSignature("claude-3-5-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("claude-opus-4-6-thinking"), DEFAULT_THINKING_AG_SIGNATURE);
       assert.equal(getDefaultThinkingSignature("ag/claude-3-7-sonnet"), DEFAULT_THINKING_AG_SIGNATURE);
-    });
-
-    it("returns DEFAULT_THINKING_GEMINI_CLI_SIGNATURE for Gemini models and fallbacks", () => {
-      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
-      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_GEMINI_CLI_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("gemini-3.8-flash"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("ag/gemini-3.8-flash-high"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("gemini-2.5-pro"), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature(""), DEFAULT_THINKING_AG_SIGNATURE);
+      assert.equal(getDefaultThinkingSignature("unknown-model"), DEFAULT_THINKING_AG_SIGNATURE);
     });
   });
 
@@ -520,6 +518,26 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       const missing = getGeminiThoughtSignatureSync("call_non_existent");
       assert.equal(missing, null);
     });
+
+    it("retrieves signatures from SQLite kv_store fallback when not present in RAM", () => {
+      clearThoughtSignatureStore();
+      const db = getDatabase();
+      const now = Date.now();
+      db.run(
+        "INSERT OR REPLACE INTO kv_store (scope, key, value) VALUES (?, ?, ?)",
+        "gemini_thought_signatures",
+        "call_sqlite_only",
+        JSON.stringify({
+          signature: "sig_from_sqlite_db",
+          family: "gemini",
+          createdAt: now,
+          expiresAt: now + 1000 * 60 * 60 * 24 * 7,
+        })
+      );
+
+      const retrieved = getGeminiThoughtSignatureSync("call_sqlite_only", null, "gemini-3.8-flash");
+      assert.equal(retrieved, "sig_from_sqlite_db");
+    });
   });
 
   describe("executeAntigravity", () => {
@@ -647,11 +665,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
           `Expected model to start with gemini-3.8-flash but got ${capturedBody.model}`
         );
         assert.ok(capturedBody.request?.contents);
-        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 16384);
-        assert.deepEqual(capturedBody.request?.generationConfig?.thinkingConfig, {
-          thinkingBudget: 8192,
-          includeThoughts: true,
-        });
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, undefined);
 
         // Verify emitted OpenAI chunks
         assert.ok(emittedChunks.length > 0);
@@ -781,7 +796,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("sets appropriate thinkingConfig and maxOutputTokens floor for Gemini models", async () => {
+    it("keeps generationConfig clean without thinkingConfig or forced floor for Gemini models (9router standard)", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -819,11 +834,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         const provider = new AntigravityProvider();
         await executeAntigravity(mockContext, provider);
 
-        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, 65535);
-        assert.deepEqual(capturedBody.request?.generationConfig?.thinkingConfig, {
-          thinkingBudget: 24576,
-          includeThoughts: true,
-        });
+        assert.equal(capturedBody.request?.generationConfig?.thinkingConfig, undefined);
+        assert.equal(capturedBody.request?.generationConfig?.maxOutputTokens, undefined);
       } finally {
         global.fetch = originalFetch;
       }
@@ -1016,8 +1028,8 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         const geminiModelPart = capturedGeminiBody.request.contents[1].parts[0];
         assert.equal(
           geminiModelPart.thoughtSignature,
-          DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
-          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_GEMINI_CLI_SIGNATURE"
+          DEFAULT_THINKING_AG_SIGNATURE,
+          "Gemini fallback thoughtSignature must match DEFAULT_THINKING_AG_SIGNATURE"
         );
 
         const claudeModelPart = capturedClaudeBody.request.contents[1].parts[0];
