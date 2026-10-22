@@ -1,4 +1,4 @@
-import { codeWhispererToMessages, extractTools, recoverUnchangedToolResultsInMessages } from "../../mitm/handlers/kiro/converter.js";
+import { codeWhispererToMessages, extractTools } from "../../mitm/handlers/kiro/converter.js";
 
 /**
  * Normalize Responses API input to array format.
@@ -48,7 +48,6 @@ export function convertResponsesApiFormat(body: any): any {
   // 1. Kiro wire format (conversationState)
   if (body.conversationState) {
     const messages = codeWhispererToMessages(body);
-    recoverUnchangedToolResultsInMessages(messages);
     const tools = extractTools(body);
     return {
       ...body,
@@ -71,7 +70,6 @@ export function convertResponsesApiFormat(body: any): any {
     if (result.tool_choice) {
       result.tool_choice = normalizeToolChoiceToOpenAi(result.tool_choice);
     }
-    recoverUnchangedToolResultsInMessages(result.messages);
     return result;
   }
 
@@ -200,8 +198,6 @@ export function convertResponsesApiFormat(body: any): any {
   if (result.stream === undefined) {
     result.stream = true;
   }
-
-  recoverUnchangedToolResultsInMessages(result.messages);
 
   return result;
 }

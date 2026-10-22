@@ -16,7 +16,6 @@ import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
 import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
-import { recoverUnchangedToolResultsInMessages } from "../../mitm/handlers/kiro/toolResultExtractor.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import crypto from "node:crypto";
 
@@ -40,11 +39,6 @@ export async function runProxyPipeline(
     body.model = strippedModel;
   }
   const cleanModel = strippedModel || rawModel;
-
-  // Universal defense: recover unchanged tool results across all providers and formats
-  if (Array.isArray(body.messages) && body.messages.length > 0) {
-    recoverUnchangedToolResultsInMessages(body.messages);
-  }
 
   // 9router parity: bypass RTK for Kiro MITM and Antigravity to preserve raw tool outputs & paths
   const isKiroOrAntigravity =

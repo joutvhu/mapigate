@@ -1,23 +1,4 @@
 import { buildEventStreamFrame, withInitialFrame, type KiroState } from "./state.js";
-import {
-  extractToolResultContent,
-  recoverUnchangedFileContent,
-  recoverUnchangedToolResultsInMessages,
-  recoverUnchangedToolResultString,
-  isNormalizedPathMatch,
-  normalizeFilePath,
-  readLocalFileContent,
-} from "./toolResultExtractor.js";
-
-export {
-  extractToolResultContent,
-  recoverUnchangedFileContent,
-  recoverUnchangedToolResultsInMessages,
-  recoverUnchangedToolResultString,
-  isNormalizedPathMatch,
-  normalizeFilePath,
-  readLocalFileContent,
-};
 
 export function extractThinking(
   text: string,
@@ -83,12 +64,12 @@ const INLINE_IMAGE_MIME_BY_FORMAT = new Map([
   ["webp", "image/webp"],
 ]);
 
-export function convertUserInputMessage(uim: any, priorHistory: any[] = []): any[] {
+export function convertUserInputMessage(uim: any): any[] {
   const out: any[] = [];
   const toolResults = uim.userInputMessageContext?.toolResults || [];
 
   for (const tr of toolResults) {
-    const text = recoverUnchangedFileContent(tr, priorHistory);
+    const text = (tr.content || []).map((c: any) => c.text || "").join("\n");
     out.push({
       role: "tool",
       tool_call_id: tr.toolUseId || "",
@@ -155,17 +136,16 @@ export function codeWhispererToMessages(body: any): any[] {
   const currentMsg = cs.currentMessage;
   const messages: any[] = [];
 
-  for (let i = 0; i < history.length; i++) {
-    const item = history[i];
+  for (const item of history) {
     if (item.userInputMessage) {
-      messages.push(...convertUserInputMessage(item.userInputMessage, history.slice(0, i)));
+      messages.push(...convertUserInputMessage(item.userInputMessage));
     } else if (item.assistantResponseMessage) {
       messages.push(convertAssistantResponseMessage(item.assistantResponseMessage));
     }
   }
 
   if (currentMsg?.userInputMessage) {
-    messages.push(...convertUserInputMessage(currentMsg.userInputMessage, history));
+    messages.push(...convertUserInputMessage(currentMsg.userInputMessage));
   }
 
   return messages;

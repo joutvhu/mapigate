@@ -3,58 +3,11 @@ process.env.NODE_ENV = "test";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
-  extractToolResultContent,
   convertUserInputMessage,
   safeArgsString,
 } from "../src/mitm/handlers/kiro/converter.js";
 
 describe("Kiro Converter & Debug Enhancements", () => {
-  describe("extractToolResultContent", () => {
-    it("extracts text from standard array with text block", () => {
-      const tr = {
-        toolUseId: "call_1",
-        content: [{ text: "File content here\nLine 2" }],
-      };
-      assert.equal(extractToolResultContent(tr), "File content here\nLine 2");
-    });
-
-    it("extracts direct string content", () => {
-      const tr = {
-        toolUseId: "call_3",
-        content: "Raw direct string output",
-      };
-      assert.equal(extractToolResultContent(tr), "Raw direct string output");
-    });
-
-    it("extracts array of strings", () => {
-      const tr = {
-        toolUseId: "call_4",
-        content: ["Line 1", "Line 2"],
-      };
-      assert.equal(extractToolResultContent(tr), "Line 1\nLine 2");
-    });
-
-    it("extracts polymorphic variants (data, output, json, single object)", () => {
-      const trData = { toolUseId: "call_d", content: [{ data: "data-content" }] };
-      assert.equal(extractToolResultContent(trData), "data-content");
-
-      const trOutput = { toolUseId: "call_o", content: [{ output: "output-content" }] };
-      assert.equal(extractToolResultContent(trOutput), "output-content");
-
-      const trJson = { toolUseId: "call_j", content: [{ json: { count: 42 } }] };
-      assert.equal(extractToolResultContent(trJson), '{"count":42}');
-
-      const trObj = { toolUseId: "call_obj", content: { text: "direct-obj-text" } };
-      assert.equal(extractToolResultContent(trObj), "direct-obj-text");
-    });
-
-    it("returns empty string on empty/null input", () => {
-      assert.equal(extractToolResultContent(null), "");
-      assert.equal(extractToolResultContent({ content: [] }), "");
-      assert.equal(extractToolResultContent({}), "");
-    });
-  });
-
   describe("safeArgsString (9router standard)", () => {
     it("returns raw JSON string as-is without re-encoding or mutating", () => {
       const rawJson = '{"file_path":"/workspace/src/index.ts","limit":50}';
@@ -79,7 +32,7 @@ describe("Kiro Converter & Debug Enhancements", () => {
   });
 
   describe("convertUserInputMessage", () => {
-    it("converts userInputMessage with diverse tool results", () => {
+    it("converts userInputMessage with standard tool results (9router format)", () => {
       const uim = {
         content: "",
         userInputMessageContext: {
@@ -89,30 +42,22 @@ describe("Kiro Converter & Debug Enhancements", () => {
               content: [{ text: "hello" }],
             },
             {
-              toolUseId: "call_direct",
-              content: "direct content",
-            },
-            {
-              toolUseId: "call_lines",
-              content: ["line 1", "line 2"],
+              toolUseId: "call_multi",
+              content: [{ text: "line 1" }, { text: "line 2" }],
             },
           ],
         },
       };
 
       const out = convertUserInputMessage(uim);
-      assert.equal(out.length, 3);
+      assert.equal(out.length, 2);
       assert.equal(out[0].role, "tool");
       assert.equal(out[0].tool_call_id, "call_text");
       assert.equal(out[0].content, "hello");
 
       assert.equal(out[1].role, "tool");
-      assert.equal(out[1].tool_call_id, "call_direct");
-      assert.equal(out[1].content, "direct content");
-
-      assert.equal(out[2].role, "tool");
-      assert.equal(out[2].tool_call_id, "call_lines");
-      assert.equal(out[2].content, "line 1\nline 2");
+      assert.equal(out[1].tool_call_id, "call_multi");
+      assert.equal(out[1].content, "line 1\nline 2");
     });
   });
 

@@ -7,7 +7,7 @@ import {
 } from "../src/mitm/handlers/kiro/interceptor.js";
 import {
   codeWhispererToMessages,
-  recoverUnchangedFileContent,
+  convertUserInputMessage,
 } from "../src/mitm/handlers/kiro/converter.js";
 import { resolveSessionId } from "../src/providers/runtime/antigravity/schema.js";
 import { LoadBalancer } from "../src/core/router/loadBalancer.js";
@@ -94,153 +94,28 @@ describe("Kiro Session Extraction, Cache Recovery & Stickiness", () => {
     });
   });
 
-  describe("3. Unchanged File Cache Recovery & Loop Breaker", () => {
-    it("returns raw tool content if not containing unchanged message", () => {
-      const tr = {
-        toolUseId: "call_file_1",
-        content: [{ text: "fn main() { println!(\"Hello\"); }" }],
-      };
-      const result = recoverUnchangedFileContent(tr, []);
-      assert.equal(result, "fn main() { println!(\"Hello\"); }");
-    });
-
-    it("recovers file content from prior history when unchanged notice is encountered", () => {
-      const priorHistory = [
-        {
-          assistantResponseMessage: {
-            content: "I will read Cargo.toml",
-            toolUses: [
-              {
-                toolUseId: "call_read_1",
-                name: "read_file",
-                input: { path: "Cargo.toml", offset: 0, limit: 100 },
-              },
-            ],
-          },
-        },
-        {
-          userInputMessage: {
-            content: "",
-            userInputMessageContext: {
-              toolResults: [
-                {
-                  toolUseId: "call_read_1",
-                  content: [{ text: "[package]\nname = \"mcp-sentinel\"\nversion = \"0.1.0\"" }],
-                },
-              ],
-            },
-          },
-        },
-        {
-          assistantResponseMessage: {
-            content: "I will read Cargo.toml again",
-            toolUses: [
-              {
-                toolUseId: "call_read_2",
-                name: "read_file",
-                input: { path: "Cargo.toml" },
-              },
-            ],
-          },
-        },
-      ];
-
-      const currentTr = {
-        toolUseId: "call_read_2",
-        content: [{ text: "'Cargo.toml' is unchanged since you read it earlier this session — the content is already in your context above." }],
-      };
-
-      const recovered = recoverUnchangedFileContent(currentTr, priorHistory);
-      assert.equal(recovered, "[package]\nname = \"mcp-sentinel\"\nversion = \"0.1.0\"");
-    });
-
-    it("normalizes path with Windows backslashes to match history", () => {
-      const priorHistory = [
-        {
-          assistantResponseMessage: {
-            toolUses: [
-              {
-                toolUseId: "call_init",
-                name: "read_file",
-                input: { path: "f:\\projects\\app\\src\\index.ts" },
-              },
-            ],
-          },
-        },
-        {
-          userInputMessage: {
-            content: "",
-            userInputMessageContext: {
-              toolResults: [
-                {
-                  toolUseId: "call_init",
-                  content: [{ text: "console.log('original index.ts');" }],
-                },
-              ],
-            },
-          },
-        },
-      ];
-
-      const currentTr = {
-        toolUseId: "call_repeat",
-        content: "'f:/projects/app/src/index.ts' is unchanged since you read it earlier this session — the content is already in your context above.",
-      };
-
-      const recovered = recoverUnchangedFileContent(currentTr, priorHistory);
-      assert.equal(recovered, "console.log('original index.ts');");
-    });
-
-    it("appends concise system note if file content is absent in history", () => {
-      const currentTr = {
-        toolUseId: "call_missing",
-        content: "'unknown.txt' is unchanged since you read it earlier this session — the content is already in your context above.",
-      };
-      const res = recoverUnchangedFileContent(currentTr, []);
-      assert.ok(res.includes("'unknown.txt' is unchanged since you read it earlier this session"));
-      assert.ok(res.includes("[System Note: The full content of this file was already loaded in the conversation history above."));
-    });
-
-    it("codeWhispererToMessages properly recovers unchanged file content in message stream", () => {
-      const body = {
-        conversationState: {
-          history: [
+  describe("3. Raw Tool Result Preservation (9router parity)", () => {
+    it("returns raw tool content as-is without alteration", () => {
+      const uim = {
+        userInputMessageContext: {
+          toolResults: [
             {
-              assistantResponseMessage: {
-                toolUses: [
-                  {
-                    toolUseId: "call_hist_1",
-                    name: "read_file",
-                    input: { path: "package.json" },
-                  },
-                ],
-              },
-            },
-            {
-              userInputMessage: {
-                content: "",
-                userInputMessageContext: {
-                  toolResults: [
-                    {
-                      toolUseId: "call_hist_1",
-                      content: [{ text: "{\"name\": \"mapigate\"}" }],
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              assistantResponseMessage: {
-                toolUses: [
-                  {
-                    toolUseId: "call_hist_2",
-                    name: "read_file",
-                    input: { path: "package.json" },
-                  },
-                ],
-              },
+              toolUseId: "call_file_1",
+              content: [{ text: "fn main() { println!(\"Hello\"); }" }],
             },
           ],
+        },
+      };
+      const result = convertUserInputMessage(uim);
+      assert.equal(result.length, 1);
+      assert.equal(result[0].role, "tool");
+      assert.equal(result[0].content, "fn main() { println!(\"Hello\"); }");
+    });
+
+    it("codeWhispererToMessages preserves tool results untouched", () => {
+      const body = {
+        conversationState: {
+          history: [],
           currentMessage: {
             userInputMessage: {
               content: "",
@@ -248,7 +123,11 @@ describe("Kiro Session Extraction, Cache Recovery & Stickiness", () => {
                 toolResults: [
                   {
                     toolUseId: "call_hist_2",
-                    content: "'package.json' is unchanged since you read it earlier this session — the content is already in your context above.",
+                    content: [
+                      {
+                        text: "'package.json' is unchanged since you read it earlier this session — the content is already in your context above.",
+                      },
+                    ],
                   },
                 ],
               },
@@ -258,9 +137,12 @@ describe("Kiro Session Extraction, Cache Recovery & Stickiness", () => {
       };
 
       const messages = codeWhispererToMessages(body);
-      const lastToolMsg = messages.find((m) => m.role === "tool" && m.tool_call_id === "call_hist_2");
-      assert.ok(lastToolMsg);
-      assert.equal(lastToolMsg.content, "{\"name\": \"mapigate\"}");
+      const toolMsg = messages.find((m) => m.role === "tool" && m.tool_call_id === "call_hist_2");
+      assert.ok(toolMsg);
+      assert.equal(
+        toolMsg.content,
+        "'package.json' is unchanged since you read it earlier this session — the content is already in your context above."
+      );
     });
   });
 

@@ -39,7 +39,6 @@ import {
   storeGeminiThoughtSignature,
   getGeminiThoughtSignatureSync,
 } from "./thoughtSignatureStore.js";
-import { recoverUnchangedToolResultString } from "../../../mitm/handlers/kiro/toolResultExtractor.js";
 import { sanitizeToolArguments } from "../../../shared/utils/toolArgsSanitizer.js";
 
 interface AntigravityAccountCredentials {
@@ -284,30 +283,18 @@ export async function executeAntigravity(
               }
             }
 
-            let rawResp = resp;
-            const respStr = typeof rawResp === "string" ? rawResp : (rawResp?.text || rawResp?.result || "");
-            if (
-              typeof respStr === "string" &&
-              respStr.includes("is unchanged since you read it earlier this session")
-            ) {
-              const recovered = recoverUnchangedToolResultString(respStr, origId, messages);
-              rawResp = typeof rawResp === "object" && rawResp !== null && "result" in rawResp
-                ? { ...rawResp, result: recovered }
-                : recovered;
+            let parsedResp = tryParseJSON(resp);
+            if (parsedResp === null) {
+              parsedResp = { result: resp };
+            } else if (typeof parsedResp !== "object") {
+              parsedResp = { result: parsedResp };
             }
-
-            const parsedResp = tryParseJSON(rawResp);
-            const finalResult = parsedResp !== null ? sanitizeFunctionResponsePayload(parsedResp) : rawResp;
-            const responseObj =
-              typeof finalResult === "object" && finalResult !== null && "result" in finalResult
-                ? finalResult
-                : { result: finalResult };
 
             toolParts.push({
               functionResponse: {
                 id: emitId,
                 name: sanitizeGeminiFunctionName(name),
-                response: responseObj,
+                response: { result: parsedResp },
               },
             });
           }

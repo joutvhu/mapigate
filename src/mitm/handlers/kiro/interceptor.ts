@@ -5,21 +5,12 @@ import {
   convertOpenAIToKiro,
   codeWhispererToMessages,
   extractTools,
-  extractToolResultContent,
-  recoverUnchangedFileContent,
-  recoverUnchangedToolResultsInMessages,
-  recoverUnchangedToolResultString,
 } from "./converter.js";
-import { logger } from "../../../shared/logger.js";
 
 export {
   convertOpenAIToKiro,
   extractThinking,
   safeArgsString,
-  extractToolResultContent,
-  recoverUnchangedFileContent,
-  recoverUnchangedToolResultsInMessages,
-  recoverUnchangedToolResultString,
   convertUserInputMessage,
   convertAssistantResponseMessage,
   codeWhispererToMessages,
@@ -61,9 +52,6 @@ export async function interceptKiro(
       if (mappedModel) {
         body.model = mappedModel;
       }
-      if (Array.isArray(body.messages)) {
-        recoverUnchangedToolResultsInMessages(body.messages);
-      }
       const routerHeaders: Record<string, string> = {
         ...(req.headers as Record<string, string>),
         "x-client-tool": "kiro",
@@ -72,15 +60,6 @@ export async function interceptKiro(
       const routerRes = await fetchRouter(body, "/v1/responses", routerHeaders);
       await pipeSSE(routerRes, res);
       return;
-    }
-
-    const toolResults = body.conversationState?.currentMessage?.userInputMessage?.userInputMessageContext?.toolResults || [];
-    if (toolResults.length > 0 && logger.isDebugEnabled()) {
-      const summary = toolResults.map((tr: any) => {
-        const content = extractToolResultContent(tr);
-        return `${tr.toolUseId || "unknown"} (${content.length} chars${content.length === 0 ? ", EMPTY!" : ""})`;
-      }).join(", ");
-      logger.debug("MITM:KIRO", `[Kiro] Received ${toolResults.length} tool results: ${summary}`);
     }
 
     const messages = codeWhispererToMessages(body);
