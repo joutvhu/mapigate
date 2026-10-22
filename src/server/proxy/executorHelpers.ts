@@ -13,9 +13,15 @@ export function tryFailover(
   targetModel: string,
   reqTag: string,
   isCustom = false,
-  prefixHash?: string
+  prefixHash?: string,
+  sessionId?: string
 ): boolean {
-  const next = LoadBalancer.pickAccount(providerId, { excludeAccountIds: triedAccountIds, targetModel, prefixHash });
+  const next = LoadBalancer.pickAccount(providerId, {
+    excludeAccountIds: triedAccountIds,
+    targetModel,
+    prefixHash,
+    sessionId,
+  });
   if (next) {
     const suffix = isCustom ? " in custom provider" : "";
     logger.line(
@@ -26,6 +32,31 @@ export function tryFailover(
     return true;
   }
   return false;
+}
+
+export function extractSessionId(req?: any, body?: any): string | undefined {
+  const headerSessionId =
+    req?.headers?.["x-session-id"] ||
+    req?.headers?.["session-id"] ||
+    req?.headers?.["x-amp-thread-id"];
+  if (typeof headerSessionId === "string" && headerSessionId.trim()) {
+    return headerSessionId.trim();
+  }
+
+  const clientBodyId =
+    body?.metadata?.["kiro:conversation_id"] ||
+    body?.metadata?.["kiro:root_conversation_id"] ||
+    body?.conversationState?.conversationId ||
+    body?.conversationId ||
+    body?.conversation_id ||
+    body?.sessionId ||
+    body?.session_id ||
+    body?._clientSessionId;
+  if (typeof clientBodyId === "string" && clientBodyId.trim()) {
+    return clientBodyId.trim();
+  }
+
+  return undefined;
 }
 
 export function resolveTargetModelAndProvider(modelStr: string): {

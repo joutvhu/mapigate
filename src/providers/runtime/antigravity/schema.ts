@@ -74,10 +74,14 @@ export function resolveSessionId(
   }
 
   const clientBodyId =
+    body?.metadata?.["kiro:conversation_id"] ||
+    body?.metadata?.["kiro:root_conversation_id"] ||
+    body?.conversationState?.conversationId ||
+    body?.conversationId ||
+    body?.conversation_id ||
     body?._clientSessionId ||
     body?.sessionId ||
-    body?.session_id ||
-    body?.conversation_id;
+    body?.session_id;
   if (clientBodyId && typeof clientBodyId === "string" && clientBodyId.trim()) {
     return clientBodyId.trim();
   }

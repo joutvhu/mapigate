@@ -6,6 +6,7 @@ import {
   codeWhispererToMessages,
   extractTools,
   extractToolResultContent,
+  recoverUnchangedFileContent,
 } from "./converter.js";
 import { logger } from "../../../shared/logger.js";
 
@@ -14,12 +15,25 @@ export {
   extractThinking,
   safeArgsString,
   extractToolResultContent,
+  recoverUnchangedFileContent,
   convertUserInputMessage,
   convertAssistantResponseMessage,
   codeWhispererToMessages,
   extractTools,
   emitFinish,
 } from "./converter.js";
+
+export function extractKiroConversationId(body: any): string {
+  if (!body || typeof body !== "object") return "";
+  const candidate =
+    body.metadata?.["kiro:conversation_id"] ||
+    body.metadata?.["kiro:root_conversation_id"] ||
+    body.conversationState?.conversationId ||
+    body.conversationId ||
+    body.conversation_id ||
+    "";
+  return typeof candidate === "string" ? candidate.trim() : "";
+}
 
 export async function interceptKiro(
   req: IncomingMessage,
@@ -36,25 +50,22 @@ export async function interceptKiro(
       (req.url && req.url.includes("/responses")) ||
       String(req.headers?.["x-amz-target"] || "").includes("CreateResponse");
 
+    const body = JSON.parse(bodyBuffer.toString("utf-8"));
+    const conversationId = extractKiroConversationId(body);
+
     if (isResponsesApi) {
-      const body = JSON.parse(bodyBuffer.toString("utf-8"));
       if (mappedModel) {
         body.model = mappedModel;
       }
       const routerHeaders: Record<string, string> = {
         ...(req.headers as Record<string, string>),
         "x-client-tool": "kiro",
+        ...(conversationId ? { "x-session-id": conversationId } : {}),
       };
       const routerRes = await fetchRouter(body, "/v1/responses", routerHeaders);
       await pipeSSE(routerRes, res);
       return;
     }
-
-    const body = JSON.parse(bodyBuffer.toString("utf-8"));
-    const conversationId =
-      body.conversationState?.conversationId ||
-      body.conversationId ||
-      "";
 
     const toolResults = body.conversationState?.currentMessage?.userInputMessage?.userInputMessageContext?.toolResults || [];
     if (toolResults.length > 0 && logger.isDebugEnabled()) {

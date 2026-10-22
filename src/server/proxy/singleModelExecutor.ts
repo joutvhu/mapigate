@@ -25,7 +25,7 @@ import { normalizeToolsToOpenAi } from "../../core/adapters/helpers/toolSchemaNo
 import fs from "node:fs";
 import path from "node:path";
 import { getDefaultDataDir } from "../../shared/constants/index.js";
-import { tryFailover, resolveTargetModelAndProvider } from "./executorHelpers.js";
+import { tryFailover, resolveTargetModelAndProvider, extractSessionId } from "./executorHelpers.js";
 
 /**
  * Safely clones upstream request body, including messages and their content blocks,
@@ -119,12 +119,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   let lastFailureResult: ModelCallResult | undefined;
 
   const targetProviderId = providerConfig.id || provider.id;
+  const sessionId = extractSessionId(req, body);
 
   while (true) {
     const account = LoadBalancer.pickAccount(targetProviderId, {
       excludeAccountIds: triedAccountIds,
       targetModel,
       prefixHash: prefixHash || undefined,
+      sessionId,
     });
     const hasCustomHeaders = Boolean(
       providerConfig.customHeaders && Object.keys(providerConfig.customHeaders).length > 0
@@ -181,7 +183,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
       if (resFailure.rateLimited && account) {
         const cdMs = resFailure.cooldownMs || 60_000;
-        if (tryFailover(targetProviderId, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true, prefixHash || undefined)) {
+        if (tryFailover(targetProviderId, account, customResult.status, cdMs, triedAccountIds, targetModel, reqTag, true, prefixHash || undefined, sessionId)) {
           lastFailureResult = { ...customResult, error: cleanErrText, text: cleanErrText };
           continue;
         }
@@ -339,7 +341,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
       if (resFailure.rateLimited && account) {
         const cdMs = resFailure.cooldownMs || 60_000;
-        if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined)) {
+        if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined, sessionId)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
           continue;
         }

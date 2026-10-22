@@ -1,4 +1,7 @@
 import { buildEventStreamFrame, withInitialFrame, type KiroState } from "./state.js";
+import { extractToolResultContent, recoverUnchangedFileContent } from "./toolResultExtractor.js";
+
+export { extractToolResultContent, recoverUnchangedFileContent };
 
 export function extractThinking(
   text: string,
@@ -64,40 +67,12 @@ const INLINE_IMAGE_MIME_BY_FORMAT = new Map([
   ["webp", "image/webp"],
 ]);
 
-export function extractToolResultContent(tr: any): string {
-  if (!tr) return "";
-  if (typeof tr.content === "string") return tr.content;
-  if (Array.isArray(tr.content)) {
-    return tr.content
-      .map((c: any) => {
-        if (typeof c === "string") return c;
-        if (c?.text != null) return c.text;
-        if (c?.data != null) return typeof c.data === "string" ? c.data : JSON.stringify(c.data);
-        if (c?.output != null) return typeof c.output === "string" ? c.output : JSON.stringify(c.output);
-        if (c?.json != null) return JSON.stringify(c.json);
-        return "";
-      })
-      .join("\n");
-  }
-  if (typeof tr.content === "object" && tr.content !== null) {
-    if (tr.content.text != null) return tr.content.text;
-    if (tr.content.data != null) return typeof tr.content.data === "string" ? tr.content.data : JSON.stringify(tr.content.data);
-    if (tr.content.output != null) return typeof tr.content.output === "string" ? tr.content.output : JSON.stringify(tr.content.output);
-    try {
-      return JSON.stringify(tr.content);
-    } catch {
-      return "";
-    }
-  }
-  return "";
-}
-
-export function convertUserInputMessage(uim: any): any[] {
+export function convertUserInputMessage(uim: any, priorHistory: any[] = []): any[] {
   const out: any[] = [];
   const toolResults = uim.userInputMessageContext?.toolResults || [];
 
   for (const tr of toolResults) {
-    const text = extractToolResultContent(tr);
+    const text = recoverUnchangedFileContent(tr, priorHistory);
     out.push({
       role: "tool",
       tool_call_id: tr.toolUseId || "",
@@ -164,16 +139,17 @@ export function codeWhispererToMessages(body: any): any[] {
   const currentMsg = cs.currentMessage;
   const messages: any[] = [];
 
-  for (const item of history) {
+  for (let i = 0; i < history.length; i++) {
+    const item = history[i];
     if (item.userInputMessage) {
-      messages.push(...convertUserInputMessage(item.userInputMessage));
+      messages.push(...convertUserInputMessage(item.userInputMessage, history.slice(0, i)));
     } else if (item.assistantResponseMessage) {
       messages.push(convertAssistantResponseMessage(item.assistantResponseMessage));
     }
   }
 
   if (currentMsg?.userInputMessage) {
-    messages.push(...convertUserInputMessage(currentMsg.userInputMessage));
+    messages.push(...convertUserInputMessage(currentMsg.userInputMessage, history));
   }
 
   return messages;

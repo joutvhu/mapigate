@@ -20,10 +20,19 @@ export interface PickAccountOptions {
   healthyOnly?: boolean;
   prefixHash?: string;
   targetModel?: string;
+  sessionId?: string;
+}
+
+const SESSION_STICKINESS_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+interface SessionStickinessEntry {
+  accountId: string;
+  lastUsedAt: number;
 }
 
 export class LoadBalancer {
   private static stickyCounts: Map<string, { accountId: string; count: number }> = new Map();
+  private static sessionAccountMap: Map<string, SessionStickinessEntry> = new Map();
 
   /**
    * Pick an active account with strategy, sticky limit, and rate-limit cooldown filtering.
@@ -70,6 +79,7 @@ export class LoadBalancer {
     let healthyOnly = false;
     let targetModel: string | undefined;
     let prefixHash: string | undefined;
+    let sessionId: string | undefined;
 
     if (excludeOrOptions) {
       if (excludeOrOptions instanceof Set || Array.isArray(excludeOrOptions)) {
@@ -85,6 +95,7 @@ export class LoadBalancer {
         healthyOnly = Boolean(excludeOrOptions.healthyOnly ?? (excludeSet && excludeSet.size > 0));
         targetModel = excludeOrOptions.targetModel;
         prefixHash = excludeOrOptions.prefixHash;
+        sessionId = excludeOrOptions.sessionId;
       }
     }
 
@@ -114,6 +125,19 @@ export class LoadBalancer {
     }
 
     const pool = available.length > 0 ? available : eligibleAccounts;
+
+    // Session Stickiness: 100% Affinity for active sessions with healthy accounts
+    if (sessionId) {
+      const stickyAccId = this.getStickyAccountId(providerId, sessionId);
+      if (stickyAccId) {
+        const found = pool.find((a) => a.id === stickyAccId);
+        if (found) {
+          this.setStickyAccount(providerId, sessionId, found.id);
+          ProviderRepository.recordAccountUsed(found.id);
+          return found;
+        }
+      }
+    }
 
     let chosen: (ProviderAccount & { rawApiKey: string }) | undefined;
 
@@ -153,10 +177,55 @@ export class LoadBalancer {
     }
 
     if (chosen) {
+      if (sessionId) {
+        this.setStickyAccount(providerId, sessionId, chosen.id);
+      }
       ProviderRepository.recordAccountUsed(chosen.id);
     }
 
     return chosen;
+  }
+
+  public static getSessionKey(providerId: string, sessionId: string): string {
+    return `${providerId}:${sessionId}`;
+  }
+
+  public static getStickyAccountId(providerId: string, sessionId: string): string | undefined {
+    if (!sessionId) return undefined;
+    const key = this.getSessionKey(providerId, sessionId);
+    const entry = this.sessionAccountMap.get(key);
+    if (!entry) return undefined;
+    if (Date.now() - entry.lastUsedAt > SESSION_STICKINESS_TTL_MS) {
+      this.sessionAccountMap.delete(key);
+      return undefined;
+    }
+    return entry.accountId;
+  }
+
+  public static setStickyAccount(providerId: string, sessionId: string, accountId: string): void {
+    if (!sessionId || !accountId) return;
+    const key = this.getSessionKey(providerId, sessionId);
+    this.sessionAccountMap.set(key, { accountId, lastUsedAt: Date.now() });
+  }
+
+  public static clearSessionStickiness(sessionId?: string, providerId?: string): void {
+    if (sessionId && providerId) {
+      this.sessionAccountMap.delete(this.getSessionKey(providerId, sessionId));
+    } else if (sessionId) {
+      for (const key of this.sessionAccountMap.keys()) {
+        if (key.endsWith(`:${sessionId}`)) {
+          this.sessionAccountMap.delete(key);
+        }
+      }
+    } else if (providerId) {
+      for (const key of this.sessionAccountMap.keys()) {
+        if (key.startsWith(`${providerId}:`)) {
+          this.sessionAccountMap.delete(key);
+        }
+      }
+    } else {
+      this.sessionAccountMap.clear();
+    }
   }
 
   /**
@@ -175,6 +244,13 @@ export class LoadBalancer {
     for (const [pId, entry] of this.stickyCounts.entries()) {
       if (entry.accountId === accountId || pId === providerId) {
         this.stickyCounts.delete(pId);
+      }
+    }
+
+    // Clear session stickiness for this account so active sessions failover to healthy accounts
+    for (const [sKey, entry] of this.sessionAccountMap.entries()) {
+      if (entry.accountId === accountId) {
+        this.sessionAccountMap.delete(sKey);
       }
     }
   }
@@ -198,5 +274,6 @@ export class LoadBalancer {
   public static reset(): void {
     cooldownManager.reset();
     this.stickyCounts.clear();
+    this.sessionAccountMap.clear();
   }
 }
