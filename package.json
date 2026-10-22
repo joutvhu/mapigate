@@ -1,6 +1,6 @@
 {
   "name": "mapigate",
-  "version": "0.3.39",
+  "version": "0.3.40",
   "description": "AI Model API Gateway & Token Optimizer for coding tools",
   "author": "Giao Ho",
   "main": "dist/server/index.js",
@@ -14,13 +14,14 @@
   ],
   "type": "module",
   "scripts": {
+    "clean": "node --input-type=module -e \"import fs from 'node:fs'; fs.rmSync('dist', { recursive: true, force: true });\"",
     "codegen": "node scripts/generate-registries.mjs",
     "predev": "npm run codegen",
     "dev": "cross-env MAPIGATE_DEV=1 concurrently -k -p \"[{name}]\" -n \"SERVER,WEB\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:web\"",
     "dev:server": "cross-env MAPIGATE_DEV=1 tsx watch src/server/index.ts",
     "dev:web": "vite src/web",
     "prebuild": "npm run codegen",
-    "build": "npm run build:server && npm run build:web",
+    "build": "npm run clean && npm run build:server && npm run build:web",
     "build:server": "tsc -p tsconfig.server.json && node --input-type=module -e \"import fs from 'node:fs'; fs.mkdirSync('dist/cli/tray', { recursive: true }); for (const f of ['tray.ps1', 'icon.ico', 'icon.png']) fs.copyFileSync('src/cli/tray/' + f, 'dist/cli/tray/' + f);\"",
     "build:web": "vite build src/web --outDir ../../dist/web --emptyOutDir",
     "build:icons": "node scripts/generate-icons.mjs",
