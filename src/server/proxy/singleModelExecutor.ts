@@ -106,8 +106,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   }
 
   const provider = ProviderRegistry.get(providerConfig.id);
-  const { contextWindow } = getCapabilitiesForModel(providerConfig.id, targetModel);
-  const adjustedBody = stripHistoryForContext(body, contextWindow);
+  const adjustedBody = body;
   const prefixHash = extractConversationPrefixHash(adjustedBody);
 
   let targetFormat = providerConfig.format || provider.defaultFormat || "openai";

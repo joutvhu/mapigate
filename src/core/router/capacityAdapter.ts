@@ -252,6 +252,8 @@ export function stripHistoryForContext(body: any, contextWindow = 200000): any {
 
   const contentOf = (m: any) => m.content ?? m.parts;
   const budgetChars = contextWindow * 0.8 * CHARS_PER_TOKEN;
+  const totalChars = arr.reduce((s, m) => s + blockLength(contentOf(m)), 0);
+  if (totalChars <= budgetChars) return body;
 
   const headKept = older.slice(0, HEAD_KEEP);
   let total = systemMsgs.concat(headKept, tail).reduce((s, m) => s + blockLength(contentOf(m)), 0);
