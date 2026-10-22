@@ -1043,7 +1043,7 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       }
     });
 
-    it("packages functionResponse properly: wraps in { result: ... } matching 9router", async () => {
+    it("packages functionResponse properly: wraps in single-level { result: ... } to prevent infinite read loop", async () => {
       const originalFetch = global.fetch;
       let capturedBody: any = null;
 
@@ -1125,13 +1125,11 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         assert.equal(toolTurn.role, "user");
         assert.equal(toolTurn.parts.length, 4);
 
-        // String result is packaged as { result: { result: "..." } } matching 9router
+        // String result is packaged as { result: "..." } (single-level, avoids Gemini attention failure)
         const resp1 = toolTurn.parts[0].functionResponse;
         assert.equal(resp1.name, "execute_pwsh");
         assert.deepEqual(resp1.response, {
-          result: {
-            result: "Directory: C:\\workspace\r\nfile1.txt",
-          },
+          result: "Directory: C:\\workspace\r\nfile1.txt",
         });
 
         // JSON object result is packaged as { result: { files: [...], count: 2 } }
@@ -1144,22 +1142,18 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
           },
         });
 
-        // Code file result is packaged matching 9router
+        // Code file result is packaged as single-level { result: ... }
         const resp3 = toolTurn.parts[2].functionResponse;
         assert.equal(resp3.name, "read_file");
         assert.deepEqual(resp3.response, {
-          result: {
-            result: '<file name="src/main.rs">\nfn main() {}\n</file>',
-          },
+          result: '<file name="src/main.rs">\nfn main() {}\n</file>',
         });
 
-        // JSON object that already has `result` is packaged matching 9router
+        // JSON object that already has `result` is preserved without double wrapping
         const resp4 = toolTurn.parts[3].functionResponse;
         assert.equal(resp4.name, "custom_op");
         assert.deepEqual(resp4.response, {
-          result: {
-            result: "operation succeeded",
-          },
+          result: "operation succeeded",
         });
       } finally {
         global.fetch = originalFetch;

@@ -263,6 +263,7 @@ export class TraeProvider extends OpenAiCompatibleProvider {
         for (const ev of finalEvents) {
           res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
         }
+        res.write("data: [DONE]\n\n");
       } else if (clientFormat === "anthropic") {
         res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
       } else {

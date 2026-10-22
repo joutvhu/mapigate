@@ -68,7 +68,26 @@ export function extractToolResultContent(tr: any): string {
   if (!tr) return "";
   if (typeof tr.content === "string") return tr.content;
   if (Array.isArray(tr.content)) {
-    return tr.content.map((c: any) => (typeof c === "string" ? c : c?.text || "")).join("\n");
+    return tr.content
+      .map((c: any) => {
+        if (typeof c === "string") return c;
+        if (c?.text != null) return c.text;
+        if (c?.data != null) return typeof c.data === "string" ? c.data : JSON.stringify(c.data);
+        if (c?.output != null) return typeof c.output === "string" ? c.output : JSON.stringify(c.output);
+        if (c?.json != null) return JSON.stringify(c.json);
+        return "";
+      })
+      .join("\n");
+  }
+  if (typeof tr.content === "object" && tr.content !== null) {
+    if (tr.content.text != null) return tr.content.text;
+    if (tr.content.data != null) return typeof tr.content.data === "string" ? tr.content.data : JSON.stringify(tr.content.data);
+    if (tr.content.output != null) return typeof tr.content.output === "string" ? tr.content.output : JSON.stringify(tr.content.output);
+    try {
+      return JSON.stringify(tr.content);
+    } catch {
+      return "";
+    }
   }
   return "";
 }

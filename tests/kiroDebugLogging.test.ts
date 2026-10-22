@@ -34,6 +34,20 @@ describe("Kiro Converter & Debug Enhancements", () => {
       assert.equal(extractToolResultContent(tr), "Line 1\nLine 2");
     });
 
+    it("extracts polymorphic variants (data, output, json, single object)", () => {
+      const trData = { toolUseId: "call_d", content: [{ data: "data-content" }] };
+      assert.equal(extractToolResultContent(trData), "data-content");
+
+      const trOutput = { toolUseId: "call_o", content: [{ output: "output-content" }] };
+      assert.equal(extractToolResultContent(trOutput), "output-content");
+
+      const trJson = { toolUseId: "call_j", content: [{ json: { count: 42 } }] };
+      assert.equal(extractToolResultContent(trJson), '{"count":42}');
+
+      const trObj = { toolUseId: "call_obj", content: { text: "direct-obj-text" } };
+      assert.equal(extractToolResultContent(trObj), "direct-obj-text");
+    });
+
     it("returns empty string on empty/null input", () => {
       assert.equal(extractToolResultContent(null), "");
       assert.equal(extractToolResultContent({ content: [] }), "");
