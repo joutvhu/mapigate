@@ -24,6 +24,7 @@ export interface PickAccountOptions {
 }
 
 const SESSION_STICKINESS_TTL_MS = 60 * 60 * 1000; // 1 hour
+const MAX_SESSION_ENTRIES = 5000;
 
 interface SessionStickinessEntry {
   accountId: string;
@@ -202,10 +203,41 @@ export class LoadBalancer {
     return entry.accountId;
   }
 
+  public static sweepExpiredSessions(now: number = Date.now()): number {
+    let swept = 0;
+    for (const [key, entry] of this.sessionAccountMap.entries()) {
+      if (now - entry.lastUsedAt > SESSION_STICKINESS_TTL_MS) {
+        this.sessionAccountMap.delete(key);
+        swept++;
+      }
+    }
+    return swept;
+  }
+
+  public static getSessionStickinessCount(): number {
+    return this.sessionAccountMap.size;
+  }
+
   public static setStickyAccount(providerId: string, sessionId: string, accountId: string): void {
     if (!sessionId || !accountId) return;
+    const now = Date.now();
+
+    // Capacity bounding: if map reaches max size, sweep expired sessions first
+    if (this.sessionAccountMap.size >= MAX_SESSION_ENTRIES) {
+      this.sweepExpiredSessions(now);
+      // If still at capacity, evict oldest 20% entries (LRU by lastUsedAt)
+      if (this.sessionAccountMap.size >= MAX_SESSION_ENTRIES) {
+        const sorted = Array.from(this.sessionAccountMap.entries())
+          .sort((a, b) => a[1].lastUsedAt - b[1].lastUsedAt);
+        const countToEvict = Math.max(1, Math.floor(MAX_SESSION_ENTRIES * 0.2));
+        for (let i = 0; i < countToEvict && i < sorted.length; i++) {
+          this.sessionAccountMap.delete(sorted[i][0]);
+        }
+      }
+    }
+
     const key = this.getSessionKey(providerId, sessionId);
-    this.sessionAccountMap.set(key, { accountId, lastUsedAt: Date.now() });
+    this.sessionAccountMap.set(key, { accountId, lastUsedAt: now });
   }
 
   public static clearSessionStickiness(sessionId?: string, providerId?: string): void {

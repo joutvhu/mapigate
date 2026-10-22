@@ -7,6 +7,8 @@ import {
   extractTools,
   extractToolResultContent,
   recoverUnchangedFileContent,
+  recoverUnchangedToolResultsInMessages,
+  recoverUnchangedToolResultString,
 } from "./converter.js";
 import { logger } from "../../../shared/logger.js";
 
@@ -16,6 +18,8 @@ export {
   safeArgsString,
   extractToolResultContent,
   recoverUnchangedFileContent,
+  recoverUnchangedToolResultsInMessages,
+  recoverUnchangedToolResultString,
   convertUserInputMessage,
   convertAssistantResponseMessage,
   codeWhispererToMessages,
@@ -56,6 +60,9 @@ export async function interceptKiro(
     if (isResponsesApi) {
       if (mappedModel) {
         body.model = mappedModel;
+      }
+      if (Array.isArray(body.messages)) {
+        recoverUnchangedToolResultsInMessages(body.messages);
       }
       const routerHeaders: Record<string, string> = {
         ...(req.headers as Record<string, string>),

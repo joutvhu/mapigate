@@ -39,6 +39,7 @@ import {
   storeGeminiThoughtSignature,
   getGeminiThoughtSignatureSync,
 } from "./thoughtSignatureStore.js";
+import { recoverUnchangedToolResultString } from "../../../mitm/handlers/kiro/toolResultExtractor.js";
 import { sanitizeToolArguments } from "../../../shared/utils/toolArgsSanitizer.js";
 
 interface AntigravityAccountCredentials {
@@ -283,8 +284,20 @@ export async function executeAntigravity(
               }
             }
 
-            const parsedResp = tryParseJSON(resp);
-            const finalResult = parsedResp !== null ? sanitizeFunctionResponsePayload(parsedResp) : resp;
+            let rawResp = resp;
+            const respStr = typeof rawResp === "string" ? rawResp : (rawResp?.text || rawResp?.result || "");
+            if (
+              typeof respStr === "string" &&
+              respStr.includes("is unchanged since you read it earlier this session")
+            ) {
+              const recovered = recoverUnchangedToolResultString(respStr, origId, messages);
+              rawResp = typeof rawResp === "object" && rawResp !== null && "result" in rawResp
+                ? { ...rawResp, result: recovered }
+                : recovered;
+            }
+
+            const parsedResp = tryParseJSON(rawResp);
+            const finalResult = parsedResp !== null ? sanitizeFunctionResponsePayload(parsedResp) : rawResp;
             const responseObj =
               typeof finalResult === "object" && finalResult !== null && "result" in finalResult
                 ? finalResult

@@ -76,7 +76,7 @@ app.post("/v1/messages", (req, res) => {
 });
 
 app.post(["/v1/responses", "/responses"], (req, res) => {
-  if (req.body?.input || req.body?.conversationState) {
+  if (req.body?.input || req.body?.conversationState || req.body?.messages) {
     req.body = convertResponsesApiFormat(req.body);
   }
   handleProxyRequest(req, res, "responses");

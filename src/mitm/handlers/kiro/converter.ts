@@ -1,7 +1,23 @@
 import { buildEventStreamFrame, withInitialFrame, type KiroState } from "./state.js";
-import { extractToolResultContent, recoverUnchangedFileContent } from "./toolResultExtractor.js";
+import {
+  extractToolResultContent,
+  recoverUnchangedFileContent,
+  recoverUnchangedToolResultsInMessages,
+  recoverUnchangedToolResultString,
+  isNormalizedPathMatch,
+  normalizeFilePath,
+  readLocalFileContent,
+} from "./toolResultExtractor.js";
 
-export { extractToolResultContent, recoverUnchangedFileContent };
+export {
+  extractToolResultContent,
+  recoverUnchangedFileContent,
+  recoverUnchangedToolResultsInMessages,
+  recoverUnchangedToolResultString,
+  isNormalizedPathMatch,
+  normalizeFilePath,
+  readLocalFileContent,
+};
 
 export function extractThinking(
   text: string,
