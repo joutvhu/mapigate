@@ -58,7 +58,7 @@ export class MitmManager {
     };
   }
 
-  public async startServer(options?: { port?: number; forceKill?: boolean } | number): Promise<number> {
+  public async startServer(options?: { port?: number; forceKill?: boolean; sudoPassword?: string } | number): Promise<number> {
     const opts = typeof options === "number" ? { port: options } : (options || {});
     const targetPort =
       opts.port !== undefined
@@ -132,6 +132,11 @@ export class MitmManager {
       const activePort = await mitmServerInstance.start(targetPort);
       if (activePort > 0) {
         MitmRepository.setMitmServerRunning(true);
+        try {
+          await this.syncDnsOnStart(opts.sudoPassword);
+        } catch (dnsErr: any) {
+          console.warn(`[MITM] DNS sync on start failed: ${dnsErr.message}`);
+        }
       }
       return activePort;
     } catch (err: any) {
@@ -150,14 +155,14 @@ export class MitmManager {
   }
 
   /**
-   * Reconcile tool DNS entries on application startup.
+   * Reconcile tool DNS entries when MITM server starts.
    * Modifies hosts file IF and ONLY IF:
    * 1. MITM proxy is running;
    * 2. Tools were previously marked active in SQLite settings;
    * 3. Those tool entries are currently missing in the live hosts file.
    * If all conditions are met, restores missing tools in a single batched write.
    */
-  public async restoreDnsOnStartup(
+  public async syncDnsOnStart(
     sudoPassword?: string
   ): Promise<{ restored: string[]; skipped: string[] }> {
     const status = mitmServerInstance.getStatus();
@@ -189,6 +194,12 @@ export class MitmManager {
     return { restored: toolsToRestore, skipped };
   }
 
+  public async restoreDnsOnStartup(
+    sudoPassword?: string
+  ): Promise<{ restored: string[]; skipped: string[] }> {
+    return this.syncDnsOnStart(sudoPassword);
+  }
+
   public checkLiveDns(): Record<string, boolean> {
     return checkAllDNSStatus();
   }
@@ -201,11 +212,12 @@ export class MitmManager {
     await removeAllDNSEntries(sudoPassword);
   }
 
-  public async stopServer(options: { keepDns?: boolean } = {}) {
+  public async stopServer(options: { keepDns?: boolean; sudoPassword?: string } = {}) {
     if (!options.keepDns) {
       try {
-        await this.removeAllDns();
-      } catch {
+        await this.removeAllDns(options.sudoPassword);
+      } catch (err: any) {
+        console.warn(`[MITM] Async DNS removal failed, falling back to sync: ${err.message}`);
         this.cleanupDnsSync();
       }
     }

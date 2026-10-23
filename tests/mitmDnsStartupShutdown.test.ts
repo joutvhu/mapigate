@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mitmManager } from "../src/mitm/manager.js";
 import { mitmServerInstance } from "../src/mitm/server.js";
 import { MitmRepository } from "../src/storage/repositories/mitmRepo.js";
+import { ProcessManager } from "../src/cli/daemon/processManager.js";
 
 describe("MITM DNS Startup Restoration, Shutdown Cleanup, and Read-Only Invariants", () => {
   it("restoreDnsOnStartup does nothing if MITM server is not running", async () => {
@@ -170,5 +171,169 @@ describe("MITM DNS Startup Restoration, Shutdown Cleanup, and Read-Only Invarian
       mitmManager.addMultipleDns = origAddMultiple;
       mitmManager.removeAllDns = origRemoveAll;
     }
+  });
+
+  it("startServer automatically triggers DNS reconciliation and restores missing entries in a single batch", async () => {
+    let addedTools: string[] = [];
+    const origStart = mitmServerInstance.start.bind(mitmServerInstance);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origGetStatus = mitmServerInstance.getStatus.bind(mitmServerInstance);
+    const origAddMultiple = mitmManager.addMultipleDns.bind(mitmManager);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+
+    let running = false;
+    mitmServerInstance.start = async (port: number) => {
+      running = true;
+      return port;
+    };
+    mitmServerInstance.stop = async () => {
+      running = false;
+    };
+    mitmServerInstance.getStatus = () => ({ running, port: 49191 });
+
+    MitmRepository.setToolDnsStatus("kiro", true);
+    MitmRepository.setToolDnsStatus("antigravity", true);
+    MitmRepository.setToolDnsStatus("copilot", false);
+
+    mitmManager.checkLiveDns = () => ({
+      antigravity: false,
+      kiro: false,
+      copilot: false,
+      cursor: false,
+    });
+
+    mitmManager.addMultipleDns = async (tools: string[]) => {
+      addedTools = tools;
+    };
+
+    try {
+      const port = await mitmManager.startServer({ port: 49191 });
+      assert.equal(port, 49191);
+      assert.deepEqual(addedTools.sort(), ["antigravity", "kiro"]);
+    } finally {
+      await mitmManager.stopServer({ keepDns: true });
+      mitmServerInstance.start = origStart;
+      mitmServerInstance.stop = origStop;
+      mitmServerInstance.getStatus = origGetStatus;
+      mitmManager.addMultipleDns = origAddMultiple;
+      mitmManager.checkLiveDns = origCheckLive;
+    }
+  });
+
+  it("startServer skips hosts write if enabled tools are already present in hosts file", async () => {
+    let addMultipleCalled = false;
+    const origStart = mitmServerInstance.start.bind(mitmServerInstance);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origGetStatus = mitmServerInstance.getStatus.bind(mitmServerInstance);
+    const origAddMultiple = mitmManager.addMultipleDns.bind(mitmManager);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+
+    let running = false;
+    mitmServerInstance.start = async (port: number) => {
+      running = true;
+      return port;
+    };
+    mitmServerInstance.stop = async () => {
+      running = false;
+    };
+    mitmServerInstance.getStatus = () => ({ running, port: 49192 });
+
+    MitmRepository.setToolDnsStatus("kiro", true);
+    MitmRepository.setToolDnsStatus("antigravity", false);
+
+    mitmManager.checkLiveDns = () => ({
+      antigravity: false,
+      kiro: true,
+      copilot: false,
+      cursor: false,
+    });
+
+    mitmManager.addMultipleDns = async () => {
+      addMultipleCalled = true;
+    };
+
+    try {
+      await mitmManager.startServer({ port: 49192 });
+      assert.equal(addMultipleCalled, false, "Should not rewrite hosts if already active");
+    } finally {
+      await mitmManager.stopServer({ keepDns: true });
+      mitmServerInstance.start = origStart;
+      mitmServerInstance.stop = origStop;
+      mitmServerInstance.getStatus = origGetStatus;
+      mitmManager.addMultipleDns = origAddMultiple;
+      mitmManager.checkLiveDns = origCheckLive;
+    }
+  });
+
+  it("startServer does not modify hosts if no tools were enabled in settings", async () => {
+    let addMultipleCalled = false;
+    const origStart = mitmServerInstance.start.bind(mitmServerInstance);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origGetStatus = mitmServerInstance.getStatus.bind(mitmServerInstance);
+    const origAddMultiple = mitmManager.addMultipleDns.bind(mitmManager);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+
+    let running = false;
+    mitmServerInstance.start = async (port: number) => {
+      running = true;
+      return port;
+    };
+    mitmServerInstance.stop = async () => {
+      running = false;
+    };
+    mitmServerInstance.getStatus = () => ({ running, port: 49193 });
+
+    MitmRepository.setToolDnsStatus("kiro", false);
+    MitmRepository.setToolDnsStatus("antigravity", false);
+    MitmRepository.setToolDnsStatus("copilot", false);
+    MitmRepository.setToolDnsStatus("cursor", false);
+
+    mitmManager.checkLiveDns = () => ({
+      antigravity: false,
+      kiro: false,
+      copilot: false,
+      cursor: false,
+    });
+
+    mitmManager.addMultipleDns = async () => {
+      addMultipleCalled = true;
+    };
+
+    try {
+      await mitmManager.startServer({ port: 49193 });
+      assert.equal(addMultipleCalled, false, "Should not write hosts if no tools are enabled in settings");
+    } finally {
+      await mitmManager.stopServer({ keepDns: true });
+      mitmServerInstance.start = origStart;
+      mitmServerInstance.stop = origStop;
+      mitmServerInstance.getStatus = origGetStatus;
+      mitmManager.addMultipleDns = origAddMultiple;
+      mitmManager.checkLiveDns = origCheckLive;
+    }
+  });
+
+  it("stopServer({ keepDns: true }) preserves hosts file entries for server restarts", async () => {
+    let removeAllCalled = false;
+    const origRemoveAll = mitmManager.removeAllDns.bind(mitmManager);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+
+    mitmManager.removeAllDns = async () => {
+      removeAllCalled = true;
+    };
+    mitmServerInstance.stop = async () => {};
+
+    try {
+      await mitmManager.stopServer({ keepDns: true });
+      assert.equal(removeAllCalled, false, "Should not remove hosts DNS entries when keepDns is true");
+    } finally {
+      mitmManager.removeAllDns = origRemoveAll;
+      mitmServerInstance.stop = origStop;
+    }
+  });
+
+  it("ProcessManager.stopDaemon safely executes cleanup without errors", async () => {
+    const res = await ProcessManager.stopDaemon(59999);
+    assert.equal(typeof res.success, "boolean");
+    assert.equal(typeof res.message, "string");
   });
 });

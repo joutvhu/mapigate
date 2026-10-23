@@ -350,14 +350,6 @@ if (!isTest) {
             const mitmPort = await mitmManager.startServer({ forceKill: false });
             MitmRepository.setMitmServerRunning(true);
             logger.info("MITM", `HTTPS Proxy server automatically started on port ${mitmPort}`);
-            try {
-              const res = await mitmManager.restoreDnsOnStartup();
-              if (res.restored.length > 0) {
-                logger.info("MITM", `Restored hosts DNS entries for: ${res.restored.join(", ")}`);
-              }
-            } catch (restoreErr: any) {
-              logger.warn("MITM", `Could not restore DNS entries on startup: ${restoreErr.message}`);
-            }
           })
           .catch((err) => {
             logger.warn("MITM", `Cold boot HTTPS Proxy start skipped or port conflict: ${err.message}`);

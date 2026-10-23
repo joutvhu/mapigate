@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { PidFileManager } from "./pidFile.js";
 import { PortHelper } from "./portHelper.js";
 import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, getDefaultDataDir, MAPIGATE_LOG_FILE } from "../../shared/constants/index.js";
+import { removeAllDNSEntriesSync } from "../../mitm/dns/dnsConfig.js";
 
 import { fileURLToPath } from "node:url";
 
@@ -141,11 +142,58 @@ export class ProcessManager {
     }
   }
 
-  public static stopDaemon(port: number = DEFAULT_PORT): { success: boolean; message: string } {
+  public static async stopDaemon(port: number = DEFAULT_PORT): Promise<{ success: boolean; message: string }> {
+    const isTest =
+      process.env.NODE_ENV === "test" ||
+      Boolean(process.env.NODE_TEST_CONTEXT) ||
+      Boolean(process.env.MAPIGATE_DATA_DIR?.includes("mpg-daemon-test-")) ||
+      Boolean(process.env.MAPIGATE_DATA_DIR?.includes("mapigate-test"));
+
+    const ensureDnsCleanup = () => {
+      try {
+        removeAllDNSEntriesSync();
+      } catch {
+        // Best-effort
+      }
+    };
+
     const pid = PidFileManager.readPid();
     const isRunning = pid ? PidFileManager.isProcessRunning(pid) : false;
+    const isListening = await this.isServerListening(port);
 
-    // Check if recorded PID is alive
+    // 1. Attempt graceful HTTP shutdown if server is listening on port
+    if (!isTest && isListening) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1200);
+        const host = DEFAULT_HOST === "0.0.0.0" ? "127.0.0.1" : DEFAULT_HOST;
+        await fetch(`http://${host}:${port}/api/server/shutdown`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+        }).catch(() => {
+          return fetch(`http://${host}:${port}/api/shutdown`, {
+            method: "POST",
+            signal: controller.signal,
+          });
+        });
+        clearTimeout(timeout);
+
+        const released = await PortHelper.waitForPortRelease(port, 2000);
+        if (released) {
+          PidFileManager.removePid();
+          ensureDnsCleanup();
+          return {
+            success: true,
+            message: `Successfully stopped ${APP_NAME} daemon (PID: ${pid || "graceful"}).`,
+          };
+        }
+      } catch {
+        // Graceful shutdown failed; fallback to direct process termination
+      }
+    }
+
+    // 2. Direct process termination fallback
     if (pid && isRunning) {
       try {
         PortHelper.killProcess(pid);
@@ -157,8 +205,10 @@ export class ProcessManager {
           PortHelper.cleanPort(port);
         }
 
+        ensureDnsCleanup();
         return { success: true, message: `Successfully stopped ${APP_NAME} daemon (PID: ${pid}).` };
       } catch (e: any) {
+        ensureDnsCleanup();
         return { success: false, message: `Failed to stop PID ${pid}: ${e.message}` };
       }
     }
@@ -167,6 +217,7 @@ export class ProcessManager {
     if (pid && !isRunning) {
       PidFileManager.removePid();
       const orphanPids = PortHelper.cleanPort(port);
+      ensureDnsCleanup();
       if (orphanPids.length > 0) {
         return {
           success: true,
@@ -179,12 +230,14 @@ export class ProcessManager {
     // PID file is missing (pid === null)
     const orphanPids = PortHelper.cleanPort(port);
     if (orphanPids.length > 0) {
+      ensureDnsCleanup();
       return {
         success: true,
         message: `Stopped orphan process (PID: ${orphanPids.join(", ")}) listening on port ${port}.`,
       };
     }
 
+    ensureDnsCleanup();
     return { success: false, message: `No active PID file found. ${APP_NAME} is not running.` };
   }
 }

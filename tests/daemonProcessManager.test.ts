@@ -92,7 +92,7 @@ test("ProcessManager - resolveSpawnCommand provides non-empty executable and arg
   assert.ok(hasServerArg, "Expected spawn arguments to contain server entry file");
 });
 
-test("ProcessManager - stopDaemon when no PID file exists and port is clean", () => {
+test("ProcessManager - stopDaemon when no PID file exists and port is clean", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mpg-daemon-test-"));
   const origEnv = process.env.MAPIGATE_DATA_DIR;
   process.env.MAPIGATE_DATA_DIR = tmpDir;
@@ -103,7 +103,7 @@ test("ProcessManager - stopDaemon when no PID file exists and port is clean", ()
 
     // Pick an unused high port
     const testPort = 59871;
-    const res = ProcessManager.stopDaemon(testPort);
+    const res = await ProcessManager.stopDaemon(testPort);
     assert.equal(res.success, false);
     assert.ok(res.message.includes("No active PID file found"));
   } finally {
@@ -115,7 +115,7 @@ test("ProcessManager - stopDaemon when no PID file exists and port is clean", ()
   }
 });
 
-test("ProcessManager - stopDaemon cleans up stale PID file", () => {
+test("ProcessManager - stopDaemon cleans up stale PID file", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mpg-daemon-test-"));
   const origEnv = process.env.MAPIGATE_DATA_DIR;
   process.env.MAPIGATE_DATA_DIR = tmpDir;
@@ -126,7 +126,7 @@ test("ProcessManager - stopDaemon cleans up stale PID file", () => {
     assert.equal(PidFileManager.readPid(), 9999999);
 
     const testPort = 59872;
-    const res = ProcessManager.stopDaemon(testPort);
+    const res = await ProcessManager.stopDaemon(testPort);
     assert.equal(res.success, true);
     assert.ok(res.message.includes("Cleaned up stale PID 9999999"));
     assert.equal(PidFileManager.readPid(), null);
@@ -139,7 +139,7 @@ test("ProcessManager - stopDaemon cleans up stale PID file", () => {
   }
 });
 
-test("ProcessManager - stopDaemon cleans orphan process listening on port when PID is missing", () => {
+test("ProcessManager - stopDaemon cleans orphan process listening on port when PID is missing", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mpg-daemon-test-"));
   const origEnv = process.env.MAPIGATE_DATA_DIR;
   process.env.MAPIGATE_DATA_DIR = tmpDir;
@@ -161,7 +161,7 @@ test("ProcessManager - stopDaemon cleans orphan process listening on port when P
       return true;
     };
 
-    const res = ProcessManager.stopDaemon(20127);
+    const res = await ProcessManager.stopDaemon(20127);
     assert.equal(res.success, true);
     assert.ok(res.message.includes("Stopped orphan process (PID: 4444)"));
     assert.deepEqual(killedPids, [4444]);
@@ -176,7 +176,7 @@ test("ProcessManager - stopDaemon cleans orphan process listening on port when P
   }
 });
 
-test("ProcessManager - stopDaemon cleans stale PID and orphan process on port", () => {
+test("ProcessManager - stopDaemon cleans stale PID and orphan process on port", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mpg-daemon-test-"));
   const origEnv = process.env.MAPIGATE_DATA_DIR;
   process.env.MAPIGATE_DATA_DIR = tmpDir;
@@ -197,7 +197,7 @@ test("ProcessManager - stopDaemon cleans stale PID and orphan process on port", 
       return true;
     };
 
-    const res = ProcessManager.stopDaemon(20127);
+    const res = await ProcessManager.stopDaemon(20127);
     assert.equal(res.success, true);
     assert.ok(res.message.includes("Cleaned up stale PID 9999999 and stopped orphan process (PID: 5555)"));
     assert.deepEqual(killedPids, [5555]);

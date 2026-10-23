@@ -110,10 +110,10 @@ mitmRouter.post("/toggle-server", async (req, res) => {
         portOption = parsedPort;
       }
       const forceKill = Boolean(req.body.forceKill);
-      const port = await mitmManager.startServer({ port: portOption, forceKill });
+      const port = await mitmManager.startServer({ port: portOption, forceKill, sudoPassword: req.body.sudoPassword });
       res.json({ running: port > 0, port });
     } else {
-      await mitmManager.stopServer();
+      await mitmManager.stopServer({ sudoPassword: req.body.sudoPassword });
       res.json({ running: false, port: 0 });
     }
   } catch (error: any) {
@@ -141,18 +141,37 @@ mitmRouter.post("/toggle-dns", async (req, res) => {
   const newStatus = req.body.active !== undefined ? Boolean(req.body.active) : !currentStatus;
 
   let dnsError: string | null = null;
-  try {
-    if (newStatus) {
-      await addDNSEntry(toolKey, req.body.sudoPassword);
-    } else {
-      await removeDNSEntry(toolKey, req.body.sudoPassword);
+  MitmRepository.setToolDnsStatus(toolKey, newStatus);
+
+  const mitmStatus = await mitmManager.getStatus();
+  if (newStatus && !mitmStatus.running) {
+    try {
+      await mitmManager.startServer({ sudoPassword: req.body.sudoPassword });
+    } catch (err: any) {
+      if (err instanceof PortConflictError || err.name === "PortConflictError") {
+        res.status(409).json({
+          error: err.message,
+          code: err.code || "PORT_443_BUSY",
+          portOwner: err.portOwner,
+        });
+        return;
+      }
+      console.warn(`[MITM API] Auto-starting MITM server for ${toolKey} failed:`, err.message);
+      dnsError = err.message;
     }
-  } catch (err: any) {
-    console.warn(`[MITM API] Failed to update hosts file for ${toolKey}:`, err.message);
-    dnsError = err.message;
+  } else {
+    try {
+      if (newStatus) {
+        await addDNSEntry(toolKey, req.body.sudoPassword);
+      } else {
+        await removeDNSEntry(toolKey, req.body.sudoPassword);
+      }
+    } catch (err: any) {
+      console.warn(`[MITM API] Failed to update hosts file for ${toolKey}:`, err.message);
+      dnsError = err.message;
+    }
   }
 
-  MitmRepository.setToolDnsStatus(toolKey, newStatus);
   const liveDns = checkAllDNSStatus();
   const allDnsStatus = { ...MitmRepository.getAllToolDnsStatus(), ...liveDns };
 

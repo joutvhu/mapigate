@@ -12,7 +12,7 @@ export async function runRestart(options: RestartOptions = {}): Promise<void> {
   const port = Number(options?.port) || DEFAULT_PORT;
   const spinner = ora(`Restarting ${APP_NAME} daemon...`).start();
 
-  ProcessManager.stopDaemon(port);
+  await ProcessManager.stopDaemon(port);
   PortHelper.cleanPort(port);
   await PortHelper.waitForPortRelease(port, 3000);
 

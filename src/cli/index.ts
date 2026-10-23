@@ -102,7 +102,7 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
     } else if (choice === "exit") {
       clearScreen();
       console.log(chalk.cyan(`\nStopping ${APP_NAME} on port ${port}...`));
-      const res = ProcessManager.stopDaemon(port);
+      const res = await ProcessManager.stopDaemon(port);
       if (res.success) {
         console.log(chalk.green(`[OK] ${res.message}\n`));
       } else {
@@ -167,8 +167,8 @@ program
   .command("stop")
   .description(`Stop running ${APP_NAME} daemon`)
   .option("-p, --port <number>", "Port to check and stop", String(DEFAULT_PORT))
-  .action((options) => {
-    runStop(options);
+  .action(async (options) => {
+    await runStop(options);
   });
 
 program

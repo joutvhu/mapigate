@@ -8,11 +8,11 @@ export interface StopOptions {
   port?: string | number;
 }
 
-export function runStop(options: StopOptions = {}): void {
+export async function runStop(options: StopOptions = {}): Promise<void> {
   const recordedPort = PidFileManager.readPort();
   const port = Number(options?.port) || recordedPort || (process.env.PORT ? Number(process.env.PORT) : DEFAULT_PORT);
   const spinner = ora(`Stopping ${APP_NAME} daemon...`).start();
-  const res = ProcessManager.stopDaemon(port);
+  const res = await ProcessManager.stopDaemon(port);
   if (res.success) {
     spinner.succeed(chalk.green(res.message));
   } else {

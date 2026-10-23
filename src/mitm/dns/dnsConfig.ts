@@ -90,7 +90,11 @@ export function atomicWriteHostsWin(target: string, originalContent: string, new
 async function writeHostsFileWin(target: string, currentContent: string, newContent: string): Promise<void> {
   if (isAdmin()) {
     atomicWriteHostsWin(target, currentContent, newContent);
-    await runElevatedPowerShell("ipconfig /flushdns | Out-Null");
+    try {
+      execSync("ipconfig /flushdns", { windowsHide: true, stdio: "ignore" });
+    } catch {
+      // ignore
+    }
     return;
   }
 
