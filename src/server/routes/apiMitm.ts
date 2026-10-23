@@ -31,10 +31,7 @@ mitmRouter.get("/status", async (_req, res) => {
       certExists: true,
       certTrusted: true,
       serverOk: true,
-      dnsStatus: {
-        ...MitmRepository.getAllToolDnsStatus(),
-        ...checkAllDNSStatus(),
-      },
+      dnsStatus: checkAllDNSStatus(),
       routerBaseUrl: getMapigateBaseUrl(serverLifecycle.getPort()),
     });
   }
@@ -111,10 +108,18 @@ mitmRouter.post("/toggle-server", async (req, res) => {
       }
       const forceKill = Boolean(req.body.forceKill);
       const port = await mitmManager.startServer({ port: portOption, forceKill, sudoPassword: req.body.sudoPassword });
-      res.json({ running: port > 0, port });
+      const liveDns = mitmManager.checkLiveDns();
+      const warning = mitmManager.getLastDnsWarning();
+      res.json({
+        running: port > 0,
+        port,
+        dnsStatus: liveDns,
+        ...(warning ? { warning } : {}),
+      });
     } else {
       await mitmManager.stopServer({ sudoPassword: req.body.sudoPassword });
-      res.json({ running: false, port: 0 });
+      const liveDns = mitmManager.checkLiveDns();
+      res.json({ running: false, port: 0, dnsStatus: liveDns });
     }
   } catch (error: any) {
     if (error instanceof PortConflictError || error.name === "PortConflictError") {
@@ -147,6 +152,8 @@ mitmRouter.post("/toggle-dns", async (req, res) => {
   if (newStatus && !mitmStatus.running) {
     try {
       await mitmManager.startServer({ sudoPassword: req.body.sudoPassword });
+      const lastWarning = mitmManager.getLastDnsWarning();
+      if (lastWarning) dnsError = lastWarning;
     } catch (err: any) {
       if (err instanceof PortConflictError || err.name === "PortConflictError") {
         res.status(409).json({
@@ -173,13 +180,15 @@ mitmRouter.post("/toggle-dns", async (req, res) => {
   }
 
   const liveDns = checkAllDNSStatus();
-  const allDnsStatus = { ...MitmRepository.getAllToolDnsStatus(), ...liveDns };
+  if (dnsError && newStatus && !liveDns[toolKey]) {
+    MitmRepository.setToolDnsStatus(toolKey, false);
+  }
 
   res.json({
     tool: toolKey,
     ide: toolKey,
-    active: newStatus,
-    dnsStatus: allDnsStatus,
+    active: Boolean(liveDns[toolKey]),
+    dnsStatus: liveDns,
     ...(dnsError && { warning: dnsError }),
   });
 });

@@ -1,5 +1,8 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import http from "node:http";
+import express from "express";
+import { mitmRouter } from "../src/server/routes/apiMitm.js";
 import { mitmManager } from "../src/mitm/manager.js";
 import { mitmServerInstance } from "../src/mitm/server.js";
 import { MitmRepository } from "../src/storage/repositories/mitmRepo.js";
@@ -328,6 +331,222 @@ describe("MITM DNS Startup Restoration, Shutdown Cleanup, and Read-Only Invarian
     } finally {
       mitmManager.removeAllDns = origRemoveAll;
       mitmServerInstance.stop = origStop;
+    }
+  });
+
+  it("startServer sets lastDnsWarning and liveDns accurately reflects false when DNS sync fails", async () => {
+    const origStart = mitmServerInstance.start.bind(mitmServerInstance);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origGetStatus = mitmServerInstance.getStatus.bind(mitmServerInstance);
+    const origAddMultiple = mitmManager.addMultipleDns.bind(mitmManager);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+
+    let running = false;
+    mitmServerInstance.start = async (port: number) => {
+      running = true;
+      return port;
+    };
+    mitmServerInstance.stop = async () => {
+      running = false;
+    };
+    mitmServerInstance.getStatus = () => ({ running, port: 49194 });
+
+    MitmRepository.setToolDnsStatus("kiro", true);
+
+    // Live hosts does not have kiro
+    mitmManager.checkLiveDns = () => ({
+      antigravity: false,
+      kiro: false,
+      copilot: false,
+      cursor: false,
+    });
+
+    // Simulating elevation cancellation or failure
+    mitmManager.addMultipleDns = async () => {
+      throw new Error("User canceled UAC prompt");
+    };
+
+    try {
+      const port = await mitmManager.startServer({ port: 49194 });
+      assert.equal(port, 49194);
+      assert.equal(mitmManager.getLastDnsWarning(), "User canceled UAC prompt");
+
+      const status = await mitmManager.getStatus();
+      assert.equal(status.running, true);
+      // Real physical DNS status must be false, NOT stale repo status (true)
+      assert.equal(status.dnsStatus.kiro, false, "Live physical status must report false when DNS sync fails");
+    } finally {
+      await mitmManager.stopServer({ keepDns: true });
+      mitmServerInstance.start = origStart;
+      mitmServerInstance.stop = origStop;
+      mitmServerInstance.getStatus = origGetStatus;
+      mitmManager.addMultipleDns = origAddMultiple;
+      mitmManager.checkLiveDns = origCheckLive;
+    }
+  });
+
+  it("startServer skips hosts write when only 127.0.0.1 entry exists without ::1", async () => {
+    let addMultipleCalled = false;
+    const origStart = mitmServerInstance.start.bind(mitmServerInstance);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origGetStatus = mitmServerInstance.getStatus.bind(mitmServerInstance);
+    const origAddMultiple = mitmManager.addMultipleDns.bind(mitmManager);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+
+    let running = false;
+    mitmServerInstance.start = async (port: number) => {
+      running = true;
+      return port;
+    };
+    mitmServerInstance.stop = async () => {
+      running = false;
+    };
+    mitmServerInstance.getStatus = () => ({ running, port: 49195 });
+
+    MitmRepository.setToolDnsStatus("kiro", true);
+
+    // Live hosts has 127.0.0.1 for kiro (checkLiveDns returns true without requiring ::1)
+    mitmManager.checkLiveDns = () => ({
+      antigravity: false,
+      kiro: true,
+      copilot: false,
+      cursor: false,
+    });
+
+    mitmManager.addMultipleDns = async () => {
+      addMultipleCalled = true;
+    };
+
+    try {
+      await mitmManager.startServer({ port: 49195 });
+      assert.equal(addMultipleCalled, false, "Should not rewrite hosts or prompt when IPv4 entry exists");
+    } finally {
+      await mitmManager.stopServer({ keepDns: true });
+      mitmServerInstance.start = origStart;
+      mitmServerInstance.stop = origStop;
+      mitmServerInstance.getStatus = origGetStatus;
+      mitmManager.addMultipleDns = origAddMultiple;
+      mitmManager.checkLiveDns = origCheckLive;
+    }
+  });
+
+  it("stopServer removes DNS entries and live status reports false for all tools", async () => {
+    const origRemoveAll = mitmManager.removeAllDns.bind(mitmManager);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+
+    let liveState = {
+      antigravity: true,
+      kiro: true,
+      copilot: false,
+      cursor: false,
+    };
+
+    mitmManager.removeAllDns = async () => {
+      liveState = {
+        antigravity: false,
+        kiro: false,
+        copilot: false,
+        cursor: false,
+      };
+    };
+    mitmServerInstance.stop = async () => {};
+    mitmManager.checkLiveDns = () => liveState;
+
+    try {
+      await mitmManager.stopServer({ keepDns: false });
+      const status = await mitmManager.getStatus();
+      assert.deepEqual(status.dnsStatus, {
+        antigravity: false,
+        kiro: false,
+        copilot: false,
+        cursor: false,
+      });
+    } finally {
+      mitmManager.removeAllDns = origRemoveAll;
+      mitmServerInstance.stop = origStop;
+      mitmManager.checkLiveDns = origCheckLive;
+    }
+  });
+
+  it("API toggle-server and toggle-dns return live physical dnsStatus in response", async () => {
+    const app = express();
+    app.use(express.json());
+    app.use("/api/mitm", mitmRouter);
+
+    const server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address() as any;
+    const testBaseUrl = `http://127.0.0.1:${address.port}`;
+
+    const origStart = mitmServerInstance.start.bind(mitmServerInstance);
+    const origStop = mitmServerInstance.stop.bind(mitmServerInstance);
+    const origGetStatus = mitmServerInstance.getStatus.bind(mitmServerInstance);
+    const origCheckLive = mitmManager.checkLiveDns.bind(mitmManager);
+    const origAddMultiple = mitmManager.addMultipleDns.bind(mitmManager);
+    const origRemoveAll = mitmManager.removeAllDns.bind(mitmManager);
+
+    let running = false;
+    mitmServerInstance.start = async (port: number) => {
+      running = true;
+      return port;
+    };
+    mitmServerInstance.stop = async () => {
+      running = false;
+    };
+    mitmServerInstance.getStatus = () => ({ running, port: 49196 });
+    mitmManager.addMultipleDns = async () => {};
+    mitmManager.removeAllDns = async () => {};
+
+    // 1. When live DNS is false, toggle-server start returns live dnsStatus
+    mitmManager.checkLiveDns = () => ({
+      antigravity: false,
+      kiro: false,
+      copilot: false,
+      cursor: false,
+    });
+
+    try {
+      const startRes = await fetch(`${testBaseUrl}/api/mitm/toggle-server`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ running: true, port: 49196 }),
+      });
+      assert.equal(startRes.status, 200);
+      const startData = (await startRes.json()) as any;
+      assert.equal(startData.running, true);
+      assert.equal(startData.port, 49196);
+      assert.deepEqual(startData.dnsStatus, {
+        antigravity: false,
+        kiro: false,
+        copilot: false,
+        cursor: false,
+      });
+
+      // 2. When stopping server, toggle-server returns live dnsStatus with running false
+      const stopRes = await fetch(`${testBaseUrl}/api/mitm/toggle-server`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ running: false }),
+      });
+      assert.equal(stopRes.status, 200);
+      const stopData = (await stopRes.json()) as any;
+      assert.equal(stopData.running, false);
+      assert.equal(stopData.port, 0);
+      assert.deepEqual(stopData.dnsStatus, {
+        antigravity: false,
+        kiro: false,
+        copilot: false,
+        cursor: false,
+      });
+    } finally {
+      server.close();
+      mitmServerInstance.start = origStart;
+      mitmServerInstance.stop = origStop;
+      mitmServerInstance.getStatus = origGetStatus;
+      mitmManager.checkLiveDns = origCheckLive;
+      mitmManager.addMultipleDns = origAddMultiple;
+      mitmManager.removeAllDns = origRemoveAll;
     }
   });
 

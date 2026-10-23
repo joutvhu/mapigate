@@ -110,7 +110,7 @@ export const MitmTab: React.FC = () => {
 
   const [dnsStatus, setDnsStatus] = useState<Record<string, boolean>>({
     antigravity: false,
-    kiro: true,
+    kiro: false,
     copilot: false,
     cursor: false,
   });
@@ -240,6 +240,15 @@ export const MitmTab: React.FC = () => {
         const data = await res.json();
         setServerRunning(Boolean(data.running));
         if (data.port) setMitmPort(data.port);
+        if (data.dnsStatus) {
+          setDnsStatus({
+            antigravity: Boolean(data.dnsStatus.antigravity),
+            kiro: Boolean(data.dnsStatus.kiro),
+            copilot: Boolean(data.dnsStatus.copilot),
+            cursor: Boolean(data.dnsStatus.cursor),
+          });
+        }
+        loadStatus();
       } catch (err: any) {
         setServerToggleError(err?.message || "Failed to stop server");
       }
@@ -275,7 +284,19 @@ export const MitmTab: React.FC = () => {
       const data = await res.json();
       setServerRunning(Boolean(data.running));
       if (data.port) setMitmPort(data.port);
+      if (data.dnsStatus) {
+        setDnsStatus({
+          antigravity: Boolean(data.dnsStatus.antigravity),
+          kiro: Boolean(data.dnsStatus.kiro),
+          copilot: Boolean(data.dnsStatus.copilot),
+          cursor: Boolean(data.dnsStatus.cursor),
+        });
+      }
+      if (data.warning) {
+        setServerToggleError(data.warning);
+      }
       setPortConflict(null);
+      loadStatus();
     } catch (err: any) {
       setServerToggleError(err?.message || "Failed to start server");
     } finally {
@@ -340,6 +361,10 @@ export const MitmTab: React.FC = () => {
           cursor: Boolean(data.dnsStatus.cursor),
         }));
       }
+      if (data.warning) {
+        setServerToggleError(data.warning);
+      }
+      loadStatus();
     } catch {
       //
     }

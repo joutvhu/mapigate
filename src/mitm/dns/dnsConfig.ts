@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { TOOL_HOSTS, type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
+import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
 import { runElevatedPowerShell, isAdmin, quotePs } from "./winElevated.js";
 
 const IS_WIN = process.platform === "win32";
@@ -13,26 +14,49 @@ export const HOSTS_FILE = IS_WIN
   : "/etc/hosts";
 
 /**
- * Build the set of dual-stack hosts lines (IPv4 and IPv6) for a given hostname.
+ * Build the set of hosts lines for a given hostname.
+ * Defaults to IPv4 loopback only; does NOT automatically inject IPv6 (::1).
  */
-export function dnsLines(hostname: string): string[] {
-  return [`127.0.0.1 ${hostname}`, `::1 ${hostname}`];
+export function dnsLines(hostname: string, ip = "127.0.0.1"): string[] {
+  return [`${ip} ${hostname}`];
 }
 
 /**
- * Check whether all IPv4+IPv6 lines for `hostname` are present in hosts file content.
+ * Check whether an entry for `hostname` is present and active (uncommented) in hosts file content.
+ * Matches IPv4 (127.0.0.1 or loopback) or legacy IPv6 (::1). Does not require ::1 to be present.
  */
 export function hasHostEntry(hostsContent: string, hostname: string): boolean {
   const lines = hostsContent.split(/\r?\n/);
-  return dnsLines(hostname).every((entry) => {
-    const [ip, host] = entry.split(/\s+/);
-    return lines.some((line) => {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("#")) return false;
-      const parts = trimmed.split(/\s+/).filter(Boolean);
-      return parts.length >= 2 && parts[0] === ip && parts.includes(host);
-    });
+  return lines.some((line) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("#")) return false;
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) return false;
+    const ip = parts[0];
+    const isLocalIp = ip === "127.0.0.1" || ip === "::1" || ip.startsWith("127.");
+    return isLocalIp && parts.slice(1).includes(hostname);
   });
+}
+
+/**
+ * Retrieve configured host lines for a tool as displayed on the UI.
+ * Does NOT inject IPv6 (::1).
+ */
+export function getToolConfiguredLines(tool: string): string[] {
+  let hostsText = "";
+  try {
+    hostsText = MitmRepository.getToolHosts(tool);
+  } catch {
+    // fallback if repo/db uninitialized
+  }
+  if (!hostsText) {
+    const defaultHosts = TOOL_HOSTS[tool as MitmToolId] || [];
+    return defaultHosts.flatMap((h) => dnsLines(h));
+  }
+  return hostsText
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
 }
 
 function isLineMatchingHosts(line: string, targetHosts: string[]): boolean {
@@ -209,8 +233,13 @@ export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
     }
     const hostsContent = fs.readFileSync(HOSTS_FILE, "utf8");
     const result: Record<string, boolean> = {};
-    for (const [tool, hosts] of Object.entries(TOOL_HOSTS)) {
-      result[tool] = hosts.every((h) => hasHostEntry(hostsContent, h));
+    for (const tool of Object.keys(TOOL_HOSTS)) {
+      const configuredLines = getToolConfiguredLines(tool);
+      const targetHosts = configuredLines.length > 0
+        ? Array.from(new Set(configuredLines.flatMap((l) => l.split(/\s+/).slice(1))))
+        : TOOL_HOSTS[tool as MitmToolId] || [];
+
+      result[tool] = targetHosts.length > 0 && targetHosts.every((h) => hasHostEntry(hostsContent, h));
     }
     return result as Record<MitmToolId, boolean>;
   } catch {
@@ -219,7 +248,8 @@ export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
 }
 
 /**
- * Add dual-stack DNS entries (127.0.0.1 and ::1) for multiple tools in a single batch operation.
+ * Add DNS entries for multiple tools in a single batch operation.
+ * Uses exact configured lines without automatic ::1 injection.
  */
 export async function addMultipleDNSEntries(tools: string[], sudoPassword?: string): Promise<void> {
   const validTools = tools
@@ -234,21 +264,24 @@ export async function addMultipleDNSEntries(tools: string[], sudoPassword?: stri
   const addedHosts: string[] = [];
 
   for (const tool of validTools) {
-    const hosts = TOOL_HOSTS[tool];
-    for (const h of hosts) {
-      for (const entry of dnsLines(h)) {
-        const [ip, host] = entry.split(/\s+/);
-        const exists = currentLines.some((l) => {
-          const trimmed = l.trim();
-          if (trimmed.startsWith("#")) return false;
-          const parts = trimmed.split(/\s+/).filter(Boolean);
-          return parts.length >= 2 && parts[0] === ip && parts.includes(host);
-        });
-        if (!exists && !linesToAdd.includes(entry)) {
-          linesToAdd.push(entry);
-          if (!addedHosts.includes(h)) {
-            addedHosts.push(h);
-          }
+    const configuredLines = getToolConfiguredLines(tool);
+    for (const entry of configuredLines) {
+      const parts = entry.split(/\s+/).filter(Boolean);
+      if (parts.length < 2) continue;
+      const ip = parts[0];
+      const host = parts[1];
+
+      const exists = currentLines.some((l) => {
+        const trimmed = l.trim();
+        if (trimmed.startsWith("#")) return false;
+        const lineParts = trimmed.split(/\s+/).filter(Boolean);
+        return lineParts.length >= 2 && lineParts[0] === ip && lineParts.includes(host);
+      });
+
+      if (!exists && !linesToAdd.includes(entry)) {
+        linesToAdd.push(entry);
+        if (!addedHosts.includes(host)) {
+          addedHosts.push(host);
         }
       }
     }
@@ -272,7 +305,7 @@ export async function addMultipleDNSEntries(tools: string[], sudoPassword?: stri
       await execWithPassword(`printf '%s' '${escaped}' | tee ${HOSTS_FILE} > /dev/null`, sudoPassword);
       await flushDNS(sudoPassword);
     }
-    console.log(`[MITM DNS] Tools (${validTools.join(", ")}): added dual-stack entries for ${addedHosts.join(", ")}`);
+    console.log(`[MITM DNS] Tools (${validTools.join(", ")}): added entries for ${addedHosts.join(", ")}`);
   } catch (error: any) {
     const msg = error.message?.includes("incorrect password")
       ? "Wrong sudo password"
@@ -282,7 +315,7 @@ export async function addMultipleDNSEntries(tools: string[], sudoPassword?: stri
 }
 
 /**
- * Add dual-stack DNS entries (127.0.0.1 and ::1) for a specific tool.
+ * Add DNS entries for a specific tool.
  */
 export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<void> {
   const toolKey = tool.toLowerCase() as MitmToolId;
@@ -293,12 +326,15 @@ export async function addDNSEntry(tool: string, sudoPassword?: string): Promise<
 }
 
 /**
- * Remove dual-stack DNS entries for a specific tool.
+ * Remove DNS entries for a specific tool.
  */
 export async function removeDNSEntry(tool: string, sudoPassword?: string): Promise<void> {
   const toolKey = tool.toLowerCase() as MitmToolId;
-  const hosts = TOOL_HOSTS[toolKey];
-  if (!hosts) throw new Error(`Unknown tool: ${tool}`);
+  const configuredHosts = getToolConfiguredLines(toolKey)
+    .map((l) => l.split(/\s+/).slice(1))
+    .flat();
+  const hosts = Array.from(new Set([...(TOOL_HOSTS[toolKey] || []), ...configuredHosts]));
+  if (hosts.length === 0) throw new Error(`Unknown tool: ${tool}`);
 
   const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
   const hasMatchingLines = current.split(/\r?\n/).some((l) => isLineMatchingHosts(l, hosts));
@@ -338,7 +374,11 @@ export async function removeDNSEntry(tool: string, sudoPassword?: string): Promi
  */
 export async function removeAllDNSEntries(sudoPassword?: string): Promise<void> {
   const current = fs.existsSync(HOSTS_FILE) ? fs.readFileSync(HOSTS_FILE, "utf8") : "";
-  const allHosts = Object.values(TOOL_HOSTS).flat();
+  const allToolKeys = Object.keys(TOOL_HOSTS);
+  const allConfiguredHosts = allToolKeys.flatMap((t) =>
+    getToolConfiguredLines(t).flatMap((l) => l.split(/\s+/).slice(1))
+  );
+  const allHosts = Array.from(new Set([...Object.values(TOOL_HOSTS).flat(), ...allConfiguredHosts]));
   const hasMatchingLines = current.split(/\r?\n/).some((l) => isLineMatchingHosts(l, allHosts));
 
   if (!hasMatchingLines) {
@@ -379,7 +419,11 @@ export async function removeAllDNSEntries(sudoPassword?: string): Promise<void> 
 export function removeAllDNSEntriesSync(): void {
   try {
     if (!fs.existsSync(HOSTS_FILE)) return;
-    const allHosts = Object.values(TOOL_HOSTS).flat();
+    const allToolKeys = Object.keys(TOOL_HOSTS);
+    const allConfiguredHosts = allToolKeys.flatMap((t) =>
+      getToolConfiguredLines(t).flatMap((l) => l.split(/\s+/).slice(1))
+    );
+    const allHosts = Array.from(new Set([...Object.values(TOOL_HOSTS).flat(), ...allConfiguredHosts]));
     const content = fs.readFileSync(HOSTS_FILE, "utf8");
     const eol = IS_WIN ? "\r\n" : "\n";
     const filtered = content

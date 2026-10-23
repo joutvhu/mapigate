@@ -20,12 +20,21 @@ import { getMapigateBaseUrl } from "../shared/constants/cliTools.js";
 
 export class MitmManager {
   private static instance: MitmManager;
+  private lastDnsWarning: string | null = null;
 
   public static getInstance(): MitmManager {
     if (!MitmManager.instance) {
       MitmManager.instance = new MitmManager();
     }
     return MitmManager.instance;
+  }
+
+  public getLastDnsWarning(): string | null {
+    return this.lastDnsWarning;
+  }
+
+  public clearLastDnsWarning(): void {
+    this.lastDnsWarning = null;
   }
 
   public async getStatus() {
@@ -36,13 +45,7 @@ export class MitmManager {
     const installCommands = getInstallCommand(ROOT_CA_CERT_PATH);
     const uninstallCommands = getUninstallCommand(ROOT_CA_CERT_PATH);
 
-    // Merge repo state with live /etc/hosts file entries
-    const repoDns = MitmRepository.getAllToolDnsStatus();
     const liveDns = this.checkLiveDns();
-    const mergedDnsStatus: Record<string, boolean> = {
-      ...repoDns,
-      ...liveDns,
-    };
 
     return {
       running: serverStatus.running,
@@ -53,7 +56,7 @@ export class MitmManager {
       fingerprint,
       installCommands,
       uninstallCommands,
-      dnsStatus: mergedDnsStatus,
+      dnsStatus: liveDns,
       routerBaseUrl: getMapigateBaseUrl(),
     };
   }
@@ -129,6 +132,7 @@ export class MitmManager {
         }
       }
 
+      this.lastDnsWarning = null;
       const activePort = await mitmServerInstance.start(targetPort);
       if (activePort > 0) {
         MitmRepository.setMitmServerRunning(true);
@@ -136,6 +140,7 @@ export class MitmManager {
           await this.syncDnsOnStart(opts.sudoPassword);
         } catch (dnsErr: any) {
           console.warn(`[MITM] DNS sync on start failed: ${dnsErr.message}`);
+          this.lastDnsWarning = dnsErr.message || "Failed to update hosts file";
         }
       }
       return activePort;
@@ -213,6 +218,7 @@ export class MitmManager {
   }
 
   public async stopServer(options: { keepDns?: boolean; sudoPassword?: string } = {}) {
+    this.lastDnsWarning = null;
     if (!options.keepDns) {
       try {
         await this.removeAllDns(options.sudoPassword);
