@@ -20,6 +20,7 @@ export interface TokenSaverResult {
 export interface TokenSaverConfig {
   enabled?: boolean;
   level?: string;
+  prompt?: string;
   [key: string]: any;
 }
 
@@ -37,6 +38,8 @@ export interface TokenSaverSettings {
   cavemanLevel: string;
   ponytailEnabled: boolean;
   ponytailLevel: string;
+  customPromptEnabled?: boolean;
+  customPrompt?: string;
   [key: string]: any;
 }
 
@@ -46,6 +49,8 @@ export const DEFAULT_TOKEN_SAVER_SETTINGS: TokenSaverSettings = {
   cavemanLevel: "lite",
   ponytailEnabled: false,
   ponytailLevel: "lite",
+  customPromptEnabled: false,
+  customPrompt: "",
 };
 
 export interface TokenSaverCoordinatorSummary {

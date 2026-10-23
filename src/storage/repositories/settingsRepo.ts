@@ -316,6 +316,14 @@ export class SettingsRepository {
         typeof raw.ponytailLevel === "string" && raw.ponytailLevel.trim()
           ? raw.ponytailLevel.trim()
           : DEFAULT_TOKEN_SAVER_SETTINGS.ponytailLevel,
+      customPromptEnabled:
+        raw.customPromptEnabled !== undefined
+          ? Boolean(raw.customPromptEnabled)
+          : DEFAULT_TOKEN_SAVER_SETTINGS.customPromptEnabled,
+      customPrompt:
+        typeof raw.customPrompt === "string"
+          ? raw.customPrompt
+          : DEFAULT_TOKEN_SAVER_SETTINGS.customPrompt,
     };
   }
 
@@ -347,6 +355,14 @@ export class SettingsRepository {
         settings.ponytailLevel.trim()
           ? settings.ponytailLevel.trim()
           : current.ponytailLevel,
+      customPromptEnabled:
+        settings.customPromptEnabled !== undefined
+          ? Boolean(settings.customPromptEnabled)
+          : current.customPromptEnabled,
+      customPrompt:
+        settings.customPrompt !== undefined && typeof settings.customPrompt === "string"
+          ? settings.customPrompt
+          : current.customPrompt,
     };
     this.setSetting("tokenSaver", updated);
     return updated;

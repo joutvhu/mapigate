@@ -27,7 +27,7 @@ export const models: RegistryModel[] = [
   {"id":"deepseek-3.2","name":"DeepSeek 3.2","isDefault":false},
   {"id":"qwen3-coder-next","name":"Qwen3 Coder Next","isDefault":false},
   {"id":"glm-5","name":"GLM 5","isDefault":false},
-  {"id":"MiniMax-M2.5","name":"MiniMax M2.5","isDefault":false},
+  {"id":"minimax-m2.5","name":"MiniMax M2.5","isDefault":false},
   {"id":"gpt-5.6-sol","name":"GPT 5.6 Sol","upstreamModelId":"gpt-5.6-sol","isDefault":false,"contextLength":272000},
   {"id":"gpt-5.6-terra","name":"GPT 5.6 Terra","upstreamModelId":"gpt-5.6-terra","isDefault":false,"contextLength":272000},
   {"id":"gpt-5.6-luna","name":"GPT 5.6 Luna","upstreamModelId":"gpt-5.6-luna","isDefault":false,"contextLength":272000},

@@ -383,7 +383,7 @@ export async function executeAntigravity(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${creds.accessToken}`,
-    "User-Agent": "antigravity/ide/2.22.0 darwin/arm64",
+    "User-Agent": "antigravity/hub/2.24.0 darwin/arm64",
     Accept: isStreaming ? "text/event-stream" : "application/json",
     "x-request-source": "local",
   };

@@ -12,6 +12,34 @@ import type { ProviderRequestContext, IProvider, StreamExecutionResult } from ".
 import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
 import { reasoningCache } from "../../../core/caching/reasoningCache.js";
 
+function ensureStreamToolCallIds(chunk: any, seenIds: Map<number, string>): boolean {
+  if (!chunk?.choices?.length) return false;
+  let changed = false;
+
+  for (const choice of chunk.choices) {
+    const calls = choice?.delta?.tool_calls;
+    if (!Array.isArray(calls)) continue;
+
+    for (const tc of calls) {
+      if (!tc || typeof tc !== "object") continue;
+
+      if (typeof tc.id === "string" && tc.id.length > 0) {
+        if (tc.index !== undefined) seenIds.set(tc.index, tc.id);
+        continue;
+      }
+
+      // Missing id on this fragment. Reuse seen id for this index or mint a fallback id
+      const known = tc.index !== undefined ? seenIds.get(tc.index) : undefined;
+      const id = known || `call_${Math.random().toString(36).slice(2, 11)}`;
+      tc.id = id;
+      if (tc.index !== undefined) seenIds.set(tc.index, id);
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
 export async function pipeSseStream(
   upstreamRes: globalThis.Response,
   clientRes: Response,
@@ -29,6 +57,7 @@ export async function pipeSseStream(
   const toolSchemas = toolSchemaMap(requestTools);
   const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
   const responsesState = clientFormat === "responses" ? createResponsesStreamState(requestId) : null;
+  const seenToolCallIds = new Map<number, string>();
 
   if (clientFormat === "anthropic" && targetFormat === "openai") {
     clientRes.write(
@@ -88,13 +117,20 @@ export async function pipeSseStream(
 
       try {
         let jsonChunk = JSON.parse(dataStr);
+        let chunkModified = false;
 
         if (provider.transformResponseChunk) {
           jsonChunk = provider.transformResponseChunk(jsonChunk, context);
+          chunkModified = true;
         }
 
         if (jsonChunk?.choices?.[0]?.delta?.tool_calls) {
           OpenAiAdapter.repairToolCalls(jsonChunk.choices[0].delta.tool_calls, toolSchemas);
+          chunkModified = true;
+        }
+
+        if (ensureStreamToolCallIds(jsonChunk, seenToolCallIds)) {
+          chunkModified = true;
         }
 
         extractTokensFromChunk(jsonChunk, state);
@@ -159,7 +195,7 @@ export async function pipeSseStream(
           if (currentEventName && clientFormat === "anthropic") {
             clientRes.write(`event: ${currentEventName}\n`);
           }
-          if (provider.transformResponseChunk) {
+          if (provider.transformResponseChunk || chunkModified) {
             clientRes.write(`data: ${JSON.stringify(jsonChunk)}\n\n`);
           } else {
             clientRes.write(rawLine + "\n\n");

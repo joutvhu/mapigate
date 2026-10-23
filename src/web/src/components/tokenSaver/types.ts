@@ -4,6 +4,8 @@ export interface TokenSaverSettings {
   cavemanLevel: "lite" | "full" | "ultra" | string;
   ponytailEnabled: boolean;
   ponytailLevel: "lite" | "full" | "ultra" | string;
+  customPromptEnabled?: boolean;
+  customPrompt?: string;
 }
 
 export const DEFAULT_TOKEN_SAVER_SETTINGS: TokenSaverSettings = {
@@ -12,6 +14,8 @@ export const DEFAULT_TOKEN_SAVER_SETTINGS: TokenSaverSettings = {
   cavemanLevel: "lite",
   ponytailEnabled: false,
   ponytailLevel: "lite",
+  customPromptEnabled: false,
+  customPrompt: "",
 };
 
 export interface RtkFilterMeta {

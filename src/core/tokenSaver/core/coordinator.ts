@@ -95,6 +95,11 @@ export class TokenSaverCoordinator {
           enabled: settings.ponytailEnabled ?? false,
           level: settings.ponytailLevel || "lite",
         };
+      case "customprompt":
+        return {
+          enabled: settings.customPromptEnabled ?? false,
+          prompt: settings.customPrompt || "",
+        };
       default:
         // Generic fallback for custom registered methods
         return {

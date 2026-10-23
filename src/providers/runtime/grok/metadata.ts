@@ -32,6 +32,11 @@ export const metadata: ProviderRegistryItem = {
   "thinkingMode": "auto",
   "models": [
     {
+      "id": "grok-4.7",
+      "name": "Grok 4.7",
+      "isDefault": false
+    },
+    {
       "id": "grok-4.6",
       "name": "Grok 4.6",
       "isDefault": false

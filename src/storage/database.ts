@@ -11,6 +11,15 @@ export interface DatabaseDriver {
   close(): void;
 }
 
+export function stripNullBytes(value: unknown): unknown {
+  if (typeof value !== "string" || !value.includes("\0")) return value;
+  return value.replace(/\0/g, "");
+}
+
+function cleanParams(params: any[]): any[] {
+  return params.map(stripNullBytes);
+}
+
 class NodeSqliteDriver implements DatabaseDriver {
   private db: DatabaseSync;
 
@@ -31,7 +40,7 @@ class NodeSqliteDriver implements DatabaseDriver {
 
   public run(sql: string, ...params: any[]): { changes: number; lastInsertRowid: number | bigint } {
     const stmt = this.db.prepare(sql);
-    const result = stmt.run(...params);
+    const result = stmt.run(...cleanParams(params));
     return {
       changes: Number(result.changes),
       lastInsertRowid: result.lastInsertRowid,
@@ -40,12 +49,12 @@ class NodeSqliteDriver implements DatabaseDriver {
 
   public get<T = any>(sql: string, ...params: any[]): T | undefined {
     const stmt = this.db.prepare(sql);
-    return stmt.get(...params) as T | undefined;
+    return stmt.get(...cleanParams(params)) as T | undefined;
   }
 
   public all<T = any>(sql: string, ...params: any[]): T[] {
     const stmt = this.db.prepare(sql);
-    return stmt.all(...params) as T[];
+    return stmt.all(...cleanParams(params)) as T[];
   }
 
   public close(): void {

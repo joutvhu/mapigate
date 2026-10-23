@@ -3,6 +3,7 @@ import { type TokenSaverSettings, DEFAULT_TOKEN_SAVER_SETTINGS } from "../compon
 import { RtkCard } from "../components/tokenSaver/RtkCard.js";
 import { CavemanCard } from "../components/tokenSaver/CavemanCard.js";
 import { PonytailCard } from "../components/tokenSaver/PonytailCard.js";
+import { CustomPromptCard } from "../components/tokenSaver/CustomPromptCard.js";
 
 function parseSettings(data: any): TokenSaverSettings {
   return {
@@ -11,6 +12,8 @@ function parseSettings(data: any): TokenSaverSettings {
     cavemanLevel: data?.cavemanLevel || "lite",
     ponytailEnabled: Boolean(data?.ponytailEnabled),
     ponytailLevel: data?.ponytailLevel || "lite",
+    customPromptEnabled: Boolean(data?.customPromptEnabled),
+    customPrompt: data?.customPrompt || "",
   };
 }
 
@@ -181,6 +184,13 @@ export const TokenSaverTab: React.FC = () => {
         disabled={saving}
         onToggle={(val) => handleUpdate({ ponytailEnabled: val })}
         onSelectLevel={(val) => handleUpdate({ ponytailLevel: val })}
+      />
+      <CustomPromptCard
+        enabled={Boolean(settings.customPromptEnabled)}
+        prompt={settings.customPrompt || ""}
+        disabled={saving}
+        onToggle={(val) => handleUpdate({ customPromptEnabled: val })}
+        onSavePrompt={(val) => handleUpdate({ customPrompt: val })}
       />
     </div>
   );

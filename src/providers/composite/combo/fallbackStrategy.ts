@@ -16,10 +16,16 @@ const defaultComboLogger = {
   warn: (msg: string, ...args: any[]) => logger.warn("COMBO", msg, ...args),
 };
 
+export interface FallbackDecision {
+  shouldFallback: boolean;
+  cooldownMs?: number;
+  requestScoped?: boolean;
+}
+
 export function checkFallbackError(
   status: number,
   errorText?: string
-): { shouldFallback: boolean; cooldownMs?: number } {
+): FallbackDecision {
   if (status === 429) {
     return { shouldFallback: true, cooldownMs: 1500 };
   }
@@ -36,12 +42,19 @@ export function checkFallbackError(
     lower.includes("rate limit") ||
     lower.includes("insufficient") ||
     lower.includes("balance") ||
+    lower.includes("credit") ||
     lower.includes("overloaded") ||
     lower.includes("capacity") ||
     lower.includes("resource_exhausted");
 
   if (isQuotaOrLimit) {
     return { shouldFallback: true, cooldownMs: 1000 };
+  }
+
+  // Request-scoped 4xx (validation failure, unsupported parameter, context overflow).
+  // Statuses 401, 402, 403, 404 are credential/account-scoped.
+  if (status >= 400 && status < 500 && status !== 401 && status !== 402 && status !== 403 && status !== 404) {
+    return { shouldFallback: false, cooldownMs: 0, requestScoped: true };
   }
 
   return { shouldFallback: false };
@@ -101,6 +114,7 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
 
   let lastStatus = 503;
   let lastError = "All combo models failed";
+  let firstRequestScopedResult: ModelCallResult | null = null;
 
   for (let i = 0; i < candidateModels.length; i++) {
     const modelStr = candidateModels[i];
@@ -119,10 +133,20 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
       }
 
       const errText = res.error || res.text || String(res.status);
-      const { shouldFallback, cooldownMs } = checkFallbackError(res.status, errText);
+      const { shouldFallback, cooldownMs, requestScoped } = checkFallbackError(res.status, errText);
 
       lastStatus = res.status;
       lastError = errText;
+
+      // A request-scoped 4xx (validation, unsupported parameter, context overflow) means
+      // this member cannot serve THIS request — but a later member might. Advance without cooldown.
+      if (requestScoped) {
+        log.warn(`[COMBO:Fallback] Model ${modelStr} rejected request (${res.status}): ${errText}, trying next model`);
+        if (!firstRequestScopedResult) {
+          firstRequestScopedResult = { ...res, modelUsed: modelStr };
+        }
+        continue;
+      }
 
       if (!shouldFallback) {
         log.warn(`[COMBO:Fallback] Model ${modelStr} failed with unretryable error ${res.status}: ${errText}`);
@@ -139,6 +163,11 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
       lastError = err.message || String(err);
       log.warn(`[COMBO:Fallback] Model ${modelStr} threw exception: ${lastError}`);
     }
+  }
+
+  if (firstRequestScopedResult) {
+    log.warn(`[COMBO:Fallback] All combo models failed; returning first request-scoped error (${firstRequestScopedResult.status})`);
+    return firstRequestScopedResult;
   }
 
   return {

@@ -68,6 +68,15 @@ export const PATTERN_CAPABILITIES: Array<{ pattern: string; caps: Partial<ModelC
   { pattern: "*o3*", caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 100000 } },
   { pattern: "*o4*", caps: { vision: true, reasoning: true, thinkingFormat: "openai", contextWindow: 200000, maxOutput: 100000 } },
 
+  // ── xAI Grok ──
+  { pattern: "*grok*image*", caps: { imageOutput: true } },
+  { pattern: "*grok-code*", caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 256000 } },
+  { pattern: "*grok-4.7*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 500000 } },
+  { pattern: "*grok-4.6*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 500000 } },
+  { pattern: "*grok-4.5*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 64000 } },
+  { pattern: "*grok-4*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 256000 } },
+  { pattern: "*grok*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 128000 } },
+
   // ── DeepSeek ──
   { pattern: "*deepseek-v4.*", caps: { vision: true, reasoning: true, thinkingFormat: "deepseek", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 128000 } },
   { pattern: "*deepseek-v4*", caps: { reasoning: true, thinkingFormat: "deepseek", thinkingEffortSupported: true, contextWindow: 1000000, maxOutput: 384000 } },

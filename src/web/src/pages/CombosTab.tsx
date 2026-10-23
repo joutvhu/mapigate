@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { ComboFormModal, type ComboItem } from "../components/ComboFormModal.js";
 import { ModelSelectModal } from "../components/ModelSelectModal.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
@@ -42,6 +42,18 @@ export const CombosTab: React.FC = () => {
   const [savingAdapter, setSavingAdapter] = useState(false);
   const [presetLoading, setPresetLoading] = useState<"cursor" | "claude" | null>(null);
   const [copiedComboId, setCopiedComboId] = useState<string | null>(null);
+  const [comboSearchQuery, setComboSearchQuery] = useState("");
+
+  const filteredCombos = useMemo(() => {
+    const q = comboSearchQuery.trim().toLowerCase();
+    if (!q) return combos;
+    return combos.filter((c) => {
+      if (c.name.toLowerCase().includes(q)) return true;
+      if (c.strategy.toLowerCase().includes(q)) return true;
+      if (c.models && c.models.some((m) => m.toLowerCase().includes(q))) return true;
+      return false;
+    });
+  }, [combos, comboSearchQuery]);
 
   // Modals state
   const [showComboModal, setShowComboModal] = useState(false);
@@ -465,18 +477,42 @@ export const CombosTab: React.FC = () => {
 
       {/* SECTION 2: Configured Combos List */}
       <div className="w-full space-y-3.5">
-        <div className="flex items-center justify-between px-1 text-xs text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-blue-400 text-[18px]">
               layers
             </span>
             <span className="font-bold text-white text-sm">
-              Configured Combos ({combos.length})
+              Configured Combos ({comboSearchQuery ? `${filteredCombos.length} of ${combos.length}` : combos.length})
             </span>
           </div>
-          <span className="text-[11px] text-slate-500">
-            Backed directly by SQLite database
-          </span>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[16px]">
+                search
+              </span>
+              <input
+                type="text"
+                value={comboSearchQuery}
+                onChange={(e) => setComboSearchQuery(e.target.value)}
+                placeholder="Filter combos by name or model..."
+                className="pl-8 pr-7 py-1 text-xs bg-[#0F1420] border border-[#1E293B] rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 w-52 sm:w-64 transition-all"
+              />
+              {comboSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setComboSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              )}
+            </div>
+            <span className="text-[11px] text-slate-500 hidden sm:inline">
+              Backed by SQLite
+            </span>
+          </div>
         </div>
 
         {loadingCombos ? (
@@ -498,9 +534,24 @@ export const CombosTab: React.FC = () => {
               Click &ldquo;Create Combo&rdquo; to build your first alias, or click &ldquo;Claude Default&rdquo; / &ldquo;Cursor Default&rdquo; above to quickly generate presets.
             </p>
           </div>
+        ) : filteredCombos.length === 0 ? (
+          <div className="w-full py-12 text-center text-slate-400 flex flex-col items-center justify-center gap-2 bg-[#0F1420]/40 rounded-2xl border border-[#1E293B]">
+            <span className="material-symbols-outlined text-3xl text-slate-600">
+              search_off
+            </span>
+            <p className="text-xs font-semibold text-slate-300">
+              No combos match &ldquo;{comboSearchQuery}&rdquo;
+            </p>
+            <button
+              onClick={() => setComboSearchQuery("")}
+              className="text-xs text-blue-400 hover:underline cursor-pointer"
+            >
+              Clear filter
+            </button>
+          </div>
         ) : (
           <div className="w-full space-y-2.5">
-            {combos.map((combo, idx) => {
+            {filteredCombos.map((combo, idx) => {
               const comboCaps = aggregateComboCapabilities(combo.models);
               const isActive = combo.isActive !== false;
 
