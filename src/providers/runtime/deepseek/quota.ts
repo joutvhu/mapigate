@@ -111,7 +111,7 @@ export async function getDeepseekUsage(
     }
 
     return {
-      plan: isAvailable ? "DeepSeek" : "DeepSeek (Insufficient Balance)",
+      plan: isAvailable ? "DeepSeek" : "Insufficient Balance",
       quotas,
     };
   } catch (err: any) {
