@@ -37,9 +37,9 @@ import Prov_glm_cn from "../../catalog/glm-cn/provider.js";
 import Prov_google_pse from "../../catalog/google-pse/provider.js";
 import Prov_google_tts from "../../catalog/google-tts/provider.js";
 import Prov_grok from "../../runtime/grok/provider.js";
-import Prov_grok_cli from "../../catalog/grok-cli/provider.js";
-import Prov_grok_web from "../../catalog/grok-web/provider.js";
+import Prov_grok_cli from "../../runtime/grok-cli/provider.js";
 import Prov_groq from "../../catalog/groq/provider.js";
+import Prov_huggingface from "../../catalog/huggingface/provider.js";
 
 export function registerRuntimeChunk2(registry: { register(p: any): void }): void {
   registry.register(new Prov_codestral());
@@ -80,6 +80,6 @@ export function registerRuntimeChunk2(registry: { register(p: any): void }): voi
   registry.register(new Prov_google_tts());
   registry.register(new Prov_grok());
   registry.register(new Prov_grok_cli());
-  registry.register(new Prov_grok_web());
   registry.register(new Prov_groq());
+  registry.register(new Prov_huggingface());
 }

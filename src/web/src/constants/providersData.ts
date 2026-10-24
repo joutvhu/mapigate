@@ -49,7 +49,9 @@ export function isOAuthProvider(p?: {
     pId === "cursor" ||
     pId === "kiro" ||
     pId === "amazon-q" ||
-    pId === "codex-app-server"
+    pId === "codex-app-server" ||
+    pId === "grok-cli" ||
+    pId === "supergrok"
   ) {
     return true;
   }

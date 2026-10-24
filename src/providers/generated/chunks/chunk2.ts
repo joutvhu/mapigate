@@ -38,9 +38,9 @@ import { metadata as glm_cn } from "../../catalog/glm-cn/metadata.js";
 import { metadata as google_pse } from "../../catalog/google-pse/metadata.js";
 import { metadata as google_tts } from "../../catalog/google-tts/metadata.js";
 import { metadata as grok } from "../../runtime/grok/metadata.js";
-import { metadata as grok_cli } from "../../catalog/grok-cli/metadata.js";
-import { metadata as grok_web } from "../../catalog/grok-web/metadata.js";
+import { metadata as grok_cli } from "../../runtime/grok-cli/metadata.js";
 import { metadata as groq } from "../../catalog/groq/metadata.js";
+import { metadata as huggingface } from "../../catalog/huggingface/metadata.js";
 
 export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "codestral": codestral,
@@ -81,6 +81,6 @@ export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "google-tts": google_tts,
   "grok": grok,
   "grok-cli": grok_cli,
-  "grok-web": grok_web,
   "groq": groq,
+  "huggingface": huggingface,
 };
