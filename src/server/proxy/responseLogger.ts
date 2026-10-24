@@ -2,6 +2,7 @@ import { LogRepository } from "../../storage/repositories/logRepo.js";
 import { RequestDetailsRepository } from "../../storage/repositories/requestDetailsRepo.js";
 import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { calculateCostFromTokens } from "../../core/usage/pricing.js";
+import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 
 export interface LogSuccessOptions {
   requestId: string;
@@ -189,6 +190,29 @@ export class ResponseLogger {
       cost: 0,
       request: { headers: requestHeaders, body: requestBody },
       errorMessage: errorMessage.slice(0, 500),
+    });
+
+    appendStructuredLog({
+      id: requestId,
+      timestamp: startTime,
+      level: status === 429 ? "warn" : "error",
+      category: "proxy",
+      message: `${clientTool || "client"} · ${actualModel || rawModel} -> ${status} (${errorMessage.slice(0, 100)})`,
+      requestId,
+      gateway: {
+        clientTool,
+        requestedModel: rawModel,
+        actualModel,
+        providerId,
+        statusCode: status,
+        durationMs,
+        stage: "error",
+      },
+      error: {
+        status,
+        message: errorMessage,
+      },
+      rawText: `[ERROR] ${status} ${errorMessage}`,
     });
 
     UsageRepository.endPendingRequest(requestId, true, providerId);

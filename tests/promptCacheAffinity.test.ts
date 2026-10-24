@@ -317,6 +317,14 @@ test("CacheControlPolicy - Strips cache_control recursively for standard OpenAI,
 test("LoadBalancer integration - Prompt Cache Affinity with cooldown failover", () => {
   const providerId = "test_affinity_provider";
 
+  // Clean up any stale accounts from previous test runs
+  try {
+    ProviderRepository.deleteAccount("acc_affinity_1");
+    ProviderRepository.deleteAccount("acc_affinity_2");
+    ProviderRepository.deleteAccount("acc_affinity_3");
+    ProviderRepository.deleteProvider(providerId);
+  } catch {}
+
   // Create provider
   ProviderRepository.ensureProviderExists(providerId, "Affinity Test Provider");
   ProviderRepository.updateProviderStrategy(providerId, "round-robin", 1);

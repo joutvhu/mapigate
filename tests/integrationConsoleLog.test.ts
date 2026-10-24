@@ -155,6 +155,30 @@ test("Integration - /api/console-logs REST and SSE streaming with structured log
     assert.equal(putLevelData.success, true);
     assert.equal(putLevelData.level, "trace");
 
+    // 7. Test GET and PUT /api/console-logs/observability
+    const obsGetRes = await fetch(`${baseUrl}/api/console-logs/observability`);
+    assert.equal(obsGetRes.status, 200);
+    const obsGetData = (await obsGetRes.json()) as any;
+    assert.equal(obsGetData.success, true);
+    assert.ok(["off", "errors_only", "all"].includes(obsGetData.mode));
+
+    const obsPutRes = await fetch(`${baseUrl}/api/console-logs/observability`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "errors_only" }),
+    });
+    assert.equal(obsPutRes.status, 200);
+    const obsPutData = (await obsPutRes.json()) as any;
+    assert.equal(obsPutData.success, true);
+    assert.equal(obsPutData.mode, "errors_only");
+
+    // Reset back to 'all' so other tests have full capture
+    await fetch(`${baseUrl}/api/console-logs/observability`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "all" }),
+    });
+
     // Abort SSE client
     controller.abort();
     await streamPromise;

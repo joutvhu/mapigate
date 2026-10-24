@@ -61,6 +61,39 @@ consoleLogsRouter.patch("/level", (req: Request, res: Response) => {
   }
 });
 
+// GET /api/console-logs/observability - Get current observability capture mode
+consoleLogsRouter.get("/observability", (_req: Request, res: Response) => {
+  try {
+    const mode = SettingsRepository.getObservabilityMode();
+    res.json({
+      success: true,
+      mode,
+      availableModes: [
+        { value: "errors_only", label: "Errors Only (Recommended)" },
+        { value: "all", label: "All Requests (Full Capture)" },
+        { value: "off", label: "Off (Zero Disk IO)" },
+      ],
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || "Failed to get observability mode" });
+  }
+});
+
+// PUT /api/console-logs/observability - Dynamically update observability capture mode
+consoleLogsRouter.put("/observability", (req: Request, res: Response) => {
+  try {
+    const { mode } = req.body || {};
+    if (mode !== "off" && mode !== "errors_only" && mode !== "all") {
+      return res.status(400).json({ success: false, error: "Invalid mode. Must be 'off', 'errors_only', or 'all'." });
+    }
+    const updated = SettingsRepository.setObservabilityMode(mode);
+    logger.info("SYSTEM", `Observability capture mode updated to [${updated.toUpperCase()}]`);
+    res.json({ success: true, mode: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error?.message || "Failed to update observability mode" });
+  }
+});
+
 // GET snapshot of current console logs
 consoleLogsRouter.get("/", (_req: Request, res: Response) => {
   try {

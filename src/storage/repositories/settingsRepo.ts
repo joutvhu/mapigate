@@ -107,6 +107,8 @@ function normalizeCapEntry(entry: any, defaultEntry: CapacityAdapterEntry): Capa
   return { ...defaultEntry };
 }
 
+export type ObservabilityMode = "off" | "errors_only" | "all";
+
 export class SettingsRepository {
   public static getSetting<T = any>(key: string, defaultValue?: T): T | undefined {
     const db = getDatabase();
@@ -414,5 +416,25 @@ export class SettingsRepository {
     const normalized = level && typeof level === "string" ? level.trim().toLowerCase() : "info";
     this.setSetting("logLevel", normalized);
     return normalized;
+  }
+
+  // --- Observability Mode Settings ---
+
+  public static getObservabilityMode(): ObservabilityMode {
+    const fromEnv = process.env.MAPIGATE_OBSERVABILITY_MODE;
+    if (fromEnv === "off" || fromEnv === "errors_only" || fromEnv === "all") {
+      return fromEnv;
+    }
+    const raw = this.getSetting<string>("observabilityMode");
+    if (raw === "off" || raw === "errors_only" || raw === "all") {
+      return raw;
+    }
+    return "all";
+  }
+
+  public static setObservabilityMode(mode: ObservabilityMode): ObservabilityMode {
+    const valid = mode === "off" || mode === "errors_only" ? mode : "all";
+    this.setSetting("observabilityMode", valid);
+    return valid;
   }
 }

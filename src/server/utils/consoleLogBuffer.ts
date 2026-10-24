@@ -166,28 +166,49 @@ function appendLine(line: string, fallbackLevel: ConsoleLevel = "log"): void {
 export function appendStructuredLog(entry: StructuredLogEntry): void {
   try {
     const raw = maskSecretsInText(entry.rawText || entry.message);
-    const enriched: StructuredLogEntry = { ...entry, id: entry.id || crypto.randomUUID(), timestamp: entry.timestamp || Date.now(), rawText: raw };
-    const last = state.structuredLogs[state.structuredLogs.length - 1];
+    const enriched: StructuredLogEntry = {
+      ...entry,
+      id: entry.id || crypto.randomUUID(),
+      timestamp: entry.timestamp || Date.now(),
+      rawText: raw,
+    };
 
-    if (last && entry.requestId && last.requestId === entry.requestId && last.category === entry.category) {
-      Object.assign(last, enriched, { gateway: { ...last.gateway, ...enriched.gateway } });
-      if (!state.pendingStructured.includes(last)) {
-        state.pendingStructured.push(last);
-        if (!state.flushTimer) {
-          state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
-          state.flushTimer?.unref?.();
+    // Find any existing structured log entry with the same requestId (searching newest to oldest)
+    let existing: StructuredLogEntry | undefined;
+    if (enriched.requestId) {
+      for (let i = state.structuredLogs.length - 1; i >= 0; i--) {
+        if (state.structuredLogs[i].requestId === enriched.requestId) {
+          existing = state.structuredLogs[i];
+          break;
         }
       }
-      return;
     }
-    if (last && last.reqTag && last.reqTag === enriched.reqTag && (last.rawText.includes(enriched.message) || enriched.rawText.includes(last.message))) {
-      Object.assign(last, enriched, { gateway: { ...last.gateway, ...enriched.gateway } });
-      if (!state.pendingStructured.includes(last)) {
-        state.pendingStructured.push(last);
-        if (!state.flushTimer) {
-          state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
-          state.flushTimer?.unref?.();
+
+    if (!existing && enriched.reqTag) {
+      for (let i = state.structuredLogs.length - 1; i >= 0; i--) {
+        const item = state.structuredLogs[i];
+        if (
+          item.reqTag === enriched.reqTag &&
+          item.category === enriched.category &&
+          (item.rawText.includes(enriched.message) || enriched.rawText.includes(item.message))
+        ) {
+          existing = item;
+          break;
         }
+      }
+    }
+
+    if (existing) {
+      Object.assign(existing, enriched, {
+        gateway: { ...existing.gateway, ...enriched.gateway },
+        error: enriched.error || existing.error,
+      });
+      if (!state.pendingStructured.includes(existing)) {
+        state.pendingStructured.push(existing);
+      }
+      if (!state.flushTimer) {
+        state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
+        state.flushTimer?.unref?.();
       }
       return;
     }

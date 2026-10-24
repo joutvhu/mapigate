@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { StructuredLogEntry } from "../../../../shared/types/logging.js";
+import type { RequestDetail } from "../../../../shared/types/index.js";
 import { ToolIcon } from "../ui/ToolIcon.js";
 import { TokenEconomicsPanel } from "./TokenEconomicsPanel.js";
 import { ToolCallsPanel } from "./ToolCallsPanel.js";
+import { LogPayloadViewer } from "./LogPayloadViewer.js";
 import { useSystemInfo } from "../../hooks/useSystemInfo.js";
 import {
   X,
@@ -16,6 +18,7 @@ import {
   Code,
   ShieldCheck,
   AlertCircle,
+  Layers,
 } from "lucide-react";
 
 interface LogDetailDrawerProps {
@@ -37,6 +40,9 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
   const [copiedJson, setCopiedJson] = useState(false);
   const [copiedCurl, setCopiedCurl] = useState(false);
 
+  const [requestDetail, setRequestDetail] = useState<RequestDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -51,13 +57,52 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
     };
   }, [isOpen, onClose]);
 
+  // Fetch full request details when an entry with requestId/id is opened
+  useEffect(() => {
+    if (!isOpen || !entry) {
+      setRequestDetail(null);
+      return;
+    }
+
+    const targetId = entry.requestId || entry.id;
+    if (!targetId) {
+      setRequestDetail(null);
+      return;
+    }
+
+    let active = true;
+    setLoadingDetail(true);
+
+    fetch(`/api/usage/request-details/${encodeURIComponent(targetId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active) {
+          setRequestDetail(data);
+          setLoadingDetail(false);
+        }
+      })
+      .catch(() => {
+        if (active) setLoadingDetail(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, entry]);
+
   if (!isOpen || !entry || typeof document === "undefined") return null;
 
-  const { gateway, error, level, category, timestamp, rawText, reqTag, id, requestId } = entry;
-  const status = gateway?.statusCode || error?.status;
-  const isSuccess = status && status >= 200 && status < 300;
+  const { gateway, error, level, category, rawText, reqTag, id, requestId } = entry;
+  const status = gateway?.statusCode || error?.status || requestDetail?.status;
   const isRateLimit = status === 429;
-  const isError = level === "error" || (status && status >= 400 && !isRateLimit);
+  const isError = level === "error" || (typeof status === "number" && status >= 400 && !isRateLimit);
+  const isSuccess = typeof status === "number" && status >= 200 && status < 300;
+
+  const isAiTransaction =
+    category === "proxy" ||
+    Boolean(gateway) ||
+    Boolean(requestDetail) ||
+    Boolean(entry.requestId);
 
   const copyToClipboard = (text: string, type: "id" | "json" | "curl") => {
     navigator.clipboard.writeText(text);
@@ -75,8 +120,19 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
 
   const generateCurl = () => {
     const route = gateway?.route || "/v1/messages";
-    const model = gateway?.actualModel || gateway?.requestedModel || "claude-3-7-sonnet";
-    return `curl -X POST http://${effectiveHost}:${effectivePort}${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '{"model": "${model}", "messages": [{"role": "user", "content": "Hello"}]}'`;
+    const model =
+      gateway?.actualModel ||
+      gateway?.requestedModel ||
+      requestDetail?.model ||
+      "claude-3-7-sonnet";
+
+    const bodyObj = requestDetail?.request?.body || {
+      model,
+      messages: [{ role: "user", content: "Hello" }],
+    };
+
+    const bodyStr = JSON.stringify(bodyObj, null, 2).replace(/'/g, "'\\''");
+    return `curl -X POST http://${effectiveHost}:${effectivePort}${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '${bodyStr}'`;
   };
 
   return createPortal(
@@ -94,13 +150,17 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
         <div className="p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#0A0E18]">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              {gateway?.clientTool && (
+              {gateway?.clientTool ? (
                 <ToolIcon name={gateway.clientTool} size="md" />
+              ) : (
+                <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                  <Layers className="size-4" />
+                </div>
               )}
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-sm text-white">
-                    Request Details
+                    {isAiTransaction ? "AI Transaction Inspector" : "System Event Diagnostics"}
                   </h3>
                   {reqTag && <span>{reqTag}</span>}
                   <span className="px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -115,7 +175,7 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
                     type="button"
                     onClick={() => copyToClipboard(id || requestId || "", "id")}
                     className="text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                    title="Copy Request ID"
+                    title="Copy ID"
                   >
                     {copiedId ? (
                       <Check className="size-3 text-emerald-400" />
@@ -141,62 +201,80 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck className="size-3.5 text-blue-400" /> Status
-              </span>
-              <p className="mt-1 text-sm font-bold">
-                {isRateLimit ? (
-                  <span className="text-amber-400">429 Rate Limit</span>
-                ) : isError ? (
-                  <span className="text-red-400">{status || "Error"}</span>
-                ) : isSuccess ? (
-                  <span className="text-emerald-400">{status} OK</span>
-                ) : (
-                  <span className="text-slate-300">{level.toUpperCase()}</span>
+          {/* Quick Stats Grid - only for AI Transactions */}
+          {isAiTransaction ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
+                <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <ShieldCheck className="size-3.5 text-blue-400" /> Status
+                </span>
+                <p className="mt-1 text-sm font-bold">
+                  {isRateLimit ? (
+                    <span className="text-amber-400">429 Rate Limit</span>
+                  ) : isError ? (
+                    <span className="text-red-400">{status || "Error"}</span>
+                  ) : isSuccess ? (
+                    <span className="text-emerald-400">{status} OK</span>
+                  ) : (
+                    <span className="text-slate-300">{level.toUpperCase()}</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
+                <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <Clock className="size-3.5 text-amber-400" /> Duration
+                </span>
+                <p className="mt-1 text-sm font-bold text-slate-200 font-mono">
+                  {gateway?.durationMs !== undefined
+                    ? `${gateway.durationMs}ms`
+                    : requestDetail?.latency?.totalMs !== undefined
+                    ? `${requestDetail.latency.totalMs}ms`
+                    : "-"}
+                </p>
+                {gateway?.ttftMs !== undefined && gateway.ttftMs > 0 && (
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    TTFT: {gateway.ttftMs}ms
+                  </span>
                 )}
-              </p>
-            </div>
+              </div>
 
-            <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <Clock className="size-3.5 text-amber-400" /> Duration
-              </span>
-              <p className="mt-1 text-sm font-bold text-slate-200 font-mono">
-                {gateway?.durationMs !== undefined ? `${gateway.durationMs}ms` : "N/A"}
-              </p>
-              {gateway?.ttftMs !== undefined && gateway.ttftMs > 0 && (
-                <span className="text-[10px] text-slate-500 font-mono">
-                  TTFT: {gateway.ttftMs}ms
+              <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
+                <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <Cpu className="size-3.5 text-purple-400" /> Model
                 </span>
-              )}
-            </div>
+                <p
+                  className="mt-1 text-xs font-bold text-slate-200 font-mono truncate"
+                  title={gateway?.actualModel || gateway?.requestedModel || requestDetail?.model}
+                >
+                  {gateway?.actualModel || gateway?.requestedModel || requestDetail?.model || "-"}
+                </p>
+                {(gateway?.providerId || requestDetail?.provider) && (
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    via {gateway?.providerId || requestDetail?.provider}
+                  </span>
+                )}
+              </div>
 
-            <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <Cpu className="size-3.5 text-purple-400" /> Model
-              </span>
-              <p className="mt-1 text-xs font-bold text-slate-200 font-mono truncate" title={gateway?.actualModel || gateway?.requestedModel}>
-                {gateway?.actualModel || gateway?.requestedModel || "N/A"}
-              </p>
-              {gateway?.providerId && (
-                <span className="text-[10px] text-slate-500 font-mono">
-                  via {gateway.providerId}
+              <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
+                <span className="text-xs text-slate-400 flex items-center gap-1.5">
+                  <Server className="size-3.5 text-emerald-400" /> Cost
                 </span>
-              )}
+                <p className="mt-1 text-sm font-bold text-emerald-400 font-mono">
+                  {gateway?.cost !== undefined
+                    ? `$${gateway.cost < 0.01 ? gateway.cost.toFixed(4) : gateway.cost.toFixed(3)}`
+                    : requestDetail?.cost !== undefined
+                    ? `$${requestDetail.cost.toFixed(4)}`
+                    : "$0.00"}
+                </p>
+              </div>
             </div>
-
-            <div className="p-3 rounded-xl bg-[#0A0E18] border border-[#1E293B]">
-              <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                <Server className="size-3.5 text-emerald-400" /> Cost
-              </span>
-              <p className="mt-1 text-sm font-bold text-emerald-400 font-mono">
-                {gateway?.cost !== undefined ? `$${gateway.cost < 0.01 ? gateway.cost.toFixed(4) : gateway.cost.toFixed(3)}` : "$0.00"}
-              </p>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-[#0A0E18] border border-[#1E293B] flex items-center justify-between text-xs font-mono">
+              <span className="text-slate-400">Level: <strong className="text-white uppercase">{level}</strong></span>
+              <span className="text-slate-400">Category: <strong className="text-blue-400 uppercase">{category}</strong></span>
             </div>
-          </div>
+          )}
 
           {/* Token Breakdown Section */}
           {gateway?.tokens && <TokenEconomicsPanel tokens={gateway.tokens} />}
@@ -207,22 +285,22 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
           )}
 
           {/* Error Diagnostics Section */}
-          {entry.error && (
+          {(entry.error || requestDetail?.errorMessage) && (
             <div className="p-4 rounded-xl bg-red-950/20 border border-red-500/30 space-y-2.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-red-400 flex items-center gap-1.5">
                   <AlertCircle className="size-4 text-red-400" /> Error Diagnostics
                 </span>
-                {entry.error.code && (
+                {(entry.error?.code || entry.error?.status) && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
-                    {entry.error.code}
+                    {entry.error.code || `HTTP ${entry.error.status}`}
                   </span>
                 )}
               </div>
               <div className="text-xs font-mono text-red-200 bg-black/40 p-3 rounded-lg border border-red-500/20 whitespace-pre-wrap break-all leading-relaxed">
-                {entry.error.message || "Unknown error occurred"}
+                {entry.error?.message || requestDetail?.errorMessage || "Unknown error occurred"}
               </div>
-              {entry.error.stack && (
+              {entry.error?.stack && (
                 <details className="text-[11px] font-mono text-slate-400">
                   <summary className="cursor-pointer hover:text-slate-200 select-none">
                     View Stack Trace
@@ -232,6 +310,16 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
                   </pre>
                 </details>
               )}
+            </div>
+          )}
+
+          {/* Full Payload Observability Viewer (Client Request, Provider Request, Response Output) */}
+          {isAiTransaction && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="size-3.5 text-blue-400" /> Observability Payload Trace
+              </h4>
+              <LogPayloadViewer detail={requestDetail} loading={loadingDetail} />
             </div>
           )}
 
@@ -249,18 +337,20 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
         {/* Footer Actions */}
         <div className="p-4 border-t border-[#1E293B] bg-[#0A0E18] flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => copyToClipboard(generateCurl(), "curl")}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#131B2E] border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              {copiedCurl ? <Check className="size-3.5 text-emerald-400" /> : <Terminal className="size-3.5" />}
-              <span>{copiedCurl ? "Copied cURL!" : "Copy cURL"}</span>
-            </button>
+            {isAiTransaction && (
+              <button
+                type="button"
+                onClick={() => copyToClipboard(generateCurl(), "curl")}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#131B2E] border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {copiedCurl ? <Check className="size-3.5 text-emerald-400" /> : <Terminal className="size-3.5" />}
+                <span>{copiedCurl ? "Copied cURL!" : "Copy cURL"}</span>
+              </button>
+            )}
 
             <button
               type="button"
-              onClick={() => copyToClipboard(JSON.stringify(entry, null, 2), "json")}
+              onClick={() => copyToClipboard(JSON.stringify(requestDetail || entry, null, 2), "json")}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1E293B] text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               {copiedJson ? <Check className="size-3.5 text-emerald-400" /> : <Code className="size-3.5" />}

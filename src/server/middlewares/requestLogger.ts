@@ -16,10 +16,15 @@ declare global {
 function isNoisyPath(reqPath: string): boolean {
   if (
     reqPath === "/health" ||
+    reqPath === "/" ||
+    reqPath === "/chart" ||
     reqPath.startsWith("/api/console-logs") ||
     reqPath.startsWith("/api/stats") ||
+    reqPath.startsWith("/api/usage") ||
+    reqPath.startsWith("/api/models") ||
+    reqPath.startsWith("/api/settings") ||
     reqPath.startsWith("/assets/") ||
-    /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|map)$/i.test(reqPath)
+    /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|map|html)$/i.test(reqPath)
   ) {
     return true;
   }
@@ -136,7 +141,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
 
   // Log incoming request
   if (isNoisy) {
-    logger.debug("HTTP", `${req.method} ${req.path}`);
+    // Completely mute high-frequency dashboard polling & static assets from incoming log
   } else if (isProxyRequest) {
     const clientTool = getClientTool(req);
     const model = req.body?.model ? ` · model: ${req.body.model}` : "";
@@ -205,8 +210,6 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
     if (isNoisy) {
       if (isError) {
         logger.warn("HTTP", `${req.method} ${req.path} -> ${status} (${durationMs}ms)`);
-      } else {
-        logger.debug("HTTP", `${req.method} ${req.path} -> ${status} (${durationMs}ms)`);
       }
       return;
     }

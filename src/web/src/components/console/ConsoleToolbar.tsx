@@ -42,6 +42,8 @@ interface ConsoleToolbarProps {
   onLevelFilterChange: (level: string) => void;
   gatewayLogLevel: string;
   onGatewayLogLevelChange: (level: string) => void;
+  observabilityMode: "off" | "errors_only" | "all";
+  onObservabilityModeChange: (mode: "off" | "errors_only" | "all") => void;
   autoScroll: boolean;
   onAutoScrollToggle: () => void;
   onCopy: () => void;
@@ -79,6 +81,24 @@ const GATEWAY_LEVEL_OPTIONS: SelectOption[] = [
   },
 ];
 
+const OBSERVABILITY_OPTIONS: SelectOption[] = [
+  {
+    value: "errors_only",
+    label: "Trace: Errors Only",
+    icon: <span className="size-2 rounded-full bg-amber-400 shadow-[0_0_6px_#facc15]" />,
+  },
+  {
+    value: "all",
+    label: "Trace: All Requests",
+    icon: <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />,
+  },
+  {
+    value: "off",
+    label: "Trace: Disabled (Off)",
+    icon: <span className="size-2 rounded-full bg-slate-500" />,
+  },
+];
+
 export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
   connected,
   totalCount,
@@ -99,6 +119,8 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
   onLevelFilterChange,
   gatewayLogLevel,
   onGatewayLogLevelChange,
+  observabilityMode,
+  onObservabilityModeChange,
   autoScroll,
   onAutoScrollToggle,
   onCopy,
@@ -229,7 +251,7 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
               }`}
             >
               <Layers className="size-3.5" />
-              <span>Structured Stream</span>
+              <span>AI Transactions</span>
             </button>
             <button
               type="button"
@@ -253,9 +275,22 @@ export const ConsoleToolbar: React.FC<ConsoleToolbarProps> = ({
               onChange={onGatewayLogLevelChange}
               options={GATEWAY_LEVEL_OPTIONS}
               size="sm"
-              className="min-w-[145px]"
+              className="min-w-[140px]"
               triggerClassName="h-8 !py-1 !px-2.5 text-xs font-semibold rounded-lg bg-[#0A0D14] border-[#1E293B] hover:border-slate-700"
               menuClassName="min-w-[145px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
+            />
+          </div>
+
+          {/* Observability Capture Mode Controller */}
+          <div className="flex items-center gap-1.5">
+            <Select
+              value={observabilityMode}
+              onChange={(val) => onObservabilityModeChange(val as any)}
+              options={OBSERVABILITY_OPTIONS}
+              size="sm"
+              className="min-w-[170px]"
+              triggerClassName="h-8 !py-1 !px-2.5 text-xs font-semibold rounded-lg bg-[#0A0D14] border-[#1E293B] hover:border-slate-700"
+              menuClassName="min-w-[180px] shadow-2xl border border-[#1E293B] bg-[#0A0D14]/95 backdrop-blur-xl"
             />
           </div>
         </div>

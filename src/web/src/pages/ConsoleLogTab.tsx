@@ -24,6 +24,7 @@ export const ConsoleLogTab: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [gatewayLogLevel, setGatewayLogLevel] = useState<string>("info");
+  const [observabilityMode, setObservabilityMode] = useState<"off" | "errors_only" | "all">("errors_only");
   const [copied, setCopied] = useState<boolean>(false);
 
   const [selectedLog, setSelectedLog] = useState<StructuredLogEntry | null>(null);
@@ -106,6 +107,15 @@ export const ConsoleLogTab: React.FC = () => {
       .then((data) => {
         if (isSubscribed && data.success && data.level) {
           setGatewayLogLevel(data.level);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/console-logs/observability")
+      .then((res) => res.json())
+      .then((data) => {
+        if (isSubscribed && data.success && data.mode) {
+          setObservabilityMode(data.mode);
         }
       })
       .catch(() => {});
@@ -200,6 +210,18 @@ export const ConsoleLogTab: React.FC = () => {
         return false;
       }
 
+      // In AI Transactions view, suppress bare intermediate debug/trace lines that lack gateway metadata
+      // unless user explicitly selected trace/debug filter
+      if (
+        levelFilter === "all" &&
+        (entry.level === "trace" || entry.level === "debug") &&
+        !entry.gateway?.statusCode &&
+        !entry.gateway?.actualModel &&
+        !entry.error
+      ) {
+        return false;
+      }
+
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -223,6 +245,17 @@ export const ConsoleLogTab: React.FC = () => {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ level: newLevel }),
+      });
+    } catch {}
+  };
+
+  const handleObservabilityModeChange = async (newMode: "off" | "errors_only" | "all") => {
+    setObservabilityMode(newMode);
+    try {
+      await fetch("/api/console-logs/observability", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: newMode }),
       });
     } catch {}
   };
@@ -292,6 +325,8 @@ export const ConsoleLogTab: React.FC = () => {
         onLevelFilterChange={setLevelFilter}
         gatewayLogLevel={gatewayLogLevel}
         onGatewayLogLevelChange={handleGatewayLogLevelChange}
+        observabilityMode={observabilityMode}
+        onObservabilityModeChange={handleObservabilityModeChange}
         autoScroll={autoScroll}
         onAutoScrollToggle={() => setAutoScroll((prev) => !prev)}
         onCopy={handleCopy}

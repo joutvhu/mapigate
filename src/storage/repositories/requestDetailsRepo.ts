@@ -153,7 +153,38 @@ process.once("SIGTERM", () => flushRequestDetailsBuffer());
 
 export class RequestDetailsRepository {
   public static saveRequestDetail(detail: RequestDetail): void {
-    writeBuffer.push(detail);
+    const mode = SettingsRepository.getObservabilityMode();
+    if (mode === "off") {
+      return;
+    }
+
+    const isError =
+      (typeof detail.status === "number" && detail.status >= 400) ||
+      detail.status === "error" ||
+      detail.status === "rate_limited" ||
+      Boolean(detail.errorMessage);
+
+    // In 'errors_only' mode, for successful (200 OK) requests,
+    // do not store heavy JSON body payloads (prompt/response) to save 99% disk space,
+    // while keeping headers, token metrics, latencies, and tool identifiers intact.
+    let itemToSave = detail;
+    if (mode === "errors_only" && !isError) {
+      itemToSave = {
+        ...detail,
+        request: detail.request ? { headers: detail.request.headers } : undefined,
+        providerRequest: detail.providerRequest
+          ? { url: detail.providerRequest.url, headers: detail.providerRequest.headers }
+          : undefined,
+        providerResponse: detail.providerResponse
+          ? { status: detail.providerResponse.status, headers: detail.providerResponse.headers }
+          : undefined,
+        response: detail.response
+          ? { status: detail.response.status, headers: detail.response.headers }
+          : undefined,
+      };
+    }
+
+    writeBuffer.push(itemToSave);
     if (writeBuffer.length >= DEFAULT_BATCH_SIZE) {
       if (flushTimer) {
         clearTimeout(flushTimer);
