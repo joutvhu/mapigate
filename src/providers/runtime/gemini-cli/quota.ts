@@ -12,7 +12,7 @@ export function normalizeCloudCodeProjectId(project: any): string | null {
   return null;
 }
 
-export async function getGeminiUsage(
+export async function getGeminiCliUsage(
   accessToken: string,
   providerSpecificData?: Record<string, any>,
   options?: { fetchFn?: typeof fetch }
@@ -22,13 +22,6 @@ export async function getGeminiUsage(
 
   if (!token) {
     return { plan: "Free", message: "Gemini CLI access token not available." };
-  }
-
-  if (token.startsWith("AIza")) {
-    return {
-      plan: "Gemini API",
-      message: "Gemini API key connected. Quota tracking requires Google OAuth (Gemini CLI / Cloud Code).",
-    };
   }
 
   try {

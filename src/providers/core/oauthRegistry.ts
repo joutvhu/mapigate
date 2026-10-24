@@ -9,7 +9,7 @@ import { GenericOAuthHandler } from "./genericOAuthHandler.js";
 export class OAuthHandlerRegistry {
   private static handlers: Map<string, ProviderOAuthHandler> = new Map();
   private static aliases: Map<string, string> = new Map([
-    ["gemini-cli", "gemini"],
+    ["gemini", "gemini-cli"],
     ["kimi-coding", "kimi"],
     ["clinepass", "cline"],
     ["minimax-code", "minimax"],

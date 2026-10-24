@@ -34,7 +34,7 @@ import { metadata as fireworks } from "../../catalog/fireworks/metadata.js";
 import { metadata as fish_audio } from "../../catalog/fish-audio/metadata.js";
 import { metadata as friendliai } from "../../catalog/friendliai/metadata.js";
 import { metadata as gemini } from "../../runtime/gemini/metadata.js";
-import { metadata as gemini_cli } from "../../catalog/gemini-cli/metadata.js";
+import { metadata as gemini_cli } from "../../runtime/gemini-cli/metadata.js";
 import { metadata as gigachat } from "../../catalog/gigachat/metadata.js";
 import { metadata as github } from "../../runtime/github/metadata.js";
 import { metadata as gitlab } from "../../catalog/gitlab/metadata.js";

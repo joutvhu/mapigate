@@ -33,7 +33,7 @@ import Prov_fireworks from "../../catalog/fireworks/provider.js";
 import Prov_fish_audio from "../../catalog/fish-audio/provider.js";
 import Prov_friendliai from "../../catalog/friendliai/provider.js";
 import Prov_gemini from "../../runtime/gemini/provider.js";
-import Prov_gemini_cli from "../../catalog/gemini-cli/provider.js";
+import Prov_gemini_cli from "../../runtime/gemini-cli/provider.js";
 import Prov_gigachat from "../../catalog/gigachat/provider.js";
 import Prov_github from "../../runtime/github/provider.js";
 import Prov_gitlab from "../../catalog/gitlab/provider.js";

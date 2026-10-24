@@ -13,7 +13,6 @@ export class ProviderRegistry {
     ["xiaomi-mimo", "mimo"],
     ["grok-cli", "grok"],
     ["xai", "grok"],
-    ["gemini-cli", "gemini"],
     ["glm-cn", "glm"],
     ["minimax-cn", "minimax"],
     ["qoder-cn", "qoder"],

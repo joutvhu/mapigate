@@ -3,34 +3,33 @@ import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
-      "Requests (RPM)",
-      "Requests (Daily)",
-      "Tokens (TPM)",
-      "Tokens (Daily)"
+    "Requests (RPM)",
+    "Requests (Daily)",
+    "Tokens (TPM)",
+    "Tokens (Daily)"
   ],
-  "id": "gemini",
-  "name": "Gemini",
-  "alias": "gemini",
-  "color": "#4285F4",
-  "image": "/assets/providers/gemini/icon.png",
-  "website": "https://ai.google.dev",
-  "notice": {
-    "apiKeyUrl": "https://aistudio.google.com/app/apikey"
+  id: "gemini",
+  name: "Google Gemini",
+  alias: "gemini",
+  color: "#4285F4",
+  image: "/assets/providers/gemini/icon.png",
+  website: "https://aistudio.google.com",
+  notice: {
+    apiKeyUrl: "https://aistudio.google.com/app/apikey"
   },
-  "category": "freeTier",
-  "authType": "apikey",
-  "authModes": [
+  category: "freeTier",
+  authType: "apikey",
+  authModes: [
     "apikey"
   ],
-  "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models",
-  "baseUrls": [
-    "https://generativelanguage.googleapis.com/v1beta/models"
+  baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+  baseUrls: [
+    "https://generativelanguage.googleapis.com/v1beta/openai"
   ],
-  "validateUrl": "",
-  "format": "gemini",
-  "defaultHeaders": {},
-  "thinkingMode": "auto"
-,
+  validateUrl: "https://generativelanguage.googleapis.com/v1beta/openai/models",
+  format: "openai",
+  defaultHeaders: {},
+  thinkingMode: "auto",
   models
 };
 

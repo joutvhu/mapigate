@@ -17,8 +17,8 @@ export const GOOGLE_OAUTH_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ];
 
-export const geminiOAuthHandler: ProviderOAuthHandler = {
-  id: "gemini",
+export const geminiCliOAuthHandler: ProviderOAuthHandler = {
+  id: "gemini-cli",
 
   authorize(params: OAuthAuthorizeParams): OAuthAuthorizeResult {
     const urlParams = new URLSearchParams({
@@ -39,7 +39,7 @@ export const geminiOAuthHandler: ProviderOAuthHandler = {
   },
 
   async exchange(params: OAuthExchangeParams): Promise<OAuthExchangeResult> {
-    const pId = (params.provider || "gemini").toLowerCase();
+    const pId = (params.provider || "gemini-cli").toLowerCase();
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -58,7 +58,7 @@ export const geminiOAuthHandler: ProviderOAuthHandler = {
 
     if (!tokenRes.ok) {
       const errText = await tokenRes.text();
-      return { success: false, error: `Gemini OAuth exchange failed: ${errText}` };
+      return { success: false, error: `Gemini CLI OAuth exchange failed: ${errText}` };
     }
 
     const tokenData: any = await tokenRes.json();
@@ -67,7 +67,7 @@ export const geminiOAuthHandler: ProviderOAuthHandler = {
       return { success: false, error: "No access token received from Google" };
     }
 
-    let accountName = "Gemini Google Account";
+    let accountName = "Gemini CLI Google Account";
     try {
       const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -110,5 +110,7 @@ export const geminiOAuthHandler: ProviderOAuthHandler = {
 };
 
 export function registerRoutes(_router?: Router): void {
-  OAuthHandlerRegistry.register("gemini", geminiOAuthHandler);
+  OAuthHandlerRegistry.register("gemini-cli", geminiCliOAuthHandler);
+  // Also register alias gemini for backward compatibility with oauth requests
+  OAuthHandlerRegistry.register("gemini", geminiCliOAuthHandler);
 }

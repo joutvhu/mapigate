@@ -48,7 +48,18 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
     loadBackendProviders();
   }, []);
 
+  const isStdioBridge = (p: ProviderItem) => {
+    const base = p.baseUrl || p.defaultBaseUrl || "";
+    return (
+      base.startsWith("devin://") ||
+      base.startsWith("auggie://") ||
+      base.startsWith("zcode://") ||
+      (base.includes("://") && base.endsWith("/stdio"))
+    );
+  };
+
   const isFreeNoAuth = (p: ProviderItem) => {
+    if (isStdioBridge(p)) return false;
     return (
       Boolean(p.noAuth) ||
       p.requiresApiKey === false ||
@@ -65,6 +76,9 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const getAccountCount = (providerId: string) => {
     const found = backendProviders.find((p) => p.id === providerId);
     const reg = getRegistryProvider(providerId);
+    if (reg && isStdioBridge(reg as any)) {
+      return found?.accountsCount ?? 0;
+    }
     if (
       providerId === "opencode" ||
       providerId === "oc" ||
@@ -285,7 +299,11 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                     Local
                   </span>
                 )}
-                {isFreeNoAuth(p) ? (
+                {isStdioBridge(p) ? (
+                  <span className="rt-badge rt-badge--muted text-[10px]">
+                    CLI Bridge
+                  </span>
+                ) : isFreeNoAuth(p) ? (
                   <span className="rt-badge rt-badge--success">
                     <span className="size-1.5 rounded-full bg-emerald-400" />
                     {p.isLocal ? "Ready (Local)" : "Ready (Free)"}

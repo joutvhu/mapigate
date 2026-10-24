@@ -1,16 +1,26 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import type { ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { metadata } from "./metadata.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { getPublicDnsAgent } from "../../../shared/utils/dnsResolver.js";
 import { refreshGoogleOAuthToken } from "../../runtime/antigravity/routes.js";
 import { fetch as undiciFetch } from "undici";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { getGeminiCliUsage } from "./quota.js";
 
 export class GeminiCliProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
+
+  public override supportsQuota(): boolean {
+    return true;
+  }
+
+  public async fetchQuota(context: ProviderUsageContext): Promise<RawProviderQuotaResult> {
+    return await getGeminiCliUsage(context.account.rawApiKey, context.account.providerSpecificData);
+  }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
     const account = context.account;
@@ -129,12 +139,7 @@ export class GeminiCliProvider extends OpenAiCompatibleProvider {
             return {
               success: true,
               endpointUrl: ep.url,
-              models: metadata.models.map((m) => ({
-                id: m.id,
-                name: m.name,
-                contextLength: m.contextLength,
-              })),
-              count: metadata.models.length,
+              count: 1,
             };
           }
         }
@@ -152,7 +157,7 @@ export class GeminiCliProvider extends OpenAiCompatibleProvider {
 
     return {
       success: false,
-      error: authError || lastError || "Failed to probe Gemini CLI models",
+      error: authError || lastError || "Failed to probe Gemini Cloud Code models",
       authError: authError || undefined,
     };
   }

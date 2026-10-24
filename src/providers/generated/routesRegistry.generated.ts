@@ -8,7 +8,7 @@ import { registerRoutes as reg_clinepass } from "../catalog/clinepass/routes.js"
 import { registerRoutes as reg_codebuddy_cn } from "../runtime/codebuddy-cn/routes.js";
 import { registerRoutes as reg_codex } from "../runtime/codex/routes.js";
 import { registerRoutes as reg_cursor } from "../runtime/cursor/routes.js";
-import { registerRoutes as reg_gemini } from "../runtime/gemini/routes.js";
+import { registerRoutes as reg_gemini_cli } from "../runtime/gemini-cli/routes.js";
 import { registerRoutes as reg_github } from "../runtime/github/routes.js";
 import { registerRoutes as reg_gitlab } from "../catalog/gitlab/routes.js";
 import { registerRoutes as reg_glm } from "../runtime/glm/routes.js";
@@ -32,7 +32,7 @@ export function registerAllProviderRoutes(router: Router): void {
   reg_codebuddy_cn(router);
   reg_codex(router);
   reg_cursor(router);
-  reg_gemini(router);
+  reg_gemini_cli(router);
   reg_github(router);
   reg_gitlab(router);
   reg_glm(router);

@@ -17,9 +17,9 @@ export const metadata: ProviderRegistryItem = {
   category: "freeTier",
   authType: "apikey",
   authModes: ["apikey"],
-  baseUrl: "https://api.onomeo.com/v1",
-  baseUrls: ["https://api.onomeo.com/v1"],
-  validateUrl: "https://api.onomeo.com/v1/models",
+  baseUrl: "https://onomeo.com/v1",
+  baseUrls: ["https://onomeo.com/v1"],
+  validateUrl: "https://onomeo.com/v1/models",
   format: "openai",
   defaultHeaders: {
     "Content-Type": "application/json"
