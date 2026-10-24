@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
+import { Select } from "./Select";
+import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
 
 interface DeviceCodeData {
@@ -35,6 +37,12 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 }) => {
   const systemInfo = useSystemInfo((s) => s.info);
   const effectivePort = systemInfo?.port || 20127;
+
+  const regProvider = getRegistryProvider(providerId);
+  const availableRegions = regProvider?.regions || [];
+  const [selectedRegion, setSelectedRegion] = useState<string>(
+    regProvider?.defaultRegion || (availableRegions.length > 0 ? availableRegions[0].id : "")
+  );
 
   const [authUrl, setAuthUrl] = useState(
     providerId === "antigravity" ? getAntigravityAuthUrl(effectivePort) : ""
@@ -83,6 +91,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             redirectUri,
             codeVerifier: codeVerifierRef.current,
             state: stateRef.current,
+            region: selectedRegion || undefined,
           }),
         });
 
@@ -106,118 +115,127 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         setErrorMessage(err.message || "Failed to exchange authorization token");
       }
     },
-    [providerId, redirectUri, onSuccess, onClose, stopPolling]
+    [providerId, redirectUri, onSuccess, onClose, stopPolling, selectedRegion]
   );
 
-  const loadOAuth = useCallback(async () => {
-    callbackHandledRef.current = false;
-    stopPolling();
-    setStatus("loading");
-    setErrorMessage(null);
-    setCallbackUrl("");
-    setIsDeviceCode(false);
-    setDeviceData(null);
-    setPopupBlocked(false);
-    codeVerifierRef.current = undefined;
-    stateRef.current = undefined;
+  const loadOAuth = useCallback(
+    async (regionOverride?: string) => {
+      callbackHandledRef.current = false;
+      stopPolling();
+      setStatus("loading");
+      setErrorMessage(null);
+      setCallbackUrl("");
+      setIsDeviceCode(false);
+      setDeviceData(null);
+      setPopupBlocked(false);
+      codeVerifierRef.current = undefined;
+      stateRef.current = undefined;
 
-    const currentRedirect =
-      window.location.port === "5173"
-        ? `http://localhost:${effectivePort}/callback`
-        : `${window.location.origin}/callback`;
-    setRedirectUri(currentRedirect);
+      const currentRegion = regionOverride !== undefined ? regionOverride : selectedRegion;
+      const regionParam = currentRegion ? `&region=${encodeURIComponent(currentRegion)}` : "";
+      const regionDeviceParam = currentRegion ? `?region=${encodeURIComponent(currentRegion)}` : "";
 
-    try {
-      const res = await fetch(`/api/oauth/${providerId}/authorize?redirect_uri=${encodeURIComponent(currentRedirect)}`);
-      const data = await res.json().catch(() => ({}));
+      const currentRedirect =
+        window.location.port === "5173"
+          ? `http://localhost:${effectivePort}/callback`
+          : `${window.location.origin}/callback`;
+      setRedirectUri(currentRedirect);
 
-      if (!res.ok || data.error) {
-        throw new Error(data.error || `Authorization error (HTTP ${res.status})`);
-      }
+      try {
+        const res = await fetch(
+          `/api/oauth/${providerId}/authorize?redirect_uri=${encodeURIComponent(currentRedirect)}${regionParam}`
+        );
+        const data = await res.json().catch(() => ({}));
 
-      if (data.flowType === "device_code" || (!data.authUrl && data.flowType)) {
-        setIsDeviceCode(true);
-        setStatus("waiting");
-
-        const dRes = await fetch(`/api/oauth/${providerId}/device-code`);
-        const dData = await dRes.json().catch(() => ({}));
-        if (!dRes.ok || !dData.device_code) {
-          throw new Error(dData.error || "Failed to initiate device code flow");
+        if (!res.ok || data.error) {
+          throw new Error(data.error || `Authorization error (HTTP ${res.status})`);
         }
 
-        setDeviceData(dData);
-        const targetUrl = dData.verification_uri_complete || dData.verification_uri;
-        if (targetUrl) {
-          try {
-            window.open(targetUrl, "_blank", "noopener,noreferrer");
-          } catch {}
-        }
+        if (data.flowType === "device_code" || (!data.authUrl && data.flowType)) {
+          setIsDeviceCode(true);
+          setStatus("waiting");
 
-        let intervalSec = Number(dData.interval) || 5;
-        let isPollingActive = true;
+          const dRes = await fetch(`/api/oauth/${providerId}/device-code${regionDeviceParam}`);
+          const dData = await dRes.json().catch(() => ({}));
+          if (!dRes.ok || !dData.device_code) {
+            throw new Error(dData.error || "Failed to initiate device code flow");
+          }
 
-        const schedulePoll = (delaySec: number) => {
-          if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current as any);
-          pollIntervalRef.current = setTimeout(async () => {
-            if (!isPollingActive) return;
+          setDeviceData(dData);
+          const targetUrl = dData.verification_uri_complete || dData.verification_uri;
+          if (targetUrl) {
             try {
-              const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  device_code: dData.device_code,
-                  codeVerifier: dData.codeVerifier,
-                  extraData: {
-                    _zcodePollToken: dData._zcodePollToken,
-                    _minimaxPollByUser: dData._minimaxPollByUser,
+              window.open(targetUrl, "_blank", "noopener,noreferrer");
+            } catch {}
+          }
+
+          let intervalSec = Number(dData.interval) || 5;
+          let isPollingActive = true;
+
+          const schedulePoll = (delaySec: number) => {
+            if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current as any);
+            pollIntervalRef.current = setTimeout(async () => {
+              if (!isPollingActive) return;
+              try {
+                const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    device_code: dData.device_code,
                     codeVerifier: dData.codeVerifier,
-                    user_code: dData.user_code,
-                  },
-                }),
-              });
-              const pollData = await pollRes.json();
-              if (pollData.ok && pollData.success) {
-                isPollingActive = false;
-                stopPolling();
-                setStatus("success");
-                setTimeout(() => {
-                  onSuccess();
-                  onClose();
-                }, 1200);
-                return;
-              }
+                    region: currentRegion || undefined,
+                    extraData: {
+                      _zcodePollToken: dData._zcodePollToken,
+                      _minimaxPollByUser: dData._minimaxPollByUser,
+                      codeVerifier: dData.codeVerifier,
+                      user_code: dData.user_code,
+                      region: currentRegion || undefined,
+                    },
+                  }),
+                });
+                const pollData = await pollRes.json();
+                if (pollData.ok && pollData.success) {
+                  isPollingActive = false;
+                  stopPolling();
+                  setStatus("success");
+                  setTimeout(() => {
+                    onSuccess();
+                    onClose();
+                  }, 1200);
+                  return;
+                }
 
-              if (pollData.error === "slow_down") {
-                intervalSec = Math.min(intervalSec + 5, 30);
+                if (pollData.error === "slow_down") {
+                  intervalSec = Math.min(intervalSec + 5, 30);
+                  schedulePoll(intervalSec);
+                  return;
+                }
+
+                if (pollData.error === "authorization_pending") {
+                  schedulePoll(intervalSec);
+                  return;
+                }
+
+                if (pollData.error) {
+                  isPollingActive = false;
+                  stopPolling();
+                  setStatus("error");
+                  setErrorMessage(pollData.error_description || pollData.error);
+                  return;
+                }
+
                 schedulePoll(intervalSec);
-                return;
+              } catch {
+                if (isPollingActive) {
+                  schedulePoll(intervalSec);
+                }
               }
+            }, delaySec * 1000) as any;
+          };
 
-              if (pollData.error === "authorization_pending") {
-                schedulePoll(intervalSec);
-                return;
-              }
-
-              if (pollData.error) {
-                isPollingActive = false;
-                stopPolling();
-                setStatus("error");
-                setErrorMessage(pollData.error_description || pollData.error);
-                return;
-              }
-
-              schedulePoll(intervalSec);
-            } catch {
-              if (isPollingActive) {
-                schedulePoll(intervalSec);
-              }
-            }
-          }, delaySec * 1000) as any;
-        };
-
-        schedulePoll(intervalSec);
-        return;
-      }
+          schedulePoll(intervalSec);
+          return;
+        }
 
       if (data.authUrl) {
         setAuthUrl(data.authUrl);
@@ -271,7 +289,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         setErrorMessage(err.message || "Failed to initialize authorization endpoint");
       }
     }
-  }, [providerId, stopPolling, onSuccess, onClose]);
+  }, [providerId, stopPolling, onSuccess, onClose, selectedRegion, effectivePort]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -417,6 +435,31 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
+
+        {/* Region / Cluster Selector if provider defines multiple regions */}
+        {availableRegions.length > 0 && (
+          <div className="space-y-1.5 p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B]">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-medium text-slate-300">
+                Server / Region:
+              </label>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {selectedRegion}
+              </span>
+            </div>
+            <Select
+              value={selectedRegion}
+              onChange={(val) => {
+                setSelectedRegion(val);
+                loadOAuth(val);
+              }}
+              options={availableRegions.map((r) => ({
+                value: r.id,
+                label: r.label,
+              }))}
+            />
+          </div>
+        )}
 
         {/* Status indicators */}
         {status === "loading" && (

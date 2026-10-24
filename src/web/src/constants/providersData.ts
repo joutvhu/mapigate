@@ -52,7 +52,8 @@ export function isOAuthProvider(p?: {
     pId === "codex-app-server" ||
     pId === "grok-cli" ||
     pId === "supergrok" ||
-    pId === "minimax-code"
+    pId === "minimax-code" ||
+    pId === "codebuddy"
   ) {
     return true;
   }

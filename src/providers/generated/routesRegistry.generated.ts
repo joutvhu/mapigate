@@ -5,7 +5,7 @@ import { registerRoutes as reg_antigravity } from "../runtime/antigravity/routes
 import { registerRoutes as reg_claude } from "../runtime/claude/routes.js";
 import { registerRoutes as reg_cline } from "../runtime/cline/routes.js";
 import { registerRoutes as reg_clinepass } from "../catalog/clinepass/routes.js";
-import { registerRoutes as reg_codebuddy_cn } from "../runtime/codebuddy-cn/routes.js";
+import { registerRoutes as reg_codebuddy } from "../runtime/codebuddy/routes.js";
 import { registerRoutes as reg_codex } from "../runtime/codex/routes.js";
 import { registerRoutes as reg_cursor } from "../runtime/cursor/routes.js";
 import { registerRoutes as reg_gemini_cli } from "../runtime/gemini-cli/routes.js";
@@ -29,7 +29,7 @@ export function registerAllProviderRoutes(router: Router): void {
   reg_claude(router);
   reg_cline(router);
   reg_clinepass(router);
-  reg_codebuddy_cn(router);
+  reg_codebuddy(router);
   reg_codex(router);
   reg_cursor(router);
   reg_gemini_cli(router);

@@ -15,10 +15,11 @@ const minimaxPendingVerifiers = new Map<string, string>();
 
 export async function requestMinimaxDeviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
   const pId = (params?.provider || "minimax-code").toLowerCase();
-  const url =
-    pId === "minimax-code" || pId === "minimax"
-      ? "https://account.minimax.io/oauth2/device/code"
-      : "https://account.minimax.cn/oauth2/device/code";
+  const region = params?.region || params?.extraData?.region;
+  const isCn = region === "cn";
+  const url = isCn
+    ? "https://account.minimax.cn/oauth2/device/code"
+    : "https://account.minimax.io/oauth2/device/code";
 
   const { codeVerifier, codeChallenge } = generatePKCE();
 
@@ -69,10 +70,11 @@ export async function pollMinimaxDeviceCode(params: DevicePollParams): Promise<D
   if (!deviceCode) return { ok: false, error: "Missing device_code" };
 
   const pId = (params.provider || "minimax-code").toLowerCase();
-  const tokenUrl =
-    pId === "minimax-code" || pId === "minimax"
-      ? "https://account.minimax.io/oauth2/token"
-      : "https://account.minimax.cn/oauth2/token";
+  const region = params.region || params.extraData?.region;
+  const isCn = region === "cn";
+  const tokenUrl = isCn
+    ? "https://account.minimax.cn/oauth2/token"
+    : "https://account.minimax.io/oauth2/token";
 
   const verifier =
     params.codeVerifier ||
@@ -140,6 +142,7 @@ export async function pollMinimaxDeviceCode(params: DevicePollParams): Promise<D
         authMethod: "device_code",
         refreshToken: data.refresh_token,
         tokenExpiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
+        region: isCn ? "cn" : "global",
       },
     });
 

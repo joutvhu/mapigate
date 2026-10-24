@@ -30,15 +30,16 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
   const pId = provider.toLowerCase();
   const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
   const redirectUri = (req.query.redirect_uri as string) || `http://localhost:${appPort}/callback`;
+  const region = (req.query.region as string) || undefined;
   const { codeVerifier, codeChallenge, state } = generatePKCE(32);
   const handler = OAuthHandlerRegistry.get(provider);
 
   if (DEVICE_CODE_PROVIDERS.has(pId) || (!handler.authorize && typeof handler.deviceCode === "function")) {
-    return res.json({ authUrl: null, flowType: "device_code", redirectUri, state, codeVerifier });
+    return res.json({ authUrl: null, flowType: "device_code", redirectUri, state, codeVerifier, region });
   }
   if (typeof handler.authorize === "function") {
     try {
-      const result = await handler.authorize({ provider: pId, redirectUri, appPort, codeVerifier, codeChallenge, state });
+      const result = await handler.authorize({ provider: pId, redirectUri, appPort, codeVerifier, codeChallenge, state, region });
       return res.json(result);
     } catch (err: any) {
       return res.status(400).json({ error: err.message || `Provider '${provider}' does not support OAuth authorize endpoint` });
@@ -50,10 +51,11 @@ oauthRouter.get("/:provider/authorize", async (req, res) => {
 // GET /api/oauth/:provider/device-code - Request device code for device flow providers
 oauthRouter.get("/:provider/device-code", async (req, res) => {
   const { provider } = req.params;
+  const region = (req.query.region as string) || undefined;
   try {
     const handler = OAuthHandlerRegistry.get(provider);
     if (!handler.deviceCode) return res.status(400).json({ error: `Provider '${provider}' does not support device code endpoint` });
-    res.json(await handler.deviceCode({ provider }));
+    res.json(await handler.deviceCode({ provider, region }));
   } catch (err: any) {
     res.status(err.message?.includes("does not support device code") ? 400 : 500).json({ error: err.message || "Failed to initiate device code" });
   }
@@ -63,11 +65,18 @@ oauthRouter.get("/:provider/device-code", async (req, res) => {
 oauthRouter.post("/:provider/poll", async (req, res) => {
   const { provider } = req.params;
   const { device_code, extraData, codeVerifier, code_verifier } = req.body;
+  const region = req.body.region || extraData?.region || undefined;
   if (!device_code) return res.status(400).json({ error: "Missing device_code" });
   try {
     const handler = OAuthHandlerRegistry.get(provider);
     if (!handler.poll) return res.status(400).json({ error: `Poll not supported for provider '${provider}'` });
-    res.json(await handler.poll({ deviceCode: device_code, device_code, codeVerifier: codeVerifier || code_verifier, extraData }));
+    res.json(await handler.poll({
+      deviceCode: device_code,
+      device_code,
+      codeVerifier: codeVerifier || code_verifier,
+      region,
+      extraData: { ...(extraData || {}), ...(region ? { region } : {}) },
+    }));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to poll token" });
   }
@@ -77,7 +86,7 @@ oauthRouter.post("/:provider/poll", async (req, res) => {
 oauthRouter.post("/:provider/exchange", async (req, res) => {
   const { provider } = req.params;
   const pId = provider.toLowerCase();
-  const { code, redirectUri, codeVerifier, state } = req.body;
+  const { code, redirectUri, codeVerifier, state, region } = req.body;
   if (!code || typeof code !== "string") return res.status(400).json({ error: "Missing authorization code or callback URL" });
 
   let rawCode = code.trim();
@@ -108,7 +117,11 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       providerId: pId,
       name: accountName,
       rawApiKey: rawCode,
-      providerSpecificData: { email: accountName, authMethod: "access_token" },
+      providerSpecificData: {
+        email: accountName,
+        authMethod: "access_token",
+        ...(region ? { region } : {}),
+      },
     });
     return res.json({ success: true, account: { id: accountId, name: accountName, providerId: pId } });
   }
@@ -127,6 +140,7 @@ oauthRouter.post("/:provider/exchange", async (req, res) => {
       codeVerifier,
       state: extractedCodeState || state,
       appPort,
+      region,
     });
     if (!result.success) return res.status(400).json({ error: result.error || "OAuth exchange failed" });
     res.json(result);

@@ -10,22 +10,27 @@ import type {
   DevicePollResult,
 } from "../../core/oauthTypes.js";
 
-const STATE_URL = "https://copilot.tencent.com/v2/plugin/auth/state";
-const TOKEN_URL = "https://copilot.tencent.com/v2/plugin/auth/token";
 const USER_AGENT = "CLI/2.63.2 CodeBuddy/2.63.2";
 
-export const codebuddyCnOAuthHandler: ProviderOAuthHandler = {
-  id: "codebuddy-cn",
+export const codebuddyOAuthHandler: ProviderOAuthHandler = {
+  id: "codebuddy",
 
-  async deviceCode(_params?: DeviceCodeParams): Promise<DeviceCodeResult> {
-    const res = await fetch(`${STATE_URL}?platform=CLI`, {
+  async deviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
+    const region = params?.region || params?.extraData?.region;
+    const isCn = region === "cn";
+    const stateUrl = isCn
+      ? "https://copilot.tencent.com/v2/plugin/auth/state"
+      : "https://www.codebuddy.ai/v2/plugin/auth/state";
+    const domain = isCn ? "copilot.tencent.com" : "www.codebuddy.ai";
+
+    const res = await fetch(`${stateUrl}?platform=CLI`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
         "User-Agent": USER_AGENT,
         "X-Requested-With": "XMLHttpRequest",
-        "X-Domain": "copilot.tencent.com",
+        "X-Domain": domain,
         "X-No-Authorization": "true",
         "X-No-User-Id": "true",
         "X-Product": "SaaS",
@@ -57,13 +62,20 @@ export const codebuddyCnOAuthHandler: ProviderOAuthHandler = {
     const deviceCode = params.deviceCode || params.device_code;
     if (!deviceCode) return { ok: false, error: "Missing device_code" };
 
-    const res = await fetch(`${TOKEN_URL}?state=${encodeURIComponent(deviceCode)}`, {
+    const region = params.region || params.extraData?.region;
+    const isCn = region === "cn";
+    const tokenUrl = isCn
+      ? "https://copilot.tencent.com/v2/plugin/auth/token"
+      : "https://www.codebuddy.ai/v2/plugin/auth/token";
+    const domain = isCn ? "copilot.tencent.com" : "www.codebuddy.ai";
+
+    const res = await fetch(`${tokenUrl}?state=${encodeURIComponent(deviceCode)}`, {
       method: "GET",
       headers: {
         Accept: "application/json",
         "User-Agent": USER_AGENT,
         "X-Requested-With": "XMLHttpRequest",
-        "X-Domain": "copilot.tencent.com",
+        "X-Domain": domain,
         "X-No-Authorization": "true",
         "X-No-User-Id": "true",
         "X-Product": "SaaS",
@@ -82,19 +94,20 @@ export const codebuddyCnOAuthHandler: ProviderOAuthHandler = {
       const refreshToken = data.data.refreshToken || "";
       const expiresIn = data.data.expiresIn || 86400;
 
-      ProviderRepository.ensureProviderExists("codebuddy-cn");
+      ProviderRepository.ensureProviderExists("codebuddy");
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
-      const accountName = "CodeBuddy User";
+      const accountName = isCn ? "CodeBuddy CN User" : "CodeBuddy User";
 
       ProviderRepository.addAccount({
         id: accountId,
-        providerId: "codebuddy-cn",
+        providerId: "codebuddy",
         name: accountName,
         rawApiKey: accessToken,
         providerSpecificData: {
           authMethod: "oauth",
           refreshToken,
           tokenExpiresAt: Date.now() + expiresIn * 1000,
+          region: isCn ? "cn" : "intl",
         },
       });
 
@@ -104,7 +117,7 @@ export const codebuddyCnOAuthHandler: ProviderOAuthHandler = {
         account: {
           id: accountId,
           name: accountName,
-          providerId: "codebuddy-cn",
+          providerId: "codebuddy",
         },
       };
     }
@@ -114,5 +127,7 @@ export const codebuddyCnOAuthHandler: ProviderOAuthHandler = {
 };
 
 export function registerRoutes(_router?: Router): void {
-  OAuthHandlerRegistry.register("codebuddy-cn", codebuddyCnOAuthHandler);
+  OAuthHandlerRegistry.register("codebuddy", codebuddyOAuthHandler);
+  OAuthHandlerRegistry.register("codebuddy-cn", codebuddyOAuthHandler);
+  OAuthHandlerRegistry.register("codebuddy-intl", codebuddyOAuthHandler);
 }

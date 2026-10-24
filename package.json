@@ -1,6 +1,6 @@
 {
   "name": "mapigate",
-  "version": "0.3.61",
+  "version": "0.3.63",
   "description": "AI Model API Gateway & Token Optimizer for coding tools",
   "author": "Giao Ho",
   "main": "dist/server/index.js",
@@ -30,6 +30,10 @@
     "test": "tsx --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit",
+    "bump": "npm version patch --no-git-tag-version && npm install",
+    "bump:patch": "npm version patch --no-git-tag-version && npm install",
+    "bump:minor": "npm version minor --no-git-tag-version && npm install",
+    "bump:major": "npm version major --no-git-tag-version && npm install",
     "local:publish": "node scripts/publish-local.mjs",
     "local:pack": "node scripts/publish-local.mjs --pack-only",
     "local:uninstall": "npm uninstall -g mapigate"

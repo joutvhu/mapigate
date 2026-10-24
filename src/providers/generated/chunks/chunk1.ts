@@ -39,8 +39,8 @@ import { metadata as cline } from "../../runtime/cline/metadata.js";
 import { metadata as clinepass } from "../../catalog/clinepass/metadata.js";
 import { metadata as cloudflare } from "../../runtime/cloudflare/metadata.js";
 import { metadata as clova_studio } from "../../catalog/clova-studio/metadata.js";
-import { metadata as codebuddy_cn } from "../../runtime/codebuddy-cn/metadata.js";
-import { metadata as codebuddy_intl } from "../../catalog/codebuddy-intl/metadata.js";
+import { metadata as codebuddy } from "../../runtime/codebuddy/metadata.js";
+import { metadata as codestral } from "../../catalog/codestral/metadata.js";
 
 export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "360ai": p_360ai,
@@ -81,6 +81,6 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "clinepass": clinepass,
   "cloudflare": cloudflare,
   "clova-studio": clova_studio,
-  "codebuddy-cn": codebuddy_cn,
-  "codebuddy-intl": codebuddy_intl,
+  "codebuddy": codebuddy,
+  "codestral": codestral,
 };

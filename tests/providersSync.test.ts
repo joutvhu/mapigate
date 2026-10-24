@@ -32,7 +32,7 @@ test("providersSync - promoted runtime providers are registered in ProviderRegis
 
   const codebuddy = ProviderRegistry.get("codebuddy-cn");
   assert.ok(codebuddy, "codebuddy-cn should be registered in ProviderRegistry");
-  assert.equal(codebuddy.id, "codebuddy-cn");
+  assert.equal(codebuddy.id, "codebuddy");
   assert.equal(codebuddy.supportsQuota(), true);
 });
 
