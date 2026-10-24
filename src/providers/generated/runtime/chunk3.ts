@@ -10,6 +10,7 @@ import Prov_hyperbolic from "../../catalog/hyperbolic/provider.js";
 import Prov_iflow from "../../catalog/iflow/provider.js";
 import Prov_internlm from "../../catalog/internlm/provider.js";
 import Prov_inworld from "../../catalog/inworld/provider.js";
+import Prov_iteracompute from "../../catalog/iteracompute/provider.js";
 import Prov_jan from "../../catalog/jan/provider.js";
 import Prov_jina_ai from "../../catalog/jina-ai/provider.js";
 import Prov_jina_reader from "../../catalog/jina-reader/provider.js";
@@ -39,7 +40,6 @@ import Prov_modelscope from "../../catalog/modelscope/provider.js";
 import Prov_moonshot from "../../catalog/moonshot/provider.js";
 import Prov_morph from "../../catalog/morph/provider.js";
 import Prov_muse from "../../catalog/muse/provider.js";
-import Prov_nanobanana from "../../catalog/nanobanana/provider.js";
 
 export function registerRuntimeChunk3(registry: { register(p: any): void }): void {
   registry.register(new Prov_google_tts());
@@ -52,6 +52,7 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_iflow());
   registry.register(new Prov_internlm());
   registry.register(new Prov_inworld());
+  registry.register(new Prov_iteracompute());
   registry.register(new Prov_jan());
   registry.register(new Prov_jina_ai());
   registry.register(new Prov_jina_reader());
@@ -81,5 +82,4 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_moonshot());
   registry.register(new Prov_morph());
   registry.register(new Prov_muse());
-  registry.register(new Prov_nanobanana());
 }

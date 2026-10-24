@@ -11,6 +11,7 @@ import { metadata as hyperbolic } from "../../catalog/hyperbolic/metadata.js";
 import { metadata as iflow } from "../../catalog/iflow/metadata.js";
 import { metadata as internlm } from "../../catalog/internlm/metadata.js";
 import { metadata as inworld } from "../../catalog/inworld/metadata.js";
+import { metadata as iteracompute } from "../../catalog/iteracompute/metadata.js";
 import { metadata as jan } from "../../catalog/jan/metadata.js";
 import { metadata as jina_ai } from "../../catalog/jina-ai/metadata.js";
 import { metadata as jina_reader } from "../../catalog/jina-reader/metadata.js";
@@ -40,7 +41,6 @@ import { metadata as modelscope } from "../../catalog/modelscope/metadata.js";
 import { metadata as moonshot } from "../../catalog/moonshot/metadata.js";
 import { metadata as morph } from "../../catalog/morph/metadata.js";
 import { metadata as muse } from "../../catalog/muse/metadata.js";
-import { metadata as nanobanana } from "../../catalog/nanobanana/metadata.js";
 
 export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "google-tts": google_tts,
@@ -53,6 +53,7 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "iflow": iflow,
   "internlm": internlm,
   "inworld": inworld,
+  "iteracompute": iteracompute,
   "jan": jan,
   "jina-ai": jina_ai,
   "jina-reader": jina_reader,
@@ -82,5 +83,4 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "moonshot": moonshot,
   "morph": morph,
   "muse": muse,
-  "nanobanana": nanobanana,
 };
