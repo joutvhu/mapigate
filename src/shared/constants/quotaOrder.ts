@@ -46,6 +46,8 @@ const FALLBACK_QUOTA_ORDER_MAP: Record<string, string[]> = {
     "Tokens (Daily)",
   ],
   "gemini-cli": [
+    "Gemini (5h)",
+    "Gemini (Weekly)",
     "Requests (RPM)",
     "Requests (Daily)",
     "Tokens (TPM)",

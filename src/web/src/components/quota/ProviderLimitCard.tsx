@@ -60,16 +60,20 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
 
   const displayQuotas = useMemo(() => {
     let list = account.quotas || [];
-    if (account.providerId?.toLowerCase() === "antigravity") {
+    const pid = account.providerId?.toLowerCase();
+    if (pid === "antigravity" || pid === "gemini-cli") {
       const allowed = [
         "gemini (5h)",
         "gemini (weekly)",
         "claude & gpt (5h)",
         "claude & gpt (weekly)",
       ];
-      list = list.filter((q) =>
+      const filtered = list.filter((q) =>
         allowed.some((a) => (q.label || "").toLowerCase().trim() === a)
       );
+      if (filtered.length > 0) {
+        list = filtered;
+      }
     }
     return sortNormalizedQuotas(account.providerId, list);
   }, [account.providerId, account.quotas]);

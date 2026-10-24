@@ -18,9 +18,11 @@ export const metadata: ProviderRegistryItem = {
   },
   "category": "apikey",
   "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
+  "baseUrl": "https://router.huggingface.co/v1",
+  "baseUrls": [
+    "https://router.huggingface.co/v1"
+  ],
+  "validateUrl": "https://router.huggingface.co/v1/models",
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto"

@@ -109,3 +109,45 @@ describe("Google Gemini (AI Studio) & Gemini CLI Providers Separation", () => {
       global.fetch = origFetch;
     }
   });
+
+  it("gemini-cli getGeminiCliUsage parses weekly and session summary quotas without 403", async () => {
+    const { getGeminiCliUsage } = await import("../src/providers/runtime/gemini-cli/quota.js");
+
+    const mockFetch: typeof fetch = (async (url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes("loadCodeAssist")) {
+        return new Response(
+          JSON.stringify({
+            cloudaicompanionProject: "mock-proj-123",
+            currentTier: { name: "Google AI Free" },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (urlStr.includes("retrieveUserQuotaSummary")) {
+        return new Response(
+          JSON.stringify({
+            groups: [
+              {
+                displayName: "Gemini",
+                buckets: [
+                  { window: "WEEKLY", remainingFraction: 0.85, resetTime: "2026-10-30T00:00:00Z" },
+                  { window: "5h", remainingFraction: 0.95, resetTime: "2026-10-25T12:00:00Z" },
+                ],
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    }) as any;
+
+    const res = await getGeminiCliUsage("mock-access-token", {}, { fetchFn: mockFetch, force: true });
+    assert.equal(res.plan, "Google AI Free");
+    assert.ok(res.quotas);
+    assert.ok(res.quotas.gemini_weekly);
+    assert.equal(res.quotas.gemini_weekly.remainingPercentage, 85);
+    assert.ok(res.quotas.gemini_session);
+    assert.equal(res.quotas.gemini_session.remainingPercentage, 95);
+  });
