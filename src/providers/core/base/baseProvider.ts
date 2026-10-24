@@ -6,6 +6,25 @@ import type {
 } from "../types.js";
 import { isRateLimitOrQuotaError } from "../../../core/router/loadBalancer.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+
+const execAsync = promisify(exec);
+
+async function checkBinaryInstalled(binary?: string): Promise<boolean> {
+  if (!binary) return false;
+  try {
+    const isWindows = process.platform === "win32";
+    const command = isWindows ? `where ${binary}` : `which ${binary}`;
+    const env = isWindows
+      ? { ...process.env, PATH: `${process.env.APPDATA}\\npm;${process.env.PATH}` }
+      : process.env;
+    await execAsync(command, { windowsHide: true, env });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function extractHeader(req: any, headerName: string): string | undefined {
   if (!req?.headers) return undefined;
@@ -146,9 +165,46 @@ export abstract class BaseProvider implements IProvider {
    */
   public async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
     const token = (context.apiKey || context.account?.rawApiKey || "").trim();
-    const rawBase = (context.baseUrl || context.account?.providerSpecificData?.baseUrl || this.defaultBaseUrl || "").replace(/\/+$/, "");
+    const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
+    let rawBase = (context.baseUrl || psd.baseUrl || this.defaultBaseUrl || "").replace(/\/+$/, "");
+
     if (!rawBase) {
       return { success: false, error: "Base URL is required to probe models." };
+    }
+
+    // 1. Local CLI process bridges (auggie://, devin://, zcode://, or .../stdio)
+    const isStdioBridge =
+      rawBase.startsWith("devin://") ||
+      rawBase.startsWith("auggie://") ||
+      rawBase.startsWith("zcode://") ||
+      (rawBase.includes("://") && rawBase.endsWith("/stdio"));
+
+    if (isStdioBridge) {
+      const binary = this.id.includes("devin")
+        ? "devin"
+        : this.id.includes("auggie")
+          ? "auggie"
+          : this.id.includes("zcode")
+            ? "zcode"
+            : "";
+      const isInstalled = await checkBinaryInstalled(binary);
+      if (isInstalled) {
+        return {
+          success: true,
+          endpointUrl: rawBase,
+          count: 1,
+        };
+      }
+      return {
+        success: false,
+        error: `${this.name} CLI binary "${binary || this.id}" not found locally. Please install ${binary || this.name} or connect via standard API.`,
+      };
+    }
+
+    // 2. Substitute accountId template in URL if present
+    const accountId = psd.accountId || "";
+    if (accountId && rawBase.includes("{accountId}")) {
+      rawBase = rawBase.replace(/\{accountId\}/g, accountId);
     }
 
     const candidateUrls: string[] = [];
@@ -163,6 +219,12 @@ export abstract class BaseProvider implements IProvider {
     } else {
       candidateUrls.push(`${rawBase}/v1/models`);
       candidateUrls.push(`${rawBase}/models`);
+    }
+
+    // Support Ollama host
+    if (rawBase.includes("ollama") || this.id.includes("ollama")) {
+      const cleanHost = rawBase.replace(/\/(api\/chat|v1)$/, "");
+      candidateUrls.unshift(`${cleanHost}/api/tags`);
     }
 
     const isAnthropic = this.defaultFormat === "claude" || this.id.includes("anthropic") || this.id.includes("claude");
@@ -211,11 +273,28 @@ export abstract class BaseProvider implements IProvider {
         if (res.status === 401 || res.status === 403) {
           authError = `Authentication failed (HTTP ${res.status}) for account "${context.account?.name || this.name}". Please verify credentials.`;
         } else {
-          lastError = `Endpoint ${url} returned HTTP ${res.status}: ${res.statusText}`;
+          let errDetail = res.statusText;
+          try {
+            const errJson: any = await res.json();
+            if (errJson?.message || errJson?.error?.message) {
+              errDetail = errJson?.message || errJson?.error?.message;
+            }
+          } catch {}
+          lastError = `Endpoint ${url} returned HTTP ${res.status}: ${errDetail}`;
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        lastError = `Failed to connect to ${url}: ${msg}`;
+        if (msg.includes("ENOTFOUND")) {
+          const hostMatch = rawBase.match(/https?:\/\/([^/]+)/);
+          const host = hostMatch ? hostMatch[1] : rawBase;
+          lastError = `Domain "${host}" could not be resolved (DNS ENOTFOUND). The service may be offline or moved.`;
+        } else if (rawBase.includes("localhost") || rawBase.includes("127.0.0.1")) {
+          const portMatch = rawBase.match(/:(\d+)/);
+          const port = portMatch ? ` (port ${portMatch[1]})` : "";
+          lastError = `Local server for ${this.name} is not running on ${rawBase}. Start ${this.name}${port} to connect.`;
+        } else {
+          lastError = `Failed to connect to ${url}: ${msg}`;
+        }
       }
     }
 

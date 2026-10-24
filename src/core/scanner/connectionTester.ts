@@ -72,7 +72,7 @@ export async function testProviderConnection(options: TestConnectionOptions): Pr
     };
   }
 
-  const targetAccount = accounts[0];
+  const targetAccount = accountId ? accounts[0] : undefined;
   const startTime = Date.now();
 
   try {
@@ -86,7 +86,8 @@ export async function testProviderConnection(options: TestConnectionOptions): Pr
 
     if (scanRes.success) {
       const count = scanRes.models.length;
-      const accountLabel = targetAccount?.name ? ` (${targetAccount.name})` : "";
+      const primaryAcc = targetAccount || scanRes.scannedAccounts?.[0] || accounts[0];
+      const accountLabel = primaryAcc?.name ? ` (${primaryAcc.name})` : "";
       return {
         success: true,
         message: count > 0
@@ -94,7 +95,7 @@ export async function testProviderConnection(options: TestConnectionOptions): Pr
           : `Connected to ${provider.name}${accountLabel} successfully (${latencyMs}ms)`,
         latencyMs,
         modelsCount: count,
-        accountName: targetAccount?.name,
+        accountName: primaryAcc?.name,
         providerName: provider.name,
       };
     }
