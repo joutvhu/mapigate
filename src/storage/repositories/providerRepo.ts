@@ -56,6 +56,7 @@ export class ProviderRepository {
     regions?: ProviderRegion[];
     defaultRegion?: string;
     hasProviderSpecificData?: boolean;
+    category?: string;
   }) | undefined {
     const reg = getRegistryProvider(id);
     const dbConfig = this.getProviderById(id) || (reg ? this.getProviderById(reg.id) : undefined);
@@ -91,6 +92,7 @@ export class ProviderRepository {
 
     return {
       ...base,
+      category: reg?.category,
       noAuth: base.noAuth !== undefined ? base.noAuth : Boolean(reg?.noAuth),
       customHeaders,
       models,

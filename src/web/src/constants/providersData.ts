@@ -51,7 +51,8 @@ export function isOAuthProvider(p?: {
     pId === "amazon-q" ||
     pId === "codex-app-server" ||
     pId === "grok-cli" ||
-    pId === "supergrok"
+    pId === "supergrok" ||
+    pId === "minimax-code"
   ) {
     return true;
   }

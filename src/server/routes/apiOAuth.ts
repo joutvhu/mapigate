@@ -62,12 +62,12 @@ oauthRouter.get("/:provider/device-code", async (req, res) => {
 // POST /api/oauth/:provider/poll - Poll for tokens in device code flow
 oauthRouter.post("/:provider/poll", async (req, res) => {
   const { provider } = req.params;
-  const { device_code, extraData } = req.body;
+  const { device_code, extraData, codeVerifier, code_verifier } = req.body;
   if (!device_code) return res.status(400).json({ error: "Missing device_code" });
   try {
     const handler = OAuthHandlerRegistry.get(provider);
     if (!handler.poll) return res.status(400).json({ error: `Poll not supported for provider '${provider}'` });
-    res.json(await handler.poll({ deviceCode: device_code, device_code, extraData }));
+    res.json(await handler.poll({ deviceCode: device_code, device_code, codeVerifier: codeVerifier || code_verifier, extraData }));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to poll token" });
   }

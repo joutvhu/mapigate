@@ -25,9 +25,7 @@ import Prov_maritalk from "../../catalog/maritalk/provider.js";
 import Prov_meta_llama from "../../catalog/meta-llama/provider.js";
 import Prov_mimo from "../../runtime/mimo/provider.js";
 import Prov_minimax from "../../runtime/minimax/provider.js";
-import Prov_minimax_cn from "../../catalog/minimax-cn/provider.js";
-import Prov_minimax_code from "../../catalog/minimax-code/provider.js";
-import Prov_minimax_code_global from "../../catalog/minimax-code-global/provider.js";
+import Prov_minimax_code from "../../runtime/minimax-code/provider.js";
 import Prov_mistral from "../../catalog/mistral/provider.js";
 import Prov_modal from "../../catalog/modal/provider.js";
 import Prov_modelscope from "../../catalog/modelscope/provider.js";
@@ -40,6 +38,8 @@ import Prov_nebius from "../../catalog/nebius/provider.js";
 import Prov_nous_research from "../../catalog/nous-research/provider.js";
 import Prov_novita from "../../catalog/novita/provider.js";
 import Prov_nscale from "../../catalog/nscale/provider.js";
+import Prov_nube from "../../catalog/nube/provider.js";
+import Prov_nvidia from "../../catalog/nvidia/provider.js";
 
 export function registerRuntimeChunk3(registry: { register(p: any): void }): void {
   registry.register(new Prov_hyperbolic());
@@ -67,9 +67,7 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_meta_llama());
   registry.register(new Prov_mimo());
   registry.register(new Prov_minimax());
-  registry.register(new Prov_minimax_cn());
   registry.register(new Prov_minimax_code());
-  registry.register(new Prov_minimax_code_global());
   registry.register(new Prov_mistral());
   registry.register(new Prov_modal());
   registry.register(new Prov_modelscope());
@@ -82,4 +80,6 @@ export function registerRuntimeChunk3(registry: { register(p: any): void }): voi
   registry.register(new Prov_nous_research());
   registry.register(new Prov_novita());
   registry.register(new Prov_nscale());
+  registry.register(new Prov_nube());
+  registry.register(new Prov_nvidia());
 }

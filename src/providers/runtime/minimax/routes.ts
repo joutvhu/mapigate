@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
+import { generatePKCE } from "../../../shared/utils/pkce.js";
 import type {
   ProviderOAuthHandler,
   DeviceCodeParams,
@@ -10,12 +11,16 @@ import type {
   DevicePollResult,
 } from "../../core/oauthTypes.js";
 
+const minimaxPendingVerifiers = new Map<string, string>();
+
 export async function requestMinimaxDeviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
   const pId = (params?.provider || "minimax-code").toLowerCase();
   const url =
     pId === "minimax-code" || pId === "minimax"
       ? "https://account.minimax.io/oauth2/device/code"
       : "https://account.minimax.cn/oauth2/device/code";
+
+  const { codeVerifier, codeChallenge } = generatePKCE();
 
   const resp = await fetch(url, {
     method: "POST",
@@ -27,6 +32,8 @@ export async function requestMinimaxDeviceCode(params?: DeviceCodeParams): Promi
       client_id: "mcode-public",
       scope: "agent.default",
       audience: "agent-backend",
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
     }),
   });
 
@@ -37,13 +44,22 @@ export async function requestMinimaxDeviceCode(params?: DeviceCodeParams): Promi
 
   const data: any = await resp.json();
   const pollByUser = !data.device_code;
+  const deviceKey = data.device_code || data.user_code;
+  if (deviceKey) {
+    minimaxPendingVerifiers.set(deviceKey, codeVerifier);
+    if (data.user_code && data.user_code !== deviceKey) {
+      minimaxPendingVerifiers.set(data.user_code, codeVerifier);
+    }
+  }
+
   return {
-    device_code: data.device_code || data.user_code,
+    device_code: deviceKey,
     user_code: data.user_code,
     verification_uri: data.verification_uri,
     verification_uri_complete: data.verification_uri_complete || data.verification_uri,
     expires_in: data.expires_in || 300,
     interval: data.interval || 5,
+    codeVerifier,
     _minimaxPollByUser: pollByUser,
   };
 }
@@ -58,19 +74,25 @@ export async function pollMinimaxDeviceCode(params: DevicePollParams): Promise<D
       ? "https://account.minimax.io/oauth2/token"
       : "https://account.minimax.cn/oauth2/token";
 
+  const verifier =
+    params.codeVerifier ||
+    params.extraData?.codeVerifier ||
+    minimaxPendingVerifiers.get(deviceCode) ||
+    minimaxPendingVerifiers.get(params.extraData?.user_code || "");
+
   const fields: Record<string, string> = {
     grant_type: "urn:ietf:params:oauth:grant-type:device_code",
     client_id: "mcode-public",
   };
 
+  if (verifier) {
+    fields.code_verifier = verifier;
+  }
+
   if (params.extraData?._minimaxPollByUser) {
     fields.user_code = deviceCode;
   } else {
     fields.device_code = deviceCode;
-  }
-
-  if (params.codeVerifier || params.extraData?.codeVerifier) {
-    fields.code_verifier = params.codeVerifier || params.extraData?.codeVerifier;
   }
 
   const resp = await fetch(tokenUrl, {
@@ -103,13 +125,15 @@ export async function pollMinimaxDeviceCode(params: DevicePollParams): Promise<D
   }
 
   if (data?.access_token) {
-    ProviderRepository.ensureProviderExists("minimax");
+    minimaxPendingVerifiers.delete(deviceCode);
+    const targetProvider = pId === "minimax-code" ? "minimax-code" : "minimax";
+    ProviderRepository.ensureProviderExists(targetProvider);
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
     const accountName = "MiniMax Code User";
 
     ProviderRepository.addAccount({
       id: accountId,
-      providerId: "minimax",
+      providerId: targetProvider,
       name: accountName,
       rawApiKey: data.access_token,
       providerSpecificData: {
@@ -125,7 +149,7 @@ export async function pollMinimaxDeviceCode(params: DevicePollParams): Promise<D
       account: {
         id: accountId,
         name: accountName,
-        providerId: "minimax",
+        providerId: targetProvider,
       },
     };
   }

@@ -26,9 +26,7 @@ import { metadata as maritalk } from "../../catalog/maritalk/metadata.js";
 import { metadata as meta_llama } from "../../catalog/meta-llama/metadata.js";
 import { metadata as mimo } from "../../runtime/mimo/metadata.js";
 import { metadata as minimax } from "../../runtime/minimax/metadata.js";
-import { metadata as minimax_cn } from "../../catalog/minimax-cn/metadata.js";
-import { metadata as minimax_code } from "../../catalog/minimax-code/metadata.js";
-import { metadata as minimax_code_global } from "../../catalog/minimax-code-global/metadata.js";
+import { metadata as minimax_code } from "../../runtime/minimax-code/metadata.js";
 import { metadata as mistral } from "../../catalog/mistral/metadata.js";
 import { metadata as modal } from "../../catalog/modal/metadata.js";
 import { metadata as modelscope } from "../../catalog/modelscope/metadata.js";
@@ -41,6 +39,8 @@ import { metadata as nebius } from "../../catalog/nebius/metadata.js";
 import { metadata as nous_research } from "../../catalog/nous-research/metadata.js";
 import { metadata as novita } from "../../catalog/novita/metadata.js";
 import { metadata as nscale } from "../../catalog/nscale/metadata.js";
+import { metadata as nube } from "../../catalog/nube/metadata.js";
+import { metadata as nvidia } from "../../catalog/nvidia/metadata.js";
 
 export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "hyperbolic": hyperbolic,
@@ -68,9 +68,7 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "meta-llama": meta_llama,
   "mimo": mimo,
   "minimax": minimax,
-  "minimax-cn": minimax_cn,
   "minimax-code": minimax_code,
-  "minimax-code-global": minimax_code_global,
   "mistral": mistral,
   "modal": modal,
   "modelscope": modelscope,
@@ -83,4 +81,6 @@ export const metadataChunk3: Record<string, ProviderRegistryItem> = {
   "nous-research": nous_research,
   "novita": novita,
   "nscale": nscale,
+  "nube": nube,
+  "nvidia": nvidia,
 };

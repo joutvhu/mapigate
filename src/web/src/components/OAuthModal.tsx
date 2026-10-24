@@ -166,7 +166,13 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   device_code: dData.device_code,
-                  extraData: { _zcodePollToken: dData._zcodePollToken },
+                  codeVerifier: dData.codeVerifier,
+                  extraData: {
+                    _zcodePollToken: dData._zcodePollToken,
+                    _minimaxPollByUser: dData._minimaxPollByUser,
+                    codeVerifier: dData.codeVerifier,
+                    user_code: dData.user_code,
+                  },
                 }),
               });
               const pollData = await pollRes.json();
