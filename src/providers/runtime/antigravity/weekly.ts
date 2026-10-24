@@ -66,7 +66,7 @@ export function parseWeeklyQuotaSummary(data: any): Record<string, RawQuotaBucke
           const target = isWeekly ? config.weekly : config.session;
           if (result[target.key]) break;
 
-          const total = isWeekly ? 4000 : 1000;
+          const total = isWeekly ? 3000 : 1000;
           const remaining = Math.round(total * remainingFraction);
           const used = Math.max(0, total - remaining);
 

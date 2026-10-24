@@ -237,8 +237,8 @@ test("Antigravity - parseWeeklyQuotaSummary accurately extracts weekly and sessi
 
   assert.ok(parsed.gemini_weekly);
   assert.equal(parsed.gemini_weekly.remainingPercentage, 85);
-  assert.equal(parsed.gemini_weekly.used, 600);
-  assert.equal(parsed.gemini_weekly.total, 4000);
+  assert.equal(parsed.gemini_weekly.used, 450);
+  assert.equal(parsed.gemini_weekly.total, 3000);
 
   assert.ok(parsed.gemini_session);
   assert.equal(parsed.gemini_session.remainingPercentage, 50);
