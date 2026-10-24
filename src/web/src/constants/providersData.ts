@@ -85,32 +85,27 @@ export function isNoApiKeyProvider(p?: {
   return false;
 }
 
+export function isFreeTierProvider(p?: {
+  id?: string;
+  category?: string;
+  requiresApiKey?: boolean;
+  authType?: string;
+  noAuth?: boolean;
+  isLocal?: boolean;
+}): boolean {
+  if (!p) return false;
+  return (
+    p.category === "freeTier" ||
+    p.category === "free" ||
+    isNoApiKeyProvider(p)
+  );
+}
+
 export const CODING_PROVIDERS_LIST = registryList;
 
-export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => isOAuthProvider(p))
-  .map((p) => ({
-    id: p.id,
-    name: p.name,
-    image: p.image || `/assets/providers/${p.id}/icon.png`,
-    color: p.color || "#4285F4",
-    iconBg: p.iconBg,
-    category: "oauth" as const,
-    defaultConnected: 0,
-    baseUrl: p.baseUrl,
-    defaultBaseUrl: p.defaultBaseUrl || p.baseUrl,
-    format: p.format,
-    defaultHeaders: p.defaultHeaders,
-    models: p.models.map((m) => m.id),
-    thinkingMode: p.thinkingMode,
-    authType: p.authType,
-    requiresApiKey: p.requiresApiKey,
-    isLocal: p.isLocal,
-    noAuth: p.noAuth,
-  }));
-
+// Priority 1: Free Tier & Community Gateways
 export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => p.category === "freeTier" || p.category === "free" || isNoApiKeyProvider(p))
+  .filter((p) => isFreeTierProvider(p))
   .map((p) => ({
     id: p.id,
     name: p.name,
@@ -131,8 +126,32 @@ export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
     noAuth: p.noAuth,
   }));
 
+// Priority 2: OAuth & Managed IDE Providers (excluding those already in Free Tier)
+export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
+  .filter((p) => !isFreeTierProvider(p) && isOAuthProvider(p))
+  .map((p) => ({
+    id: p.id,
+    name: p.name,
+    image: p.image || `/assets/providers/${p.id}/icon.png`,
+    color: p.color || "#4285F4",
+    iconBg: p.iconBg,
+    category: "oauth" as const,
+    defaultConnected: 0,
+    baseUrl: p.baseUrl,
+    defaultBaseUrl: p.defaultBaseUrl || p.baseUrl,
+    format: p.format,
+    defaultHeaders: p.defaultHeaders,
+    models: p.models.map((m) => m.id),
+    thinkingMode: p.thinkingMode,
+    authType: p.authType,
+    requiresApiKey: p.requiresApiKey,
+    isLocal: p.isLocal,
+    noAuth: p.noAuth,
+  }));
+
+// Priority 3: Direct API Key Providers (excluding Free Tier and OAuth)
 export const API_KEY_PROVIDERS_LIST: ProviderItem[] = registryList
-  .filter((p) => (p.category === "apikey" || p.category === "custom") && !isNoApiKeyProvider(p))
+  .filter((p) => !isFreeTierProvider(p) && !isOAuthProvider(p))
   .map((p) => ({
     id: p.id,
     name: p.name,
