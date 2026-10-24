@@ -1,7 +1,10 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
-import type { ProviderRequestContext } from "../../core/types.js";
+import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
-import { getKiroUsage } from "./quota.js";
+import { getKiroUsage, resolveDefaultProfileArn } from "./quota.js";
+import { getPublicDnsAgent } from "../../../shared/utils/dnsResolver.js";
+import { fetch as undiciFetch } from "undici";
+import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 
 const ANTHROPIC_SNAPSHOT_SUFFIX = /-\d{8}$/;
 
@@ -65,6 +68,67 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const converted = super.transformRequestBody({ ...context, targetModel });
     converted.model = targetModel;
     return converted;
+  }
+
+  public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
+    const timeoutMs = context.timeoutMs || 6000;
+    const region = context.region || context.account?.providerSpecificData?.region || "us-east-1";
+    const url = `https://codewhisperer.${region}.amazonaws.com`;
+
+    let token = (context.apiKey || context.account?.rawApiKey || "").trim();
+    const profileArn = context.account?.providerSpecificData?.profileArn || resolveDefaultProfileArn(context.account?.providerSpecificData?.authMethod);
+
+    const reqHeaders: Record<string, string> = {
+      "Content-Type": "application/x-amz-json-1.0",
+      "x-amz-target": "AmazonCodeWhispererService.ListAvailableModels",
+      "x-amz-user-agent": "aws-sdk-js/1.0.0 KiroIDE",
+      "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
+      Accept: "application/json",
+      ...(context.customHeaders || {}),
+    };
+    if (token) {
+      reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+    }
+    if (context.account?.providerSpecificData?.authMethod === "api-key") {
+      reqHeaders["tokentype"] = "API_KEY";
+    } else if (context.account?.providerSpecificData?.authMethod === "external_idp") {
+      reqHeaders["TokenType"] = "EXTERNAL_IDP";
+    }
+
+    try {
+      const res = ((await undiciFetch(url, {
+        method: "POST",
+        headers: reqHeaders,
+        body: JSON.stringify({
+          origin: "AI_EDITOR",
+          ...(profileArn ? { profileArn } : {}),
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+        dispatcher: getPublicDnsAgent(),
+      })) as unknown as globalThis.Response);
+
+      if (res.ok || res.status === 200) {
+        const payload: any = await res.json();
+        const models = extractModelsFromPayload(payload, this.id);
+        return {
+          success: true,
+          endpointUrl: url,
+          models,
+          count: models.length,
+        };
+      }
+
+      return {
+        success: false,
+        error: `Endpoint ${url} returned HTTP ${res.status}: ${res.statusText}`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        error: `Failed to connect to ${url}: ${msg}`,
+      };
+    }
   }
 }
 

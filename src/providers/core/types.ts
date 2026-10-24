@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import type { ProviderConfig, ProviderAccount, ComboConfig, LogToolSnippet } from "../../shared/types/index.js";
+import type { ProviderConfig, ProviderAccount, ComboConfig, LogToolSnippet, ScannedModel } from "../../shared/types/index.js";
 import type { RawProviderQuotaResult, ProviderUsageContext } from "../../core/usage/types.js";
 import type { ModelCapabilities } from "../../core/capabilities/types.js";
 
@@ -169,6 +169,35 @@ export interface IProvider {
 
   supportsQuota(): boolean;
   fetchQuota?(context: ProviderUsageContext): Promise<RawProviderQuotaResult>;
+  probeModels?(context: ProviderProbeContext): Promise<ProviderProbeResult | null>;
+}
+
+export interface ProviderProbeContext {
+  account?: {
+    id: string;
+    name: string;
+    rawApiKey?: string;
+    apiKey?: string;
+    region?: string;
+    providerSpecificData?: Record<string, any>;
+    [key: string]: any;
+  };
+  apiKey?: string;
+  baseUrl?: string;
+  customHeaders?: Record<string, string>;
+  format?: string;
+  timeoutMs?: number;
+  region?: string;
+  providerSpecificData?: Record<string, any>;
+}
+
+export interface ProviderProbeResult {
+  success: boolean;
+  endpointUrl?: string;
+  models?: ScannedModel[];
+  count?: number;
+  error?: string;
+  authError?: string;
 }
 
 export type ProviderMetadata = ProviderRegistryItem;

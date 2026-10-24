@@ -1,5 +1,6 @@
 import { BaseProvider } from "../../core/base/baseProvider.js";
-import type { ProviderRequestContext } from "../../core/types.js";
+import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import {
   OPENCODE_UA,
   OPENCODE_CLIENT,
@@ -109,6 +110,54 @@ export class OpenCodeProvider extends BaseProvider {
       return restoreToolNames(body, toolMap);
     }
     return body;
+  }
+
+  public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
+    const timeoutMs = context.timeoutMs || 6000;
+    const url = "https://opencode.ai/zen/v1/models";
+
+    let token = (context.apiKey || context.account?.rawApiKey || "public").trim();
+    if (!token) token = "public";
+
+    const reqHeaders: Record<string, string> = {
+      "User-Agent": "opencode/1.18.31",
+      "x-opencode-client": "desktop",
+      Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+      Accept: "application/json",
+      ...(context.customHeaders || {}),
+    };
+
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: reqHeaders,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+
+      if (res.ok || res.status === 200) {
+        const payload: any = await res.json();
+        const models = extractModelsFromPayload(payload, this.id);
+        const DEAD = new Set(["deepseek-v4-flash-free"]);
+        const cleaned = models.filter((m) => !DEAD.has(m.id));
+        return {
+          success: true,
+          endpointUrl: url,
+          models: cleaned,
+          count: cleaned.length,
+        };
+      }
+
+      return {
+        success: false,
+        error: `Endpoint ${url} returned HTTP ${res.status}: ${res.statusText}`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        error: `Failed to connect to ${url}: ${msg}`,
+      };
+    }
   }
 }
 

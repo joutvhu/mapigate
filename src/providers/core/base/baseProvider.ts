@@ -1,8 +1,11 @@
 import type {
   IProvider,
   ProviderRequestContext,
+  ProviderProbeContext,
+  ProviderProbeResult,
 } from "../types.js";
 import { isRateLimitOrQuotaError } from "../../../core/router/loadBalancer.js";
+import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 
 export function extractHeader(req: any, headerName: string): string | undefined {
   if (!req?.headers) return undefined;
@@ -134,5 +137,92 @@ export abstract class BaseProvider implements IProvider {
 
   public supportsQuota(): boolean {
     return false;
+  }
+
+  /**
+   * Default model probing implementation for standard OpenAI / Anthropic compatible endpoints.
+   * Providers with specialized discovery/auth (Antigravity, Codex, Kiro, OpenCode, Ollama, etc.)
+   * override this method cleanly in their own provider class.
+   */
+  public async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
+    const token = (context.apiKey || context.account?.rawApiKey || "").trim();
+    const rawBase = (context.baseUrl || context.account?.providerSpecificData?.baseUrl || this.defaultBaseUrl || "").replace(/\/+$/, "");
+    if (!rawBase) {
+      return { success: false, error: "Base URL is required to probe models." };
+    }
+
+    const candidateUrls: string[] = [];
+    if (rawBase.endsWith("/models") || rawBase.endsWith("/api/tags")) {
+      candidateUrls.push(rawBase);
+    } else if (rawBase.endsWith("/chat/completions") || rawBase.endsWith("/messages")) {
+      const clean = rawBase.replace(/\/(chat\/completions|messages)$/, "");
+      candidateUrls.push(`${clean}/models`);
+    } else if (rawBase.endsWith("/v1")) {
+      candidateUrls.push(`${rawBase}/models`);
+      candidateUrls.push(rawBase.slice(0, -3) + "/models");
+    } else {
+      candidateUrls.push(`${rawBase}/v1/models`);
+      candidateUrls.push(`${rawBase}/models`);
+    }
+
+    const isAnthropic = this.defaultFormat === "claude" || this.id.includes("anthropic") || this.id.includes("claude");
+    const isGemini = this.defaultFormat === "gemini" || this.id.includes("gemini");
+    const reqHeaders: Record<string, string> = {
+      Accept: "application/json",
+      ...(context.customHeaders || {}),
+    };
+
+    if (token) {
+      if (isAnthropic) {
+        reqHeaders["x-api-key"] = token;
+        reqHeaders["anthropic-version"] = "2023-06-01";
+      } else if (isGemini) {
+        reqHeaders["x-goog-api-key"] = token;
+      } else {
+        reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+      }
+    }
+
+    let authError: string | null = null;
+    let lastError: string | null = null;
+    const timeoutMs = context.timeoutMs || 6000;
+
+    for (const url of candidateUrls) {
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          headers: reqHeaders,
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+
+        if (res.ok || res.status === 200) {
+          const payload: any = await res.json();
+          const models = extractModelsFromPayload(payload, this.id);
+          if (models.length > 0) {
+            return {
+              success: true,
+              endpointUrl: url,
+              models,
+              count: models.length,
+            };
+          }
+        }
+
+        if (res.status === 401 || res.status === 403) {
+          authError = `Authentication failed (HTTP ${res.status}) for account "${context.account?.name || this.name}". Please verify credentials.`;
+        } else {
+          lastError = `Endpoint ${url} returned HTTP ${res.status}: ${res.statusText}`;
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lastError = `Failed to connect to ${url}: ${msg}`;
+      }
+    }
+
+    return {
+      success: false,
+      error: authError || lastError || "Failed to probe models",
+      authError: authError || undefined,
+    };
   }
 }
