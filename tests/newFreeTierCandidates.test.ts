@@ -27,7 +27,7 @@ test("New Free Tier Providers - Onomeo metadata and registry verification", () =
   assert.equal(onomeo.name, "Onomeo");
   assert.equal(onomeo.category, "freeTier");
   assert.equal(onomeo.image, "/assets/providers/onomeo/icon.svg");
-  assert.equal(onomeo.baseUrl, "https://api.onomeo.com/v1");
+  assert.equal(onomeo.baseUrl, "https://onomeo.com/v1");
 
   const iconPath = path.resolve(process.cwd(), "src/providers/catalog/onomeo/assets/icon.svg");
   assert.ok(fs.existsSync(iconPath), "Onomeo icon.svg must exist");

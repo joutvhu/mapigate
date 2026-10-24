@@ -28,8 +28,16 @@ export async function getGeminiCliUsage(
 ): Promise<RawProviderQuotaResult> {
   const token = (accessToken || "").trim();
 
+
   if (!token) {
     return { plan: "Free", message: "Gemini CLI access token not available." };
+  }
+
+  if (token.startsWith("AIza")) {
+    return {
+      plan: "Gemini API",
+      message: "Gemini API key connected. Quota tracking requires Google OAuth (Gemini CLI / Cloud Code).",
+    };
   }
 
   // 1. First, attempt full Antigravity / Cloud Code quota resolution (weekly + session 5h + models)
@@ -132,3 +140,5 @@ export async function getGeminiCliUsage(
     return { plan: "Free", message: `Gemini CLI error: ${error.message}` };
   }
 }
+
+export const getGeminiUsage = getGeminiCliUsage;

@@ -6,6 +6,8 @@ import type {
 } from "../types.js";
 import { isRateLimitOrQuotaError } from "../../../core/router/loadBalancer.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { resolveCandidateUrls } from "../../../core/scanner/urlResolver.js";
+import { getRegistryProvider } from "../../metadataRegistry.js";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -207,28 +209,23 @@ export abstract class BaseProvider implements IProvider {
       rawBase = rawBase.replace(/\{accountId\}/g, accountId);
     }
 
-    const candidateUrls: string[] = [];
-    if (rawBase.endsWith("/models") || rawBase.endsWith("/api/tags")) {
-      candidateUrls.push(rawBase);
-    } else if (rawBase.endsWith("/chat/completions") || rawBase.endsWith("/messages")) {
-      const clean = rawBase.replace(/\/(chat\/completions|messages)$/, "");
-      candidateUrls.push(`${clean}/models`);
-    } else if (rawBase.endsWith("/v1")) {
-      candidateUrls.push(`${rawBase}/models`);
-      candidateUrls.push(rawBase.slice(0, -3) + "/models");
-    } else {
-      candidateUrls.push(`${rawBase}/v1/models`);
-      candidateUrls.push(`${rawBase}/models`);
-    }
-
-    // Support Ollama host
-    if (rawBase.includes("ollama") || this.id.includes("ollama")) {
-      const cleanHost = rawBase.replace(/\/(api\/chat|v1)$/, "");
-      candidateUrls.unshift(`${cleanHost}/api/tags`);
-    }
+    const reg = getRegistryProvider(this.id);
+    const candidateUrls = resolveCandidateUrls(
+      rawBase,
+      context.format || this.defaultFormat,
+      this.id,
+      reg,
+      context.region || psd.region
+    );
 
     const isAnthropic = this.defaultFormat === "claude" || this.id.includes("anthropic") || this.id.includes("claude");
-    const isGemini = this.defaultFormat === "gemini" || this.id.includes("gemini");
+    const isGemini =
+      this.defaultFormat === "gemini" ||
+      this.id.includes("gemini") ||
+      context.format === "gemini" ||
+      rawBase.toLowerCase().includes("generativelanguage") ||
+      rawBase.toLowerCase().includes("googleapis.com");
+
     const reqHeaders: Record<string, string> = {
       Accept: "application/json",
       ...(context.customHeaders || {}),
@@ -268,6 +265,7 @@ export abstract class BaseProvider implements IProvider {
               count: models.length,
             };
           }
+          continue;
         }
 
         if (res.status === 401 || res.status === 403) {

@@ -1,4 +1,4 @@
-import { test, describe, before, after } from "node:test";
+import { test, it, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import {
@@ -302,7 +302,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     });
   });
 
-  test("successfully scans models from mock endpoint with credentials", async () => {
+  it("successfully scans models from mock endpoint with credentials", async () => {
     const result = await scanProviderModels({
       baseUrl: `http://127.0.0.1:${serverPort}/v1/success`,
       apiKey: "secret-123",
@@ -315,7 +315,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.ok(result.endpointUrl?.includes("/models"));
   });
 
-  test("returns descriptive auth error when API key is rejected", async () => {
+  it("returns descriptive auth error when API key is rejected", async () => {
     const result = await scanProviderModels({
       baseUrl: `http://127.0.0.1:${serverPort}/v1/auth-fail`,
       apiKey: "bad-key",
@@ -326,7 +326,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.ok(result.error?.includes("Authentication failed"));
   });
 
-  test("falls back to secondary candidate URL when primary returns 404", async () => {
+  it("falls back to secondary candidate URL when primary returns 404", async () => {
     const result = await scanProviderModels({
       baseUrl: `http://127.0.0.1:${serverPort}/probe/fallback`,
     });
@@ -336,7 +336,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.equal(result.models[0].id, "fallback-model");
   });
 
-  test("sends x-goog-api-key when scanning Gemini endpoints", async () => {
+  it("sends x-goog-api-key when scanning Gemini endpoints", async () => {
     const result = await scanProviderModels({
       baseUrl: `http://127.0.0.1:${serverPort}/v1beta/gemini-probe`,
       format: "gemini",
@@ -348,7 +348,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.equal(result.models[0].id, "gemini-2.0-flash");
   });
 
-  test("returns clean error on unreachable host", async () => {
+  it("returns clean error on unreachable host", async () => {
     const result = await scanProviderModels({
       baseUrl: "http://127.0.0.1:59999",
       timeoutMs: 1000,
@@ -358,7 +358,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.ok(result.error);
   });
 
-  test("returns noAccountsConfigured when providerId has zero accounts", async () => {
+  it("returns noAccountsConfigured when providerId has zero accounts", async () => {
     const providerId = `zero-acc-prov-${Date.now()}`;
     ProviderRepository.saveProvider({
       id: providerId,
@@ -378,7 +378,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.ok(result.error?.includes("No configured accounts found"));
   });
 
-  test("aggregates models across multiple accounts and tolerates partial failure", async () => {
+  it("aggregates models across multiple accounts and tolerates partial failure", async () => {
     const providerId = `multi-acc-prov-${Date.now()}`;
     ProviderRepository.saveProvider({
       id: providerId,
@@ -434,7 +434,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     assert.equal(result.failedAccounts?.[0].name, "Bad Account");
   });
 
-  test("uses account-specific region from providerSpecificData when scanning", async () => {
+  it("uses account-specific region from providerSpecificData when scanning", async () => {
     const providerId = `xmtp-test-${Date.now()}`;
     ProviderRepository.saveProvider({
       id: providerId,
@@ -481,7 +481,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     }
   });
 
-  test("sends Authorization Bearer and omits x-api-key for xiaomi-tokenplan", async () => {
+  it("sends Authorization Bearer and omits x-api-key for xiaomi-tokenplan", async () => {
     const providerId = `xmtp-headers-${Date.now()}`;
     ProviderRepository.saveProvider({
       id: providerId,
@@ -526,7 +526,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     }
   });
 
-  test("continues probing fallback regional endpoints when primary returns 200 with 0 models or error JSON", async () => {
+  it("continues probing fallback regional endpoints when primary returns 200 with 0 models or error JSON", async () => {
     const providerId = `xmtp-fallback-${Date.now()}`;
     ProviderRepository.saveProvider({
       id: providerId,
@@ -583,7 +583,7 @@ describe("Model Scanner - Network Probing & Error Handling", () => {
     }
   });
 
-  test("unifies defaultRegion fallback when scanning xiaomi-tokenplan without explicit region", async () => {
+  it("unifies defaultRegion fallback when scanning xiaomi-tokenplan without explicit region", async () => {
     const origFetch = globalThis.fetch;
     let probedUrl: string | undefined;
     globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {

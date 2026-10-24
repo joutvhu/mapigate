@@ -18,7 +18,8 @@ export const qoderOAuthHandler: ProviderOAuthHandler = {
   id: "qoder",
 
   async deviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
-    const isCn = (params?.provider || "").toLowerCase().includes("cn");
+    const region = params?.region || params?.extraData?.region;
+    const isCn = region === "cn" || (params?.provider || "").toLowerCase().includes("cn");
     const loginBase = isCn ? "https://qoder.com.cn/device/selectAccounts" : "https://qoder.com/device/selectAccounts";
     const verifier = base64Url(crypto.randomBytes(32));
     const challenge = base64Url(crypto.createHash("sha256").update(verifier).digest());
@@ -42,6 +43,7 @@ export const qoderOAuthHandler: ProviderOAuthHandler = {
       codeVerifier: verifier,
       _qoderNonce: nonce,
       _qoderMachineId: machineId,
+      _region: isCn ? "cn" : "intl",
     };
   },
 
@@ -52,7 +54,15 @@ export const qoderOAuthHandler: ProviderOAuthHandler = {
       return { ok: false, error: "Missing nonce or codeVerifier" };
     }
 
-    const pollUrl = "https://openapi.qoder.sh/api/v1/deviceToken/poll";
+    const region = params.region || params.extraData?.region || params.extraData?._region;
+    const isCn = region === "cn" || (params.provider || "").toLowerCase().includes("cn");
+    const pollUrl = isCn
+      ? "https://openapi.qoder.com.cn/api/v1/deviceToken/poll"
+      : "https://openapi.qoder.sh/api/v1/deviceToken/poll";
+    const userinfoUrl = isCn
+      ? "https://openapi.qoder.com.cn/api/v1/userinfo"
+      : "https://openapi.qoder.sh/api/v1/userinfo";
+
     const res = await fetch(pollUrl, {
       method: "POST",
       headers: {
@@ -80,11 +90,11 @@ export const qoderOAuthHandler: ProviderOAuthHandler = {
     const userId = data.user_id || data.userId || "";
     const machineId = params.extraData?._qoderMachineId || crypto.randomUUID();
 
-    let accountName = "Qoder User";
+    let accountName = isCn ? "Qoder CN User" : "Qoder User";
     let email: string | undefined;
 
     try {
-      const uRes = await fetch("https://openapi.qoder.sh/api/v1/userinfo", {
+      const uRes = await fetch(userinfoUrl, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
@@ -112,6 +122,7 @@ export const qoderOAuthHandler: ProviderOAuthHandler = {
         email,
         refreshToken,
         tokenExpiresAt: Date.now() + 30 * 86400 * 1000,
+        region: isCn ? "cn" : "intl",
       },
     });
 
@@ -130,4 +141,5 @@ export const qoderOAuthHandler: ProviderOAuthHandler = {
 export function registerRoutes(_router?: Router): void {
   OAuthHandlerRegistry.register("qoder", qoderOAuthHandler);
   OAuthHandlerRegistry.register("qoder-cn", qoderOAuthHandler);
+  OAuthHandlerRegistry.register("qdcn", qoderOAuthHandler);
 }

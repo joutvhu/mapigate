@@ -120,6 +120,7 @@ describe("Google Gemini (AI Studio) & Gemini CLI Providers Separation", () => {
           JSON.stringify({
             cloudaicompanionProject: "mock-proj-123",
             currentTier: { name: "Google AI Free" },
+            paidTier: { id: "g1-pro-tier", name: "Google AI Pro" },
           }),
           { status: 200, headers: { "Content-Type": "application/json" } }
         );

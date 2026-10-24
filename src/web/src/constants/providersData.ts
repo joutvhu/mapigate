@@ -53,7 +53,8 @@ export function isOAuthProvider(p?: {
     pId === "grok-cli" ||
     pId === "supergrok" ||
     pId === "minimax-code" ||
-    pId === "codebuddy"
+    pId === "codebuddy" ||
+    pId === "qoder"
   ) {
     return true;
   }

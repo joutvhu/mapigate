@@ -19,7 +19,6 @@ import Prov_playht from "../../catalog/playht/provider.js";
 import Prov_poolside from "../../catalog/poolside/provider.js";
 import Prov_predibase from "../../catalog/predibase/provider.js";
 import Prov_qoder from "../../runtime/qoder/provider.js";
-import Prov_qoder_cn from "../../catalog/qoder-cn/provider.js";
 import Prov_recraft from "../../catalog/recraft/provider.js";
 import Prov_reka from "../../catalog/reka/provider.js";
 import Prov_runwayml from "../../catalog/runwayml/provider.js";
@@ -40,6 +39,7 @@ import Prov_serper from "../../catalog/serper/provider.js";
 import Prov_siliconflow from "../../catalog/siliconflow/provider.js";
 import Prov_snowflake from "../../catalog/snowflake/provider.js";
 import Prov_sparkdesk from "../../catalog/sparkdesk/provider.js";
+import Prov_stability_ai from "../../catalog/stability-ai/provider.js";
 
 export function registerRuntimeChunk4(registry: { register(p: any): void }): void {
   registry.register(new Prov_ollama_search());
@@ -61,7 +61,6 @@ export function registerRuntimeChunk4(registry: { register(p: any): void }): voi
   registry.register(new Prov_poolside());
   registry.register(new Prov_predibase());
   registry.register(new Prov_qoder());
-  registry.register(new Prov_qoder_cn());
   registry.register(new Prov_recraft());
   registry.register(new Prov_reka());
   registry.register(new Prov_runwayml());
@@ -82,4 +81,5 @@ export function registerRuntimeChunk4(registry: { register(p: any): void }): voi
   registry.register(new Prov_siliconflow());
   registry.register(new Prov_snowflake());
   registry.register(new Prov_sparkdesk());
+  registry.register(new Prov_stability_ai());
 }

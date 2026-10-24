@@ -25,6 +25,7 @@ export class ProviderRegistry {
     ["mmg", "minimax-code"],
     ["mcode", "minimax-code"],
     ["qoder-cn", "qoder"],
+    ["qdcn", "qoder"],
     ["codebuddy-intl", "codebuddy"],
     ["codebuddy-cn", "codebuddy"],
     ["cbai", "codebuddy"],

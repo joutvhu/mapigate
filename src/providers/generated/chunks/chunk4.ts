@@ -20,7 +20,6 @@ import { metadata as playht } from "../../catalog/playht/metadata.js";
 import { metadata as poolside } from "../../catalog/poolside/metadata.js";
 import { metadata as predibase } from "../../catalog/predibase/metadata.js";
 import { metadata as qoder } from "../../runtime/qoder/metadata.js";
-import { metadata as qoder_cn } from "../../catalog/qoder-cn/metadata.js";
 import { metadata as recraft } from "../../catalog/recraft/metadata.js";
 import { metadata as reka } from "../../catalog/reka/metadata.js";
 import { metadata as runwayml } from "../../catalog/runwayml/metadata.js";
@@ -41,6 +40,7 @@ import { metadata as serper } from "../../catalog/serper/metadata.js";
 import { metadata as siliconflow } from "../../catalog/siliconflow/metadata.js";
 import { metadata as snowflake } from "../../catalog/snowflake/metadata.js";
 import { metadata as sparkdesk } from "../../catalog/sparkdesk/metadata.js";
+import { metadata as stability_ai } from "../../catalog/stability-ai/metadata.js";
 
 export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "ollama-search": ollama_search,
@@ -62,7 +62,6 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "poolside": poolside,
   "predibase": predibase,
   "qoder": qoder,
-  "qoder-cn": qoder_cn,
   "recraft": recraft,
   "reka": reka,
   "runwayml": runwayml,
@@ -83,4 +82,5 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "siliconflow": siliconflow,
   "snowflake": snowflake,
   "sparkdesk": sparkdesk,
+  "stability-ai": stability_ai,
 };
