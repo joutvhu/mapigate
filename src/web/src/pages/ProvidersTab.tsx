@@ -191,7 +191,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       <div
         key={p.id}
         onClick={() => onSelectProvider(p)}
-        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden min-w-[290px]"
+        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden min-w-[300px]"
       >
         <div className="flex items-center gap-3 min-w-0">
           <ToolIcon
