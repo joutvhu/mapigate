@@ -5,6 +5,7 @@ import { getCapabilitiesForModel } from "../capabilities/index.js";
 import { ensureFreshCredentials } from "../usage/tokenHelper.js";
 import { getPublicDnsAgent } from "../../shared/utils/dnsResolver.js";
 import { resolveDefaultProfileArn } from "../../providers/runtime/kiro/quota.js";
+import { refreshGoogleOAuthToken } from "../../providers/runtime/antigravity/routes.js";
 import { fetch as undiciFetch } from "undici";
 
 /**
@@ -55,6 +56,19 @@ export function resolveCandidateUrls(
         add(`https://token-plan-${r}.xiaomimimo.com/v1/models`);
       }
     }
+    return candidates;
+  }
+
+  // Google Antigravity discovery endpoints
+  const isAntigravity =
+    providerId === "antigravity" ||
+    format === "antigravity" ||
+    registryItem?.id === "antigravity" ||
+    lowerBase.includes("cloudcode-pa.googleapis.com");
+
+  if (isAntigravity) {
+    add("https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels");
+    add("https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist");
     return candidates;
   }
 
@@ -171,6 +185,13 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
     }
     if (Array.isArray(obj.models)) {
       rawList.push(...obj.models);
+    } else if (obj.models && typeof obj.models === "object") {
+      rawList.push(...Object.entries(obj.models as Record<string, any>).map(([k, v]) => {
+        if (v && typeof v === "object") {
+          return { id: k, name: v.displayName || v.name || k, ...v };
+        }
+        return { id: k, name: k };
+      }));
     } else if (Array.isArray(obj.modelSummaries)) {
       rawList.push(...obj.modelSummaries);
     } else if (Array.isArray(obj.data)) {
@@ -311,7 +332,7 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
  */
 export async function scanProviderModels(options: ScanModelsOptions): Promise<ScanModelsResult> {
   try {
-    let { providerId, baseUrl, apiKey, customHeaders, format, timeoutMs = 8000, region, providerSpecificData } = options;
+    let { providerId, accountId, baseUrl, apiKey, customHeaders, format, timeoutMs = 8000, region, providerSpecificData } = options;
 
     let registryItem: ProviderRegistryItem | undefined;
     if (providerId) {
@@ -364,9 +385,14 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
           providerSpecificData,
         }];
       } else {
-        let accounts = ProviderRepository.getAccountsByProvider(providerId);
+        let accounts = accountId
+          ? ProviderRepository.getAllAccountsByProvider(providerId)
+          : ProviderRepository.getAccountsByProvider(providerId);
         if (accounts.length === 0) {
           accounts = ProviderRepository.getAllAccountsByProvider(providerId);
+        }
+        if (accountId) {
+          accounts = accounts.filter((a) => a.id === accountId);
         }
         if (accounts.length > 0) {
           accountsToScan = accounts.map((a) => ({
@@ -379,12 +405,19 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         } else {
           const isZeroAuth =
             registryItem?.noAuth ||
+            registryItem?.requiresApiKey === false ||
+            registryItem?.authType === "none" ||
+            Boolean(registryItem?.isLocal) ||
             providerId === "opencode" ||
-            providerId === "oc";
+            providerId === "oc" ||
+            providerId === "ollama-local" ||
+            providerId === "lm-studio" ||
+            providerId === "jan" ||
+            providerId === "local-device";
           if (isZeroAuth) {
             accountsToScan = [{
-              id: "acc_opencode_free",
-              name: "OpenCode Free (Public)",
+              id: "acc_zero_auth",
+              name: `${registryItem?.name || providerId} (Local/Free)`,
               apiKey: "public",
               region,
               providerSpecificData,
@@ -452,11 +485,18 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       };
     }
 
+    const isAntigravity =
+      providerId === "antigravity" ||
+      format === "antigravity" ||
+      registryItem?.id === "antigravity" ||
+      baseUrl.toLowerCase().includes("cloudcode-pa.googleapis.com");
+
     const isGemini =
-      format === "gemini" ||
-      (providerId && (providerId.toLowerCase().includes("gemini") || providerId.toLowerCase().includes("google"))) ||
-      baseUrl.toLowerCase().includes("googleapis.com") ||
-      baseUrl.toLowerCase().includes("generativelanguage");
+      !isAntigravity &&
+      (format === "gemini" ||
+        (providerId && (providerId.toLowerCase().includes("gemini") || (providerId.toLowerCase().includes("google") && providerId !== "antigravity"))) ||
+        baseUrl.toLowerCase().includes("generativelanguage.googleapis.com") ||
+        baseUrl.toLowerCase().includes("generativelanguage"));
 
     const isOpenCodeFree =
       (providerId === "opencode" ||
@@ -477,6 +517,16 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       authError = null;
       lastError = null;
       let token = account.apiKey.trim();
+      if (token.startsWith("{") && token.endsWith("}")) {
+        try {
+          const parsed = JSON.parse(token);
+          token = parsed.accessToken || parsed.access_token || parsed.token || parsed.apiKey || token;
+        } catch {}
+      }
+      if (!token && account.providerSpecificData?.accessToken) {
+        token = account.providerSpecificData.accessToken;
+      }
+
       const reqHeaders: Record<string, string> = {
         Accept: "application/json",
         ...(customHeaders || {}),
@@ -487,6 +537,12 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         format === "kiro" ||
         registryItem?.id === "kiro" ||
         baseUrl.toLowerCase().includes("kiro.dev");
+
+      const isAntigravity =
+        providerId === "antigravity" ||
+        format === "antigravity" ||
+        registryItem?.id === "antigravity" ||
+        baseUrl.toLowerCase().includes("cloudcode-pa.googleapis.com");
 
       const isAwsCodeWhisperer =
         isKiro ||
@@ -510,6 +566,15 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
           reqHeaders["tokentype"] = "API_KEY";
         } else if (account.providerSpecificData?.authMethod === "external_idp") {
           reqHeaders["TokenType"] = "EXTERNAL_IDP";
+        }
+      } else if (isAntigravity) {
+        reqHeaders["Content-Type"] = "application/json";
+        reqHeaders["User-Agent"] = "antigravity/hub/2.24.0 darwin/arm64";
+        reqHeaders["X-Client-Name"] = "antigravity";
+        reqHeaders["X-Client-Version"] = "2.24.0";
+        reqHeaders["x-request-source"] = "local";
+        if (token) {
+          reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
         }
       } else if (isOpenCodeFree) {
         if (!token) {
@@ -560,10 +625,12 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       for (let candidateIdx = 0; candidateIdx < orderedUrls.length; candidateIdx++) {
         const url = orderedUrls[candidateIdx];
         try {
+          const isAntigravityUrl = isAntigravity || url.includes("cloudcode-pa.googleapis.com");
           const headersForUrl = { ...reqHeaders };
           if (
             token &&
-            (url.toLowerCase().includes("googleapis.com") || url.toLowerCase().includes("generativelanguage")) &&
+            !isAntigravityUrl &&
+            (url.toLowerCase().includes("generativelanguage.googleapis.com") || format === "gemini") &&
             !headersForUrl["x-goog-api-key"] &&
             !headersForUrl["X-GOOG-API-KEY"]
           ) {
@@ -577,21 +644,36 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
             url.includes("kiro.dev") ||
             url.includes("amazonaws.com") ||
             url.includes("cursor.sh") ||
-            url.includes("githubcopilot.com");
+            url.includes("githubcopilot.com") ||
+            url.includes("cloudcode-pa.googleapis.com");
 
           const profileArn =
             account.providerSpecificData?.profileArn ||
             (isKiro ? resolveDefaultProfileArn(account.providerSpecificData?.authMethod) : undefined);
 
-          const reqBody = isAwsCodeWhisperer
-            ? JSON.stringify({
-                origin: "AI_EDITOR",
-                ...(profileArn ? { profileArn } : {}),
-              })
-            : undefined;
+          let reqMethod = "GET";
+          let reqBody: any = undefined;
+
+          if (isAwsCodeWhisperer) {
+            reqMethod = "POST";
+            reqBody = JSON.stringify({
+              origin: "AI_EDITOR",
+              ...(profileArn ? { profileArn } : {}),
+            });
+          } else if (isAntigravityUrl) {
+            reqMethod = "POST";
+            if (url.includes("fetchAvailableModels")) {
+              const projectId = account.providerSpecificData?.projectId || "aicode-consumers";
+              reqBody = JSON.stringify({ project: projectId });
+            } else {
+              reqBody = JSON.stringify({
+                metadata: { ideType: 9, platform: 5, pluginType: 2 },
+              });
+            }
+          }
 
           const fetchOptions: any = {
-            method: isAwsCodeWhisperer ? "POST" : "GET",
+            method: reqMethod,
             headers: headersForUrl,
             body: reqBody,
             signal: AbortSignal.timeout(candidateTimeout),
@@ -601,12 +683,44 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
             fetchOptions.dispatcher = getPublicDnsAgent();
           }
 
-          const response = isMitmTarget
+          let response = isMitmTarget
             ? ((await undiciFetch(url, fetchOptions)) as unknown as globalThis.Response)
             : await fetch(url, fetchOptions);
 
+          // If 401 on Antigravity, try refreshing Google OAuth token immediately
+          if (response.status === 401 && isAntigravityUrl) {
+            const psd = account.providerSpecificData || {};
+            let rToken = psd.refreshToken || psd.refresh_token;
+            if (!rToken && account.apiKey.startsWith("{")) {
+              try {
+                const parsed = JSON.parse(account.apiKey);
+                rToken = parsed.refreshToken || parsed.refresh_token;
+              } catch {}
+            }
+            if (rToken) {
+              try {
+                const refreshed = await refreshGoogleOAuthToken(rToken);
+                if (refreshed?.accessToken) {
+                  token = refreshed.accessToken;
+                  account.apiKey = refreshed.accessToken;
+                  headersForUrl["Authorization"] = `Bearer ${token}`;
+                  ProviderRepository.updateAccount(account.id, {
+                    providerSpecificData: {
+                      ...psd,
+                      refreshToken: refreshed.refreshToken || rToken,
+                      expiresAt: Date.now() + (refreshed.expiresIn || 3600) * 1000,
+                    },
+                  });
+                  response = isMitmTarget
+                    ? ((await undiciFetch(url, { ...fetchOptions, headers: headersForUrl })) as unknown as globalThis.Response)
+                    : await fetch(url, { ...fetchOptions, headers: headersForUrl });
+                }
+              } catch {}
+            }
+          }
+
           if (response.ok || response.status === 200) {
-            const payload = await response.json();
+            const payload: any = await response.json();
             const models = extractModelsFromPayload(payload, providerId);
             if (models.length > 0) {
               accountSucceeded = true;
@@ -616,6 +730,35 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
               for (const m of models) {
                 if (!modelsById.has(m.id)) {
                   modelsById.set(m.id, m);
+                }
+              }
+              break;
+            } else if (
+              isAntigravityUrl &&
+              (payload.cloudaicompanionProject || payload.allowedTiers || url.includes("loadCodeAssist") || url.includes("fetchAvailableModels"))
+            ) {
+              accountSucceeded = true;
+              if (payload.cloudaicompanionProject) {
+                const companionId =
+                  payload.cloudaicompanionProject.id ||
+                  (typeof payload.cloudaicompanionProject === "string" ? payload.cloudaicompanionProject : "");
+                if (companionId && account.id) {
+                  ProviderRepository.updateAccount(account.id, {
+                    providerSpecificData: {
+                      ...(account.providerSpecificData || {}),
+                      projectId: companionId,
+                    },
+                  });
+                }
+              }
+              const regModels = registryItem?.models || [];
+              for (const rm of regModels) {
+                if (!modelsById.has(rm.id)) {
+                  modelsById.set(rm.id, {
+                    id: rm.id,
+                    name: rm.name,
+                    contextLength: rm.contextLength,
+                  });
                 }
               }
               break;

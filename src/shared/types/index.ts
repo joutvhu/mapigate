@@ -246,6 +246,7 @@ export interface ScanModelsResult {
 
 export interface ScanModelsOptions {
   providerId?: string;
+  accountId?: string;
   baseUrl?: string;
   apiKey?: string;
   customHeaders?: Record<string, string>;

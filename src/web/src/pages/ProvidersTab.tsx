@@ -24,8 +24,9 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const [accountName, setAccountName] = useState("Default Account");
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [backendProviders, setBackendProviders] = useState<any[]>([]);
-  const [testingId, setTestingId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{ id: string; success: boolean; msg: string } | null>(null);
+  const [testingIds, setTestingIds] = useState<Set<string>>(new Set());
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; msg: string; latencyMs?: number }>>({});
+  const [bulkTestingCategory, setBulkTestingCategory] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "connected" | "not_connected">("all");
   const [isCommunityCatalogOpen, setIsCommunityCatalogOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<ProviderItem | null>(null);
@@ -129,16 +130,87 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   };
 
   const handleTestProvider = async (providerId: string) => {
-    setTestingId(providerId);
-    setTestResult(null);
+    setTestingIds((prev) => new Set(prev).add(providerId));
     try {
       const res = await fetch(`/api/providers/${providerId}/test`, { method: "POST" });
       const data = await res.json();
-      setTestResult({ id: providerId, success: data.success, msg: data.message });
-    } catch {
-      setTestResult({ id: providerId, success: false, msg: "Failed to connect to gateway" });
+      setTestResults((prev) => ({
+        ...prev,
+        [providerId]: {
+          success: Boolean(data.success),
+          msg: data.message || (data.success ? "Connected successfully" : "Connection failed"),
+          latencyMs: data.latencyMs,
+        },
+      }));
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [providerId]: {
+          success: false,
+          msg: err.message || "Failed to reach gateway",
+        },
+      }));
     } finally {
-      setTestingId(null);
+      setTestingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(providerId);
+        return next;
+      });
+    }
+  };
+
+  const handleTestCategory = async (providers: ProviderItem[], categoryName: string) => {
+    const toTest = providers.filter((p) => getAccountCount(p.id) > 0 || isFreeNoAuth(p));
+    if (toTest.length === 0) {
+      alert(`No configured or ready accounts found in ${categoryName}.`);
+      return;
+    }
+
+    setBulkTestingCategory(categoryName);
+    const idsToTest = toTest.map((p) => p.id);
+    setTestingIds((prev) => {
+      const next = new Set(prev);
+      idsToTest.forEach((id) => next.add(id));
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/providers/test-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerIds: idsToTest }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.results) {
+          setTestResults((prev) => {
+            const next = { ...prev };
+            for (const [id, r] of Object.entries(data.results as Record<string, any>)) {
+              next[id] = {
+                success: Boolean(r.success),
+                msg: r.message || (r.success ? "Connected successfully" : "Connection failed"),
+                latencyMs: r.latencyMs,
+              };
+            }
+            return next;
+          });
+        }
+      } else {
+        for (const p of toTest) {
+          await handleTestProvider(p.id);
+        }
+      }
+    } catch {
+      for (const p of toTest) {
+        await handleTestProvider(p.id);
+      }
+    } finally {
+      setTestingIds((prev) => {
+        const next = new Set(prev);
+        idsToTest.forEach((id) => next.delete(id));
+        return next;
+      });
+      setBulkTestingCategory(null);
     }
   };
 
@@ -184,86 +256,105 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
     const isCustom = p.category === "custom" || !builtInIds.has(p.id);
     const allowDelete = Boolean(canDelete) === true && isCustom;
     const count = getAccountCount(p.id);
-    const isTesting = testingId === p.id;
-    const hasTestRes = testResult?.id === p.id;
+    const isTesting = testingIds.has(p.id);
+    const testRes = testResults[p.id];
 
     return (
       <div
         key={p.id}
         onClick={() => onSelectProvider(p)}
-        className="rt-card stagger-item group flex items-center justify-between gap-3 cursor-pointer relative overflow-hidden min-w-[300px]"
+        className="rt-card stagger-item group flex flex-col justify-between cursor-pointer relative overflow-hidden min-w-[300px] hover:border-blue-500/30 transition-all"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <ToolIcon
-            src={p.image}
-            name={p.name}
-            color={p.color}
-            iconBg={p.iconBg}
-            size="md"
-            className="group-hover:border-blue-500/40 transition-colors"
-          />
-          <div className="min-w-0">
-            <h4 className="text-xs font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
-              {p.name}
-            </h4>
-            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-              {p.isLocal && (
-                <span className="rt-badge rt-badge--primary text-[10px]">
-                  Local
-                </span>
-              )}
-              {isFreeNoAuth(p) ? (
-                <span className="rt-badge rt-badge--success">
-                  <span className="size-1.5 rounded-full bg-emerald-400" />
-                  {p.isLocal ? "Ready (Local)" : "Ready (Free)"}
-                </span>
-              ) : count > 0 ? (
-                <span className="rt-badge rt-badge--success">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {count} Connected
-                </span>
-              ) : (
-                <span className="rt-badge rt-badge--muted">No connections</span>
-              )}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <ToolIcon
+              src={p.image}
+              name={p.name}
+              color={p.color}
+              iconBg={p.iconBg}
+              size="md"
+              className="group-hover:border-blue-500/40 transition-colors shrink-0"
+            />
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
+                {p.name}
+              </h4>
+              <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                {p.isLocal && (
+                  <span className="rt-badge rt-badge--primary text-[10px]">
+                    Local
+                  </span>
+                )}
+                {isFreeNoAuth(p) ? (
+                  <span className="rt-badge rt-badge--success">
+                    <span className="size-1.5 rounded-full bg-emerald-400" />
+                    {p.isLocal ? "Ready (Local)" : "Ready (Free)"}
+                  </span>
+                ) : count > 0 ? (
+                  <span className="rt-badge rt-badge--success">
+                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {count} Connected
+                  </span>
+                ) : (
+                  <span className="rt-badge rt-badge--muted">No connections</span>
+                )}
+                {testRes && (
+                  <span
+                    className={`rt-badge text-[10px] ${
+                      testRes.success
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}
+                    title={testRes.msg}
+                  >
+                    {testRes.success
+                      ? `● ${testRes.latencyMs ? `${testRes.latencyMs}ms` : "Active"}`
+                      : "● Error"}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleTestProvider(p.id);
-            }}
-            disabled={isTesting}
-            title="Test Connection"
-            className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
-          >
-            <span className={`material-symbols-outlined text-[16px] ${isTesting ? "animate-spin" : ""}`}>
-              {isTesting ? "sync" : "speed"}
-            </span>
-          </button>
-          {allowDelete && (
+          <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setProviderToDelete(p);
+                handleTestProvider(p.id);
               }}
-              title="Delete Provider"
-              className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+              disabled={isTesting}
+              title="Test Connection"
+              className="p-2 rounded-lg bg-white/5 hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[16px]">delete</span>
+              <span className={`material-symbols-outlined text-[16px] ${isTesting ? "animate-spin text-blue-400" : ""}`}>
+                {isTesting ? "sync" : "speed"}
+              </span>
             </button>
-          )}
+            {allowDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setProviderToDelete(p);
+                }}
+                title="Delete Provider"
+                className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {hasTestRes && (
+        {testRes && (
           <div
-            className={`absolute bottom-0 left-0 right-0 py-0.5 px-2 text-[10px] text-center font-mono ${
-              testResult.success ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"
+            className={`w-full py-1 px-3 text-[10px] font-mono border-t truncate ${
+              testRes.success
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : "bg-red-500/10 text-red-400 border-red-500/20"
             }`}
+            title={testRes.msg}
           >
-            {testResult.msg}
+            {testRes.success ? `✓ ${testRes.msg}` : `✗ ${testRes.msg}`}
           </div>
         )}
       </div>
@@ -388,11 +479,14 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             OAuth & Managed IDE Providers
           </h3>
           <button
-            onClick={() => alert("All connected endpoints verified healthy.")}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer font-medium"
+            onClick={() => handleTestCategory(OAUTH_PROVIDERS_LIST, "OAuth Providers")}
+            disabled={bulkTestingCategory === "OAuth Providers"}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer font-medium disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-            Test All Connections
+            <span className={`material-symbols-outlined text-[15px] ${bulkTestingCategory === "OAuth Providers" ? "animate-spin text-blue-400" : ""}`}>
+              {bulkTestingCategory === "OAuth Providers" ? "sync" : "play_arrow"}
+            </span>
+            {bulkTestingCategory === "OAuth Providers" ? "Testing..." : "Test All"}
           </button>
         </div>
 
@@ -409,11 +503,14 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             Free Tier & Community Gateways
           </h3>
           <button
-            onClick={() => alert("Free tier providers verified.")}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer font-medium"
+            onClick={() => handleTestCategory(FREE_TIER_PROVIDERS_LIST, "Free Tier Providers")}
+            disabled={bulkTestingCategory === "Free Tier Providers"}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer font-medium disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-            Test All
+            <span className={`material-symbols-outlined text-[15px] ${bulkTestingCategory === "Free Tier Providers" ? "animate-spin text-emerald-400" : ""}`}>
+              {bulkTestingCategory === "Free Tier Providers" ? "sync" : "play_arrow"}
+            </span>
+            {bulkTestingCategory === "Free Tier Providers" ? "Testing..." : "Test All"}
           </button>
         </div>
 
@@ -430,11 +527,14 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             Direct API Key Providers
           </h3>
           <button
-            onClick={() => alert("Testing API Key providers...")}
-            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer font-medium"
+            onClick={() => handleTestCategory(API_KEY_PROVIDERS_LIST, "API Key Providers")}
+            disabled={bulkTestingCategory === "API Key Providers"}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer font-medium disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-            Test All
+            <span className={`material-symbols-outlined text-[15px] ${bulkTestingCategory === "API Key Providers" ? "animate-spin text-blue-400" : ""}`}>
+              {bulkTestingCategory === "API Key Providers" ? "sync" : "play_arrow"}
+            </span>
+            {bulkTestingCategory === "API Key Providers" ? "Testing..." : "Test All"}
           </button>
         </div>
 

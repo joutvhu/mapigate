@@ -52,6 +52,10 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [showScanModal, setShowScanModal] = useState(false);
   const [newModelInput, setNewModelInput] = useState("");
   const [testingIdx, setTestingIdx] = useState<number | null>(null);
+  const [testingAccountId, setTestingAccountId] = useState<string | null>(null);
+  const [accountTestResults, setAccountTestResults] = useState<Record<string, { success: boolean; message: string; latencyMs?: number }>>({});
+  const [isTestingProvider, setIsTestingProvider] = useState<boolean>(false);
+  const [providerTestResult, setProviderTestResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
   const [newHeaderKey, setNewHeaderKey] = useState("");
   const [newHeaderVal, setNewHeaderVal] = useState("");
   const [headersSavedMsg, setHeadersSavedMsg] = useState<string | null>(null);
@@ -237,12 +241,61 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     invalidateAvailableModelsCache();
   };
 
+  const testAccount = async (conn: ConnectionItem, idx?: number) => {
+    if (idx !== undefined) setTestingIdx(idx);
+    setTestingAccountId(conn.id);
+    try {
+      const res = await fetch(`/api/providers/${provider.id}/accounts/${conn.id}/test`, { method: "POST" });
+      const data = await res.json();
+      setAccountTestResults((prev) => ({
+        ...prev,
+        [conn.id]: {
+          success: Boolean(data.success),
+          message: data.message || (data.success ? "Connection verified" : "Connection failed"),
+          latencyMs: data.latencyMs,
+        },
+      }));
+    } catch (err: any) {
+      setAccountTestResults((prev) => ({
+        ...prev,
+        [conn.id]: {
+          success: false,
+          message: err.message || "Failed to reach gateway",
+        },
+      }));
+    } finally {
+      if (idx !== undefined) setTestingIdx(null);
+      setTestingAccountId(null);
+    }
+  };
+
   const testOneByOne = async () => {
     for (let i = 0; i < connections.length; i++) {
-      setTestingIdx(i);
-      await new Promise((r) => setTimeout(r, 600));
+      const conn = connections[i];
+      await testAccount(conn, i);
     }
     setTestingIdx(null);
+  };
+
+  const handleTestProvider = async () => {
+    setIsTestingProvider(true);
+    setProviderTestResult(null);
+    try {
+      const res = await fetch(`/api/providers/${provider.id}/test`, { method: "POST" });
+      const data = await res.json();
+      setProviderTestResult({
+        success: Boolean(data.success),
+        message: data.message || (data.success ? "Connection successful!" : "Connection failed."),
+        latencyMs: data.latencyMs,
+      });
+    } catch (err: any) {
+      setProviderTestResult({
+        success: false,
+        message: `Error testing connection: ${err.message}`,
+      });
+    } finally {
+      setIsTestingProvider(false);
+    }
   };
 
   const handleAddHeader = () => {
@@ -452,12 +505,46 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             </div>
           </div>
 
-          <button onClick={handleSaveProviderConfig} className="rt-btn rt-btn--primary">
-            <span className="material-symbols-outlined text-[16px]">save</span>
-            Save Provider Settings
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleTestProvider}
+              disabled={isTestingProvider}
+              className="rt-btn rt-btn--secondary hover:border-blue-500/50"
+              title="Test connection with upstream provider"
+            >
+              <span className={`material-symbols-outlined text-[16px] ${isTestingProvider ? "animate-spin text-blue-400" : ""}`}>
+                {isTestingProvider ? "sync" : "speed"}
+              </span>
+              {isTestingProvider ? "Testing..." : "Test Connection"}
+            </button>
+            <button onClick={handleSaveProviderConfig} className="rt-btn rt-btn--primary">
+              <span className="material-symbols-outlined text-[16px]">save</span>
+              Save Provider Settings
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Provider Test Result Banner */}
+      {providerTestResult && (
+        <div
+          className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border text-xs font-mono animate-rt-scale-in ${
+            providerTestResult.success
+              ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+              : "bg-red-500/10 text-red-300 border-red-500/30"
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="material-symbols-outlined text-[16px] shrink-0">
+              {providerTestResult.success ? "check_circle" : "error"}
+            </span>
+            <span className="truncate">{providerTestResult.message}</span>
+          </div>
+          {providerTestResult.latencyMs && (
+            <span className="shrink-0 font-bold opacity-80">{providerTestResult.latencyMs}ms</span>
+          )}
+        </div>
+      )}
 
       {/* Deprecation Warning Banner (matches 9router) */}
       {registryItem?.deprecated && (
@@ -502,19 +589,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             </div>
           </div>
           <button
-            onClick={async () => {
-              try {
-                const res = await fetch(`/api/providers/${provider.id}/test`, { method: "POST" });
-                const data = await res.json();
-                alert(data.message || (data.success ? "Connection successful!" : "Connection failed."));
-              } catch (err: any) {
-                alert(`Error testing connection: ${err.message}`);
-              }
-            }}
-            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={handleTestProvider}
+            disabled={isTestingProvider}
+            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-[15px]">speed</span>
-            Test Connection
+            <span className={`material-symbols-outlined text-[15px] ${isTestingProvider ? "animate-spin" : ""}`}>
+              {isTestingProvider ? "sync" : "speed"}
+            </span>
+            {isTestingProvider ? "Testing..." : "Test Connection"}
           </button>
         </div>
       )}
@@ -599,68 +681,112 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           </div>
         ) : (
           <div className="space-y-2">
-            {connections.map((conn, idx) => (
-              <div
-                key={conn.id}
-                className="flex items-center justify-between p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 transition-all text-xs"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Checkbox size="sm" />
-                  <div className="flex flex-col text-slate-500">
-                    <button
-                      onClick={() => moveConnection(idx, "up")}
-                      disabled={idx === 0}
-                      className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => moveConnection(idx, "down")}
-                      disabled={idx === connections.length - 1}
-                      className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
-                    >
-                      ▼
-                    </button>
+            {connections.map((conn, idx) => {
+              const testRes = accountTestResults[conn.id];
+              const isAccountTesting = testingIdx === idx || testingAccountId === conn.id;
+
+              return (
+                <div
+                  key={conn.id}
+                  className="flex flex-col gap-2 p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 transition-all text-xs"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Checkbox size="sm" />
+                      <div className="flex flex-col text-slate-500">
+                        <button
+                          onClick={() => moveConnection(idx, "up")}
+                          disabled={idx === 0}
+                          className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          onClick={() => moveConnection(idx, "down")}
+                          disabled={idx === connections.length - 1}
+                          className="hover:text-white disabled:opacity-30 leading-none cursor-pointer"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                      <span className="material-symbols-outlined text-[16px] text-slate-500">
+                        {isOAuth ? "lock" : "key"}
+                      </span>
+                      <span className="font-mono text-slate-200 truncate font-medium">{conn.name}</span>
+                      <span className={`rt-badge ${conn.isActive ? "rt-badge--success" : "rt-badge--muted"}`}>
+                        {conn.isActive ? "● active" : "disabled"} • #{idx + 1}
+                      </span>
+                      {isAccountTesting && (
+                        <span className="text-[10px] text-blue-400 animate-pulse font-mono">Testing upstream...</span>
+                      )}
+                      {testRes && !isAccountTesting && (
+                        <span
+                          className={`rt-badge text-[10px] ${
+                            testRes.success
+                              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                              : "bg-red-500/10 text-red-400 border border-red-500/20"
+                          }`}
+                          title={testRes.message}
+                        >
+                          {testRes.success
+                            ? `● ${testRes.latencyMs ? `${testRes.latencyMs}ms` : "Active"}`
+                            : "● Failed"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        title="Test this connection"
+                        onClick={() => testAccount(conn, idx)}
+                        disabled={testingIdx !== null || isAccountTesting}
+                        className="p-1 text-slate-500 hover:text-blue-400 transition-colors cursor-pointer disabled:opacity-40"
+                      >
+                        <span className={`material-symbols-outlined text-[16px] ${isAccountTesting ? "animate-spin text-blue-400" : ""}`}>
+                          {isAccountTesting ? "sync" : "speed"}
+                        </span>
+                      </button>
+                      <button
+                        title="Edit account"
+                        onClick={() => handleEditAccount(conn)}
+                        className="p-1 text-slate-500 hover:text-blue-400 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button
+                        title="Delete account"
+                        onClick={() => handleDeleteAccount(conn.id)}
+                        className="p-1 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                      <label className="relative inline-flex items-center cursor-pointer ml-1">
+                        <input
+                          type="checkbox"
+                          checked={conn.isActive}
+                          onChange={() => toggleConnection(conn.id)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-8 h-4.5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
+                      </label>
+                    </div>
                   </div>
-                  <span className="material-symbols-outlined text-[16px] text-slate-500">
-                    {isOAuth ? "lock" : "key"}
-                  </span>
-                  <span className="font-mono text-slate-200 truncate font-medium">{conn.name}</span>
-                  <span className={`rt-badge ${conn.isActive ? "rt-badge--success" : "rt-badge--muted"}`}>
-                    {conn.isActive ? "● active" : "disabled"} • #{idx + 1}
-                  </span>
-                  {testingIdx === idx && (
-                    <span className="text-[10px] text-blue-400 animate-pulse font-mono">Testing upstream...</span>
+
+                  {testRes && (
+                    <div
+                      className={`w-full py-1 px-2.5 text-[10px] font-mono rounded-lg border truncate ${
+                        testRes.success
+                          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          : "bg-red-500/10 text-red-400 border-red-500/20"
+                      }`}
+                      title={testRes.message}
+                    >
+                      {testRes.success ? `✓ ${testRes.message}` : `✗ ${testRes.message}`}
+                    </div>
                   )}
                 </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    title="Edit account"
-                    onClick={() => handleEditAccount(conn)}
-                    className="p-1 text-slate-500 hover:text-blue-400 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">edit</span>
-                  </button>
-                  <button
-                    title="Delete account"
-                    onClick={() => handleDeleteAccount(conn.id)}
-                    className="p-1 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">delete</span>
-                  </button>
-                  <label className="relative inline-flex items-center cursor-pointer ml-1">
-                    <input
-                      type="checkbox"
-                      checked={conn.isActive}
-                      onChange={() => toggleConnection(conn.id)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-8 h-4.5 bg-[#1E293B] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-blue-600" />
-                  </label>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -6,6 +6,7 @@ import {
   getCommunityCatalogProvider,
 } from "../../providers/catalog/index.js";
 import { scanProviderModels } from "../../core/scanner/modelScanner.js";
+import { testProviderConnection, testMultipleConnections } from "../../core/scanner/connectionTester.js";
 import crypto from "node:crypto";
 
 export const providerRouter = Router();
@@ -633,83 +634,48 @@ providerRouter.post("/:id/accounts/bulk", (req, res) => {
   }
 });
 
-// POST test provider connection
-providerRouter.post("/:id/test", async (req, res) => {
-  const provider =
-    ProviderRepository.getProviderById(req.params.id) ||
-    ProviderRepository.getProviderWithDefaults(req.params.id);
-  if (!provider) {
-    res.status(404).json({ success: false, message: "Provider not found." });
-    return;
-  }
-
-  const reg = getRegistryProvider(provider.id);
-  const isOpenCode = provider.id === "opencode" || provider.id === "oc";
-
-  if (isOpenCode) {
-    try {
-      const upstream = await fetch("https://opencode.ai/zen/v1/models", {
-        method: "GET",
-        headers: {
-          Authorization: "Bearer public",
-          "User-Agent": "opencode/1.18.31",
-          "x-opencode-client": "desktop",
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (upstream.ok || upstream.status === 200 || upstream.status === 404) {
-        res.json({ success: true, message: `Connected to ${provider.name} successfully.` });
-      } else {
-        res.json({ success: false, message: `Upstream returned status ${upstream.status}` });
-      }
-      return;
-    } catch (err: any) {
-      res.json({ success: false, message: err.message || "Connection timeout or failed" });
-      return;
-    }
-  }
-
-  const accounts = ProviderRepository.getAccountsByProvider(provider.id);
-  if (accounts.length === 0) {
-    res.json({ success: false, message: "No active API keys found for this provider." });
-    return;
-  }
-
-  const account = accounts[0];
-  const isNoKey =
-    Boolean(reg?.noAuth) ||
-    reg?.requiresApiKey === false ||
-    reg?.authType === "none" ||
-    Boolean(reg?.isLocal);
-
+// POST test multiple providers in bulk
+providerRouter.post("/test-bulk", async (req, res) => {
   try {
-    const rawBase = (account.providerSpecificData?.baseUrl || provider.baseUrl || reg?.baseUrl || "").replace(/\/+$/, "");
-    let testUrl = `${rawBase}/v1/models`;
-    if (provider.id === "ollama-local" || provider.id.includes("ollama")) {
-      const host = rawBase.replace(/\/api\/chat$/, "");
-      testUrl = `${host}/api/tags`;
-    } else if (rawBase.endsWith("/v1")) {
-      testUrl = `${rawBase}/models`;
+    const { providerIds, timeoutMs } = req.body || {};
+    if (!Array.isArray(providerIds) || providerIds.length === 0) {
+      res.status(400).json({ error: "providerIds must be a non-empty array" });
+      return;
     }
-
-    const headers: Record<string, string> = {};
-    if (account.rawApiKey) {
-      headers["Authorization"] = `Bearer ${account.rawApiKey}`;
-    }
-
-    const upstream = await fetch(testUrl, {
-      method: "GET",
-      headers,
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (upstream.ok || upstream.status === 200 || upstream.status === 404) {
-      res.json({ success: true, message: `Connected to ${provider.name} successfully.` });
-    } else {
-      res.json({ success: false, message: `Upstream returned status ${upstream.status}` });
-    }
+    const results = await testMultipleConnections(providerIds, timeoutMs ? Number(timeoutMs) : undefined);
+    res.json({ success: true, results });
   } catch (err: any) {
-    res.json({ success: false, message: err.message || "Connection timeout or failed" });
+    res.status(500).json({ success: false, error: err.message || "Failed to test connections" });
+  }
+});
+
+// POST test specific account connection
+providerRouter.post("/:id/accounts/:accountId/test", async (req, res) => {
+  try {
+    const timeoutMs = req.body?.timeoutMs ? Number(req.body.timeoutMs) : undefined;
+    const result = await testProviderConnection({
+      providerId: req.params.id,
+      accountId: req.params.accountId,
+      timeoutMs,
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Test failed" });
+  }
+});
+
+// POST test provider connection (real upstream probe)
+providerRouter.post("/:id/test", async (req, res) => {
+  try {
+    const accountId = (req.query.accountId as string) || req.body?.accountId;
+    const timeoutMs = req.body?.timeoutMs ? Number(req.body.timeoutMs) : undefined;
+    const result = await testProviderConnection({
+      providerId: req.params.id,
+      accountId: accountId || undefined,
+      timeoutMs,
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || "Test failed" });
   }
 });
