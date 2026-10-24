@@ -54,7 +54,8 @@ export function isOAuthProvider(p?: {
     pId === "supergrok" ||
     pId === "minimax-code" ||
     pId === "codebuddy" ||
-    pId === "qoder"
+    pId === "qoder" ||
+    pId === "cline"
   ) {
     return true;
   }

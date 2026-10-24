@@ -46,6 +46,8 @@ export class ProviderRegistry {
     ["qwen", "alicode"],
     ["codex-app-server", "codex"],
     ["cxa", "codex"],
+    ["clinepass", "cline"],
+    ["cl", "cline"],
   ]);
 
   public static initializeBuiltins(): void {

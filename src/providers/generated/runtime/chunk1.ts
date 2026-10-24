@@ -35,11 +35,11 @@ import Prov_cerebras from "../../catalog/cerebras/provider.js";
 import Prov_chutes from "../../catalog/chutes/provider.js";
 import Prov_claude from "../../runtime/claude/provider.js";
 import Prov_cline from "../../runtime/cline/provider.js";
-import Prov_clinepass from "../../catalog/clinepass/provider.js";
 import Prov_cloudflare from "../../runtime/cloudflare/provider.js";
 import Prov_clova_studio from "../../catalog/clova-studio/provider.js";
 import Prov_codebuddy from "../../runtime/codebuddy/provider.js";
 import Prov_codestral from "../../catalog/codestral/provider.js";
+import Prov_codex from "../../runtime/codex/provider.js";
 
 export function registerRuntimeChunk1(registry: { register(p: any): void }): void {
   registry.register(new Prov_p_360ai());
@@ -77,9 +77,9 @@ export function registerRuntimeChunk1(registry: { register(p: any): void }): voi
   registry.register(new Prov_chutes());
   registry.register(new Prov_claude());
   registry.register(new Prov_cline());
-  registry.register(new Prov_clinepass());
   registry.register(new Prov_cloudflare());
   registry.register(new Prov_clova_studio());
   registry.register(new Prov_codebuddy());
   registry.register(new Prov_codestral());
+  registry.register(new Prov_codex());
 }

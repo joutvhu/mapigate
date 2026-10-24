@@ -4,7 +4,6 @@ import type { Router } from "express";
 import { registerRoutes as reg_antigravity } from "../runtime/antigravity/routes.js";
 import { registerRoutes as reg_claude } from "../runtime/claude/routes.js";
 import { registerRoutes as reg_cline } from "../runtime/cline/routes.js";
-import { registerRoutes as reg_clinepass } from "../catalog/clinepass/routes.js";
 import { registerRoutes as reg_codebuddy } from "../runtime/codebuddy/routes.js";
 import { registerRoutes as reg_codex } from "../runtime/codex/routes.js";
 import { registerRoutes as reg_cursor } from "../runtime/cursor/routes.js";
@@ -28,7 +27,6 @@ export function registerAllProviderRoutes(router: Router): void {
   reg_antigravity(router);
   reg_claude(router);
   reg_cline(router);
-  reg_clinepass(router);
   reg_codebuddy(router);
   reg_codex(router);
   reg_cursor(router);
