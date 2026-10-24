@@ -219,6 +219,8 @@ export class QuotaService {
         error: rawResult.error,
         message: rawResult.message,
         providerSpecificData: account.providerSpecificData,
+        sortOrder: account.sortOrder ?? 0,
+        createdAt: account.createdAt,
       };
 
       const ttl =
@@ -256,16 +258,28 @@ export class QuotaService {
     try {
       return await Promise.race([fetchCore(), timeoutPromise]);
     } catch (err: any) {
+      let previousQuotas: NormalizedQuotaItem[] = [];
+      try {
+        const cached =
+          this.cache.get(account.id)?.data ||
+          (account.cachedQuotas ? JSON.parse(account.cachedQuotas) : null);
+        if (cached && Array.isArray(cached.quotas) && cached.quotas.length > 0) {
+          previousQuotas = cached.quotas;
+        }
+      } catch {}
+
       const errorResult: AccountQuotaResult = {
         accountId: account.id,
         providerId: account.providerId,
         accountName: account.name,
         plan: "Standard",
         isActive: account.isActive,
-        quotas: [],
+        quotas: previousQuotas,
         lastFetchedAt: Date.now(),
         error: err?.message || "Failed to fetch quota",
         providerSpecificData: account.providerSpecificData,
+        sortOrder: account.sortOrder ?? 0,
+        createdAt: account.createdAt,
       };
 
       return errorResult;
@@ -281,16 +295,26 @@ export class QuotaService {
    */
   public getCachedQuotasForAllAccounts(): AccountQuotaResult[] {
     const accounts = ProviderRepository.getAllAccounts();
-    return accounts.map((acc) => {
+    return accounts.map((acc, idx) => {
       const memoryHit = this.cache.get(acc.id);
       if (memoryHit?.data) {
-        return { ...memoryHit.data, isActive: acc.isActive };
+        return {
+          ...memoryHit.data,
+          isActive: acc.isActive,
+          sortOrder: acc.sortOrder ?? idx,
+          createdAt: acc.createdAt,
+        };
       }
       if (acc.cachedQuotas) {
         try {
           const parsed = JSON.parse(acc.cachedQuotas) as AccountQuotaResult;
           if (parsed && Array.isArray(parsed.quotas)) {
-            return { ...parsed, isActive: acc.isActive };
+            return {
+              ...parsed,
+              isActive: acc.isActive,
+              sortOrder: acc.sortOrder ?? idx,
+              createdAt: acc.createdAt,
+            };
           }
         } catch {}
       }
@@ -302,6 +326,8 @@ export class QuotaService {
         isActive: acc.isActive,
         quotas: [],
         lastFetchedAt: acc.quotaFetchedAt || Date.now(),
+        sortOrder: acc.sortOrder ?? idx,
+        createdAt: acc.createdAt,
       };
     });
   }
@@ -328,7 +354,7 @@ export class QuotaService {
       }
     }
 
-    const promises = accounts.map((acc) =>
+    const promises = accounts.map((acc, idx) =>
       this.fetchQuotaForAccount(acc.id, force).catch((err) => ({
         accountId: acc.id,
         providerId: acc.providerId,
@@ -338,6 +364,8 @@ export class QuotaService {
         quotas: [],
         lastFetchedAt: Date.now(),
         error: err?.message || "Failed to fetch quota",
+        sortOrder: acc.sortOrder ?? idx,
+        createdAt: acc.createdAt,
       }))
     );
 

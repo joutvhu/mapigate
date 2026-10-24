@@ -31,6 +31,7 @@ export interface ProviderAccount {
   apiKeyEncrypted: string;
   isActive: boolean;
   rateLimitHits: number;
+  sortOrder?: number;
   lastUsedAt?: number;
   createdAt?: number;
   providerSpecificData?: Record<string, any>;

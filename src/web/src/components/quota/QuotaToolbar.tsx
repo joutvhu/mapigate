@@ -74,12 +74,12 @@ export const QuotaToolbar: React.FC<QuotaToolbarProps> = ({
           value={sortMode}
           onChange={(val) => onSelectSortMode(val as QuotaSortMode)}
           options={[
-            { value: "fixed", label: "Fixed order" },
+            { value: "fixed", label: "Fixed order (Providers)" },
             { value: "expiring-first", label: "Expiring first" },
             { value: "quota-asc", label: "% Quota: low to high" },
             { value: "quota-desc", label: "% Quota: high to low" },
           ]}
-          className="min-w-[165px]"
+          className="min-w-[175px]"
         />
 
         {/* Search accounts */}

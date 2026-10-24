@@ -243,7 +243,7 @@ export class ProviderRepository {
   public static getAllAccounts(): (ProviderAccount & { rawApiKey: string })[] {
     const db = getDatabase();
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts ORDER BY provider_id ASC, rate_limit_hits ASC, created_at ASC, rowid ASC"
+      "SELECT * FROM provider_accounts ORDER BY provider_id ASC, sort_order ASC, created_at ASC, rowid ASC"
     );
 
     return rows.map((r) => ({
@@ -254,7 +254,9 @@ export class ProviderRepository {
       rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
+      sortOrder: r.sort_order ?? 0,
       lastUsedAt: r.last_used_at,
+      createdAt: r.created_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
       cachedQuotas: r.cached_quotas || undefined,
       quotaFetchedAt: r.quota_fetched_at || undefined,
@@ -288,7 +290,7 @@ export class ProviderRepository {
     const reg = getRegistryProvider(providerId);
     const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) ORDER BY rate_limit_hits ASC, created_at ASC, rowid ASC",
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) ORDER BY sort_order ASC, created_at ASC, rowid ASC",
       providerId,
       targetProviderId
     );
@@ -311,6 +313,7 @@ export class ProviderRepository {
           rawApiKey: isOC ? "public" : "",
           isActive: true,
           rateLimitHits: 0,
+          sortOrder: 0,
           lastUsedAt: 0,
           createdAt: 0,
         },
@@ -325,6 +328,7 @@ export class ProviderRepository {
       rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
+      sortOrder: r.sort_order ?? 0,
       lastUsedAt: r.last_used_at,
       createdAt: r.created_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
@@ -338,7 +342,7 @@ export class ProviderRepository {
     const reg = getRegistryProvider(providerId);
     const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY rate_limit_hits ASC, created_at ASC, rowid ASC",
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY rate_limit_hits ASC, sort_order ASC, created_at ASC, rowid ASC",
       providerId,
       targetProviderId
     );
@@ -361,6 +365,7 @@ export class ProviderRepository {
           rawApiKey: isOC ? "public" : "",
           isActive: true,
           rateLimitHits: 0,
+          sortOrder: 0,
           lastUsedAt: 0,
           createdAt: 0,
         },
@@ -375,6 +380,7 @@ export class ProviderRepository {
       rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
+      sortOrder: r.sort_order ?? 0,
       lastUsedAt: r.last_used_at,
       createdAt: r.created_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
@@ -427,7 +433,9 @@ export class ProviderRepository {
       rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
       isActive: Boolean(r.is_active),
       rateLimitHits: r.rate_limit_hits,
+      sortOrder: r.sort_order ?? 0,
       lastUsedAt: r.last_used_at,
+      createdAt: r.created_at,
       providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
       cachedQuotas: r.cached_quotas || undefined,
       quotaFetchedAt: r.quota_fetched_at || undefined,
@@ -440,6 +448,7 @@ export class ProviderRepository {
     name: string;
     rawApiKey?: string;
     providerSpecificData?: Record<string, any>;
+    sortOrder?: number;
   }): void {
     const provider = this.ensureProviderExists(account.providerId);
     const db = getDatabase();
@@ -447,14 +456,16 @@ export class ProviderRepository {
     const encryptedKey = CryptoVault.encrypt(rawKey);
     const now = Date.now();
     const psdJson = account.providerSpecificData ? JSON.stringify(account.providerSpecificData) : null;
+    const sortOrder = account.sortOrder ?? 0;
 
     db.run(
-      `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at, provider_specific_data)
-       VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
+      `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, sort_order, created_at, provider_specific_data)
+       VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?)`,
       account.id,
       provider.id,
       account.name,
       encryptedKey,
+      sortOrder,
       now,
       psdJson
     );
@@ -467,22 +478,26 @@ export class ProviderRepository {
       name: string;
       rawApiKey?: string;
       providerSpecificData?: Record<string, any>;
+      sortOrder?: number;
     }>
   ): void {
     const db = getDatabase();
     const now = Date.now();
-    for (const acc of accounts) {
+    for (let i = 0; i < accounts.length; i++) {
+      const acc = accounts[i];
       const provider = this.ensureProviderExists(acc.providerId);
       const rawKey = acc.rawApiKey || "";
       const encryptedKey = CryptoVault.encrypt(rawKey);
       const psdJson = acc.providerSpecificData ? JSON.stringify(acc.providerSpecificData) : null;
+      const sortOrder = acc.sortOrder ?? i;
       db.run(
-        `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, created_at, provider_specific_data)
-         VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
+        `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, sort_order, created_at, provider_specific_data)
+         VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?)`,
         acc.id,
         provider.id,
         acc.name,
         encryptedKey,
+        sortOrder,
         now,
         psdJson
       );
@@ -543,7 +558,7 @@ export class ProviderRepository {
   public static reorderAccounts(accountIds: string[]): void {
     const db = getDatabase();
     accountIds.forEach((id, index) => {
-      db.run("UPDATE provider_accounts SET rate_limit_hits = ? WHERE id = ?", index, id);
+      db.run("UPDATE provider_accounts SET sort_order = ? WHERE id = ?", index, id);
     });
   }
 

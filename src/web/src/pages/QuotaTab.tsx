@@ -134,7 +134,16 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
       if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const updated: AccountQuotaResult = await res.json();
       setAccounts((prev) =>
-        prev.map((acc) => (acc.accountId === accountId ? updated : acc))
+        prev.map((acc) =>
+          acc.accountId === accountId
+            ? {
+                ...acc,
+                ...updated,
+                sortOrder: acc.sortOrder ?? updated.sortOrder,
+                createdAt: acc.createdAt ?? updated.createdAt,
+              }
+            : acc
+        )
       );
     } catch (err: any) {
       console.error(`[QuotaTab] Failed to refresh account ${accountId}:`, err);
@@ -321,6 +330,11 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
       list.sort((a, b) => {
         const pDiff = a.providerId.localeCompare(b.providerId);
         if (pDiff !== 0) return pDiff;
+        const sDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        if (sDiff !== 0) return sDiff;
+        if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
+          return a.createdAt - b.createdAt;
+        }
         const nDiff = a.accountName.localeCompare(b.accountName);
         if (nDiff !== 0) return nDiff;
         return a.accountId.localeCompare(b.accountId);
@@ -338,6 +352,11 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
         if (diff !== 0) return diff;
         const pDiff = a.providerId.localeCompare(b.providerId);
         if (pDiff !== 0) return pDiff;
+        const sDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        if (sDiff !== 0) return sDiff;
+        if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
+          return a.createdAt - b.createdAt;
+        }
         const nDiff = a.accountName.localeCompare(b.accountName);
         if (nDiff !== 0) return nDiff;
         return a.accountId.localeCompare(b.accountId);
@@ -353,6 +372,11 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
         if (diff !== 0) return diff;
         const pDiff = a.providerId.localeCompare(b.providerId);
         if (pDiff !== 0) return pDiff;
+        const sDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        if (sDiff !== 0) return sDiff;
+        if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
+          return a.createdAt - b.createdAt;
+        }
         const nDiff = a.accountName.localeCompare(b.accountName);
         if (nDiff !== 0) return nDiff;
         return a.accountId.localeCompare(b.accountId);
@@ -368,6 +392,11 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
         if (diff !== 0) return diff;
         const pDiff = a.providerId.localeCompare(b.providerId);
         if (pDiff !== 0) return pDiff;
+        const sDiff = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+        if (sDiff !== 0) return sDiff;
+        if (a.createdAt && b.createdAt && a.createdAt !== b.createdAt) {
+          return a.createdAt - b.createdAt;
+        }
         const nDiff = a.accountName.localeCompare(b.accountName);
         if (nDiff !== 0) return nDiff;
         return a.accountId.localeCompare(b.accountId);
@@ -383,7 +412,10 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
     const withoutData: AccountQuotaResult[] = [];
 
     for (const acc of visibleAccounts) {
-      if (Array.isArray(acc.quotas) && acc.quotas.length > 0 && !acc.error) {
+      if (
+        (Array.isArray(acc.quotas) && acc.quotas.length > 0) ||
+        Boolean(acc.error)
+      ) {
         withData.push(acc);
       } else {
         withoutData.push(acc);

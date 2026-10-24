@@ -22,6 +22,8 @@ export interface AccountQuotaResult {
   error?: string;
   message?: string;
   providerSpecificData?: Record<string, any>;
+  sortOrder?: number;
+  createdAt?: number;
 }
 
 export interface ProviderUsageContext {

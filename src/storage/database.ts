@@ -146,6 +146,7 @@ function initSchema(db: DatabaseDriver) {
       api_key_encrypted TEXT NOT NULL,
       is_active INTEGER NOT NULL DEFAULT 1,
       rate_limit_hits INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       last_used_at INTEGER,
       created_at INTEGER NOT NULL,
       provider_specific_data TEXT,
@@ -253,6 +254,7 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE provider_accounts ADD COLUMN provider_specific_data TEXT;"); } catch {}
   try { db.exec("ALTER TABLE provider_accounts ADD COLUMN cached_quotas TEXT;"); } catch {}
   try { db.exec("ALTER TABLE provider_accounts ADD COLUMN quota_fetched_at INTEGER;"); } catch {}
+  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cost REAL NOT NULL DEFAULT 0;"); } catch {}
