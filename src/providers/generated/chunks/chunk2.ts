@@ -20,9 +20,7 @@ import { metadata as databricks } from "../../catalog/databricks/metadata.js";
 import { metadata as deepgram } from "../../catalog/deepgram/metadata.js";
 import { metadata as deepinfra } from "../../catalog/deepinfra/metadata.js";
 import { metadata as deepseek } from "../../runtime/deepseek/metadata.js";
-import { metadata as devin_cli } from "../../catalog/devin-cli/metadata.js";
-import { metadata as devin_cli_agentic } from "../../catalog/devin-cli-agentic/metadata.js";
-import { metadata as devin_desktop } from "../../catalog/devin-desktop/metadata.js";
+import { metadata as devin } from "../../runtime/devin/metadata.js";
 import { metadata as doubao } from "../../catalog/doubao/metadata.js";
 import { metadata as edge_tts } from "../../catalog/edge-tts/metadata.js";
 import { metadata as elevenlabs } from "../../catalog/elevenlabs/metadata.js";
@@ -41,6 +39,8 @@ import { metadata as gitlab } from "../../catalog/gitlab/metadata.js";
 import { metadata as glm } from "../../runtime/glm/metadata.js";
 import { metadata as glm_cn } from "../../catalog/glm-cn/metadata.js";
 import { metadata as google_pse } from "../../catalog/google-pse/metadata.js";
+import { metadata as google_tts } from "../../catalog/google-tts/metadata.js";
+import { metadata as grok } from "../../runtime/grok/metadata.js";
 
 export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "clova-studio": clova_studio,
@@ -62,9 +62,7 @@ export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "deepgram": deepgram,
   "deepinfra": deepinfra,
   "deepseek": deepseek,
-  "devin-cli": devin_cli,
-  "devin-cli-agentic": devin_cli_agentic,
-  "devin-desktop": devin_desktop,
+  "devin": devin,
   "doubao": doubao,
   "edge-tts": edge_tts,
   "elevenlabs": elevenlabs,
@@ -83,4 +81,6 @@ export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "glm": glm,
   "glm-cn": glm_cn,
   "google-pse": google_pse,
+  "google-tts": google_tts,
+  "grok": grok,
 };

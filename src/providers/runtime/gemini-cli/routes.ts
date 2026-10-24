@@ -9,23 +9,28 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import {
+  ANTIGRAVITY_CLIENT_ID,
+  ANTIGRAVITY_CLIENT_SECRET,
+  ANTIGRAVITY_SCOPES,
+  loadCodeAssist,
+  onboardUser,
+} from "../antigravity/routes.js";
 
-export const GOOGLE_OAUTH_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
-export const GOOGLE_OAUTH_CLIENT_SECRET = "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";
-export const GOOGLE_OAUTH_SCOPES = [
-  "https://www.googleapis.com/auth/cloud-platform",
-  "https://www.googleapis.com/auth/userinfo.email",
-];
+// Exported for backward compatibility with tests and consumers
+export const GOOGLE_OAUTH_CLIENT_ID = ANTIGRAVITY_CLIENT_ID;
+export const GOOGLE_OAUTH_CLIENT_SECRET = ANTIGRAVITY_CLIENT_SECRET;
+export const GOOGLE_OAUTH_SCOPES = ANTIGRAVITY_SCOPES;
 
 export const geminiCliOAuthHandler: ProviderOAuthHandler = {
   id: "gemini-cli",
 
   authorize(params: OAuthAuthorizeParams): OAuthAuthorizeResult {
     const urlParams = new URLSearchParams({
-      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      client_id: ANTIGRAVITY_CLIENT_ID,
       response_type: "code",
       redirect_uri: params.redirectUri,
-      scope: GOOGLE_OAUTH_SCOPES.join(" "),
+      scope: ANTIGRAVITY_SCOPES.join(" "),
       state: params.state || "",
       access_type: "offline",
       prompt: "consent",
@@ -49,8 +54,8 @@ export const geminiCliOAuthHandler: ProviderOAuthHandler = {
       },
       body: new URLSearchParams({
         grant_type: "authorization_code",
-        client_id: GOOGLE_OAUTH_CLIENT_ID,
-        client_secret: GOOGLE_OAUTH_CLIENT_SECRET,
+        client_id: ANTIGRAVITY_CLIENT_ID,
+        client_secret: ANTIGRAVITY_CLIENT_SECRET,
         code: params.code,
         redirect_uri: params.redirectUri,
       }),
@@ -70,13 +75,16 @@ export const geminiCliOAuthHandler: ProviderOAuthHandler = {
     let accountName = "Gemini CLI Google Account";
     try {
       const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: { Authorization: `Bearer ${accessToken}`, "x-request-source": "local" },
       });
       if (userRes.ok) {
         const userData: any = await userRes.json();
         if (userData.email) accountName = userData.email;
       }
     } catch {}
+
+    const { projectId, tierId } = await loadCodeAssist(accessToken);
+    if (projectId) onboardUser(accessToken, tierId);
 
     ProviderRepository.ensureProviderExists(pId);
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
@@ -88,6 +96,7 @@ export const geminiCliOAuthHandler: ProviderOAuthHandler = {
       accessToken,
       refreshToken,
       expiresAt,
+      projectId: projectId || undefined,
     });
 
     ProviderRepository.addAccount({
@@ -99,6 +108,8 @@ export const geminiCliOAuthHandler: ProviderOAuthHandler = {
         email: accountName,
         refreshToken,
         expiresAt,
+        projectId: projectId || undefined,
+        tierId: tierId || undefined,
       },
     });
 

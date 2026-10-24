@@ -20,6 +20,10 @@ export class ProviderRegistry {
     ["ollama-cloud", "ollama"],
     ["oc", "opencode"],
     ["cloudflare-ai", "cloudflare"],
+    ["devin-cli", "devin"],
+    ["devin-desktop", "devin"],
+    ["devin-cli-agentic", "devin"],
+    ["dvd", "devin"],
   ]);
 
   public static initializeBuiltins(): void {

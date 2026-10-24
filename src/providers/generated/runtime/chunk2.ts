@@ -19,9 +19,7 @@ import Prov_databricks from "../../catalog/databricks/provider.js";
 import Prov_deepgram from "../../catalog/deepgram/provider.js";
 import Prov_deepinfra from "../../catalog/deepinfra/provider.js";
 import Prov_deepseek from "../../runtime/deepseek/provider.js";
-import Prov_devin_cli from "../../catalog/devin-cli/provider.js";
-import Prov_devin_cli_agentic from "../../catalog/devin-cli-agentic/provider.js";
-import Prov_devin_desktop from "../../catalog/devin-desktop/provider.js";
+import Prov_devin from "../../runtime/devin/provider.js";
 import Prov_doubao from "../../catalog/doubao/provider.js";
 import Prov_edge_tts from "../../catalog/edge-tts/provider.js";
 import Prov_elevenlabs from "../../catalog/elevenlabs/provider.js";
@@ -40,6 +38,8 @@ import Prov_gitlab from "../../catalog/gitlab/provider.js";
 import Prov_glm from "../../runtime/glm/provider.js";
 import Prov_glm_cn from "../../catalog/glm-cn/provider.js";
 import Prov_google_pse from "../../catalog/google-pse/provider.js";
+import Prov_google_tts from "../../catalog/google-tts/provider.js";
+import Prov_grok from "../../runtime/grok/provider.js";
 
 export function registerRuntimeChunk2(registry: { register(p: any): void }): void {
   registry.register(new Prov_clova_studio());
@@ -61,9 +61,7 @@ export function registerRuntimeChunk2(registry: { register(p: any): void }): voi
   registry.register(new Prov_deepgram());
   registry.register(new Prov_deepinfra());
   registry.register(new Prov_deepseek());
-  registry.register(new Prov_devin_cli());
-  registry.register(new Prov_devin_cli_agentic());
-  registry.register(new Prov_devin_desktop());
+  registry.register(new Prov_devin());
   registry.register(new Prov_doubao());
   registry.register(new Prov_edge_tts());
   registry.register(new Prov_elevenlabs());
@@ -82,4 +80,6 @@ export function registerRuntimeChunk2(registry: { register(p: any): void }): voi
   registry.register(new Prov_glm());
   registry.register(new Prov_glm_cn());
   registry.register(new Prov_google_pse());
+  registry.register(new Prov_google_tts());
+  registry.register(new Prov_grok());
 }

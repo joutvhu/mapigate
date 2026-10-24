@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
-async function checkBinaryInstalled(binary?: string): Promise<boolean> {
+export async function checkBinaryInstalled(binary?: string): Promise<boolean> {
   if (!binary) return false;
   try {
     const isWindows = process.platform === "win32";
