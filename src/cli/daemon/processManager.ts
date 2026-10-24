@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { PidFileManager } from "./pidFile.js";
 import { PortHelper } from "./portHelper.js";
-import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, getDefaultDataDir, MAPIGATE_LOG_FILE } from "../../shared/constants/index.js";
+import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, getDefaultDataDir, MAPIGATE_LOG_FILE, isTestEnvironment } from "../../shared/constants/index.js";
 import { removeAllDNSEntriesSync } from "../../mitm/dns/dnsConfig.js";
 
 import { fileURLToPath } from "node:url";
@@ -125,7 +125,7 @@ export class ProcessManager {
     }
 
     child.unref();
-    PidFileManager.writePid(child.pid);
+    PidFileManager.writePid(child.pid, port);
 
     const isReady = await this.waitForReady(port);
     if (isReady) {
@@ -144,12 +144,15 @@ export class ProcessManager {
 
   public static async stopDaemon(port: number = DEFAULT_PORT): Promise<{ success: boolean; message: string }> {
     const isTest =
+      isTestEnvironment() ||
       process.env.NODE_ENV === "test" ||
       Boolean(process.env.NODE_TEST_CONTEXT) ||
       Boolean(process.env.MAPIGATE_DATA_DIR?.includes("mpg-daemon-test-")) ||
       Boolean(process.env.MAPIGATE_DATA_DIR?.includes("mapigate-test"));
 
     const ensureDnsCleanup = () => {
+      // In test mode, never modify the live system hosts file or trigger elevation
+      if (isTest) return;
       try {
         removeAllDNSEntriesSync();
       } catch {
@@ -158,8 +161,16 @@ export class ProcessManager {
     };
 
     const pid = PidFileManager.readPid();
+    const pidPort = PidFileManager.readPort();
     const isRunning = pid ? PidFileManager.isProcessRunning(pid) : false;
     const isListening = await this.isServerListening(port);
+
+    // Verify whether pid actually belongs to the requested port
+    const isPidOnTargetPort = pid
+      ? (pidPort !== null
+          ? (pidPort === port || PortHelper.getAllPidsOnPort(port).includes(pid))
+          : (port === DEFAULT_PORT || !isListening))
+      : false;
 
     // 1. Attempt graceful HTTP shutdown if server is listening on port
     if (!isTest && isListening) {
@@ -181,7 +192,9 @@ export class ProcessManager {
 
         const released = await PortHelper.waitForPortRelease(port, 2000);
         if (released) {
-          PidFileManager.removePid();
+          if (isPidOnTargetPort) {
+            PidFileManager.removePid();
+          }
           ensureDnsCleanup();
           return {
             success: true,
@@ -193,8 +206,8 @@ export class ProcessManager {
       }
     }
 
-    // 2. Direct process termination fallback
-    if (pid && isRunning) {
+    // 2. Direct process termination fallback - ONLY if pid belongs to the targeted port
+    if (pid && isRunning && isPidOnTargetPort) {
       try {
         PortHelper.killProcess(pid);
         PidFileManager.removePid();
@@ -213,8 +226,8 @@ export class ProcessManager {
       }
     }
 
-    // If PID file was pointing to a non-existent / stale process
-    if (pid && !isRunning) {
+    // If PID file was pointing to a non-existent / stale process on this port
+    if (pid && !isRunning && isPidOnTargetPort) {
       PidFileManager.removePid();
       const orphanPids = PortHelper.cleanPort(port);
       ensureDnsCleanup();
@@ -227,7 +240,8 @@ export class ProcessManager {
       return { success: true, message: `Cleaned up stale PID ${pid}. ${APP_NAME} was already stopped.` };
     }
 
-    // PID file is missing (pid === null)
+    // If pid belongs to a different port, do NOT kill it or remove its PID file!
+    // Clean any orphan processes specifically listening on the requested port
     const orphanPids = PortHelper.cleanPort(port);
     if (orphanPids.length > 0) {
       ensureDnsCleanup();

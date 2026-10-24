@@ -1,9 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getDefaultDataDir, MAPIGATE_PID_FILE } from "../../shared/constants/index.js";
+import os from "node:os";
+import { getDefaultDataDir, MAPIGATE_PID_FILE, isTestEnvironment } from "../../shared/constants/index.js";
 
 export class PidFileManager {
   private static getPidFilePath(): string {
+    // Automatic isolation guard: ensure tests use ./.mapigate in workspace, never ~/.mapigate
+    if (!process.env.MAPIGATE_DATA_DIR && isTestEnvironment()) {
+      const workspaceDataDir = path.resolve(process.cwd(), ".mapigate");
+      if (!fs.existsSync(workspaceDataDir)) {
+        fs.mkdirSync(workspaceDataDir, { recursive: true });
+      }
+      process.env.MAPIGATE_DATA_DIR = workspaceDataDir;
+    }
     const dir = getDefaultDataDir();
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });

@@ -212,3 +212,41 @@ test("ProcessManager - stopDaemon cleans stale PID and orphan process on port", 
     } catch {}
   }
 });
+
+test("ProcessManager - stopDaemon does not kill PID registered to a different port", async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mpg-daemon-test-"));
+  const origEnv = process.env.MAPIGATE_DATA_DIR;
+  process.env.MAPIGATE_DATA_DIR = tmpDir;
+
+  const origGetAllPids = PortHelper.getAllPidsOnPort;
+  const origKillProcess = PortHelper.killProcess;
+  const killedPids: number[] = [];
+
+  try {
+    // Write PID 12345 registered to port 20127
+    PidFileManager.writePid(12345, 20127);
+    assert.equal(PidFileManager.readPid(), 12345);
+    assert.equal(PidFileManager.readPort(), 20127);
+
+    // Mock killProcess and getAllPidsOnPort
+    PortHelper.getAllPidsOnPort = (_port: number) => [];
+    PortHelper.killProcess = (pid: number) => {
+      killedPids.push(pid);
+      return true;
+    };
+
+    // Attempting to stop port 59999 must NOT kill PID 12345 on 20127
+    const res = await ProcessManager.stopDaemon(59999);
+    assert.equal(res.success, false);
+    assert.deepEqual(killedPids, [], "Must not kill PID running on a different port");
+    assert.equal(PidFileManager.readPid(), 12345, "PID file must be preserved");
+  } finally {
+    PortHelper.getAllPidsOnPort = origGetAllPids;
+    PortHelper.killProcess = origKillProcess;
+    if (origEnv !== undefined) process.env.MAPIGATE_DATA_DIR = origEnv;
+    else delete process.env.MAPIGATE_DATA_DIR;
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {}
+  }
+});

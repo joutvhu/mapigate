@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { DatabaseSync } from "node:sqlite";
-import { getDefaultDataDir, MAPIGATE_DB_FILE } from "../shared/constants/index.js";
+import { getDefaultDataDir, MAPIGATE_DB_FILE, isTestEnvironment } from "../shared/constants/index.js";
 
 export interface DatabaseDriver {
   exec(sql: string): void;
@@ -71,6 +72,15 @@ let dbInstance: DatabaseDriver | null = null;
 export function getDatabase(): DatabaseDriver {
   if (dbInstance) {
     return dbInstance;
+  }
+
+  // Automatic isolation guard: ensure tests use ./.mapigate in workspace, never ~/.mapigate
+  if (!process.env.MAPIGATE_DATA_DIR && isTestEnvironment()) {
+    const workspaceDataDir = path.resolve(process.cwd(), ".mapigate");
+    if (!fs.existsSync(workspaceDataDir)) {
+      fs.mkdirSync(workspaceDataDir, { recursive: true });
+    }
+    process.env.MAPIGATE_DATA_DIR = workspaceDataDir;
   }
 
   const dataDir = getDefaultDataDir();
