@@ -4,10 +4,7 @@ import Prov_p_360ai from "../../catalog/360ai/provider.js";
 import Prov_agnes from "../../catalog/agnes/provider.js";
 import Prov_ai21 from "../../catalog/ai21/provider.js";
 import Prov_aimlapi from "../../catalog/aimlapi/provider.js";
-import Prov_alicode from "../../catalog/alicode/provider.js";
-import Prov_alicode_intl from "../../catalog/alicode-intl/provider.js";
-import Prov_alims_intl from "../../catalog/alims-intl/provider.js";
-import Prov_alitp_intl from "../../catalog/alitp-intl/provider.js";
+import Prov_alicode from "../../runtime/alicode/provider.js";
 import Prov_amazon_q from "../../catalog/amazon-q/provider.js";
 import Prov_ant_ling from "../../catalog/ant-ling/provider.js";
 import Prov_anthropic from "../../catalog/anthropic/provider.js";
@@ -40,6 +37,9 @@ import Prov_claude from "../../runtime/claude/provider.js";
 import Prov_cline from "../../runtime/cline/provider.js";
 import Prov_clinepass from "../../catalog/clinepass/provider.js";
 import Prov_cloudflare from "../../runtime/cloudflare/provider.js";
+import Prov_clova_studio from "../../catalog/clova-studio/provider.js";
+import Prov_codebuddy_cn from "../../runtime/codebuddy-cn/provider.js";
+import Prov_codebuddy_intl from "../../catalog/codebuddy-intl/provider.js";
 
 export function registerRuntimeChunk1(registry: { register(p: any): void }): void {
   registry.register(new Prov_p_360ai());
@@ -47,9 +47,6 @@ export function registerRuntimeChunk1(registry: { register(p: any): void }): voi
   registry.register(new Prov_ai21());
   registry.register(new Prov_aimlapi());
   registry.register(new Prov_alicode());
-  registry.register(new Prov_alicode_intl());
-  registry.register(new Prov_alims_intl());
-  registry.register(new Prov_alitp_intl());
   registry.register(new Prov_amazon_q());
   registry.register(new Prov_ant_ling());
   registry.register(new Prov_anthropic());
@@ -82,4 +79,7 @@ export function registerRuntimeChunk1(registry: { register(p: any): void }): voi
   registry.register(new Prov_cline());
   registry.register(new Prov_clinepass());
   registry.register(new Prov_cloudflare());
+  registry.register(new Prov_clova_studio());
+  registry.register(new Prov_codebuddy_cn());
+  registry.register(new Prov_codebuddy_intl());
 }

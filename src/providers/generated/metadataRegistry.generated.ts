@@ -6,7 +6,6 @@ import { metadataChunk2 } from "./chunks/chunk2.js";
 import { metadataChunk3 } from "./chunks/chunk3.js";
 import { metadataChunk4 } from "./chunks/chunk4.js";
 import { metadataChunk5 } from "./chunks/chunk5.js";
-import { metadataChunk6 } from "./chunks/chunk6.js";
 
 export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
   ...metadataChunk1,
@@ -14,5 +13,4 @@ export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = {
   ...metadataChunk3,
   ...metadataChunk4,
   ...metadataChunk5,
-  ...metadataChunk6,
 };

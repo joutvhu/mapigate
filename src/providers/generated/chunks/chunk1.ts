@@ -5,10 +5,7 @@ import { metadata as p_360ai } from "../../catalog/360ai/metadata.js";
 import { metadata as agnes } from "../../catalog/agnes/metadata.js";
 import { metadata as ai21 } from "../../catalog/ai21/metadata.js";
 import { metadata as aimlapi } from "../../catalog/aimlapi/metadata.js";
-import { metadata as alicode } from "../../catalog/alicode/metadata.js";
-import { metadata as alicode_intl } from "../../catalog/alicode-intl/metadata.js";
-import { metadata as alims_intl } from "../../catalog/alims-intl/metadata.js";
-import { metadata as alitp_intl } from "../../catalog/alitp-intl/metadata.js";
+import { metadata as alicode } from "../../runtime/alicode/metadata.js";
 import { metadata as amazon_q } from "../../catalog/amazon-q/metadata.js";
 import { metadata as ant_ling } from "../../catalog/ant-ling/metadata.js";
 import { metadata as anthropic } from "../../catalog/anthropic/metadata.js";
@@ -41,6 +38,9 @@ import { metadata as claude } from "../../runtime/claude/metadata.js";
 import { metadata as cline } from "../../runtime/cline/metadata.js";
 import { metadata as clinepass } from "../../catalog/clinepass/metadata.js";
 import { metadata as cloudflare } from "../../runtime/cloudflare/metadata.js";
+import { metadata as clova_studio } from "../../catalog/clova-studio/metadata.js";
+import { metadata as codebuddy_cn } from "../../runtime/codebuddy-cn/metadata.js";
+import { metadata as codebuddy_intl } from "../../catalog/codebuddy-intl/metadata.js";
 
 export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "360ai": p_360ai,
@@ -48,9 +48,6 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "ai21": ai21,
   "aimlapi": aimlapi,
   "alicode": alicode,
-  "alicode-intl": alicode_intl,
-  "alims-intl": alims_intl,
-  "alitp-intl": alitp_intl,
   "amazon-q": amazon_q,
   "ant-ling": ant_ling,
   "anthropic": anthropic,
@@ -83,4 +80,7 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "cline": cline,
   "clinepass": clinepass,
   "cloudflare": cloudflare,
+  "clova-studio": clova_studio,
+  "codebuddy-cn": codebuddy_cn,
+  "codebuddy-intl": codebuddy_intl,
 };

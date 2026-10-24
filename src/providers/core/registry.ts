@@ -24,6 +24,12 @@ export class ProviderRegistry {
     ["devin-desktop", "devin"],
     ["devin-cli-agentic", "devin"],
     ["dvd", "devin"],
+    ["alibaba", "alicode"],
+    ["alicode-intl", "alicode"],
+    ["alims-intl", "alicode"],
+    ["alitp-intl", "alicode"],
+    ["dashscope", "alicode"],
+    ["qwen", "alicode"],
   ]);
 
   public static initializeBuiltins(): void {

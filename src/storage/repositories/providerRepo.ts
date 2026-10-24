@@ -2,6 +2,7 @@ import { getDatabase } from "../database.js";
 import { CryptoVault } from "../crypto/vault.js";
 import type { ProviderConfig, ProviderAccount } from "../../shared/types/index.js";
 import { getRegistryProvider, type RegistryModel } from "../../shared/constants/providerRegistry.js";
+import type { ProviderRegion } from "../../providers/core/types.js";
 
 export class ProviderRepository {
   public static getAllProviders(): ProviderConfig[] {
@@ -52,6 +53,9 @@ export class ProviderRepository {
     catalogModels: RegistryModel[];
     thinkingOptions: string[];
     noAuth?: boolean;
+    regions?: ProviderRegion[];
+    defaultRegion?: string;
+    hasProviderSpecificData?: boolean;
   }) | undefined {
     const reg = getRegistryProvider(id);
     const dbConfig = this.getProviderById(id) || (reg ? this.getProviderById(reg.id) : undefined);
@@ -93,6 +97,9 @@ export class ProviderRepository {
       defaultHeaders: reg?.defaultHeaders || {},
       catalogModels: reg?.models || [],
       thinkingOptions: reg?.thinkingOptions || ["auto", "none", "low", "medium", "high"],
+      regions: reg?.regions,
+      defaultRegion: reg?.defaultRegion,
+      hasProviderSpecificData: reg?.hasProviderSpecificData,
     };
   }
 
