@@ -9,6 +9,7 @@ import {
 } from "./schemaSanitizer.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { checkBinaryInstalled } from "../../core/base/baseProvider.js";
 import { metadata } from "./metadata.js";
 
 export class CodexProvider extends OpenAiCompatibleProvider {
@@ -47,6 +48,23 @@ export class CodexProvider extends OpenAiCompatibleProvider {
         token = parsed.accessToken || parsed.access_token || parsed.token || parsed.apiKey || token;
         chatgptAccountId = chatgptAccountId || parsed.chatgptAccountId || parsed.accountId;
       } catch {}
+    }
+
+    const rawBase = (context.baseUrl || psd.baseUrl || "").trim();
+    if (rawBase.startsWith("codex-app-server://") || (!token && rawBase.endsWith("/websocket"))) {
+      const isInstalled = await checkBinaryInstalled("codex");
+      if (isInstalled) {
+        return {
+          success: true,
+          endpointUrl: rawBase,
+          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+          count: metadata.models.length,
+        };
+      }
+      return {
+        success: false,
+        error: `Codex App-Server CLI binary "codex" not found locally. Please install Codex CLI or connect via ChatGPT OAuth.`,
+      };
     }
 
     const timeoutMs = context.timeoutMs || 6000;

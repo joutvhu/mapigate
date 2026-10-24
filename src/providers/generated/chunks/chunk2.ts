@@ -2,7 +2,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 
 import { metadata as codex } from "../../runtime/codex/metadata.js";
-import { metadata as codex_app_server } from "../../catalog/codex-app-server/metadata.js";
 import { metadata as cohere } from "../../catalog/cohere/metadata.js";
 import { metadata as combo } from "../../composite/combo/metadata.js";
 import { metadata as comfyui } from "../../catalog/comfyui/metadata.js";
@@ -41,10 +40,10 @@ import { metadata as grok_cli } from "../../runtime/grok-cli/metadata.js";
 import { metadata as groq } from "../../catalog/groq/metadata.js";
 import { metadata as huggingface } from "../../catalog/huggingface/metadata.js";
 import { metadata as hyperbolic } from "../../catalog/hyperbolic/metadata.js";
+import { metadata as iflow } from "../../catalog/iflow/metadata.js";
 
 export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "codex": codex,
-  "codex-app-server": codex_app_server,
   "cohere": cohere,
   "combo": combo,
   "comfyui": comfyui,
@@ -83,4 +82,5 @@ export const metadataChunk2: Record<string, ProviderRegistryItem> = {
   "groq": groq,
   "huggingface": huggingface,
   "hyperbolic": hyperbolic,
+  "iflow": iflow,
 };

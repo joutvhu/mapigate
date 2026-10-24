@@ -43,6 +43,8 @@ export class ProviderRegistry {
     ["alitp-intl", "alicode"],
     ["dashscope", "alicode"],
     ["qwen", "alicode"],
+    ["codex-app-server", "codex"],
+    ["cxa", "codex"],
   ]);
 
   public static initializeBuiltins(): void {

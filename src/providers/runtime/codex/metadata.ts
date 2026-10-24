@@ -11,20 +11,26 @@ export const metadata: ProviderRegistryItem = {
   "id": "codex",
   "name": "OpenAI Codex",
   "alias": "cx",
+  "aliases": [
+    "codex-app-server",
+    "cxa"
+  ],
   "uiAlias": "cx",
   "color": "#3B82F6",
   "iconBg": "#000000",
   "image": "/assets/providers/codex/icon.png",
   "website": "https://chatgpt.com/codex",
   "notice": {
-    "signupUrl": "https://chatgpt.com/codex"
+    "signupUrl": "https://chatgpt.com/codex",
+    "text": "OpenAI Codex subscription gateway. Connect via ChatGPT OAuth or local Codex App-Server WebSocket."
   },
   "deprecated": true,
   "deprecationNotice": "⚠️ Risk Notice: This provider uses a subscription/OAuth session not officially licensed for proxy/router use. Account may be restricted or banned. Use at your own risk.",
   "category": "oauth",
   "baseUrl": "https://chatgpt.com/backend-api/codex/responses",
   "baseUrls": [
-    "https://chatgpt.com/backend-api/codex/responses"
+    "https://chatgpt.com/backend-api/codex/responses",
+    "codex-app-server://cli/websocket"
   ],
   "validateUrl": "",
   "format": "openai-responses",
