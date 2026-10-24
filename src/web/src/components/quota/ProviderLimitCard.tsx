@@ -171,6 +171,7 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
                 resetInText={q.resetInText}
                 unlimited={q.unlimited}
                 recurring={q.recurring}
+                providerId={account.providerId}
               />
             ))}
           </div>

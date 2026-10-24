@@ -456,7 +456,7 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
 
       {/* Grid of Quota Cards */}
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(400px,1fr))] gap-4 w-full">
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
@@ -501,7 +501,7 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
                   <span>Accounts With Quota ({accountsWithData.length})</span>
                 </div>
               )}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(400px,1fr))] gap-4 w-full">
                 {accountsWithData.map((account) => (
                   <ProviderLimitCard
                     key={account.accountId}
@@ -539,7 +539,7 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
                   No active quota or unsupported metrics
                 </span>
               </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4 w-full">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(400px,1fr))] gap-4 w-full">
                 {accountsWithoutData.map((account) => (
                   <ProviderLimitCard
                     key={account.accountId}

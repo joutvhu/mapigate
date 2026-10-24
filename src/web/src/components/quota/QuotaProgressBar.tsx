@@ -8,32 +8,63 @@ export interface QuotaProgressBarProps {
   resetInText?: string;
   unlimited?: boolean;
   recurring?: boolean;
+  providerId?: string;
 }
 
-function formatUsageAmount(used: number, total: number, label: string): string {
-  const isToken = label.toLowerCase().includes("token");
-  if (total >= 1_000_000_000) {
-    const totalStr = `${(total / 1_000_000_000).toFixed(1)}B`;
-    const usedStr =
-      used >= 1_000_000_000
-        ? `${(used / 1_000_000_000).toFixed(2)}B`
-        : used >= 1_000_000
-        ? `${(used / 1_000_000).toFixed(1)}M`
-        : used.toLocaleString();
-    return `${usedStr} / ${totalStr} tokens`;
+function formatUsageAmount(
+  used: number,
+  total: number,
+  label: string,
+  providerId?: string
+): string {
+  const lowerLabel = label.toLowerCase();
+  const isKiro = providerId?.toLowerCase() === "kiro";
+  const isToken = lowerLabel.includes("token");
+  const isCredit = lowerLabel.includes("credit") || (isKiro && !lowerLabel.includes("request"));
+
+  if (isToken) {
+    if (total >= 1_000_000_000) {
+      const totalStr = `${(total / 1_000_000_000).toFixed(1)}B`;
+      const usedStr =
+        used >= 1_000_000_000
+          ? `${(used / 1_000_000_000).toFixed(2)}B`
+          : used >= 1_000_000
+          ? `${(used / 1_000_000).toFixed(1)}M`
+          : used.toLocaleString();
+      return `${usedStr} / ${totalStr} tokens`;
+    }
+    if (total >= 1_000_000) {
+      const totalStr = `${(total / 1_000_000).toFixed(0)}M`;
+      const usedStr =
+        used >= 1_000_000
+          ? `${(used / 1_000_000).toFixed(2)}M`
+          : used.toLocaleString();
+      return `${usedStr} / ${totalStr} tokens`;
+    }
+    if (total > 0) {
+      return `${used.toLocaleString()} / ${total.toLocaleString()} tokens`;
+    }
+    return `${used.toLocaleString()} tokens`;
   }
-  if (total >= 1_000_000) {
-    const totalStr = `${(total / 1_000_000).toFixed(0)}M`;
-    const usedStr =
-      used >= 1_000_000
-        ? `${(used / 1_000_000).toFixed(2)}M`
-        : used.toLocaleString();
-    return `${usedStr} / ${totalStr} tokens`;
+
+  if (isCredit) {
+    const unit = total === 1 ? "credit" : "credits";
+    if (total > 0) {
+      return `${used.toLocaleString()} / ${total.toLocaleString()} ${unit}`;
+    }
+    return `${used.toLocaleString()} ${unit}`;
   }
-  if (total <= 100) {
+
+  // Pure percentage-based quota (e.g. Codex Session 0-100%, DeepSeek Balance 0-100%)
+  if (total === 100 && !lowerLabel.includes("req")) {
     return `${used}% used`;
   }
-  return `${used.toLocaleString()} / ${total.toLocaleString()} ${isToken ? "tokens" : "reqs"}`;
+
+  if (total > 0) {
+    return `${used.toLocaleString()} / ${total.toLocaleString()} reqs`;
+  }
+
+  return `${used.toLocaleString()} reqs`;
 }
 
 export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
@@ -44,6 +75,7 @@ export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
   resetInText = "-",
   unlimited = false,
   recurring = true,
+  providerId,
 }) => {
   const getColorClasses = (pct: number) => {
     if (pct >= 50) {
@@ -101,7 +133,7 @@ export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({
       {/* Usage details and countdown */}
       <div className="flex items-center justify-between text-[11px] text-slate-400">
         <span>
-          {unlimited ? "Unlimited" : formatUsageAmount(used, total, label)}
+          {unlimited ? "Unlimited" : formatUsageAmount(used, total, label, providerId)}
         </span>
         {resetInText && resetInText !== "-" && (
           <div className="flex items-center gap-1 font-mono text-[10px] text-slate-400">
