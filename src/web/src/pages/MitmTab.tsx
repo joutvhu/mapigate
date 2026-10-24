@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput.js";
 
@@ -114,7 +114,12 @@ export const MitmTab: React.FC = () => {
     copilot: false,
     cursor: false,
   });
-  const [expandedTool, setExpandedTool] = useState<MitmToolId | null>("kiro");
+  const [expandedTool, setExpandedTool] = useState<MitmToolId | null>(null);
+
+  const sortedMitmTools = useMemo(
+    () => [...MITM_TOOLS].sort((a, b) => a.name.localeCompare(b.name)),
+    []
+  );
 
   // Per-tool Hosts State
   const [hostsByTool, setHostsByTool] = useState<Record<string, string>>({
@@ -791,9 +796,9 @@ export const MitmTab: React.FC = () => {
         )}
       </div>
 
-      {/* INDEPENDENT TOOL ACCORDIONS (Antigravity, Kiro, GitHub Copilot, Cursor) */}
+      {/* INDEPENDENT TOOL ACCORDIONS (Antigravity, Cursor, GitHub Copilot, Kiro - sorted alphabetically) */}
       <div className="space-y-4">
-        {MITM_TOOLS.map((tool) => {
+        {sortedMitmTools.map((tool) => {
           const isExpanded = expandedTool === tool.id;
           const isDnsOn = Boolean(dnsStatus[tool.id]);
           const isEditingHosts = Boolean(editingHostsByTool[tool.id]);
