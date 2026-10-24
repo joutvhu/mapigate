@@ -55,6 +55,9 @@ export async function pollCopilotToken(params: DevicePollParams): Promise<Device
 
   const data: any = await response.json().catch(() => ({}));
   if (data.error) {
+    if (data.error === "authorization_pending" || data.error === "slow_down") {
+      return { ok: false, error: data.error };
+    }
     return { ok: false, error: data.error, error_description: data.error_description };
   }
 

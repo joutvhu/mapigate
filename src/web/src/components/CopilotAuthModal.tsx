@@ -34,9 +34,17 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
 
   const pollIntervalRef = useRef<any>(null);
 
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearTimeout(pollIntervalRef.current);
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      stopPolling();
       setDeviceData(null);
       setStatus("idle");
       return;
@@ -47,12 +55,12 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
     }
 
     return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      stopPolling();
     };
   }, [isOpen, tab]);
 
   const startDeviceFlow = async () => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    stopPolling();
     setLoadingCode(true);
     setErrorMessage(null);
     setStatus("idle");
@@ -67,31 +75,56 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
       setDeviceData(data);
       setStatus("polling");
 
-      const intervalSec = Math.max(data.interval || 5, 5);
-      pollIntervalRef.current = setInterval(async () => {
-        try {
-          const pollRes = await fetch("/api/oauth/github/poll", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ device_code: data.device_code }),
-          });
-          const pollJson = await pollRes.json();
-          if (pollJson.ok) {
-            clearInterval(pollIntervalRef.current);
-            setStatus("success");
-            setTimeout(() => {
-              onSuccess();
-              onClose();
-            }, 1200);
-          } else if (pollJson.error && pollJson.error !== "authorization_pending") {
-            clearInterval(pollIntervalRef.current);
+      let intervalSec = Math.max(data.interval || 5, 5);
+      let isPollingActive = true;
+
+      const schedulePoll = (delaySec: number) => {
+        if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+        pollIntervalRef.current = setTimeout(async () => {
+          if (!isPollingActive) return;
+          try {
+            const pollRes = await fetch("/api/oauth/github/poll", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ device_code: data.device_code }),
+            });
+            const pollJson = await pollRes.json();
+            if (pollJson.ok) {
+              isPollingActive = false;
+              setStatus("success");
+              setTimeout(() => {
+                onSuccess();
+                onClose();
+              }, 1200);
+              return;
+            }
+
+            if (pollJson.error === "slow_down") {
+              // RFC 8628 §3.5: Must add 5 seconds to interval and continue polling
+              intervalSec = Math.min(intervalSec + 5, 30);
+              schedulePoll(intervalSec);
+              return;
+            }
+
+            if (pollJson.error === "authorization_pending") {
+              schedulePoll(intervalSec);
+              return;
+            }
+
+            // Fatal error (expired_token, access_denied, etc.)
+            isPollingActive = false;
             setStatus("error");
             setErrorMessage(pollJson.error_description || pollJson.error);
+          } catch {
+            // Transient network error, retry next cycle
+            if (isPollingActive) {
+              schedulePoll(intervalSec);
+            }
           }
-        } catch {
-          // Retry on next cycle
-        }
-      }, intervalSec * 1000);
+        }, delaySec * 1000);
+      };
+
+      schedulePoll(intervalSec);
     } catch (err: any) {
       setStatus("error");
       setErrorMessage(err.message || "Failed to request device code");

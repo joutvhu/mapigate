@@ -59,6 +59,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 
   const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
+      clearTimeout(pollIntervalRef.current as any);
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
@@ -152,28 +153,63 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           } catch {}
         }
 
-        const intervalSec = Number(dData.interval) || 5;
-        pollIntervalRef.current = setInterval(async () => {
-          try {
-            const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                device_code: dData.device_code,
-                extraData: { _zcodePollToken: dData._zcodePollToken },
-              }),
-            });
-            const pollData = await pollRes.json();
-            if (pollData.ok && pollData.success) {
-              stopPolling();
-              setStatus("success");
-              setTimeout(() => {
-                onSuccess();
-                onClose();
-              }, 1200);
+        let intervalSec = Number(dData.interval) || 5;
+        let isPollingActive = true;
+
+        const schedulePoll = (delaySec: number) => {
+          if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current as any);
+          pollIntervalRef.current = setTimeout(async () => {
+            if (!isPollingActive) return;
+            try {
+              const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  device_code: dData.device_code,
+                  extraData: { _zcodePollToken: dData._zcodePollToken },
+                }),
+              });
+              const pollData = await pollRes.json();
+              if (pollData.ok && pollData.success) {
+                isPollingActive = false;
+                stopPolling();
+                setStatus("success");
+                setTimeout(() => {
+                  onSuccess();
+                  onClose();
+                }, 1200);
+                return;
+              }
+
+              if (pollData.error === "slow_down") {
+                intervalSec = Math.min(intervalSec + 5, 30);
+                schedulePoll(intervalSec);
+                return;
+              }
+
+              if (pollData.error === "authorization_pending") {
+                schedulePoll(intervalSec);
+                return;
+              }
+
+              if (pollData.error) {
+                isPollingActive = false;
+                stopPolling();
+                setStatus("error");
+                setErrorMessage(pollData.error_description || pollData.error);
+                return;
+              }
+
+              schedulePoll(intervalSec);
+            } catch {
+              if (isPollingActive) {
+                schedulePoll(intervalSec);
+              }
             }
-          } catch {}
-        }, intervalSec * 1000);
+          }, delaySec * 1000) as any;
+        };
+
+        schedulePoll(intervalSec);
         return;
       }
 
