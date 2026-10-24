@@ -27,9 +27,8 @@ const P1_PROVIDERS = [
   "auggie",
   "zcode",
   "amazon-q",
-  "codex-app-server",
-  "devin-desktop",
-  "devin-cli-agentic",
+  "codex",
+  "devin",
   "watsonx",
   "databricks",
 ];
