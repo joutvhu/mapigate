@@ -19,6 +19,7 @@ test("New Free Tier Providers - IteraCompute metadata and registry verification"
   const runtimeInstance = ProviderRegistry.get("iteracompute");
   assert.ok(runtimeInstance, "ProviderRegistry must resolve iteracompute instance");
   assert.equal(runtimeInstance.id, "iteracompute");
+  assert.equal(runtimeInstance.supportsQuota(), true, "IteraCompute must support quota tracking");
 });
 
 test("New Free Tier Providers - Onomeo metadata and registry verification", () => {
