@@ -36,6 +36,7 @@ test("New Free Tier Providers - Onomeo metadata and registry verification", () =
   const runtimeInstance = ProviderRegistry.get("onomeo");
   assert.ok(runtimeInstance, "ProviderRegistry must resolve onomeo instance");
   assert.equal(runtimeInstance.id, "onomeo");
+  assert.equal(runtimeInstance.supportsQuota(), true, "Onomeo must support quota tracking");
 });
 
 test("New Free Tier Providers - Sail Research metadata and registry verification", () => {
