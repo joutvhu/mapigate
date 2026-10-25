@@ -12,6 +12,7 @@ build/
 .env
 .env.local
 .mapigate/
+.mapigate-test/
 .mapigate-data/
 *.sqlite
 *.sqlite-wal

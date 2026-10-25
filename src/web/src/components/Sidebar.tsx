@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
                 </span>
               )}
             </h1>
-            <span className="text-[11px] text-slate-400">Local-first Gateway</span>
+            <span className="text-[11px] text-slate-400">AI Model API Gateway</span>
           </div>
         </div>
 

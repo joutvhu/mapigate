@@ -5,13 +5,13 @@ export function ensureTestEnvironment(): string {
   process.env.NODE_ENV = "test";
   process.env.MAPIGATE_TEST = "1";
 
-  // In test mode, write files to ./.mapigate in the workspace rather than ~/.mapigate
+  // In test mode, write files to ./.mapigate-test in the workspace rather than dev .mapigate or ~/.mapigate
   if (!process.env.MAPIGATE_DATA_DIR) {
-    const workspaceDataDir = path.resolve(process.cwd(), ".mapigate");
-    if (!fs.existsSync(workspaceDataDir)) {
-      fs.mkdirSync(workspaceDataDir, { recursive: true });
+    const testDataDir = path.resolve(process.cwd(), ".mapigate-test");
+    if (!fs.existsSync(testDataDir)) {
+      fs.mkdirSync(testDataDir, { recursive: true });
     }
-    process.env.MAPIGATE_DATA_DIR = workspaceDataDir;
+    process.env.MAPIGATE_DATA_DIR = testDataDir;
   }
 
   return process.env.MAPIGATE_DATA_DIR;

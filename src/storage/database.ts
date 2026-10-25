@@ -74,13 +74,13 @@ export function getDatabase(): DatabaseDriver {
     return dbInstance;
   }
 
-  // Automatic isolation guard: ensure tests use ./.mapigate in workspace, never ~/.mapigate
+  // Automatic isolation guard: ensure tests use ./.mapigate-test in workspace, never ~/.mapigate or dev ./.mapigate
   if (!process.env.MAPIGATE_DATA_DIR && isTestEnvironment()) {
-    const workspaceDataDir = path.resolve(process.cwd(), ".mapigate");
-    if (!fs.existsSync(workspaceDataDir)) {
-      fs.mkdirSync(workspaceDataDir, { recursive: true });
+    const testDataDir = path.resolve(process.cwd(), ".mapigate-test");
+    if (!fs.existsSync(testDataDir)) {
+      fs.mkdirSync(testDataDir, { recursive: true });
     }
-    process.env.MAPIGATE_DATA_DIR = workspaceDataDir;
+    process.env.MAPIGATE_DATA_DIR = testDataDir;
   }
 
   const dataDir = getDefaultDataDir();
