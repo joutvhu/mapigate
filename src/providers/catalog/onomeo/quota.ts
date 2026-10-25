@@ -88,7 +88,7 @@ export async function getOnomeoUsage(
       };
     }
 
-    const planName = balance > 0 ? "Onomeo (Paid / Big Models)" : "Onomeo (Free Tier)";
+    const planName = balance > 0 ? "Paid / Big Models" : "Free Tier";
 
     return {
       plan: planName,
