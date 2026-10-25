@@ -11,6 +11,7 @@ export const metadata: ProviderRegistryItem = {
   "uiAlias": "oc",
   "color": "#E87040",
   "image": "/assets/providers/opencode/icon.png",
+  "website": "https://opencode.ai",
   "category": "free",
   "authType": "none",
   "requiresApiKey": false,
