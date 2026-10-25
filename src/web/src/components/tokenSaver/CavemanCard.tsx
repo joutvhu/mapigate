@@ -136,7 +136,7 @@ export const CavemanCard: React.FC<CavemanCardProps> = ({
           <div className="p-3 rounded-xl bg-[#06101E] border border-amber-500/30 space-y-1.5">
             <div className="flex items-center gap-1.5 text-amber-300 font-semibold text-[11px]">
               <span className="material-symbols-outlined text-emerald-400 text-[14px]">check</span>
-              Caveman Compressed (~{currentLevelConfig.savingsEstimate.split(" ")[0]} Tokens)
+              Caveman Compressed ({currentLevelConfig.savingsEstimate.split(" ")[0]} Tokens)
             </div>
             <p className="text-slate-200 font-mono text-[11px] leading-relaxed">
               &quot;{currentLevelConfig.preview.compressed}&quot;
