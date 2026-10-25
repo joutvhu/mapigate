@@ -99,10 +99,7 @@ export default function App() {
           {currentTab === "combos" && <CombosTab />}
           {currentTab === "usage" && <UsageTab />}
           {currentTab === "quota" && (
-            <QuotaTab
-              searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
-            />
+            <QuotaTab searchQuery={searchQuery} />
           )}
           {currentTab === "tokensaver" && <TokenSaverTab />}
           {currentTab === "clitools" && <CliToolsTab />}

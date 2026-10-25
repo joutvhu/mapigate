@@ -15,16 +15,11 @@ const LOCAL_STORAGE_SORT_KEY = "mapigate_quota_sort_mode";
 
 export interface QuotaTabProps {
   searchQuery?: string;
-  onSearchQueryChange?: (query: string) => void;
 }
 
 export const QuotaTab: React.FC<QuotaTabProps> = ({
-  searchQuery: externalSearchQuery,
-  onSearchQueryChange: externalOnSearchQueryChange,
+  searchQuery = "",
 }) => {
-  const [internalSearchQuery, setInternalSearchQuery] = useState("");
-  const searchQuery = externalSearchQuery !== undefined ? externalSearchQuery : internalSearchQuery;
-  const onSearchQueryChange = externalOnSearchQueryChange || setInternalSearchQuery;
 
   // Initialize from localStorage for instantaneous 0ms display on entry
   const [accounts, setAccounts] = useState<AccountQuotaResult[]>(() => {
@@ -443,8 +438,6 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
         onSelectStatusFilter={setStatusFilter}
         sortMode={sortMode}
         onSelectSortMode={handleSelectSortMode}
-        searchQuery={searchQuery}
-        onSearchQueryChange={onSearchQueryChange}
         autoRefresh={autoRefresh}
         onToggleAutoRefresh={setAutoRefresh}
         countdownSeconds={countdown}
