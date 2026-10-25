@@ -154,6 +154,10 @@ These outputs congest the context window, drive up token billing, and degrade mo
 ### How RTK Solves It
 Mapigate's **RTK Token Saver** inspects incoming payloads and compresses tool outputs in-place:
 
+<p align="center">
+  <img src="docs/assets/dashboard-tokensaver.png" alt="Mapigate RTK Token Saver Dashboard" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+</p>
+
 ```mermaid
 flowchart TD
     PAYLOAD["Incoming Tool Output Payload<br/>(Git Diff, Terminal Logs, Grep)"] --> CHECK{"Contains Error Trace?<br/>(is_error: true, exit code != 0, stack trace)"}
@@ -185,6 +189,10 @@ flowchart TD
 ## 🔄 Feature 2: Smart Routing & Combo Engine
 
 The **Combo Engine** lets you bundle multiple models or accounts under a single virtual alias (e.g. `claude-sonnet-4-6` or `coding-combo`). 
+
+<p align="center">
+  <img src="docs/assets/dashboard-combos.png" alt="Mapigate Smart Combos and Routing Engine" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+</p>
 
 Mapigate supports **5 powerful coordination strategies**:
 
@@ -235,6 +243,10 @@ graph TD
 ## 🔌 Feature 3: One-Click Connection for 26+ Coding Assistants
 
 Forget manually hunting down hidden JSON configuration paths. Mapigate automatically discovers and configures your local tools:
+
+<p align="center">
+  <img src="docs/assets/dashboard-clitools.png" alt="Mapigate Coding Assistants CLI Tools Setup" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+</p>
 
 ```bash
 # Configure ALL installed coding tools on your machine in one command:
@@ -337,6 +349,10 @@ sequenceDiagram
 
 Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashboard served directly from port `20127`:
 
+<p align="center">
+  <img src="docs/assets/dashboard-providers.png" alt="Mapigate Web Dashboard Overview" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+</p>
+
 | Dashboard Tab | Actions & Capabilities |
 | :--- | :--- |
 | **Providers** | Add, edit, and test API keys; 1-click OAuth login (Google, GitHub Copilot...); auto-import keys from installed IDEs. |
@@ -405,4 +421,3 @@ End users do not need to worry about internal architecture. If you are a develop
 ## 📄 License
 
 This project is open-source software licensed under the [MIT License](LICENSE).  
-Authored with ❤️ by **Giao Ho** and contributors.
