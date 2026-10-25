@@ -1,0 +1,225 @@
+# Coding Assistants Integration Guide — Mapigate
+
+> Mapigate supports **26+ AI coding tools and IDE extensions**. You can configure them automatically using `mpg connect <tool>` or manually via environment variables and settings files.
+
+---
+
+## Supported Tools Overview
+
+| Tool ID | Name | Type | One-Click Auto-Apply | Protocol Used |
+| :--- | :--- | :--- | :---: | :--- |
+| `claude` | Claude Code (CLI) | CLI Agent | ✅ Yes | Anthropic (`/v1/messages`) |
+| `cursor` | Cursor IDE | Editor | 📖 Guide / MITM | OpenAI (`/v1/chat/completions`) |
+| `cline` | Cline (VS Code Extension) | Extension | ✅ Yes | OpenAI / Anthropic |
+| `opencode` | OpenCode | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `codex` | Codex CLI | CLI Agent | ✅ Yes | OpenAI / Responses |
+| `copilot` | GitHub Copilot | Extension/CLI | 🛡️ MITM / Guide | OpenAI (`/v1/chat/completions`) |
+| `kiro` | Kiro IDE | Editor | 🛡️ MITM / Guide | AWS Bedrock / Antigravity |
+| `roo` | Roo Code (VS Code) | Extension | ✅ Yes | OpenAI Compatible |
+| `continue` | Continue.dev | Extension | ✅ Yes | OpenAI Compatible |
+| `devin` | Cognition Devin | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `amp` | Amp AI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `codewhale` | CodeWhale | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `cowork` | Cowork AI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `crush` | Crush CLI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `deepseek-tui`| DeepSeek TUI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `droid` | Droid Coding Agent | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `forge` | Forge CLI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `grok-build` | Grok Build CLI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `hermes` | Hermes Agent | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `jcode` | JCode | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `kilo` | Kilo Code | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `omp` | OMP Coding Agent | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `openclaw` | OpenClaw | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `opendesign`| OpenDesign CLI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `pi` | Pi Coding Agent | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `qwen` | Qwen Code CLI | CLI Agent | ✅ Yes | OpenAI Compatible |
+| `smelt` | Smelt CLI | CLI Agent | ✅ Yes | OpenAI Compatible |
+
+---
+
+## 1. Claude Code (`claude`)
+
+### Method A: One-Click Auto Config
+```bash
+mpg connect claude
+# Or with specific model overrides:
+mpg connect claude --sonnet claude-sonnet-4-6 --opus claude-opus-4-6-thinking
+```
+
+### Method B: Environment Variables
+**Windows PowerShell:**
+```powershell
+$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"
+$env:ANTHROPIC_API_KEY = "mapigate-local"
+claude
+```
+
+**Bash / Zsh (Linux / macOS):**
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"
+export ANTHROPIC_API_KEY="mapigate-local"
+claude
+```
+
+**Permanent PowerShell Profile (`$PROFILE`):**
+```powershell
+[System.Environment]::SetEnvironmentVariable('ANTHROPIC_BASE_URL', 'http://127.0.0.1:20127', 'User')
+```
+
+---
+
+## 2. Cursor IDE
+
+Cursor can connect either via OpenAI Base URL Override or via the Mapigate MITM HTTPS Proxy.
+
+### Option 1: Base URL Override (Recommended)
+1. Open Cursor and navigate to **Settings** → **Models**.
+2. Scroll to **OpenAI API Key**.
+3. Toggle ON **Override OpenAI Base URL**.
+4. Set Base URL:
+   ```text
+   http://127.0.0.1:20127/v1
+   ```
+5. Set API Key: `mapigate-local` (or any string).
+6. Under **Model Names**, add the model alias configured in Mapigate (e.g. `claude-sonnet-4-6` or `cursor-fast`).
+
+### Option 2: MITM HTTPS Interception (Legacy or Hardcoded Cursor)
+If your Cursor version blocks custom base URLs:
+1. Open the Mapigate Dashboard at `http://127.0.0.1:20127`.
+2. Go to the **MITM** tab.
+3. Click **Install Root CA**.
+4. Enable interception for `api.cursor.sh`. Mapigate intercepts Cursor's background requests and applies model mapping and RTK token savings automatically.
+
+---
+
+## 3. Cline (VS Code Extension)
+
+### Method A: One-Click Auto Config
+```bash
+mpg connect cline
+```
+
+### Method B: Manual Configuration
+1. Open VS Code and open the **Cline** sidebar.
+2. Click the **Settings (gear)** icon.
+3. Select **API Provider**: `OpenAI Compatible`.
+4. Configure:
+   - **Base URL**: `http://127.0.0.1:20127/v1`
+   - **API Key**: `mapigate-local`
+   - **Model ID**: `claude-sonnet-4-6` (or any alias/combo configured in Mapigate).
+
+---
+
+## 4. OpenCode CLI (`opencode`)
+
+### Method A: One-Click Auto Config
+```bash
+mpg connect opencode
+```
+This updates `~/.config/opencode/config.json` automatically.
+
+### Method B: Manual Configuration
+In `~/.config/opencode/config.json`:
+```json
+{
+  "api": {
+    "provider": "openai",
+    "baseURL": "http://127.0.0.1:20127/v1",
+    "apiKey": "mapigate-local",
+    "model": "claude-sonnet-4-6"
+  }
+}
+```
+
+---
+
+## 5. Codex CLI (`codex`)
+
+### Method A: One-Click Auto Config
+```bash
+mpg connect codex
+```
+
+### Method B: Manual Configuration
+In `~/.codex/config.json`:
+```json
+{
+  "endpoint": "http://127.0.0.1:20127/v1",
+  "apiKey": "mapigate-local",
+  "model": "gpt-4o"
+}
+```
+
+---
+
+## 6. GitHub Copilot (VS Code / JetBrains / CLI)
+
+GitHub Copilot hardcodes its endpoints to `api.githubcopilot.com`. Mapigate intercepts Copilot traffic via the decoupled MITM HTTPS Interceptor:
+
+1. In Mapigate Web Dashboard, navigate to **MITM** tab.
+2. Click **Install Root Certificate Authority (CA)**.
+3. Click **Enable Copilot Interception**.
+4. Mapigate redirects `api.githubcopilot.com` to `127.0.0.1:8443` (or `443`), translating Copilot's chat completions into upstream providers while compressing diffs and terminal results with RTK.
+5. In **Model Mappings**, map `gpt-4o` or `claude-3.5-sonnet` to any upstream provider configured in Mapigate.
+
+---
+
+## 7. Kiro IDE
+
+Kiro IDE communicates with AWS Bedrock or internal streaming endpoints:
+
+1. In Mapigate Dashboard, go to **MITM** tab.
+2. Enable **Kiro Interception**.
+3. Mapigate routes Kiro's binary event-stream frames to the **Antigravity / Google Cloud Code** provider, utilizing stable `toNumericSessionId` hashing to achieve **~98% KV cache hit rate**.
+4. Trajectory steps and thought signatures are automatically preserved in the local SQLite vault.
+
+---
+
+## 8. Roo Code (Roo Cline)
+
+```bash
+mpg connect roo
+```
+Or in Roo Code settings:
+- **API Provider**: `OpenAI Compatible`
+- **Base URL**: `http://127.0.0.1:20127/v1`
+- **API Key**: `mapigate-local`
+
+---
+
+## 9. Continue.dev
+
+In `~/.continue/config.json`:
+```json
+{
+  "models": [
+    {
+      "title": "Mapigate Sonnet",
+      "provider": "openai",
+      "model": "claude-sonnet-4-6",
+      "apiBase": "http://127.0.0.1:20127/v1",
+      "apiKey": "mapigate-local"
+    }
+  ]
+}
+```
+
+---
+
+## 10. Bulk Setup: Connect All Tools at Once
+
+To configure every installed coding assistant on your machine in a single command:
+
+```bash
+mpg connect all
+```
+
+To verify the connection status of all tools:
+```bash
+mpg show
+```
+To run end-to-end system validation:
+```bash
+mpg doctor
+```

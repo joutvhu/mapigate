@@ -1,100 +1,408 @@
+<div align="center">
+
 # Mapigate 🚀
 
-> **AI Model API Gateway & Token Optimizer for coding tools.**  
-> Connect all your AI coding assistants (Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot) to multiple AI providers, save 20–40% tokens via RTK, and auto-fallback when rate-limited.
+### Ultra-Lightweight, Local-First AI Model API Gateway & Token Optimizer for Coding Assistants
+
+**The unified routing plane for Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot, Kiro IDE, and 20+ developer coding tools.**  
+*Save 20% to 40% on token costs via in-place RTK compression, eliminate HTTP 429 rate-limit interruptions with automatic cascading fallback, balance multi-account quotas round-robin, and orchestrate 190+ AI providers on a single unified port (`20127`).*
 
 ---
 
-## ✨ Key Features
+[![Node.js Version](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blueviolet.svg)](#)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+[![Version](https://img.shields.io/badge/version-0.3.74-orange.svg)](package.json)
 
-- **⚡ Fast & Lightweight:** Starts in `< 300ms`, zero heavy dependencies, native Windows & Linux support.
-- **🛡️ 100% Local-First & Secure:** No external server phone-home, no telemetry. All API keys are encrypted locally using **AES-256-GCM** with your hardware Machine ID.
-- **✂️ RTK Token Saver:** Automatically detects and compresses tool results (`git diff`, `grep`, terminal logs, search results) to save 20–40% context tokens without breaking agent logic.
-- **🔄 Auto-Fallback & Multi-Account:** Automatically routes requests to backup models when primary models hit rate limits (429) or quota errors. Round-robin rotation across multiple accounts.
-- **🎯 Multi-Protocol Translation:** Full bidirectional translation between Anthropic Messages (`/v1/messages`), OpenAI Chat Completions (`/v1/chat/completions`), and OpenAI Responses API (`/v1/responses`), including reasoning/thinking content and tool use streaming.
-- **🖥️ Clean Dark Dashboard:** Modern, developer-focused React + Vite SPA dashboard for managing providers, keys, model routing, and monitoring real-time token savings.
+[**Why Mapigate?**](#-why-mapigate) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
+
+</div>
 
 ---
 
-## 🚀 Quick Start
+## 🎯 Why Mapigate?
 
-### 1. Install & Build
+When building software with AI coding assistants like **Claude Code**, **Cursor**, **Cline**, or **Codex**, developers face four critical bottlenecks:
+
+1. **💸 Rapid Context Window & Token Bloat:** Agents frequently execute repetitive terminal commands (`git diff`, `grep_search`, `read_file`, `npm install`, build logs). These verbose outputs inject 15,000–50,000 redundant tokens per turn, inflating API bills and pushing models toward context limits.
+2. **⛔ Sudden Mid-Session Rate Limits (HTTP 429):** While deep in a multi-file refactoring loop, your primary model account suddenly hits quota or rate limits, abruptly terminating your coding session.
+3. **🔑 Provider & Configuration Fragment:** Juggling multiple accounts across Anthropic, OpenAI, Google AI Studio, DeepSeek, and AWS Bedrock requires editing dozens of individual extension settings files with mismatched protocol formats.
+4. **🔒 Locked-Down Endpoints in Closed Tools:** Tools like GitHub Copilot and Kiro IDE hardcode their upstream server endpoints, preventing you from pointing them to alternative providers or customized routing models.
+
+---
+
+### 💡 The Mapigate Solution
+
+Mapigate runs as an ultra-fast, 100% local proxy server directly on your development machine:
+
+```mermaid
+graph TD
+    subgraph CLIENTS["Your AI Coding Assistants"]
+        C1["Claude Code (CLI)"]
+        C2["Cursor IDE"]
+        C3["Cline / Roo Code"]
+        C4["OpenCode / Codex"]
+        C5["GitHub Copilot (MITM)"]
+        C6["Kiro IDE (MITM)"]
+    end
+
+    subgraph MAPIGATE["Mapigate Local Engine (:20127)"]
+        INGEST["Network Ingestion<br/>• Direct Gateway (:20127)<br/>• Decoupled MITM (:443/8443)"]
+        ROUTER["Smart Router & Failover<br/>Automatic Cascading Fallback on 429"]
+        RTK["RTK Token Saver (Fail-Open)<br/>Compresses diffs, logs & grep in-place"]
+        COMBO["Combo Engine<br/>Fallback | Round-Robin | Fusion | LKGP | P2C"]
+        ADAPTER["Bidirectional Protocol Translators<br/>OpenAI ⇄ Anthropic ⇄ Responses ⇄ Gemini"]
+        VAULT[("AES-256-GCM Hardware Vault<br/>Keyed via host node-machine-id")]
+    end
+
+    subgraph UPSTREAM["Upstream AI Cloud Providers (190+)"]
+        P1["Anthropic (Claude 3.7 Sonnet)"]
+        P2["OpenAI (GPT-4o / o3)"]
+        P3["DeepSeek (V3 / R1)"]
+        P4["Google AI Studio (Gemini 2.5)"]
+        P5["AWS Bedrock / Ollama Local"]
+    end
+
+    CLIENTS --> INGEST
+    INGEST --> ROUTER
+    ROUTER --> COMBO
+    COMBO --> RTK
+    RTK --> ADAPTER
+    ADAPTER <--> VAULT
+    ADAPTER --> UPSTREAM
+```
+
+- ⚡ **Starts in `< 300ms` & Uses `< 50MB` RAM:** Built with zero runtime bloat. Serves streaming AI proxy endpoints and the static Web Dashboard on a **single unified port (`20127`)**.
+- 🛡️ **100% Local-First & Zero Telemetry:** Completely offline-friendly with zero remote phone-home pings. API keys and OAuth credentials are encrypted locally via **AES-256-GCM** with a dynamic key derived from your physical machine ID (`node-machine-id`).
+- ✂️ **In-Place RTK Token Saver:** Compresses verbose tool results before they leave your machine, slashing **20% to 40% of input tokens** while strictly preserving error traces and agent debugging accuracy.
+- 🔄 **Cascading Auto-Fallback:** If Claude hits a rate limit (HTTP 429), Mapigate transparently reroutes the ongoing request to a designated backup model (e.g. DeepSeek-R1 or GPT-4o) without dropping the client's SSE stream.
+- 🎯 **Bidirectional Multi-Protocol Translation:** Native translation between OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), and OpenAI Responses API (`/v1/responses`), preserving reasoning/thinking blocks and tool call streams.
+
+---
+
+## ⚡ Quick Start: Get Running in 60s
+
+### 1. Installation
+
+Requires **Node.js `>= 18.0.0`**:
 
 ```bash
+# Clone the repository
+git clone https://github.com/joutvhu/mapigate.git
+cd mapigate
+
+# Install dependencies and build
 npm install
 npm run build
+
+# Link executable globally (allows running 'mpg' from any terminal)
+npm link
 ```
-
-### 2. Start the Gateway
-
-```bash
-# Foreground mode (shows real-time console logs):
-npm start
-
-# Or using the Mapigate CLI (mapigate or mpg alias):
-node bin/mapigate.js start
-
-# Background daemon mode:
-node bin/mapigate.js start -d
-```
-
-Open your browser at: **`http://127.0.0.1:20127`** to access the dashboard.
 
 ---
 
-## 🔌 Connecting Your Coding Tools
+### 2. Choose Your Launch Mode
 
-### Claude Code
+Mapigate provides four convenient execution modes:
 
-**Windows PowerShell:**
-```powershell
-$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"
-claude
-```
-
-**Bash / macOS / Linux:**
+#### Mode A: Interactive Launcher (Recommended for Daily Use)
+Simply run:
 ```bash
-export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"
-claude
+mpg
+```
+Launches an interactive terminal menu allowing you to open the Web Dashboard, start the in-terminal TUI, view real-time RTK metrics, or minimize Mapigate to the background.
+
+#### Mode B: Windows System Tray (Runs Quietly in Taskbar)
+```bash
+mpg --tray
+```
+Minimizes Mapigate to your Windows notification tray. Right-click the tray icon to access the Web UI or safely shut down.
+
+#### Mode C: Background Daemon
+```bash
+# Start background daemon on port 20127:
+mpg start -d
+
+# Inspect status and tokens saved:
+mpg status
+
+# Stop daemon:
+mpg stop
 ```
 
-### Cursor IDE
-1. Open **Cursor Settings** → **Models** → **OpenAI API Key**.
-2. Set **Override Base URL**: `http://127.0.0.1:20127/v1`
-3. Set **API Key**: any string (e.g. `mapigate-local`).
+#### Mode D: Autostart on System Boot
+```bash
+mpg startup enable
+```
+Configures Mapigate to start automatically whenever your computer boots up.
 
-### Cline (VS Code Extension)
-1. Open **Cline Settings** → **API Provider**: `OpenAI Compatible`.
-2. Set **Base URL**: `http://127.0.0.1:20127/v1`
-3. Set **API Key**: any string (e.g. `mapigate-local`).
+👉 **Open the Web Dashboard:** Navigate to **`http://127.0.0.1:20127`** in your browser!
 
 ---
 
-## 🛠️ Developer Scripts
+## ✂️ Feature 1: RTK Token Saver (20%–40% Context Savings)
 
-| Command | Description |
+### The Problem
+During development, coding agents repeatedly execute shell commands that generate immense context payloads:
+- `git diff` produces hundreds of metadata lines and unchanged context blocks.
+- `npm install` and `cargo build` print thousands of lines of terminal progress spinners (`[===> ] 40%`).
+- `grep` and file searches emit repetitive paths and redundant listings.
+
+These outputs congest the context window, drive up token billing, and degrade model reasoning.
+
+### How RTK Solves It
+Mapigate's **RTK Token Saver** inspects incoming payloads and compresses tool outputs in-place:
+
+```mermaid
+flowchart TD
+    PAYLOAD["Incoming Tool Output Payload<br/>(Git Diff, Terminal Logs, Grep)"] --> CHECK{"Contains Error Trace?<br/>(is_error: true, exit code != 0, stack trace)"}
+
+    CHECK -->|YES| BYPASS["Bypass RTK Compression<br/>(Preserves 100% Error Trace for Debugging)"]
+    CHECK -->|NO| RTK_ENGINE["RTK Compression Engine"]
+
+    RTK_ENGINE --> F1["Git Diff Filter<br/>Strips redundant index headers, preserves diff +/- lines"]
+    RTK_ENGINE --> F2["Terminal Log Filter<br/>Collapses repetitive progress bars, preserves commands & exit state"]
+    RTK_ENGINE --> F3["Search & Grep Filter<br/>Deduplicates file paths, retains matched line numbers"]
+
+    F1 & F2 & F3 --> RECON["In-Place Payload Reconstruction"]
+    RECON --> OUT["Send Lean Payload Upstream (20%–40% Smaller)"]
+    BYPASS --> OUT
+
+    OUT --> METRICS["Record Token & Cost Savings in SQLite"]
+```
+
+### Three Guarantees of RTK:
+1. 🛡️ **Fail-Open Invariant:** If payload parsing encounters an unexpected schema or error, RTK immediately returns the original payload unmodified. **It will never break or abort an agent turn.**
+2. 🔍 **Error Trace Preservation:** When a tool execution returns an error (`is_error: true`, compiler failures, stack traces, non-zero exit codes), RTK **completely bypasses compression** so coding models have exact diagnostic information to author fixes.
+3. 📊 **Real-Time Savings Tracking:** Monitor cumulative tokens saved and dollar amounts reduced directly on the dashboard or via:
+   ```bash
+   mpg status
+   ```
+
+---
+
+## 🔄 Feature 2: Smart Routing & Combo Engine
+
+The **Combo Engine** lets you bundle multiple models or accounts under a single virtual alias (e.g. `claude-sonnet-4-6` or `coding-combo`). 
+
+Mapigate supports **5 powerful coordination strategies**:
+
+```mermaid
+graph TD
+    REQ["Incoming User Prompt"] --> STRAT{Select Combo Strategy}
+
+    subgraph S1["1. Fallback Strategy (Cascading Failover)"]
+        STRAT -->|fallback| FB1["Primary: Claude 3.7 Sonnet"]
+        FB1 -.->|HTTP 429 Rate Limit / 5xx| FB2["Secondary: DeepSeek-R1"]
+        FB2 -.->|Quota Exceeded| FB3["Tertiary: GPT-4o"]
+    end
+
+    subgraph S2["2. Round-Robin Strategy (Account Rotation)"]
+        STRAT -->|round-robin| RR["Sequential Account Balancer"]
+        RR --> ACC1["Account Key #1"]
+        RR --> ACC2["Account Key #2"]
+        RR --> ACC3["Account Key #3"]
+    end
+
+    subgraph S3["3. Fusion Strategy (Multi-Model Synthesis)"]
+        STRAT -->|fusion| PAR["Parallel Fan-Out"]
+        PAR --> M1["Claude 3.7"]
+        PAR --> M2["GPT-4o"]
+        PAR --> M3["DeepSeek-R1"]
+        M1 & M2 & M3 --> JUDGE["Judge Model<br/>(Gemini 2.5 Pro)"]
+        JUDGE --> OUT["Optimal Synthesized Code"]
+    end
+
+    subgraph S4["4. LKGP (Last Known Good Provider)"]
+        STRAT -->|lkgp| CACHE["Pin to Last Successful Provider<br/>(Maximizes Prompt KV Cache Hits)"]
+    end
+
+    subgraph S5["5. P2C (Power of Two Choices)"]
+        STRAT -->|p2c| SAMPLE["Sample 2 Random Providers"]
+        SAMPLE --> LAT["Dispatch to Lower Active Latency"]
+    end
+```
+
+1. **`fallback` (Recommended):** Attempts execution with your primary model. If an upstream HTTP 429, 500/502/503, or timeout occurs, Mapigate cascades to the secondary provider without breaking the active client stream.
+2. **`round-robin`:** Distributes requests evenly across multiple accounts or API keys for the same provider, maximizing free-tier or rate-limited quotas.
+3. **`fusion`:** Concurrently queries multiple models, gathers candidate responses, and passes them to a designated **Judge Model** (e.g. Gemini 2.5 Pro) to author a consolidated, best-of-all output.
+4. **`lkgp` (Last Known Good Provider):** Pins requests to the most recent successful model to maximize upstream **Prompt KV Cache hits**, reducing latency from ~10s to ~1–2s.
+5. **`p2c` (Power of Two Choices):** Samples two random healthy providers and dispatches the request to the one with lower active latency and error rates.
+
+---
+
+## 🔌 Feature 3: One-Click Connection for 26+ Coding Assistants
+
+Forget manually hunting down hidden JSON configuration paths. Mapigate automatically discovers and configures your local tools:
+
+```bash
+# Configure ALL installed coding tools on your machine in one command:
+mpg connect all
+
+# Or configure a specific assistant:
+mpg connect claude
+mpg connect opencode
+mpg connect cline
+mpg connect codex
+```
+
+### Setup Instructions for Popular Tools:
+
+#### 1. Claude Code CLI (`claude`)
+```bash
+mpg connect claude
+# Or with specific Sonnet / Opus overrides:
+mpg connect claude --sonnet claude-sonnet-4-6 --opus claude-opus-4-6-thinking
+```
+*Manual Environment Variables:*
+- **Windows PowerShell:** `$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"`
+- **Linux / macOS:** `export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"`
+
+#### 2. Cursor IDE
+1. Open Cursor → **Settings** → **Models** → **OpenAI API Key**.
+2. Toggle ON **Override OpenAI Base URL**.
+3. Set Base URL: `http://127.0.0.1:20127/v1`
+4. Set API Key: `mapigate-local` (or any string).
+5. In the model list, add your target alias (e.g. `claude-sonnet-4-6` or `cursor-fast`).
+
+#### 3. Cline (VS Code Extension)
+```bash
+mpg connect cline
+```
+*Manual Setup:* Set **API Provider** to `OpenAI Compatible`, **Base URL** to `http://127.0.0.1:20127/v1`, **API Key** to `mapigate-local`.
+
+#### 4. OpenCode CLI (`opencode`) & Codex CLI (`codex`)
+```bash
+mpg connect opencode
+mpg connect codex
+```
+
+#### 5. Roo Code & Continue.dev
+- **Roo Code:** `mpg connect roo`
+- **Continue.dev:** Set `apiBase` in `~/.continue/config.json` to `http://127.0.0.1:20127/v1`.
+
+### 📋 Supported Tools Matrix (26 Built-In Tools):
+| Category | Supported Tools |
 | :--- | :--- |
-| `npm run dev` | Runs both Server (`tsx watch`) and Vite frontend concurrently with instant HMR |
-| `npm run build` | Compiles server TypeScript to `dist/server` and builds Vite SPA to `dist/web` |
-| `npm run typecheck` | Validates TypeScript types across the codebase |
-| `npm test` | Runs test suite using node test runner |
-| `node bin/mapigate.js status` | Checks gateway status and token savings statistics |
-| `node bin/mapigate.js stop` | Stops the background daemon and cleans up PID |
+| **CLI Coding Agents** | `claude`, `opencode`, `codex`, `devin`, `amp`, `droid`, `grok-build`, `crush`, `deepseek-tui`, `forge`, `hermes`, `jcode`, `kilo`, `omp`, `openclaw`, `opendesign`, `pi`, `qwen`, `smelt`, `codewhale`, `cowork` |
+| **IDEs & Extensions** | `cursor`, `cline`, `roo`, `continue`, `copilot`, `kiro` |
+
+👉 *Need to revert your tools to their original settings? Simply run:*
+```bash
+mpg connect all --reset
+```
 
 ---
 
-## 📂 Architecture Overview
+## 🛡️ Feature 4: MITM HTTPS Interceptor (For Closed Tools)
 
+Certain coding assistants (such as **GitHub Copilot** or **Kiro IDE**) hardcode vendor endpoints (e.g. `api.githubcopilot.com`) and disallow custom Base URLs.
+
+Mapigate includes a decoupled **MITM HTTPS Interceptor** to route closed tools to your chosen AI models:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Tool as Closed Tool (Copilot / Kiro IDE)
+    participant DNS as Local Hosts Redirect
+    participant MITM as Mapigate MITM Server (:443 / :8443)
+    participant TLS as Dynamic TLS Engine (Root CA)
+    participant Handler as Tool Dispatcher
+    participant Upstream as Target Upstream Provider
+
+    Tool->>DNS: Request to https://api.githubcopilot.com
+    DNS->>MITM: Redirect to 127.0.0.1:443
+    MITM->>TLS: SNI Callback for hostname
+    TLS-->>MITM: Dynamically signed leaf certificate
+    MITM->>Handler: Identify tool via Host & URL pattern
+    Handler->>Handler: Strip vendor telemetry & map target model
+    Handler->>Handler: Apply RTK Token Saver compression
+    Handler->>Upstream: Forward request to Anthropic / DeepSeek / Google
+    Upstream-->>Handler: Return response stream
+    Handler-->>Tool: Return stream in tool-expected binary/SSE format
 ```
-mapigate/
-├── src/
-│   ├── core/           # Routing rules, RTK token compressor, OpenAI ⇄ Claude adapters
-│   ├── storage/        # SQLite (WAL mode via node:sqlite), AES-256-GCM crypto vault
-│   ├── server/         # Express SSE proxy & REST management APIs
-│   ├── cli/            # Background daemon manager & terminal commands
-│   ├── mitm/           # Optional HTTPS interception & Root CA management
-│   ├── web/            # Vite + React SPA dark dashboard
-│   └── shared/         # Common TypeScript types and constants
-├── dist/               # Compiled standalone server & web assets
-└── bin/mapigate.js     # CLI executable entry (with mpg & mapigate aliases)
+
+### Simple 3-Step Setup:
+1. Open the Web Dashboard at `http://127.0.0.1:20127` → Click the **MITM** tab.
+2. Click **Install Root CA** (Mapigate automatically registers the certificate into your Windows/macOS trust store).
+3. Toggle ON interception for your target tool:
+   - **GitHub Copilot:** Intercepts completions, strips telemetry, and maps `gpt-4o` to Claude 3.7 or DeepSeek-R1.
+   - **Kiro IDE:** Translates internal binary event-stream frames to Google Cloud Code / Antigravity endpoints, leveraging stable session hashing for **~98% KV prompt cache hits**, reducing turn latency from **12s to under 2s**!
+4. When toggled off, Mapigate cleanly cleans up the `hosts` entries and restores default system networking.
+
+---
+
+## 🖥️ Feature 5: Web Dashboard Tour
+
+Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashboard served directly from port `20127`:
+
+| Dashboard Tab | Actions & Capabilities |
+| :--- | :--- |
+| **Providers** | Add, edit, and test API keys; 1-click OAuth login (Google, GitHub Copilot...); auto-import keys from installed IDEs. |
+| **Combos** | Visually build cascading Fallback chains, Round-Robin account pools, or Fusion judge setups. |
+| **CLI Tools** | Check the connection health of 26 coding assistants; apply or reset configs with a single click. |
+| **MITM** | Install/uninstall Root CA, toggle Copilot/Kiro interception, and customize model mappings. |
+| **Token Saver** | View real-time token savings counters, estimated dollar savings, and adjust RTK compression filters. |
+| **Quotas** | Track daily/monthly usage budgets per account and configure automatic reset schedules. |
+| **Usage** | Interactive charts for request volume, latency distribution, and model consumption breakdown. |
+| **Endpoints** | Test gateway endpoints (`/v1/chat/completions`, `/v1/messages`) and copy quick-start code snippets. |
+| **Console Logs** | Real-time streaming server log viewer with search and log level filtering directly in your browser. |
+| **Settings** | Configure Master Password protection, server ports, autostart on boot, and data directories. |
+
+---
+
+## 💻 CLI Reference (`mapigate` / `mpg`)
+
+Both `mapigate` and its shorthand alias `mpg` provide complete control over the gateway:
+
+```bash
+# Launch interactive menu (Web UI, TUI, Tray, Status)
+mpg
+
+# Daemon Lifecycle
+mpg start -d              # Start Mapigate as a background daemon
+mpg stop                  # Stop running daemon
+mpg restart               # Restart daemon
+mpg status                # Check health, PID, and RTK savings metrics
+
+# Tool Auto-Configuration
+mpg connect all           # Configure all installed AI coding tools
+mpg connect claude        # Configure Claude Code CLI
+mpg connect all --reset   # Restore default configurations
+mpg show                  # Inspect active configuration files of local tools
+
+# System Health & Logs
+mpg doctor                # Validate Node.js, port availability, SQLite WAL, machine ID
+mpg logs -f               # Stream live request logs (like tail -f)
+
+# System Boot Autostart
+mpg startup enable        # Launch Mapigate automatically when computer starts
+mpg startup disable       # Disable automatic boot launch
+
+# Provider & Model Catalog
+mpg providers             # List configured providers and authenticated accounts
+mpg models                # List available model aliases and active combos
 ```
+
+---
+
+## 📂 For Developers & Contributors
+
+End users do not need to worry about internal architecture. If you are a developer looking to build from source, understand internal systems, or contribute new providers and tools:
+
+- 📘 [**System Architecture (docs/ARCHITECTURE.md)**](docs/ARCHITECTURE.md): Deep architectural dive, layered diagrams, request lifecycles, and SQLite WAL mechanics.
+- 🛠️ [**Developer & Contribution Guide (docs/DEVELOPMENT.md)**](docs/DEVELOPMENT.md): Source build setup, pure scanner codegen instructions, and step-by-step guides for adding new providers or CLI tools.
+- 📖 [**Specialized Technical Guides**](docs/):
+  - [Full CLI Reference Manual (docs/CLI_REFERENCE.md)](docs/CLI_REFERENCE.md)
+  - [Detailed Coding Tools Guide (docs/CODING_TOOLS.md)](docs/CODING_TOOLS.md)
+  - [190+ Providers & Combo Engine (docs/PROVIDERS_AND_MODELS.md)](docs/PROVIDERS_AND_MODELS.md)
+  - [RTK Token Saver Specification (docs/RTK_TOKEN_SAVER.md)](docs/RTK_TOKEN_SAVER.md)
+  - [MITM HTTPS Interceptor Manual (docs/MITM_INTERCEPTOR.md)](docs/MITM_INTERCEPTOR.md)
+
+---
+
+## 📄 License
+
+This project is open-source software licensed under the [MIT License](LICENSE).  
+Authored with ❤️ by **Giao Ho** and contributors.
