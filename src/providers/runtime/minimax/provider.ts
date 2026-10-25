@@ -69,6 +69,16 @@ export class MiniMaxProvider extends OpenAiCompatibleProvider {
         };
       }
 
+      // HTTP 402 means API key is authentic, but account balance is depleted
+      if (res.status === 402) {
+        return {
+          success: true,
+          endpointUrl: url,
+          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+          count: metadata.models.length,
+        };
+      }
+
       if (res.status === 401 || res.status === 403) {
         return {
           success: false,

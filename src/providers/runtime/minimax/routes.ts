@@ -142,6 +142,7 @@ export async function pollMinimaxDeviceCode(params: DevicePollParams): Promise<D
         authMethod: "device_code",
         refreshToken: data.refresh_token,
         tokenExpiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
+        expiresAt: data.expires_in ? Date.now() + data.expires_in * 1000 : undefined,
         region: isCn ? "cn" : "global",
       },
     });

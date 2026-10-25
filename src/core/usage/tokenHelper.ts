@@ -38,7 +38,12 @@ export function extractCredentials(
   const pId = (providerId || psd.providerId || psd.provider || "").toLowerCase();
   let accessToken = "";
   let refreshToken = psd.refreshToken || "";
-  let expiresAt = typeof psd.expiresAt === "number" ? psd.expiresAt : undefined;
+  let expiresAt =
+    typeof psd.expiresAt === "number"
+      ? psd.expiresAt
+      : typeof psd.tokenExpiresAt === "number"
+      ? psd.tokenExpiresAt
+      : undefined;
   let email = psd.email || "";
   let apiKey = "";
   let githubAccessToken = psd.githubAccessToken || "";
@@ -388,12 +393,47 @@ export async function ensureFreshCredentials(
       }
     }
 
+    // 6. MiniMax Code (mcode)
+    else if (
+      (pId === "minimax-code" ||
+        pId === "minimax-code-global" ||
+        pId === "minimax" ||
+        pId === "mm" ||
+        pId === "mmg" ||
+        pId === "mcode") &&
+      creds.refreshToken
+    ) {
+      const isCn = creds.providerSpecificData?.region === "cn";
+      const tokenUrl = isCn
+        ? "https://account.minimax.cn/oauth2/token"
+        : "https://account.minimax.io/oauth2/token";
+
+      const res = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: creds.refreshToken,
+          client_id: "mcode-public",
+          scope: "agent.default",
+          audience: "agent-backend",
+        }),
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        newAccessToken = data.access_token;
+        if (data.refresh_token) newRefreshToken = data.refresh_token;
+        if (data.expires_in) expiresInSec = Number(data.expires_in);
+      }
+    }
+
     if (newAccessToken) {
       const newExpiresAt = Date.now() + expiresInSec * 1000;
       const updatedPsd = {
         ...creds.providerSpecificData,
         refreshToken: newRefreshToken,
         expiresAt: newExpiresAt,
+        tokenExpiresAt: newExpiresAt,
       };
 
       let newRawApiKey = newAccessToken;
