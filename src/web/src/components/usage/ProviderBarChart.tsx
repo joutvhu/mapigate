@@ -70,7 +70,7 @@ export const ProviderBarChart: React.FC<ProviderBarChartProps> = ({ byProvider }
                       {item.requests.toLocaleString()} reqs ({pct}%)
                     </span>
                     <span className="font-mono text-xs font-semibold text-slate-200">
-                      ${item.cost.toFixed(2)}
+                      ${item.cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>

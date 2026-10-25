@@ -8,8 +8,9 @@ interface OverviewCardsProps {
 }
 
 export const OverviewCards: React.FC<OverviewCardsProps> = ({ stats, loading }) => {
-  const fmt = (n?: number) => (n || 0).toLocaleString();
-  const fmtCost = (n?: number) => `$${(n || 0).toFixed(2)}`;
+  const fmt = (n?: number) => (n || 0).toLocaleString("en-US");
+  const fmtCost = (n?: number) =>
+    `$${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const totalRequests = stats?.totalRequests ?? 0;
   const promptTokens = stats?.totalPromptTokens ?? 0;

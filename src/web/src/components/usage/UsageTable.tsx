@@ -70,8 +70,9 @@ export const UsageTable: React.FC<UsageTableProps> = ({
 
   tableData.sort((a, b) => b.requests - a.requests);
 
-  const fmt = (n?: number) => (n || 0).toLocaleString();
-  const fmtCost = (n?: number) => `$${(n || 0).toFixed(4)}`;
+  const fmt = (n?: number) => (n || 0).toLocaleString("en-US");
+  const fmtCost = (n?: number) =>
+    `$${(n || 0).toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`;
 
   return (
     <div className="bg-[#0E1320] border border-[#1E293B] rounded-xl p-4 sm:p-5 flex flex-col shadow-xs w-full">

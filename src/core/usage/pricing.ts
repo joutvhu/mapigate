@@ -180,5 +180,5 @@ export function calculateCostFromTokens(
 export function formatCost(cost: number): string {
   if (!cost || isNaN(cost) || cost < 0) return "$0.00";
   if (cost < 0.01 && cost > 0) return "<$0.01";
-  return `$${cost.toFixed(2)}`;
+  return `$${cost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

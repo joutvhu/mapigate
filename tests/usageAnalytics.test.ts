@@ -58,6 +58,9 @@ test("pricing - calculates token cost accurately with caching and reasoning tier
   assert.equal(formatCost(cost), "$9.96");
   assert.equal(formatCost(0), "$0.00");
   assert.equal(formatCost(0.005), "<$0.01");
+  assert.equal(formatCost(3013.5), "$3,013.50");
+  assert.equal(formatCost(1234567.89), "$1,234,567.89");
+  assert.equal(formatCost(1000000000.5), "$1,000,000,000.50");
 });
 
 test("usageRepo - tracks and clears active pending requests", () => {

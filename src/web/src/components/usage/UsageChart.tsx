@@ -64,7 +64,9 @@ export const UsageChart: React.FC<UsageChartProps> = ({ data, period, loading })
           <span className="text-xs text-slate-400 mt-0.5 block">
             Aggregated {activeColor.label.toLowerCase()}:{" "}
             <span className="font-semibold text-slate-200">
-              {metric === "cost" ? `$${totalForCurrentMetric.toFixed(2)}` : totalForCurrentMetric.toLocaleString()}
+              {metric === "cost"
+                ? `$${totalForCurrentMetric.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : totalForCurrentMetric.toLocaleString("en-US")}
             </span>
           </span>
         </div>
@@ -142,7 +144,9 @@ export const UsageChart: React.FC<UsageChartProps> = ({ data, period, loading })
                           </div>
                           <div className="flex justify-between items-center text-amber-400">
                             <span>Cost:</span>
-                            <span className="font-mono font-semibold">${item.cost.toFixed(4)}</span>
+                            <span className="font-mono font-semibold">
+                              ${item.cost.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
+                            </span>
                           </div>
                         </div>
                       </div>

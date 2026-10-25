@@ -175,7 +175,7 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
                 Cost Est.
               </span>
               <span className="font-mono text-sm font-bold text-amber-400 mt-1 block">
-                ${detail.cost != null ? detail.cost.toFixed(4) : "0.0000"}
+                ${detail.cost != null ? detail.cost.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "0.0000"}
               </span>
             </div>
           </div>

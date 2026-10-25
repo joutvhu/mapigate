@@ -252,7 +252,7 @@ export const RequestDetailsView: React.FC = () => {
                       {item.latency?.totalMs != null ? `${item.latency.totalMs}ms` : "-"}
                     </td>
                     <td className="py-2.5 px-3.5 text-right font-mono font-semibold text-amber-400/90">
-                      ${item.cost != null ? item.cost.toFixed(4) : "0.0000"}
+                      ${item.cost != null ? item.cost.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : "0.0000"}
                     </td>
                   </tr>
                 ))
