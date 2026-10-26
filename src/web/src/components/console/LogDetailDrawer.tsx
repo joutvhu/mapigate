@@ -44,6 +44,8 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
   const [requestDetail, setRequestDetail] = useState<RequestDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  const { backdropProps } = useBackdropClose(onClose, !isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -135,8 +137,6 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
     const bodyStr = JSON.stringify(bodyObj, null, 2).replace(/'/g, "'\\''");
     return `curl -X POST http://${effectiveHost}:${effectivePort}${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '${bodyStr}'`;
   };
-
-  const { backdropProps } = useBackdropClose(onClose);
 
   return createPortal(
     <div

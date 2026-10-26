@@ -32,6 +32,8 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
   const [openHeaders, setOpenHeaders] = useState(false);
   const [activeTab, setActiveTab] = useState<"client" | "providerReq" | "response">("client");
 
+  const { backdropProps } = useBackdropClose(onClose, !isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -84,8 +86,6 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
       </span>
     );
   };
-
-  const { backdropProps } = useBackdropClose(onClose);
 
   return createPortal(
     <div
