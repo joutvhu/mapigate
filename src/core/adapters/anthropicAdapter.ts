@@ -11,21 +11,20 @@
  */
 
 import {
+  anthropicChunkToOpenAiEvent as toOpenAiChunk,
+  anthropicResponseToOpenAi as toOpenAiResponse,
   type AnthropicStreamState,
   type AnthropicToOpenAiStreamState,
-  createStreamState,
   createAnthropicToOpenAiState,
+  createStreamState,
+  finalizeStream as finalizeAnthropicStream,
+  openAiChunkToAnthropicEvent as toAnthropicChunk,
+  openAiResponseToAnthropic as toAnthropicResponse,
   translateAnthropicToOpenAi,
   translateOpenAiToAnthropic,
-  openAiChunkToAnthropicEvent as toAnthropicChunk,
-  finalizeStream as finalizeAnthropicStream,
-  anthropicChunkToOpenAiEvent as toOpenAiChunk,
-  openAiResponseToAnthropic as toAnthropicResponse,
-  anthropicResponseToOpenAi as toOpenAiResponse,
-} from "./anthropic/index.js";
+} from './anthropic/index.js';
 
-export type { AnthropicStreamState, AnthropicToOpenAiStreamState };
-export * from "./anthropic/index.js";
+export * from './anthropic/index.js';
 
 export class AnthropicAdapter {
   private static openAiStreamStates = new Map<string, AnthropicStreamState>();
