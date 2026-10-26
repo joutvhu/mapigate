@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
 import { ToolIcon } from "./ui/ToolIcon";
 
@@ -58,18 +58,39 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const resetForm = useCallback(() => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    setDeviceData(null);
+    setPolling(false);
+    setCopiedCode(false);
+    setDirectToken("");
+    setDirectRegion("us-east-1");
+    setDirectProfileArn("");
+    setRefreshToken("");
+    setDetectedAccessToken("");
+    setAutoDetecting(false);
+    setAutoDetected(false);
+    setIdcMeta(null);
+    setCliProxyJson("");
+    setIdcStartUrl("");
+    setIdcRegion("us-east-1");
+    setApiKey("");
+    setApiKeyRegion("us-east-1");
+    setAccountName("");
+    setSaving(false);
+    setError(null);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-      setDeviceData(null);
-      setPolling(false);
-      setError(null);
+      resetForm();
       return;
     }
+    resetForm();
     if (method === "import") {
       runAutoDetect();
     }
-  }, [isOpen, method]);
+  }, [isOpen, method, resetForm]);
 
   useEffect(() => {
     return () => {

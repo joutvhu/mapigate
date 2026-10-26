@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { planBulkAdd } from "../utils/bulkAdd";
 import { PortalModal } from "./PortalModal";
 import { Select } from "./Select";
@@ -58,13 +58,17 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const isCookie = pId === "grok-web" || pId === "iflow";
   const isXiaomiTokenPlan = pId === "xiaomi-tokenplan";
 
-  const availableRegions: { id: string; label: string }[] = isXiaomiTokenPlan
-    ? [
-        { id: "sgp", label: "Singapore (新加坡)" },
-        { id: "cn", label: "China (中国大陆)" },
-        { id: "ams", label: "Amsterdam (阿姆斯特丹)" },
-      ]
-    : provider.regions || [];
+  const availableRegions: { id: string; label: string }[] = useMemo(
+    () =>
+      isXiaomiTokenPlan
+        ? [
+            { id: "sgp", label: "Singapore (新加坡)" },
+            { id: "cn", label: "China (中国大陆)" },
+            { id: "ams", label: "Amsterdam (阿姆斯特丹)" },
+          ]
+        : provider.regions || [],
+    [isXiaomiTokenPlan, provider.regions]
+  );
 
   const [selectedRegion, setSelectedRegion] = useState<string>(
     provider.defaultRegion || (availableRegions.length > 0 ? availableRegions[0].id : "sgp")
@@ -107,6 +111,52 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const resetForm = useCallback(() => {
+    setMode("single");
+    setAccountName("");
+    setApiKey("");
+    setOllamaHost("http://127.0.0.1:11434");
+    setLocalHost(
+      provider.defaultBaseUrl ||
+        (pId === "lm-studio"
+          ? "http://localhost:1234/v1"
+          : pId === "jan"
+          ? "http://localhost:1337/v1"
+          : "http://localhost:8000/v1")
+    );
+    setAzureEndpoint("");
+    setAzureDeployment("gpt-4");
+    setAzureApiVersion("2024-10-01-preview");
+    setAzureOrganization("");
+    setCfAccountId("");
+    setBedrockMode("profile");
+    setBedrockProfile("");
+    setBedrockRegion("us-east-1");
+    setBedrockAccessKeyId("");
+    setBedrockSessionToken("");
+    setSelectedRegion(
+      provider.defaultRegion || (availableRegions.length > 0 ? availableRegions[0].id : "sgp")
+    );
+    setBulkText("");
+    setBulkResult(null);
+    setValidating(false);
+    setValidationResult(null);
+    setValidationError(null);
+    setSaving(false);
+    setError(null);
+  }, [provider.defaultBaseUrl, provider.defaultRegion, availableRegions, pId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen, resetForm]);
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const getPlaceholder = () => {
     if (isCookie) {
@@ -237,6 +287,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       }
 
       invalidateAvailableModelsCache();
+      resetForm();
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -277,6 +328,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       invalidateAvailableModelsCache();
       setBulkResult({ success: data.count || plan.length, failed: 0 });
       setTimeout(() => {
+        resetForm();
         onSuccess();
         onClose();
       }, 700);
@@ -288,7 +340,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   };
 
   return (
-    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-xl">
+    <PortalModal isOpen={isOpen} onClose={handleClose} maxWidthClass="max-w-xl">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
@@ -326,7 +378,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer">
+          <button onClick={handleClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
@@ -400,7 +452,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
               >
                 {saving ? "Adding..." : "Add All Keys"}
               </button>
-              <button onClick={onClose} className="rt-btn rt-btn--secondary">
+              <button onClick={handleClose} className="rt-btn rt-btn--secondary">
                 Cancel
               </button>
             </div>
@@ -746,7 +798,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
               >
                 {saving ? "Saving Connection..." : "Save Connection"}
               </button>
-              <button type="button" onClick={onClose} className="rt-btn rt-btn--secondary">
+              <button type="button" onClick={handleClose} className="rt-btn rt-btn--secondary">
                 Cancel
               </button>
             </div>

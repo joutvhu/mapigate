@@ -22,7 +22,16 @@ export const CursorAuthModal: React.FC<CursorAuthModalProps> = ({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setAccessToken("");
+      setMachineId("");
+      setAccountName("");
+      setAutoDetected(false);
+      setError(null);
+      return;
+    }
+    setAccountName("");
+    setError(null);
     runAutoDetect();
   }, [isOpen]);
 

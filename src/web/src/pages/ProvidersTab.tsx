@@ -138,6 +138,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       console.error(err);
     } finally {
       setApiKeyInput("");
+      setAccountName("Default Account");
       setCustomBaseUrl("");
       setSelectedProvider(null);
     }
@@ -431,6 +432,9 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
+                setApiKeyInput("");
+                setAccountName("Default Account");
+                setCustomBaseUrl("https://api.anthropic.com");
                 setSelectedProvider({
                   id: `custom-anthropic-${Date.now().toString().slice(-4)}`,
                   name: "Custom Anthropic",
@@ -447,6 +451,9 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             </button>
             <button
               onClick={() => {
+                setApiKeyInput("");
+                setAccountName("Default Account");
+                setCustomBaseUrl("https://api.openai.com");
                 setSelectedProvider({
                   id: `custom-openai-${Date.now().toString().slice(-4)}`,
                   name: "Custom OpenAI",
@@ -564,7 +571,12 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       {/* Modal Configure Provider */}
       <PortalModal
         isOpen={Boolean(selectedProvider)}
-        onClose={() => setSelectedProvider(null)}
+        onClose={() => {
+          setSelectedProvider(null);
+          setApiKeyInput("");
+          setAccountName("Default Account");
+          setCustomBaseUrl("");
+        }}
         maxWidthClass="max-w-md"
       >
         {selectedProvider && (

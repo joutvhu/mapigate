@@ -1065,64 +1065,74 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       )}
 
       {/* Specialized Provider Connection Modals */}
-      <AddAccountModal
-        isOpen={showAddModal}
-        provider={{
-          id: provider.id,
-          name: provider.name,
-          image: provider.image,
-          color: registryItem?.color || provider.color,
-          iconBg: registryItem?.iconBg || provider.iconBg,
-          format: registryItem?.format || provider.format,
-          website: registryItem?.website,
-          apiKeyUrl: registryItem?.notice?.apiKeyUrl,
-          regions: registryItem?.regions,
-          defaultRegion: registryItem?.defaultRegion,
-          requiresApiKey: (registryItem as any)?.requiresApiKey,
-          authType: (registryItem as any)?.authType,
-          isLocal: (registryItem as any)?.isLocal,
-          defaultBaseUrl: (registryItem as any)?.defaultBaseUrl || registryItem?.baseUrl,
-          noAuth: (registryItem as any)?.noAuth,
-        }}
-        existingNames={connections.map((c) => c.name)}
-        onClose={() => setShowAddModal(false)}
-        onSuccess={loadProviderDetails}
-        onOpenOAuth={
-          isOAuth
-            ? () => {
-                setShowAddModal(false);
-                handleConnectOAuth();
-              }
-            : undefined
-        }
-      />
+      {showAddModal && (
+        <AddAccountModal
+          isOpen={showAddModal}
+          provider={{
+            id: provider.id,
+            name: provider.name,
+            image: provider.image,
+            color: registryItem?.color || provider.color,
+            iconBg: registryItem?.iconBg || provider.iconBg,
+            format: registryItem?.format || provider.format,
+            website: registryItem?.website,
+            apiKeyUrl: registryItem?.notice?.apiKeyUrl,
+            regions: registryItem?.regions,
+            defaultRegion: registryItem?.defaultRegion,
+            requiresApiKey: (registryItem as any)?.requiresApiKey,
+            authType: (registryItem as any)?.authType,
+            isLocal: (registryItem as any)?.isLocal,
+            defaultBaseUrl: (registryItem as any)?.defaultBaseUrl || registryItem?.baseUrl,
+            noAuth: (registryItem as any)?.noAuth,
+          }}
+          existingNames={connections.map((c) => c.name)}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={loadProviderDetails}
+          onOpenOAuth={
+            isOAuth
+              ? () => {
+                  setShowAddModal(false);
+                  handleConnectOAuth();
+                }
+              : undefined
+          }
+        />
+      )}
 
-      <CopilotAuthModal
-        isOpen={showCopilotModal}
-        onClose={() => setShowCopilotModal(false)}
-        onSuccess={loadProviderDetails}
-      />
+      {showCopilotModal && (
+        <CopilotAuthModal
+          isOpen={showCopilotModal}
+          onClose={() => setShowCopilotModal(false)}
+          onSuccess={loadProviderDetails}
+        />
+      )}
 
-      <CursorAuthModal
-        isOpen={showCursorModal}
-        onClose={() => setShowCursorModal(false)}
-        onSuccess={loadProviderDetails}
-      />
+      {showCursorModal && (
+        <CursorAuthModal
+          isOpen={showCursorModal}
+          onClose={() => setShowCursorModal(false)}
+          onSuccess={loadProviderDetails}
+        />
+      )}
 
-      <KiroAuthModal
-        isOpen={showKiroModal}
-        onClose={() => setShowKiroModal(false)}
-        onSuccess={loadProviderDetails}
-      />
+      {showKiroModal && (
+        <KiroAuthModal
+          isOpen={showKiroModal}
+          onClose={() => setShowKiroModal(false)}
+          onSuccess={loadProviderDetails}
+        />
+      )}
 
       {/* OAuth Connection Modal */}
-      <OAuthModal
-        isOpen={showOAuthModal}
-        providerId={provider.id}
-        providerName={provider.name}
-        onSuccess={loadProviderDetails}
-        onClose={() => setShowOAuthModal(false)}
-      />
+      {showOAuthModal && (
+        <OAuthModal
+          isOpen={showOAuthModal}
+          providerId={provider.id}
+          providerName={provider.name}
+          onSuccess={loadProviderDetails}
+          onClose={() => setShowOAuthModal(false)}
+        />
+      )}
 
       {/* Add Custom Model Modal */}
       <PortalModal

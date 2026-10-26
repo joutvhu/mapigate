@@ -47,8 +47,14 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
       stopPolling();
       setDeviceData(null);
       setStatus("idle");
+      setManualToken("");
+      setTokenName("");
+      setErrorMessage(null);
       return;
     }
+    setManualToken("");
+    setTokenName("");
+    setErrorMessage(null);
 
     if (tab === "device") {
       startDeviceFlow();
