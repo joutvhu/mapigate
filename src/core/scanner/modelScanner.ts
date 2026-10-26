@@ -210,7 +210,7 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       }
     }
 
-    if (scannedAccounts.length > 0) {
+    if (scannedAccounts.length > 0 && modelsById.size > 0) {
       return {
         success: true,
         endpointUrl: discoveredEndpointUrl,

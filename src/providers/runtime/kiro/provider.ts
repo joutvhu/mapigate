@@ -116,21 +116,22 @@ export class KiroProvider extends OpenAiCompatibleProvider {
   }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
-    const timeoutMs = context.timeoutMs || 6000;
+    const timeoutMs = context.timeoutMs || 8000;
     const region = context.region || context.account?.providerSpecificData?.region || "us-east-1";
-    const url = `https://codewhisperer.${region}.amazonaws.com`;
 
-    let token = (context.apiKey || context.account?.rawApiKey || "").trim();
+    let token = (context.apiKey || context.account?.providerSpecificData?.accessToken || context.account?.rawApiKey || "").trim();
     const profileArn = context.account?.providerSpecificData?.profileArn || resolveDefaultProfileArn(context.account?.providerSpecificData?.authMethod);
 
+    // Enforce Coral JSON RPC headers (customHeaders must not override Content-Type or Accept)
     const reqHeaders: Record<string, string> = {
-      "Content-Type": "application/x-amz-json-1.0",
+      ...(context.customHeaders || {}),
       "x-amz-target": "AmazonCodeWhispererService.ListAvailableModels",
       "x-amz-user-agent": "aws-sdk-js/1.0.0 KiroIDE",
       "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
-      Accept: "application/json",
-      ...(context.customHeaders || {}),
+      "Content-Type": "application/x-amz-json-1.0",
+      "Accept": "application/json",
     };
+
     if (token) {
       reqHeaders["Authorization"] = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
     }
@@ -140,40 +141,55 @@ export class KiroProvider extends OpenAiCompatibleProvider {
       reqHeaders["TokenType"] = "EXTERNAL_IDP";
     }
 
-    try {
-      const res = ((await undiciFetch(url, {
-        method: "POST",
-        headers: reqHeaders,
-        body: JSON.stringify({
-          origin: "AI_EDITOR",
-          ...(profileArn ? { profileArn } : {}),
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-        dispatcher: getPublicDnsAgent(),
-      })) as unknown as globalThis.Response);
+    const candidateUrls = [
+      `https://codewhisperer.${region}.amazonaws.com`,
+      `https://q.${region}.amazonaws.com`,
+    ];
 
-      if (res.ok || res.status === 200) {
-        const payload: any = await res.json();
-        const models = extractModelsFromPayload(payload, this.id);
-        return {
-          success: true,
-          endpointUrl: url,
-          models,
-          count: models.length,
-        };
+    let lastError: string | undefined;
+
+    for (const url of candidateUrls) {
+      try {
+        const res = ((await undiciFetch(url, {
+          method: "POST",
+          headers: reqHeaders,
+          body: JSON.stringify({
+            origin: "AI_EDITOR",
+            ...(profileArn ? { profileArn } : {}),
+          }),
+          signal: AbortSignal.timeout(timeoutMs),
+          dispatcher: getPublicDnsAgent(),
+        })) as unknown as globalThis.Response);
+
+        if (res.ok || res.status === 200) {
+          const payload: any = await res.json();
+          // Check for Coral exception payloads returned with HTTP 200
+          if (payload?.__type?.includes("Exception") || payload?.Output?.__type?.includes("Exception")) {
+            lastError = payload?.message || payload?.Output?.message || "Unknown Coral service exception";
+            continue;
+          }
+
+          const models = extractModelsFromPayload(payload, this.id);
+          if (models.length > 0) {
+            return {
+              success: true,
+              endpointUrl: url,
+              models,
+              count: models.length,
+            };
+          }
+        } else {
+          lastError = `Endpoint ${url} returned HTTP ${res.status}: ${res.statusText}`;
+        }
+      } catch (err: unknown) {
+        lastError = err instanceof Error ? err.message : String(err);
       }
-
-      return {
-        success: false,
-        error: `Endpoint ${url} returned HTTP ${res.status}: ${res.statusText}`,
-      };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        success: false,
-        error: `Failed to connect to ${url}: ${msg}`,
-      };
     }
+
+    return {
+      success: false,
+      error: lastError || "Failed to discover models from Kiro API endpoints",
+    };
   }
 }
 
