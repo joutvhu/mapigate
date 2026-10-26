@@ -951,13 +951,20 @@ export class AnthropicAdapter {
         } catch {
           input = { raw: tc.function?.arguments };
         }
+        if (!input || typeof input !== "object" || Array.isArray(input)) {
+          input = { input };
+        }
         contentBlocks.push({
           type: "tool_use",
-          id: tc.id || `call_${Date.now()}`,
+          id: tc.id || `toolu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           name: tc.function?.name,
           input,
         });
       }
+    }
+
+    if (contentBlocks.length === 0) {
+      contentBlocks.push({ type: "text", text: "" });
     }
 
     const finishReason = choice?.finish_reason;

@@ -488,3 +488,57 @@ test("AnthropicAdapter - openAiChunkToAnthropicEvent closes previous tool_call b
   assert.ok(startIndex !== -1, "Must contain content_block_start for toolB");
   assert.ok(stopIndex < startIndex, "content_block_stop must occur before content_block_start of next tool");
 });
+
+test("AnthropicAdapter - openAiResponseToAnthropic guarantees dictionary tool input and non-empty content", () => {
+  const openAiResponse = {
+    id: "chatcmpl-test-response",
+    model: "gpt-4o",
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "",
+              type: "function",
+              function: {
+                name: "doSomething",
+                arguments: '"string_arg_not_object"',
+              },
+            },
+          ],
+        },
+        finish_reason: "tool_calls",
+      },
+    ],
+    usage: { prompt_tokens: 10, completion_tokens: 15 },
+  };
+
+  const anthropicRes = AnthropicAdapter.openAiResponseToAnthropic(openAiResponse, "req-test-resp");
+  assert.equal(anthropicRes.type, "message");
+  assert.equal(anthropicRes.role, "assistant");
+  assert.equal(anthropicRes.stop_reason, "tool_use");
+  assert.equal(anthropicRes.content.length, 1);
+  const toolBlock = anthropicRes.content[0];
+  assert.equal(toolBlock.type, "tool_use");
+  assert.ok(toolBlock.id.startsWith("toolu_"), "Should mint valid toolu_ id");
+  assert.equal(typeof toolBlock.input, "object");
+  assert.equal(Array.isArray(toolBlock.input), false);
+  assert.deepEqual(toolBlock.input, { input: "string_arg_not_object" });
+
+  // Test empty content fallback
+  const emptyOpenAiResponse = {
+    id: "chatcmpl-empty",
+    model: "gpt-4o",
+    choices: [
+      {
+        message: { role: "assistant", content: "" },
+        finish_reason: "stop",
+      },
+    ],
+  };
+  const emptyAnthropicRes = AnthropicAdapter.openAiResponseToAnthropic(emptyOpenAiResponse);
+  assert.equal(emptyAnthropicRes.content.length, 1);
+  assert.deepEqual(emptyAnthropicRes.content[0], { type: "text", text: "" });
+});

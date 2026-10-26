@@ -241,7 +241,12 @@ export async function runProxyPipeline(
     if (result.ok && !res.headersSent) {
       let respData = result.json || result.text;
       if (respData !== undefined) {
-        if (typeof respData === "object") {
+        if (typeof respData === "string") {
+          try {
+            respData = JSON.parse(respData);
+          } catch {}
+        }
+        if (typeof respData === "object" && respData !== null) {
           if (clientFormat === "responses") {
             respData = convertOpenAiResponseToResponsesApi(respData);
           } else if (clientFormat === "anthropic") {
