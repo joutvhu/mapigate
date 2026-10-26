@@ -19,6 +19,49 @@ import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/respons
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import crypto from "node:crypto";
 
+export function formatProxyErrorResponse(
+  status: number,
+  message: string,
+  clientFormat: "openai" | "anthropic" | "responses"
+): any {
+  if (clientFormat === "anthropic") {
+    const errorType =
+      status === 429
+        ? "rate_limit_error"
+        : status === 401
+        ? "authentication_error"
+        : status >= 500
+        ? "api_error"
+        : "invalid_request_error";
+    return {
+      type: "error",
+      error: {
+        type: errorType,
+        message,
+      },
+    };
+  }
+
+  if (clientFormat === "responses") {
+    return {
+      type: "error",
+      error: {
+        code: status === 429 ? "rate_limit_exceeded" : status === 401 ? "invalid_api_key" : "server_error",
+        message,
+      },
+    };
+  }
+
+  return {
+    error: {
+      message,
+      type: status === 429 ? "rate_limit_error" : "proxy_error",
+      param: null,
+      code: status === 429 ? "rate_limit_exceeded" : status === 401 ? "invalid_api_key" : "service_unavailable",
+    },
+  };
+}
+
 export async function runProxyPipeline(
   req: Request,
   res: Response,
@@ -268,12 +311,7 @@ export async function runProxyPipeline(
         requestBody: body,
       });
 
-      res.status(status).json({
-        error: {
-          message: errMsg,
-          type: status === 429 ? "rate_limit_error" : "service_unavailable",
-        },
-      });
+      res.status(status).json(formatProxyErrorResponse(status, errMsg, clientFormat));
     }
   } catch (err: any) {
     const totalDuration = Date.now() - startTime;
@@ -312,7 +350,7 @@ export async function runProxyPipeline(
     });
 
     if (!res.headersSent) {
-      res.status(500).json({ error: { message: sanitizedMsg } });
+      res.status(500).json(formatProxyErrorResponse(500, sanitizedMsg, clientFormat));
     } else if (!res.writableEnded) {
       res.end();
     }

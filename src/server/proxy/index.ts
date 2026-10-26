@@ -35,13 +35,23 @@ export async function handleProxyRequest(
     const activeKeys = allKeys.filter((k) => k.isActive);
     if (activeKeys.length > 0) {
       if (!matchedKey || !matchedKey.isActive) {
-        res.status(401).json({
-          error: {
-            message: "Unauthorized: Invalid or missing gateway API key.",
-            type: "authentication_error",
-            code: "invalid_api_key",
-          },
-        });
+        if (clientFormat === "anthropic") {
+          res.status(401).json({
+            type: "error",
+            error: {
+              type: "authentication_error",
+              message: "Unauthorized: Invalid or missing gateway API key.",
+            },
+          });
+        } else {
+          res.status(401).json({
+            error: {
+              message: "Unauthorized: Invalid or missing gateway API key.",
+              type: "authentication_error",
+              code: "invalid_api_key",
+            },
+          });
+        }
         return;
       }
     }
