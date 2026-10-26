@@ -43,6 +43,8 @@ export async function handleNonStreamingResponse(
       responseBody = convertOpenAiResponseToResponsesApi(responseBody);
     } else if (context.clientFormat === "anthropic" && context.targetFormat === "openai") {
       responseBody = AnthropicAdapter.openAiResponseToAnthropic(responseBody, context.requestId);
+    } else if (context.clientFormat === "openai" && (context.targetFormat === "claude" || (responseBody?.type === "message" && Array.isArray(responseBody?.content)))) {
+      responseBody = AnthropicAdapter.anthropicResponseToOpenAi(responseBody, context.targetModel);
     }
     res.status(200).json(responseBody);
   } else {
@@ -208,6 +210,14 @@ export async function handleStreamingResponse(
   meta: { upstreamUrl: string; outgoingHeaders: Record<string, string>; upstreamBody: any }
 ): Promise<ModelCallResult> {
   const { startTime, targetModel, rawModel, clientTool, rtkStats, is1mContext, req, account } = context;
+
+  if (res.headersSent || res.writableEnded || res.destroyed) {
+    return {
+      ok: false,
+      status: 499,
+      error: "Client connection already closed or headers already sent",
+    };
+  }
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");

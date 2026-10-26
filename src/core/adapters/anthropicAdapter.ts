@@ -983,4 +983,80 @@ export class AnthropicAdapter {
       },
     };
   }
+
+  /**
+   * Convert Anthropic non-streaming Message response to OpenAI chat completion response
+   */
+  public static anthropicResponseToOpenAi(anthropicResponse: any, targetModel?: string): any {
+    if (!anthropicResponse || typeof anthropicResponse !== "object") return anthropicResponse;
+
+    let textContent = "";
+    let reasoningText = "";
+    const toolCalls: any[] = [];
+
+    if (Array.isArray(anthropicResponse.content)) {
+      for (const block of anthropicResponse.content) {
+        if (block.type === "text") {
+          textContent += (block.text || "") + "\n";
+        } else if (block.type === "thinking") {
+          reasoningText += (block.thinking || "") + "\n";
+        } else if (block.type === "tool_use") {
+          toolCalls.push({
+            id: block.id,
+            type: "function",
+            function: {
+              name: block.name,
+              arguments: typeof block.input === "string" ? block.input : JSON.stringify(block.input || {}),
+            },
+          });
+        }
+      }
+    }
+
+    const stopReason = anthropicResponse.stop_reason;
+    const finishReason =
+      stopReason === "tool_use"
+        ? "tool_calls"
+        : stopReason === "max_tokens"
+        ? "length"
+        : "stop";
+
+    const usage = anthropicResponse.usage || {};
+    const inputTokens = usage.input_tokens || 0;
+    const cacheRead = usage.cache_read_input_tokens || 0;
+    const cacheCreation = usage.cache_creation_input_tokens || 0;
+    const promptTokens = inputTokens + cacheRead + cacheCreation;
+    const outputTokens = usage.output_tokens || 0;
+
+    const message: any = {
+      role: "assistant",
+      content: textContent.trim() || (toolCalls.length > 0 ? null : ""),
+    };
+    if (reasoningText.trim()) {
+      message.reasoning_content = reasoningText.trim();
+    }
+    if (toolCalls.length > 0) {
+      message.tool_calls = toolCalls;
+    }
+
+    return {
+      id: anthropicResponse.id ? `chatcmpl_${anthropicResponse.id.replace(/^msg_/, "")}` : `chatcmpl_${Date.now()}`,
+      object: "chat.completion",
+      created: Math.floor(Date.now() / 1000),
+      model: targetModel || anthropicResponse.model || "claude",
+      choices: [
+        {
+          index: 0,
+          message,
+          finish_reason: finishReason,
+        },
+      ],
+      usage: {
+        prompt_tokens: promptTokens,
+        completion_tokens: outputTokens,
+        total_tokens: promptTokens + outputTokens,
+        ...(cacheRead > 0 ? { prompt_tokens_details: { cached_tokens: cacheRead } } : {}),
+      },
+    };
+  }
 }

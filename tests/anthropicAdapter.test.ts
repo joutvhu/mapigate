@@ -542,3 +542,58 @@ test("AnthropicAdapter - openAiResponseToAnthropic guarantees dictionary tool in
   assert.equal(emptyAnthropicRes.content.length, 1);
   assert.deepEqual(emptyAnthropicRes.content[0], { type: "text", text: "" });
 });
+
+test("AnthropicAdapter - anthropicResponseToOpenAi converts Anthropic Message response to OpenAI Chat Completion", () => {
+  const anthropicRes = {
+    id: "msg_test_12345",
+    type: "message",
+    role: "assistant",
+    model: "claude-3-7-sonnet-20250219",
+    content: [
+      {
+        type: "thinking",
+        thinking: "Let me check the files.",
+        signature: "sig_abc",
+      },
+      {
+        type: "text",
+        text: "Here are the files in your project.",
+      },
+      {
+        type: "tool_use",
+        id: "toolu_01_ls",
+        name: "list_files",
+        input: { path: "src" },
+      },
+    ],
+    stop_reason: "tool_use",
+    usage: {
+      input_tokens: 250,
+      output_tokens: 120,
+      cache_read_input_tokens: 1500,
+      cache_creation_input_tokens: 200,
+    },
+  };
+
+  const openAiRes = AnthropicAdapter.anthropicResponseToOpenAi(anthropicRes, "gpt-4o-mapped");
+  assert.equal(openAiRes.object, "chat.completion");
+  assert.equal(openAiRes.model, "gpt-4o-mapped");
+  assert.ok(openAiRes.id.startsWith("chatcmpl_test_12345"));
+  assert.equal(openAiRes.choices.length, 1);
+
+  const choice = openAiRes.choices[0];
+  assert.equal(choice.finish_reason, "tool_calls");
+  assert.equal(choice.message.role, "assistant");
+  assert.equal(choice.message.content, "Here are the files in your project.");
+  assert.equal(choice.message.reasoning_content, "Let me check the files.");
+  assert.equal(choice.message.tool_calls.length, 1);
+  assert.equal(choice.message.tool_calls[0].id, "toolu_01_ls");
+  assert.equal(choice.message.tool_calls[0].function.name, "list_files");
+  assert.equal(choice.message.tool_calls[0].function.arguments, JSON.stringify({ path: "src" }));
+
+  // Usage: promptTokens should fold cache (250 + 1500 + 200 = 1950)
+  assert.equal(openAiRes.usage.prompt_tokens, 1950);
+  assert.equal(openAiRes.usage.completion_tokens, 120);
+  assert.equal(openAiRes.usage.total_tokens, 2070);
+  assert.equal(openAiRes.usage.prompt_tokens_details.cached_tokens, 1500);
+});
