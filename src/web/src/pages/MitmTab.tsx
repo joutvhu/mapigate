@@ -50,7 +50,8 @@ function sortMitmMappings(ide: string, mappings: MitmMappingRow[]): MitmMappingR
   });
 }
 
-import { MITM_TOOLS, type MitmToolConfig, type MitmToolId } from "../../../mitm/config.js";
+import { MITM_TOOLS } from "../../../mitm/handlers/generated/toolsConfig.js";
+import type { MitmToolConfig, MitmToolId } from "../../../mitm/types.js";
 import { ToolIcon } from "../components/ui/ToolIcon";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
 

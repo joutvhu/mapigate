@@ -1,6 +1,5 @@
 import { MITM_TOOLS } from "./handlers/generated/toolsConfig.js";
 import type { MitmHttpRequestLike, MitmToolUiConfig } from "./types.js";
-import { getDatabase } from "../storage/database.js";
 
 export const TOOL_HOSTS: Record<string, string[]> = Object.fromEntries(
   MITM_TOOLS.map((t) => [t.id, t.hosts])
@@ -40,6 +39,18 @@ export const MITM_TOOLS_METADATA: MitmToolUiConfig[] = MITM_TOOLS.map((t) => ({
   desc: t.desc,
   defaultHost: t.defaultHost,
 }));
+
+export type CustomHostsProvider = () => {
+  toolHostsMap: Map<string, string>;
+  allCustomHosts: Set<string>;
+};
+
+let customHostsProvider: CustomHostsProvider | null = null;
+
+export function registerCustomHostsProvider(provider: CustomHostsProvider): void {
+  customHostsProvider = provider;
+  invalidateCustomMitmHostsCache();
+}
 
 let customHostsCache: {
   toolHostsMap: Map<string, string>;
@@ -90,39 +101,20 @@ export function getCustomMitmHosts(): {
     return customHostsCache;
   }
 
-  const toolHostsMap = new Map<string, string>();
-  const allCustomHosts = new Set<string>();
+  let result = {
+    toolHostsMap: new Map<string, string>(),
+    allCustomHosts: new Set<string>(),
+  };
 
-  try {
-    const db = getDatabase();
-    for (const tool of MITM_TOOLS) {
-      const row = db.get<{ value?: string }>(
-        "SELECT value FROM settings WHERE key = ?",
-        `mitm_hosts_${tool.id}`
-      );
-      if (row?.value) {
-        const hostnames = parseHostnamesFromHostsEntries(row.value);
-        for (const h of hostnames) {
-          toolHostsMap.set(h, tool.id);
-          allCustomHosts.add(h);
-        }
-      }
+  if (customHostsProvider) {
+    try {
+      result = customHostsProvider();
+    } catch {
+      // Database uninitialized or in an isolated test environment without SQLite table
     }
-
-    const globalRow = db.get<{ value?: string }>(
-      "SELECT value FROM settings WHERE key = 'mitm_hosts'"
-    );
-    if (globalRow?.value) {
-      const hostnames = parseHostnamesFromHostsEntries(globalRow.value);
-      for (const h of hostnames) {
-        allCustomHosts.add(h);
-      }
-    }
-  } catch {
-    // Database uninitialized or in an isolated test environment without SQLite table
   }
 
-  customHostsCache = { toolHostsMap, allCustomHosts, ts: now };
+  customHostsCache = { ...result, ts: now };
   return customHostsCache;
 }
 

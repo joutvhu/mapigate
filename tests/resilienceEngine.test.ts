@@ -268,6 +268,7 @@ test("LoadBalancer facade compatibility and resilience integration", () => {
     name: "Account 1",
     rawApiKey: "key-1",
     isActive: true,
+    sortOrder: 1,
   });
 
   ProviderRepository.addAccount({
@@ -276,6 +277,7 @@ test("LoadBalancer facade compatibility and resilience integration", () => {
     name: "Account 2",
     rawApiKey: "key-2",
     isActive: true,
+    sortOrder: 0,
   });
 
   try {

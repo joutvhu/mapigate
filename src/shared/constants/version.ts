@@ -1,9 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import * as url from "node:url";
 
 function getPackageVersion(): string {
   try {
+    const fileURLToPath = (url as any).fileURLToPath || (url as any).default?.fileURLToPath;
+    if (typeof fileURLToPath !== "function") {
+      return "0.0.0";
+    }
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
     const rootPkgPath = path.resolve(currentDir, "../../../package.json");
     if (fs.existsSync(rootPkgPath)) {

@@ -1,8 +1,11 @@
 import { getDatabase, type DatabaseDriver } from "../database.js";
 import {
   TOOL_HOSTS,
+  MITM_TOOLS,
   formatToolDefaultHosts,
   invalidateCustomMitmHostsCache,
+  registerCustomHostsProvider,
+  parseHostnamesFromHostsEntries,
   type MitmToolId,
 } from "../../shared/constants/mitmToolHosts.js";
 
@@ -371,3 +374,39 @@ export class MitmRepository {
     db.run("DELETE FROM mitm_mappings WHERE ide = ? AND source_model = ?", ide, sourceModel);
   }
 }
+
+registerCustomHostsProvider(() => {
+  const toolHostsMap = new Map<string, string>();
+  const allCustomHosts = new Set<string>();
+
+  try {
+    const db = getDatabase();
+    for (const tool of MITM_TOOLS) {
+      const row = db.get<{ value?: string }>(
+        "SELECT value FROM settings WHERE key = ?",
+        `mitm_hosts_${tool.id}`
+      );
+      if (row?.value) {
+        const hostnames = parseHostnamesFromHostsEntries(row.value);
+        for (const h of hostnames) {
+          toolHostsMap.set(h, tool.id);
+          allCustomHosts.add(h);
+        }
+      }
+    }
+
+    const globalRow = db.get<{ value?: string }>(
+      "SELECT value FROM settings WHERE key = 'mitm_hosts'"
+    );
+    if (globalRow?.value) {
+      const hostnames = parseHostnamesFromHostsEntries(globalRow.value);
+      for (const h of hostnames) {
+        allCustomHosts.add(h);
+      }
+    }
+  } catch {
+    // Database uninitialized or in test environment
+  }
+
+  return { toolHostsMap, allCustomHosts };
+});
