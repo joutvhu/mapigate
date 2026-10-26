@@ -30,11 +30,23 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
 
       if (msg.role === "tool") {
         // Anthropic requires tool_result to be placed in a 'user' message
-        const toolResultBlock = {
+        let toolContent: any = msg.content;
+        if (typeof toolContent === "string") {
+          // keep string as is
+        } else if (Array.isArray(toolContent)) {
+          toolContent = convertOpenAiContentToAnthropic(toolContent);
+        } else {
+          toolContent = JSON.stringify(toolContent || "");
+        }
+
+        const toolResultBlock: any = {
           type: "tool_result",
           tool_use_id: msg.tool_call_id,
-          content: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content || ""),
+          content: toolContent,
         };
+        if (msg.is_error !== undefined) {
+          toolResultBlock.is_error = Boolean(msg.is_error);
+        }
 
         const lastMsg = anthropicMessages[anthropicMessages.length - 1];
         if (lastMsg && lastMsg.role === "user" && Array.isArray(lastMsg.content)) {
@@ -166,7 +178,7 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
     ];
   }
 
-  return {
+  const result: any = {
     model: openAiBody.model,
     messages: anthropicMessages,
     system: formattedSystem,
@@ -175,4 +187,10 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
     temperature: openAiBody.temperature,
     stream: Boolean(openAiBody.stream),
   };
+
+  if (openAiBody.reasoning_effort) {
+    result.output_config = { effort: openAiBody.reasoning_effort };
+  }
+
+  return result;
 }

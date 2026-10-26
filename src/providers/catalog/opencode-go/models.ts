@@ -11,6 +11,7 @@ export const models: RegistryModel[] = [
   {"id":"kimi-k2.6","name":"Kimi K2.6","isDefault":false},
   {"id":"kimi-k2.5","name":"Kimi K2.5","isDefault":false},
   {"id":"kimi-k3","name":"Kimi K3","isDefault":false},
+  {"id":"kimi-k3.1-pro","name":"Kimi K3.1 Pro","isDefault":false},
   {"id":"deepseek-v4-pro","name":"DeepSeek V4 Pro","isDefault":false},
   {"id":"deepseek-v4-flash","name":"DeepSeek V4 Flash","isDefault":false},
   {"id":"deepseek-v4-flash-vision-exp","name":"DeepSeek V4 Flash Vision (Exp)","isDefault":false},

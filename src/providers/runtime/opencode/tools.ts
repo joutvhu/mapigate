@@ -1,3 +1,5 @@
+import os from "node:os";
+import path from "node:path";
 import {
   OPENCODE_FINGERPRINT_TOOLS,
   FINGERPRINT_TOOL_DEFINITIONS,
@@ -19,12 +21,50 @@ function toolNameOf(tool: any): string {
   return "";
 }
 
-export function concealFingerprintToolNames(tools: any[]): { tools: any[]; map: Map<string, string> } {
+function chatFunctionOf(tool: any): any {
+  return tool?.type === "function" && tool.function && typeof tool.function === "object"
+    ? tool.function
+    : null;
+}
+
+export function canNormalizeInPlace(tool: any, key: string): boolean {
+  const def = tool && (chatFunctionOf(tool) || tool);
+  const props = def?.parameters?.properties || def?.input_schema?.properties;
+  if (!props || typeof props !== "object" || Array.isArray(props)) return false;
+
+  const fingerprintDef = FINGERPRINT_TOOL_DEFINITIONS[key];
+  if (!fingerprintDef) return false;
+
+  const wanted = Object.keys(fingerprintDef.parameters?.properties || {});
+  const declared = Object.keys(props);
+  if (declared.some((name) => !wanted.includes(name))) return false;
+  return (fingerprintDef.parameters?.required || []).every((name: string) => declared.includes(name));
+}
+
+export function withFingerprintDefinition(tool: any, key: string, isClaude = false): any {
+  const def = FINGERPRINT_TOOL_DEFINITIONS[key];
+  if (!def) return tool;
+  const { description, parameters } = def;
+  if (isClaude) {
+    return { ...tool, name: key, description, input_schema: parameters };
+  }
+  const fn = chatFunctionOf(tool);
+  return fn
+    ? { ...tool, function: { ...fn, name: key, description, parameters } }
+    : { ...tool, name: key, description, parameters };
+}
+
+export function concealFingerprintToolNames(
+  tools: any[],
+  isClaude = false
+): { tools: any[]; map: Map<string, string> } {
   const map = new Map<string, string>();
   if (!Array.isArray(tools) || tools.length === 0) return { tools: tools || [], map };
 
+  const taken = new Set<string>(tools.map(toolNameOf).filter(Boolean));
   const seenQuartet = new Set<string>();
   const out: any[] = [];
+
   for (const tool of tools) {
     if (!tool || typeof tool !== "object" || Array.isArray(tool)) {
       out.push(tool);
@@ -41,14 +81,33 @@ export function concealFingerprintToolNames(tools: any[]): { tools: any[]; map: 
     if (seenQuartet.has(key)) continue;
     seenQuartet.add(key);
 
+    // Case variation (e.g. Read vs read):
+    // Map wire name -> client original name so response can restore it
     if (current !== key) {
       map.set(key, current);
-      const fn = tool.function && typeof tool.function === "object" && !Array.isArray(tool.function)
-        ? tool.function
-        : null;
-      out.push(fn ? { ...tool, function: { ...fn, name: key } } : { ...tool, name: key });
+      out.push(withFingerprintDefinition(tool, key, isClaude));
+      continue;
+    }
+
+    // Exact name match (e.g. shell vs shell):
+    // If parameters line up, normalize in place to satisfy upstream gate without aliases
+    if (canNormalizeInPlace(tool, key)) {
+      out.push(withFingerprintDefinition(tool, key, isClaude));
+      continue;
+    }
+
+    let alias = `${key}_client`;
+    for (let i = 2; taken.has(alias); i++) {
+      alias = `${key}_client${i}`;
+    }
+    taken.add(alias);
+    map.set(alias, current);
+
+    const fn = chatFunctionOf(tool);
+    if (fn) {
+      out.push({ ...tool, function: { ...fn, name: alias } });
     } else {
-      out.push(tool);
+      out.push({ ...tool, name: alias });
     }
   }
   return { tools: out, map };
@@ -99,7 +158,7 @@ export function appendMissingFingerprintTools(
   return { tools: list, appended };
 }
 
-function noteUnavailableTools(body: any, flat: boolean, names: string[]): void {
+function noteUnavailableTools(body: any, flat: boolean, names: string[], claude = false): void {
   const list = names.map((name) => `\`${name}\``).join(" or ");
   const note = names.length > 1
     ? `Do not call the ${list} tools; they are placeholders that do nothing. Use the other tools you have been given instead.`
@@ -110,12 +169,90 @@ function noteUnavailableTools(body: any, flat: boolean, names: string[]): void {
       : note;
     return;
   }
-  if (!Array.isArray(body.messages) || body.system !== undefined) return;
+  if (claude || body.system !== undefined) {
+    body.system = appendSystemText(body.system, note);
+    return;
+  }
+  if (!Array.isArray(body.messages)) return;
   const first = body.messages[0];
   if (first?.role === "system" && typeof first.content === "string") {
     body.messages = [{ ...first, content: `${first.content}\n\n${note}` }, ...body.messages.slice(1)];
   } else {
     body.messages = [{ role: "system", content: note }, ...body.messages];
+  }
+}
+
+const ENV_TAG = "<env>";
+const ENV_HEADING = "Here is some useful information about the environment you are running in:";
+const ENV_TMP_DIR = path.join(os.tmpdir(), "opencode");
+const ENV_WORKING_DIR = process.cwd();
+const ENV_FINGERPRINT_PROMPT = [
+  ENV_HEADING,
+  ENV_TAG,
+  `  Working directory: ${ENV_WORKING_DIR}`,
+  `  Workspace root folder: ${ENV_WORKING_DIR}`,
+  "  Is directory a git repo: no",
+  `  Platform: ${process.platform}`,
+  `  Prefer ${ENV_TMP_DIR} over generic system temporary directories such as /tmp; it is pre-created and approved for external access.`,
+  "</env>",
+].join("\n");
+
+function systemCarriesEnv(system: any): boolean {
+  if (typeof system === "string") return system.includes(ENV_TAG);
+  if (Array.isArray(system)) {
+    return system.some((block: any) => typeof block?.text === "string" && block.text.includes(ENV_TAG));
+  }
+  return false;
+}
+
+function appendSystemText(system: any, text: string): any {
+  if (typeof system === "string") {
+    return system.trim() ? `${system}\n\n${text}` : text;
+  }
+  const blocks = Array.isArray(system) ? [...system] : [];
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const block = blocks[i];
+    if (typeof block?.text === "string") {
+      const existing = block.text.trim();
+      blocks[i] = { ...block, text: existing ? `${block.text}\n\n${text}` : text };
+      return blocks;
+    }
+  }
+  return [...blocks, { type: "text", text }];
+}
+
+export function applyEnvFingerprint(body: any, flat: boolean, { claude = false }: { claude?: boolean } = {}): boolean {
+  try {
+    if (!body || typeof body !== "object") return false;
+
+    if (flat) {
+      if (body.instructions !== undefined && typeof body.instructions !== "string") return false;
+      if (systemCarriesEnv(body.instructions)) return false;
+      body.instructions = (typeof body.instructions === "string" && body.instructions.trim())
+        ? `${body.instructions}\n\n${ENV_FINGERPRINT_PROMPT}`
+        : ENV_FINGERPRINT_PROMPT;
+      return true;
+    }
+
+    if (claude || body.system !== undefined) {
+      if (systemCarriesEnv(body.system)) return false;
+      body.system = appendSystemText(body.system, ENV_FINGERPRINT_PROMPT);
+      return true;
+    }
+
+    if (!Array.isArray(body.messages)) return false;
+    const idx = body.messages.findIndex((msg: any) => msg?.role === "system");
+    if (idx >= 0) {
+      const target = body.messages[idx];
+      if (systemCarriesEnv(target.content)) return false;
+      const content = appendSystemText(target.content, ENV_FINGERPRINT_PROMPT);
+      body.messages = body.messages.map((msg: any, i: number) => (i === idx ? { ...msg, content } : msg));
+      return true;
+    }
+    body.messages = [{ role: "system", content: ENV_FINGERPRINT_PROMPT }, ...body.messages];
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -158,16 +295,17 @@ export function applyFingerprintTools(
   const isClaude = format === "claude";
   const isFlat = format === true || format === "flat";
 
-  const { tools, map } = concealFingerprintToolNames(body.tools);
+  const { tools, map } = concealFingerprintToolNames(body.tools, isClaude);
   const { tools: finalTools, appended } = appendMissingFingerprintTools(tools, format);
   body.tools = finalTools;
   retargetToolChoice(body, map, format);
 
   if (appended.length > 0) {
-    noteUnavailableTools(body, isFlat, appended);
+    noteUnavailableTools(body, isFlat, appended, isClaude);
   }
 
-  // Never default to "none": upstream answers tool_choice "none" with 403 FreeTierError
+  applyEnvFingerprint(body, isFlat, { claude: isClaude });
+
   if (isClaude) {
     if (body.tool_choice === "none") {
       delete body.tool_choice;
@@ -218,13 +356,6 @@ export function restoreToolNames(payload: any, map: Map<string, string>): any {
 
     if (payload.type === "function_call" && payload.name && map.has(payload.name)) {
       payload.name = map.get(payload.name)!;
-    }
-    if (Array.isArray(payload.output)) {
-      for (const item of payload.output) {
-        if (item?.type === "function_call" && item.name && map.has(item.name)) {
-          item.name = map.get(item.name)!;
-        }
-      }
     }
   } catch {
     // Fail-open

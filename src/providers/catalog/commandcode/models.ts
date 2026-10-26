@@ -3,6 +3,7 @@ import type { RegistryModel } from "../../core/types.js";
 export const models: RegistryModel[] = [
   {"id":"deepseek/deepseek-v4-pro","name":"DeepSeek V4 Pro","isDefault":false},
   {"id":"deepseek/deepseek-v4-flash","name":"DeepSeek V4 Flash","isDefault":false},
+  {"id":"moonshotai/Kimi-K3.1-Pro","name":"Kimi K3.1 Pro","isDefault":false},
   {"id":"moonshotai/Kimi-K2.7-Code","name":"Kimi K2.7 Code","isDefault":false},
   {"id":"moonshotai/Kimi-K2.7-Code-Highspeed","name":"Kimi K2.7 Code HighSpeed","isDefault":false},
   {"id":"moonshotai/Kimi-K2.6","name":"Kimi K2.6","isDefault":false},

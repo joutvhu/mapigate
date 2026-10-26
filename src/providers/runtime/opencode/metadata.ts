@@ -47,6 +47,18 @@ export const metadata: ProviderRegistryItem = {
       "name": "Jev 1.13 Free",
       "isDefault": false,
       "kind": "systemone"
+    },
+    {
+      "id": "deepseek-v4.1-flash-free",
+      "name": "DeepSeek V4.1 Flash Free",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "reasoning": true,
+        "thinkingFormat": "deepseek",
+        "contextWindow": 330000,
+        "maxOutput": 128000
+      }
     }
   ],
   "passthroughModels": true

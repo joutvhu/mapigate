@@ -141,7 +141,7 @@ export function translateAnthropicToOpenAi(anthropicBody: any): any {
     }));
   }
 
-  return {
+  const result: any = {
     model: anthropicBody.model,
     messages,
     tools,
@@ -149,4 +149,11 @@ export function translateAnthropicToOpenAi(anthropicBody: any): any {
     max_tokens: anthropicBody.max_tokens,
     temperature: anthropicBody.temperature,
   };
+
+  const effort = anthropicBody.output_config?.effort || anthropicBody.reasoning_effort;
+  if (effort) {
+    result.reasoning_effort = effort;
+  }
+
+  return result;
 }

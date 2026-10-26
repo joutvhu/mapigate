@@ -73,6 +73,21 @@ test("Capabilities - getCapabilitiesForModel accurately classifies models", () =
   const gemini = getCapabilitiesForModel("google", "gemini-2.0-flash");
   assert.equal(gemini.vision, true);
   assert.equal(gemini.search, true);
+
+  // Haiku 5+ adaptive thinking
+  const haiku5 = getCapabilitiesForModel("claude", "claude-haiku-5-5");
+  assert.equal(haiku5.thinkingFormat, "claude-adaptive");
+
+  // Kimi K3.1 Pro
+  const kimiK31 = getCapabilitiesForModel("opencode-go", "kimi-k3.1-pro");
+  assert.equal(kimiK31.reasoning, true);
+  assert.equal(kimiK31.thinkingFormat, "kimi");
+  assert.equal(kimiK31.contextWindow, 1048576);
+
+  // OpenCode Free deepseek-v4.1-flash-free context cap
+  const dsFree = getCapabilitiesForModel("opencode", "deepseek-v4.1-flash-free");
+  assert.equal(dsFree.contextWindow, 330000);
+  assert.equal(dsFree.maxOutput, 128000);
 });
 
 test("Capabilities - resolves model capabilities from provider metadata SSOT", () => {

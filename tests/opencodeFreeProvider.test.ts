@@ -184,3 +184,53 @@ test("OpenCode Free Provider - Endpoints & HTTP Integration", async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+test("OpenCode Free Provider - in-place normalization for Windows shell tool and <env> prompt", () => {
+  const windowsShellTool = {
+    type: "function",
+    function: {
+      name: "shell",
+      description: "Commands run on Windows using pwsh.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string" },
+          workdir: { type: "string" },
+        },
+        required: ["command"],
+      },
+    },
+  };
+
+  const reqBody: any = {
+    messages: [{ role: "user", content: "List directory" }],
+    tools: [windowsShellTool],
+  };
+
+  const map = applyFingerprintTools(reqBody, false);
+  // shell tool must be kept in place without alias
+  assert.equal(map.size, 0);
+  const names = reqBody.tools.map((t: any) => t.function?.name);
+  assert.ok(names.includes("shell"));
+  assert.ok(names.includes("read"));
+
+  const normalizedShell = reqBody.tools.find((t: any) => t.function?.name === "shell");
+  assert.ok(normalizedShell.function.description.includes("Commands run on Linux using bash."));
+
+  // Check <env> marker is injected in system message
+  const sysMsg = reqBody.messages.find((m: any) => m.role === "system");
+  assert.ok(sysMsg, "System message must be present");
+  assert.ok(sysMsg.content.includes("<env>"), "System message must contain <env> marker");
+});
+
+test("OpenCode Free Provider - deepseek-v4.1-flash-free contextWindow cap at 330k", () => {
+  const prov = getRegistryProvider("opencode");
+  assert.ok(prov, "opencode provider must be registered");
+  const model = prov.models.find((m: any) => m.id === "deepseek-v4.1-flash-free");
+  assert.ok(model, "deepseek-v4.1-flash-free must be present in models list");
+  const caps = model.capabilities as any;
+  assert.ok(caps, "Capabilities must be defined");
+  assert.equal(caps.contextWindow, 330000);
+  assert.equal(caps.maxOutput, 128000);
+  assert.equal(caps.reasoning, true);
+});

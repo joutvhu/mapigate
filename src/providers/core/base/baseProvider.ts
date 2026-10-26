@@ -55,6 +55,25 @@ export abstract class BaseProvider implements IProvider {
   public defaultBaseUrl?: string;
   public readonly streamType: "sse" | "eventstream" | "custom" = "sse";
 
+  public resolveUpstreamModelId(context: ProviderRequestContext): string {
+    const targetModel = context.targetModel || "";
+    if (!targetModel) return targetModel;
+
+    const suffixMatch = targetModel.match(/^(.*?)(\([^()]+\))$/);
+    const baseModel = suffixMatch ? suffixMatch[1] : targetModel;
+    const suffix = suffixMatch ? suffixMatch[2] : "";
+
+    const modelsList = (context.provider?.models as any[]) || [];
+    const modelEntry = modelsList.find(
+      (m: any) => m.id === baseModel || (m.upstreamModelId && m.upstreamModelId === baseModel)
+    );
+
+    if (modelEntry?.upstreamModelId) {
+      return `${modelEntry.upstreamModelId}${suffix}`;
+    }
+    return targetModel;
+  }
+
   public buildUrl(context: ProviderRequestContext): string {
     const accountBase = (context.account?.providerSpecificData?.baseUrl || "").trim();
     const rawBase = (accountBase || context.provider?.baseUrl || "").trim();

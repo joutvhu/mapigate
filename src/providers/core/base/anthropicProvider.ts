@@ -56,11 +56,12 @@ export class AnthropicCompatibleProvider extends BaseProvider {
   }
 
   public override transformRequestBody(context: ProviderRequestContext): any {
+    const modelToUse = this.resolveUpstreamModelId(context);
     if (context.clientFormat === "openai") {
       const converted = AnthropicAdapter.openAiToAnthropic(context.body);
-      converted.model = context.targetModel;
+      converted.model = modelToUse;
       return converted;
     }
-    return { ...context.body, model: context.targetModel };
+    return { ...context.body, model: modelToUse };
   }
 }

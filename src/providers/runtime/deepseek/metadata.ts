@@ -49,6 +49,7 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "deepseek-v4.1-flash",
       "name": "DeepSeek V4.1 Flash",
+      "upstreamModelId": "deepseek-flash",
       "isDefault": false,
       "capabilities": {
         "vision": true,

@@ -21,6 +21,7 @@ import { metadata as predibase } from "../../catalog/predibase/metadata.js";
 import { metadata as qoder } from "../../runtime/qoder/metadata.js";
 import { metadata as recraft } from "../../catalog/recraft/metadata.js";
 import { metadata as reka } from "../../catalog/reka/metadata.js";
+import { metadata as runcrate } from "../../catalog/runcrate/metadata.js";
 import { metadata as runwayml } from "../../catalog/runwayml/metadata.js";
 import { metadata as sail } from "../../catalog/sail/metadata.js";
 import { metadata as sambanova } from "../../catalog/sambanova/metadata.js";
@@ -40,7 +41,6 @@ import { metadata as siliconflow } from "../../catalog/siliconflow/metadata.js";
 import { metadata as snowflake } from "../../catalog/snowflake/metadata.js";
 import { metadata as sparkdesk } from "../../catalog/sparkdesk/metadata.js";
 import { metadata as stability_ai } from "../../catalog/stability-ai/metadata.js";
-import { metadata as stepfun } from "../../catalog/stepfun/metadata.js";
 
 export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "onomeo": onomeo,
@@ -63,6 +63,7 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "qoder": qoder,
   "recraft": recraft,
   "reka": reka,
+  "runcrate": runcrate,
   "runwayml": runwayml,
   "sail": sail,
   "sambanova": sambanova,
@@ -82,5 +83,4 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "snowflake": snowflake,
   "sparkdesk": sparkdesk,
   "stability-ai": stability_ai,
-  "stepfun": stepfun,
 };

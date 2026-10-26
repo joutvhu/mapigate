@@ -38,7 +38,8 @@ export class OpenAiCompatibleProvider extends BaseProvider {
     if (context.clientFormat === "anthropic") {
       body = AnthropicAdapter.anthropicToOpenAi(body);
     }
-    const converted: any = { ...body, model: context.targetModel };
+    const modelToUse = this.resolveUpstreamModelId(context);
+    const converted: any = { ...body, model: modelToUse };
     if (Array.isArray(converted.tools)) {
       converted.tools = normalizeToolsToOpenAi(converted.tools);
       if (!converted.tools || converted.tools.length === 0) {

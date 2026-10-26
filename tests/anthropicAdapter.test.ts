@@ -597,3 +597,74 @@ test("AnthropicAdapter - anthropicResponseToOpenAi converts Anthropic Message re
   assert.equal(openAiRes.usage.total_tokens, 2070);
   assert.equal(openAiRes.usage.prompt_tokens_details.cached_tokens, 1500);
 });
+
+test("AnthropicAdapter - openAiToAnthropic converts image_url parts in role: 'tool' to Claude image blocks", () => {
+  const openAiPayload = {
+    model: "claude-haiku-4-5",
+    messages: [
+      { role: "user", content: "Inspect screenshot" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_browser_1",
+            type: "function",
+            function: { name: "take_screenshot", arguments: "{}" },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_browser_1",
+        content: [
+          { type: "text", text: "Screenshot captured:" },
+          {
+            type: "image_url",
+            image_url: { url: "data:image/png;base64,iVBORw0KGgo=" },
+          },
+        ],
+      },
+    ],
+  };
+
+  const anthropicPayload = AnthropicAdapter.openAiToAnthropic(openAiPayload);
+  assert.equal(anthropicPayload.messages.length, 3);
+  const toolMsg = anthropicPayload.messages[2];
+  assert.equal(toolMsg.role, "user");
+  assert.ok(Array.isArray(toolMsg.content));
+  const toolResult = toolMsg.content[0];
+  assert.equal(toolResult.type, "tool_result");
+  assert.equal(toolResult.tool_use_id, "call_browser_1");
+  assert.ok(Array.isArray(toolResult.content));
+  assert.equal(toolResult.content.length, 2);
+  assert.deepEqual(toolResult.content[0], { type: "text", text: "Screenshot captured:" });
+  assert.deepEqual(toolResult.content[1], {
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: "image/png",
+      data: "iVBORw0KGgo=",
+    },
+  });
+});
+
+test("AnthropicAdapter - bidirectional effort translation (output_config.effort <-> reasoning_effort) preserves max", () => {
+  // 1. Anthropic -> OpenAI
+  const anthropicReq = {
+    model: "gpt-6-astra",
+    messages: [{ role: "user", content: "Solve math" }],
+    output_config: { effort: "max" },
+  };
+  const openAiOut = AnthropicAdapter.anthropicToOpenAi(anthropicReq);
+  assert.equal(openAiOut.reasoning_effort, "max");
+
+  // 2. OpenAI -> Anthropic
+  const openAiReq = {
+    model: "claude-haiku-5-5",
+    messages: [{ role: "user", content: "Solve math" }],
+    reasoning_effort: "max",
+  };
+  const anthropicOut = AnthropicAdapter.openAiToAnthropic(openAiReq);
+  assert.deepEqual(anthropicOut.output_config, { effort: "max" });
+});
