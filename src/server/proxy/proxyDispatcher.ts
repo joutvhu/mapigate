@@ -1,4 +1,6 @@
 import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { getPublicDnsAgent } from "../../shared/utils/dnsResolver.js";
+import { isMitmHost } from "../../mitm/toolsHelper.js";
 
 const MAX_PROXY_DISPATCHERS = 50;
 const proxyDispatchers = new Map<string, ProxyAgent>();
@@ -31,6 +33,21 @@ export async function executeUpstreamFetch(
     const dispatcher = getProxyDispatcher(effectiveProxy);
     return (await (undiciFetch as any)(url, { ...options, dispatcher })) as globalThis.Response;
   }
+
+  if (options?.dispatcher) {
+    return (await (undiciFetch as any)(url, options)) as globalThis.Response;
+  }
+
+  let hostname = "";
+  try {
+    hostname = new URL(url).hostname;
+  } catch {}
+
+  if (isMitmHost(hostname)) {
+    const publicAgent = getPublicDnsAgent();
+    return (await (undiciFetch as any)(url, { ...options, dispatcher: publicAgent })) as globalThis.Response;
+  }
+
   return (await globalThis.fetch(url, options as any)) as globalThis.Response;
 }
 
