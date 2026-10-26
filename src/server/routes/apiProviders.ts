@@ -447,9 +447,19 @@ providerRouter.get("/:id", (req, res) => {
       isActive: a.isActive,
       rateLimitHits: a.rateLimitHits,
       lastUsedAt: a.lastUsedAt,
+      sortOrder: a.sortOrder,
       providerSpecificData: maskSensitivePsd(a.providerSpecificData),
     })),
   });
+});
+
+// PUT reorder accounts
+providerRouter.put("/:id/accounts/reorder", (req, res) => {
+  const { accountIds } = req.body;
+  if (Array.isArray(accountIds)) {
+    ProviderRepository.reorderAccounts(accountIds);
+  }
+  res.json({ success: true });
 });
 
 // PUT update account details
@@ -519,15 +529,6 @@ providerRouter.put("/:id/strategy", (req, res) => {
   res.json({ success: true, strategy: strat, stickyLimit: sticky });
 });
 
-// PUT reorder accounts
-providerRouter.put("/:id/accounts/reorder", (req, res) => {
-  const { accountIds } = req.body;
-  if (Array.isArray(accountIds)) {
-    ProviderRepository.reorderAccounts(accountIds);
-  }
-  res.json({ success: true });
-});
-
 // GET all providers with account counts
 providerRouter.get("/", (_req, res) => {
   const providers = ProviderRepository.getAllProviders();
@@ -542,6 +543,7 @@ providerRouter.get("/", (_req, res) => {
         isActive: a.isActive,
         rateLimitHits: a.rateLimitHits,
         lastUsedAt: a.lastUsedAt,
+        sortOrder: a.sortOrder,
         providerSpecificData: a.providerSpecificData,
       })),
     };

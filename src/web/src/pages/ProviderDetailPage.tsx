@@ -141,7 +141,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               id: a.id,
               name: a.name,
               isActive: a.isActive,
-              order: i,
+              order: a.sortOrder ?? i,
               providerSpecificData: a.providerSpecificData,
             }))
           );
@@ -195,13 +195,23 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     const temp = copy[index];
     copy[index] = copy[target];
     copy[target] = temp;
-    setConnections(copy);
+    const reordered = copy.map((c, i) => ({ ...c, order: i }));
+    setConnections(reordered);
 
     fetch(`/api/providers/${provider.id}/accounts/reorder`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accountIds: copy.map((c) => c.id) }),
-    }).catch(() => {});
+      body: JSON.stringify({ accountIds: reordered.map((c) => c.id) }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          console.error("Failed to reorder accounts:", res.status);
+        }
+        invalidateAvailableModelsCache();
+      })
+      .catch((err) => {
+        console.error("Failed to reorder accounts:", err);
+      });
   };
 
   const handleDeleteAccount = (id: string) => {

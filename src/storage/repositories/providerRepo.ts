@@ -351,7 +351,7 @@ export class ProviderRepository {
     const reg = getRegistryProvider(providerId);
     const targetProviderId = reg?.id || providerId;
     const rows = db.all<any>(
-      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY rate_limit_hits ASC, sort_order ASC, created_at ASC, rowid ASC",
+      "SELECT * FROM provider_accounts WHERE (provider_id = ? OR provider_id = ?) AND is_active = 1 ORDER BY sort_order ASC, rate_limit_hits ASC, created_at ASC, rowid ASC",
       providerId,
       targetProviderId
     );
@@ -465,7 +465,15 @@ export class ProviderRepository {
     const encryptedKey = CryptoVault.encrypt(rawKey);
     const now = Date.now();
     const psdJson = account.providerSpecificData ? JSON.stringify(account.providerSpecificData) : null;
-    const sortOrder = account.sortOrder ?? 0;
+    const maxOrderRow = db.get<any>(
+      "SELECT MAX(sort_order) as max_order FROM provider_accounts WHERE provider_id = ?",
+      provider.id
+    );
+    const nextOrder =
+      maxOrderRow?.max_order !== null && maxOrderRow?.max_order !== undefined
+        ? Number(maxOrderRow.max_order) + 1
+        : 0;
+    const sortOrder = account.sortOrder ?? nextOrder;
 
     db.run(
       `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, sort_order, created_at, provider_specific_data)
@@ -565,10 +573,20 @@ export class ProviderRepository {
   }
 
   public static reorderAccounts(accountIds: string[]): void {
+    if (!accountIds || accountIds.length === 0) return;
     const db = getDatabase();
-    accountIds.forEach((id, index) => {
-      db.run("UPDATE provider_accounts SET sort_order = ? WHERE id = ?", index, id);
-    });
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      accountIds.forEach((id, index) => {
+        db.run("UPDATE provider_accounts SET sort_order = ? WHERE id = ?", index, id);
+      });
+      db.exec("COMMIT;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK;");
+      } catch {}
+      throw err;
+    }
   }
 
   public static recordRateLimitHit(id: string): void {
