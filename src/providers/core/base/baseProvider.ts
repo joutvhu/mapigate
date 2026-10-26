@@ -14,10 +14,13 @@ import { promisify } from "node:util";
 const execAsync = promisify(exec);
 
 export async function checkBinaryInstalled(binary?: string): Promise<boolean> {
-  if (!binary) return false;
+  if (!binary || typeof binary !== "string") return false;
+  const cleanBin = binary.trim();
+  if (!/^[a-zA-Z0-9_.-]+$/.test(cleanBin)) return false;
+
   try {
     const isWindows = process.platform === "win32";
-    const command = isWindows ? `where ${binary}` : `which ${binary}`;
+    const command = isWindows ? `where ${cleanBin}` : `which ${cleanBin}`;
     const env = isWindows
       ? { ...process.env, PATH: `${process.env.APPDATA}\\npm;${process.env.PATH}` }
       : process.env;
@@ -26,6 +29,35 @@ export async function checkBinaryInstalled(binary?: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Extracts a clean string token from account rawApiKey or providerSpecificData,
+ * safely unpacking JSON tokens from OAuth flows.
+ */
+export function extractTokenFromAccount(account?: any): string {
+  let token = (account?.rawApiKey || "").trim();
+  const psd = (account?.providerSpecificData || {}) as Record<string, any>;
+
+  if (token.startsWith("{") && token.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(token);
+      token = String(
+        parsed.accessToken ||
+        parsed.access_token ||
+        parsed.token ||
+        parsed.apiKey ||
+        parsed.api_key ||
+        parsed.key ||
+        token
+      ).trim();
+    } catch {}
+  }
+
+  if (!token && psd.accessToken) {
+    token = String(psd.accessToken).trim();
+  }
+  return token;
 }
 
 export function extractHeader(req: any, headerName: string): string | undefined {
@@ -95,7 +127,8 @@ export abstract class BaseProvider implements IProvider {
   }
 
   public async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
-    const bearerToken = (context.account?.rawApiKey || "").trim();
+    const bearerToken = extractTokenFromAccount(context.account);
+    const psd = (context.account?.providerSpecificData || {}) as Record<string, any>;
     const prov = context.provider as any;
     const isNoApiKey =
       prov?.requiresApiKey === false ||
@@ -107,6 +140,10 @@ export abstract class BaseProvider implements IProvider {
       ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
       ...(context.provider?.customHeaders || {}),
     };
+
+    if (psd.chatgptAccountId) {
+      outgoingHeaders["chatgpt-account-id"] = psd.chatgptAccountId;
+    }
 
     if (isNoApiKey && !bearerToken) {
       delete outgoingHeaders["Authorization"];

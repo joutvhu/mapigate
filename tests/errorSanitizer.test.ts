@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   sanitizeErrorMessage,
   sanitizeErrorResponse,
+  sanitizeHeaders,
 } from "../src/shared/utils/errorSanitizer.js";
 
 describe("Error Sanitizer (CWE-209 Mitigation)", () => {
@@ -172,6 +173,30 @@ describe("Error Sanitizer (CWE-209 Mitigation)", () => {
       assert.equal(sanitizeErrorResponse(42), 42);
       assert.equal(sanitizeErrorResponse(true), true);
       assert.equal(sanitizeErrorResponse("Error in F:\\file.ts"), "Error in [path redacted]");
+    });
+  });
+
+  describe("Header Sanitization", () => {
+    it("redacts sensitive authentication headers", () => {
+      const headers = {
+        "content-type": "application/json",
+        "authorization": "Bearer sk-proj-12345678",
+        "x-api-key": "secret-anthropic-key",
+        "cookie": "session=abc123xyz",
+        "user-agent": "mapigate/1.0",
+      };
+
+      const sanitized = sanitizeHeaders(headers);
+      assert.equal(sanitized["content-type"], "application/json");
+      assert.equal(sanitized["authorization"], "[REDACTED]");
+      assert.equal(sanitized["x-api-key"], "[REDACTED]");
+      assert.equal(sanitized["cookie"], "[REDACTED]");
+      assert.equal(sanitized["user-agent"], "mapigate/1.0");
+    });
+
+    it("handles empty or invalid headers gracefully", () => {
+      assert.deepEqual(sanitizeHeaders(undefined), {});
+      assert.deepEqual(sanitizeHeaders({}), {});
     });
   });
 });

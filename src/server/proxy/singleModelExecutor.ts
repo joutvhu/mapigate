@@ -16,7 +16,7 @@ import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { handleNonStreamingResponse, handleStreamingResponse } from "./responseHandlers.js";
 import { logger, LogSymbol, maskKey, tagForSession } from "../../shared/logger.js";
 import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
-import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
+import { sanitizeErrorMessage, sanitizeHeaders } from "../../shared/utils/errorSanitizer.js";
 import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js";
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.js";
@@ -348,22 +348,25 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       const errText = await upstreamRes.text();
       const cleanErrText = sanitizeErrorMessage(errText);
       try {
-        const debugFile = path.join(getDefaultDataDir(), "debug_failed_request.json");
-        fs.writeFileSync(
-          debugFile,
-          JSON.stringify(
-            {
-              timestamp: new Date().toISOString(),
-              url: upstreamUrl,
-              status: upstreamRes.status,
-              error: cleanErrText,
-              headers: outgoingHeaders,
-              body: upstreamBody,
-            },
-            null,
-            2
-          )
-        );
+        const obsMode = SettingsRepository.getObservabilityMode();
+        if (obsMode !== "off") {
+          const debugFile = path.join(getDefaultDataDir(), "debug_failed_request.json");
+          fs.writeFileSync(
+            debugFile,
+            JSON.stringify(
+              {
+                timestamp: new Date().toISOString(),
+                url: upstreamUrl,
+                status: upstreamRes.status,
+                error: cleanErrText,
+                headers: sanitizeHeaders(outgoingHeaders),
+                body: obsMode === "errors_only" || obsMode === "all" ? upstreamBody : undefined,
+              },
+              null,
+              2
+            )
+          );
+        }
       } catch {}
       const resFailure = recordResilienceFailure({
         providerId: targetProviderId, accountId: account?.id, model: targetModel,

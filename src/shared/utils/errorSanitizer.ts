@@ -116,3 +116,21 @@ export function sanitizeErrorResponse<T = any>(err: T): T {
 
   return err;
 }
+
+/**
+ * Redacts sensitive authentication headers before logging or dumping to disk
+ */
+export function sanitizeHeaders(headers?: Record<string, string>): Record<string, string> {
+  if (!headers || typeof headers !== "object") return {};
+  const sensitiveKeys = ["authorization", "x-api-key", "cookie", "token", "api-key"];
+  const sanitized: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(headers)) {
+    if (sensitiveKeys.some((s) => key.toLowerCase().includes(s))) {
+      sanitized[key] = "[REDACTED]";
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}

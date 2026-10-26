@@ -80,6 +80,7 @@ export async function pipeSseStream(
   let buffer = "";
   let currentEventName = "";
   let clientDisconnected = false;
+  let doneSent = false;
 
   const onClose = () => {
     clientDisconnected = true;
@@ -133,6 +134,7 @@ export async function pipeSseStream(
 
         if (dataStr === "[DONE]") {
           if (clientFormat === "openai") {
+            doneSent = true;
             safeWrite("data: [DONE]\n\n");
           }
           continue;
@@ -242,6 +244,9 @@ export async function pipeSseStream(
         for (const ev of finalEvents) {
           safeWrite(ev);
         }
+      } else if (clientFormat === "openai" && !doneSent) {
+        doneSent = true;
+        safeWrite("data: [DONE]\n\n");
       }
       try {
         clientRes.end();

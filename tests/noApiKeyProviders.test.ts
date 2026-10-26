@@ -7,6 +7,7 @@ import { ProviderRepository } from "../src/storage/repositories/providerRepo.js"
 import { LoadBalancer } from "../src/core/router/loadBalancer.js";
 import { OpenAiCompatibleProvider } from "../src/providers/core/base/openAiProvider.js";
 import { AnthropicCompatibleProvider } from "../src/providers/core/base/anthropicProvider.js";
+import { extractTokenFromAccount, checkBinaryInstalled } from "../src/providers/core/base/baseProvider.js";
 import type { ProviderRequestContext } from "../src/providers/core/types.js";
 
 test("No-API-Key Providers - Metadata Configuration", () => {
@@ -304,3 +305,49 @@ test("No-API-Key Providers - Express Endpoints & HTTP Flow", async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+test("Token Unpacking & Binary Inspection Safety", async () => {
+  // 1. extractTokenFromAccount cleanly extracts token from JSON stored by OAuth
+  const jsonAccount = {
+    id: "acc_oauth_1",
+    providerId: "codex",
+    name: "ChatGPT OAuth",
+    rawApiKey: JSON.stringify({
+      accessToken: "ya29.secret_token_12345",
+      refreshToken: "refresh_token_67890",
+      expiresAt: Date.now() + 3600000,
+    }),
+    isActive: true,
+  };
+  const extractedToken = extractTokenFromAccount(jsonAccount);
+  assert.equal(extractedToken, "ya29.secret_token_12345", "Must extract accessToken from stringified JSON");
+
+  // 2. buildHeaders with OAuth JSON account sets clean Bearer token
+  const openaiProv = new OpenAiCompatibleProvider({ id: "codex", name: "Codex" });
+  const headers = await openaiProv.buildHeaders({
+    req: { headers: {} } as any,
+    targetModel: "gpt-4o",
+    clientFormat: "openai",
+    targetFormat: "openai",
+    body: {},
+    provider: { id: "codex", name: "Codex", baseUrl: "https://api.openai.com/v1", format: "openai", isActive: true, priority: 1, models: ["gpt-4o"], createdAt: 0, updatedAt: 0 },
+    account: jsonAccount,
+    requestId: "req_test",
+    startTime: Date.now(),
+    clientTool: "test",
+    rawModel: "gpt-4o",
+    rtkStats: { compressedTokens: 0, tokensSaved: 0 },
+  });
+  assert.equal(headers["Authorization"], "Bearer ya29.secret_token_12345", "Authorization header must not contain JSON string");
+
+  // 3. checkBinaryInstalled rejects command injection characters
+  const safeCheck = await checkBinaryInstalled("node");
+  assert.equal(typeof safeCheck, "boolean");
+
+  const maliciousCheck = await checkBinaryInstalled("node; echo pwned");
+  assert.equal(maliciousCheck, false, "Must reject command injection input");
+
+  const maliciousCheck2 = await checkBinaryInstalled("claude & calc.exe");
+  assert.equal(maliciousCheck2, false, "Must reject ampersand injection input");
+});
+

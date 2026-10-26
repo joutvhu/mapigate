@@ -83,7 +83,51 @@ export function resolveTargetModelAndProvider(modelStr: string): {
   const cleanTarget = stripModelContextMarker(targetModel).model;
   if (cleanTarget) targetModel = cleanTarget;
   if (!providerId) {
-    providerId = ProviderRepository.getAllProviders().find((p) => p.isActive)?.id;
+    const activeProviders = ProviderRepository.getAllProviders().filter((p) => p.isActive);
+    const targetLower = targetModel.toLowerCase();
+
+    // 1. Try finding an active provider that explicitly lists this model in provider.models
+    const exactMatch = activeProviders.find((p) =>
+      Array.isArray(p.models) && p.models.some((m) => m.toLowerCase() === targetLower)
+    );
+    if (exactMatch) {
+      providerId = exactMatch.id;
+    }
+
+    // 2. Try matching by well-known model prefix patterns to active providers
+    if (!providerId) {
+      const isClaude = targetLower.startsWith("claude");
+      const isOpenAi =
+        targetLower.startsWith("gpt-") ||
+        targetLower.startsWith("o1") ||
+        targetLower.startsWith("o3") ||
+        targetLower.startsWith("o4") ||
+        targetLower.startsWith("chatgpt") ||
+        targetLower.startsWith("text-embedding");
+      const isGemini = targetLower.startsWith("gemini");
+      const isDeepseek = targetLower.startsWith("deepseek");
+      const isGrok = targetLower.startsWith("grok");
+      const isQwen = targetLower.startsWith("qwen");
+
+      if (isClaude) {
+        providerId = activeProviders.find((p) => p.id === "claude" || p.id === "anthropic" || p.format === "claude")?.id;
+      } else if (isOpenAi) {
+        providerId = activeProviders.find((p) => p.id === "openai" || p.id === "codex")?.id;
+      } else if (isGemini) {
+        providerId = activeProviders.find((p) => p.id === "gemini" || p.id === "gemini-cli" || p.id === "antigravity")?.id;
+      } else if (isDeepseek) {
+        providerId = activeProviders.find((p) => p.id === "deepseek")?.id;
+      } else if (isGrok) {
+        providerId = activeProviders.find((p) => p.id === "grok" || p.id === "grok-cli")?.id;
+      } else if (isQwen) {
+        providerId = activeProviders.find((p) => p.id === "alibaba" || p.id === "dashscope")?.id;
+      }
+    }
+
+    // 3. Fallback to first active provider
+    if (!providerId) {
+      providerId = activeProviders[0]?.id;
+    }
   }
   return { targetModel, providerId, is1mContext: Boolean(is1mContext) };
 }

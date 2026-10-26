@@ -1,4 +1,4 @@
-import { BaseProvider } from "./baseProvider.js";
+import { BaseProvider, extractTokenFromAccount } from "./baseProvider.js";
 import type { ProviderRequestContext } from "../types.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 
@@ -34,7 +34,7 @@ export class AnthropicCompatibleProvider extends BaseProvider {
 
   public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
     const headers = await super.buildHeaders(context);
-    const bearerToken = (context.account?.rawApiKey || "").trim();
+    const bearerToken = extractTokenFromAccount(context.account);
     const prov = context.provider as any;
     const isNoApiKey =
       prov?.requiresApiKey === false ||

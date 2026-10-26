@@ -51,7 +51,7 @@ export async function passthroughHttps(
         method: req.method,
         headers,
         servername: targetHost,
-        rejectUnauthorized: false,
+        rejectUnauthorized: process.env.MITM_DISABLE_TLS_VERIFY === "1" ? false : true,
       },
       (forwardRes) => {
         res.writeHead(forwardRes.statusCode || 200, forwardRes.headers);

@@ -13,12 +13,20 @@ export class CryptoVault {
   private static masterKey: Buffer | null = null;
   private static readonly SALT = "mapigate-vault-salt-v1";
 
+  private static warnedFallback = false;
+
   private static getMasterKey(): Buffer {
     if (!this.masterKey) {
       let hwId: string;
       try {
         hwId = machineIdSync();
-      } catch {
+      } catch (err: any) {
+        if (!this.warnedFallback && process.env.NODE_ENV !== "test") {
+          console.warn(
+            `[CryptoVault] Warning: machineIdSync() unavailable (${err?.message || err}). Using fallback salt. Credentials may be invalid if environment changes.`
+          );
+          this.warnedFallback = true;
+        }
         hwId = "fallback-hw-key-mapigate";
       }
       if (!hwId || typeof hwId !== "string" || !hwId.trim()) {
