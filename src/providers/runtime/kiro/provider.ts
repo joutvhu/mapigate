@@ -1,11 +1,12 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import { extractTokenFromAccount } from "../../core/base/baseProvider.js";
-import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult, ModelCallResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getKiroUsage, resolveDefaultProfileArn } from "./quota.js";
 import { getPublicDnsAgent } from "../../../shared/utils/dnsResolver.js";
 import { fetch as undiciFetch } from "undici";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { executeKiro } from "./executor.js";
 
 const ANTHROPIC_SNAPSHOT_SUFFIX = /-\d{8}$/;
 
@@ -58,6 +59,13 @@ export class KiroProvider extends OpenAiCompatibleProvider {
 
   public override supportsQuota(): boolean {
     return true;
+  }
+
+  public async execute(
+    context: ProviderRequestContext,
+    _dispatchSingleModel?: any
+  ): Promise<ModelCallResult> {
+    return await executeKiro(context, this);
   }
 
   public async fetchQuota(context: ProviderUsageContext): Promise<RawProviderQuotaResult> {
