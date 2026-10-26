@@ -403,3 +403,88 @@ test("AnthropicAdapter - anthropicToOpenAi converts Anthropic image block to ima
     image_url: { url: "data:image/jpeg;base64,/9j/4AAQSkZJRg==" },
   });
 });
+
+test("AnthropicAdapter - anthropicChunkToOpenAiEvent captures message_start input_tokens into message_delta usage", () => {
+  const requestId = "req_usage_capture_test";
+  const state = AnthropicAdapter.createAnthropicToOpenAiState();
+
+  const msgStartEvent = {
+    type: "message_start",
+    message: {
+      id: "msg_123",
+      role: "assistant",
+      usage: {
+        input_tokens: 1500,
+        cache_creation_input_tokens: 300,
+        cache_read_input_tokens: 1200,
+      },
+    },
+  };
+  AnthropicAdapter.anthropicChunkToOpenAiEvent(msgStartEvent, requestId, state);
+
+  assert.equal(state.promptTokens, 3000);
+  assert.equal(state.cachedTokens, 1200);
+
+  const msgDeltaEvent = {
+    type: "message_delta",
+    delta: { stop_reason: "end_turn" },
+    usage: { output_tokens: 85 },
+  };
+  const chunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(msgDeltaEvent, requestId, state);
+  assert.equal(chunks.length, 1);
+  const parsed = JSON.parse(chunks[0].replace(/^data:\s*/, "").trim());
+  assert.equal(parsed.usage.prompt_tokens, 3000);
+  assert.equal(parsed.usage.completion_tokens, 85);
+  assert.equal(parsed.usage.total_tokens, 3085);
+  assert.equal(parsed.usage.prompt_tokens_details.cached_tokens, 1200);
+});
+
+test("AnthropicAdapter - openAiChunkToAnthropicEvent closes previous tool_call before starting next tool_call", () => {
+  const messageId = "msg_multi_tool_test";
+  const state = AnthropicAdapter.createStreamState(messageId);
+
+  // Chunk 1: Tool call 0 starts
+  const chunk1 = {
+    choices: [
+      {
+        delta: {
+          tool_calls: [
+            {
+              index: 0,
+              id: "call_001",
+              function: { name: "toolA", arguments: '{"a":' },
+            },
+          ],
+        },
+      },
+    ],
+  };
+  const events1 = AnthropicAdapter.openAiChunkToAnthropicEvent(chunk1, messageId, state);
+  assert.ok(events1.some((e) => e.includes("content_block_start") && e.includes('"name":"toolA"')));
+
+  // Chunk 2: Tool call 1 starts (different index)
+  const chunk2 = {
+    choices: [
+      {
+        delta: {
+          tool_calls: [
+            {
+              index: 1,
+              id: "call_002",
+              function: { name: "toolB", arguments: '{"b":' },
+            },
+          ],
+        },
+      },
+    ],
+  };
+  const events2 = AnthropicAdapter.openAiChunkToAnthropicEvent(chunk2, messageId, state);
+
+  // Must stop toolA block BEFORE starting toolB block!
+  const stopIndex = events2.findIndex((e) => e.includes("content_block_stop") && e.includes('"index":0'));
+  const startIndex = events2.findIndex((e) => e.includes("content_block_start") && e.includes('"name":"toolB"'));
+
+  assert.ok(stopIndex !== -1, "Must contain content_block_stop for toolA");
+  assert.ok(startIndex !== -1, "Must contain content_block_start for toolB");
+  assert.ok(stopIndex < startIndex, "content_block_stop must occur before content_block_start of next tool");
+});

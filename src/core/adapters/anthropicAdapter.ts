@@ -11,8 +11,9 @@ export interface AnthropicStreamState {
   messageStartSent?: boolean;
   messageId?: string;
   nextBlockIndex: number;
-  currentBlockType: "thinking" | "text" | null;
+  currentBlockType: "thinking" | "text" | "tool_use" | null;
   currentBlockIndex: number | null;
+  currentToolCallIndex?: number;
   toolCalls: Map<number, { id: string; name: string; blockIndex: number; started: boolean; stopped?: boolean }>;
   outputTokens?: number;
   messageStopSent?: boolean;
@@ -22,6 +23,9 @@ export interface AnthropicStreamState {
 export interface AnthropicToOpenAiStreamState {
   toolCallIndex: number;
   blockIndexToToolCallIndex: Map<number, number>;
+  promptTokens?: number;
+  cachedTokens?: number;
+  cacheCreationTokens?: number;
 }
 
 function convertOpenAiContentToAnthropic(content: any): any {
