@@ -8,15 +8,26 @@ interface KiroAuthModalProps {
   onSuccess: () => void;
 }
 
+type AuthMethod = "token" | "cliproxy" | "import" | "apikey" | "idc";
+
 export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
 }) => {
-  const [method, setMethod] = useState<"import" | "idc" | "apikey">("import");
+  const [method, setMethod] = useState<AuthMethod>("token");
 
-  // Import method
+  // Direct Access Token method (Education / DevTools / aoa...)
+  const [directToken, setDirectToken] = useState("");
+  const [directRegion, setDirectRegion] = useState("us-east-1");
+  const [directProfileArn, setDirectProfileArn] = useState("");
+
+  // CLIProxy / External IDP JSON method
+  const [cliProxyJson, setCliProxyJson] = useState("");
+
+  // Auto-Import & Manual Refresh Token method
   const [refreshToken, setRefreshToken] = useState("");
+  const [detectedAccessToken, setDetectedAccessToken] = useState("");
   const [accountName, setAccountName] = useState("");
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [autoDetected, setAutoDetected] = useState(false);
@@ -54,8 +65,9 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
     try {
       const res = await fetch("/api/oauth/kiro/auto-import");
       const data = await res.json();
-      if (data.found && data.refreshToken) {
-        setRefreshToken(data.refreshToken);
+      if (data.found && (data.refreshToken || data.accessToken)) {
+        if (data.refreshToken) setRefreshToken(data.refreshToken);
+        if (data.accessToken) setDetectedAccessToken(data.accessToken);
         setAutoDetected(true);
         if (data.clientId && data.clientSecret) {
           setIdcMeta({
@@ -76,8 +88,81 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
     }
   };
 
+  const handleSaveDirectToken = async () => {
+    const token = directToken.trim();
+    if (!token) {
+      setError("Please enter your Access Token (aoa... or JWT)");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/oauth/kiro/access-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: token,
+          name: accountName.trim() || (token.startsWith("aoa") ? "Kiro Education Token (aoa)" : undefined),
+          region: directRegion.trim() || "us-east-1",
+          profileArn: directProfileArn.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Failed to save Access Token");
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Failed to save Access Token");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveCliProxy = async () => {
+    const raw = cliProxyJson.trim();
+    if (!raw) {
+      setError("Please paste the External IDP / CLIProxy auth JSON");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/oauth/kiro/import-cli-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          json: raw,
+          name: accountName.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Failed to import External IDP JSON");
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || "Import failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveImport = async () => {
-    if (!refreshToken.trim()) return;
+    const rToken = refreshToken.trim();
+    const aToken = detectedAccessToken.trim();
+    if (!rToken && !aToken) {
+      setError("Please provide a refresh token or access token");
+      return;
+    }
     setSaving(true);
     setError(null);
 
@@ -86,7 +171,8 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          refreshToken: refreshToken.trim(),
+          refreshToken: rToken || undefined,
+          accessToken: aToken || undefined,
           name: accountName.trim() || undefined,
           ...(idcMeta || {}),
         }),
@@ -152,7 +238,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
             />
             <div>
               <h3 className="text-sm font-bold text-white">Connect Kiro IDE</h3>
-              <p className="text-xs text-slate-400">AWS Builder ID, IAM Identity Center (IDC), or API Key</p>
+              <p className="text-xs text-slate-400">Access Token, External IDP (Education), SSO, or API Key</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
@@ -161,33 +247,171 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
         </div>
 
         {/* Method Switcher */}
-        <div className="flex bg-[#0A0D14] p-1 rounded-xl border border-[#1E293B] text-xs">
+        <div className="grid grid-cols-4 bg-[#0A0D14] p-1 rounded-xl border border-[#1E293B] text-[11px] gap-1">
+          <button
+            onClick={() => { setMethod("token"); setError(null); }}
+            className={`py-1.5 px-2 rounded-lg font-medium transition-colors text-center ${
+              method === "token" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            Access Token
+          </button>
+          <button
+            onClick={() => { setMethod("cliproxy"); setError(null); }}
+            className={`py-1.5 px-2 rounded-lg font-medium transition-colors text-center ${
+              method === "cliproxy" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            External IDP
+          </button>
           <button
             onClick={() => { setMethod("import"); setError(null); }}
-            className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
+            className={`py-1.5 px-2 rounded-lg font-medium transition-colors text-center ${
               method === "import" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
             }`}
           >
-            Auto-Import Token
-          </button>
-          <button
-            onClick={() => { setMethod("idc"); setError(null); }}
-            className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
-              method === "idc" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
-            }`}
-          >
-            AWS IAM (IDC)
+            Auto-Import
           </button>
           <button
             onClick={() => { setMethod("apikey"); setError(null); }}
-            className={`flex-1 py-1.5 rounded-lg font-medium transition-colors ${
+            className={`py-1.5 px-2 rounded-lg font-medium transition-colors text-center ${
               method === "apikey" ? "bg-blue-600 text-white shadow-xs" : "text-slate-400 hover:text-white"
             }`}
           >
-            Headless API Key
+            API Key
           </button>
         </div>
 
+        {/* Method 1: Direct Access Token (aoa... or JWT) */}
+        {method === "token" && (
+          <div className="space-y-3.5 text-xs">
+            <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 space-y-1 text-[11px]">
+              <div className="flex items-center gap-1.5 font-semibold text-blue-200">
+                <span className="material-symbols-outlined text-[16px]">school</span>
+                <span>Education / Student / Direct Token</span>
+              </div>
+              <p>Paste the <strong>AccessToken</strong> (starts with <code>aoa...</code>) or JWT token from DevTools (Cookies/Storage).</p>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">Account Label</label>
+              <input
+                type="text"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                placeholder="Kiro Education (aoa)"
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">Access Token (aoaAAAAAG... or JWT)</label>
+              <textarea
+                rows={3}
+                value={directToken}
+                onChange={(e) => setDirectToken(e.target.value)}
+                placeholder="Paste AccessToken (aoa... or eyJr...)"
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Region</label>
+                <input
+                  type="text"
+                  value={directRegion}
+                  onChange={(e) => setDirectRegion(e.target.value)}
+                  placeholder="us-east-1"
+                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Profile ARN (Optional)</label>
+                <input
+                  type="text"
+                  value={directProfileArn}
+                  onChange={(e) => setDirectProfileArn(e.target.value)}
+                  placeholder="arn:aws:codewhisperer..."
+                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white font-mono"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveDirectToken}
+                disabled={saving || !directToken.trim()}
+                className="flex-1 rt-btn rt-btn--primary disabled:opacity-50"
+              >
+                {saving ? "Saving..." : "Save Connection"}
+              </button>
+              <button type="button" onClick={onClose} className="rt-btn rt-btn--secondary">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Method 2: External IDP / CLIProxy JSON */}
+        {method === "cliproxy" && (
+          <div className="space-y-3.5 text-xs">
+            <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px]">
+              <p>For Microsoft/Federated accounts generated via CLIProxyAPI or Kiro external login. Paste the JSON containing <code>access_token</code>, <code>refresh_token</code>, and <code>token_endpoint</code>.</p>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">Account Label (Optional)</label>
+              <input
+                type="text"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                placeholder="Kiro Microsoft Education"
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">External IDP Auth JSON</label>
+              <textarea
+                rows={4}
+                value={cliProxyJson}
+                onChange={(e) => setCliProxyJson(e.target.value)}
+                placeholder='{ "auth_method": "external_idp", "access_token": "...", "refresh_token": "...", "token_endpoint": "https://login.microsoftonline.com/..." }'
+                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]"
+              />
+            </div>
+
+            {error && (
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleSaveCliProxy}
+                disabled={saving || !cliProxyJson.trim()}
+                className="flex-1 rt-btn rt-btn--primary disabled:opacity-50"
+              >
+                {saving ? "Importing..." : "Import JSON"}
+              </button>
+              <button type="button" onClick={onClose} className="rt-btn rt-btn--secondary">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Method 3: Auto-Import / SSO Cache */}
         {method === "import" && (
           <div className="space-y-3.5 text-xs">
             {autoDetecting ? (
@@ -202,7 +426,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
                 {autoDetected && (
                   <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-2">
                     <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    <span>Kiro refresh token auto-detected from AWS SSO cache!</span>
+                    <span>Kiro token auto-detected from AWS SSO cache!</span>
                   </div>
                 )}
 
@@ -218,7 +442,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-medium mb-1">Refresh Token (starts with aorAAAAAG...)</label>
+                  <label className="block text-slate-300 font-medium mb-1">Refresh Token (starts with aor...)</label>
                   <input
                     type="password"
                     value={refreshToken}
@@ -227,6 +451,19 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
                     className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
+
+                {detectedAccessToken && (
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">Detected Access Token (aoa...)</label>
+                    <input
+                      type="password"
+                      value={detectedAccessToken}
+                      onChange={(e) => setDetectedAccessToken(e.target.value)}
+                      placeholder="aoaAAAAAG..."
+                      className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                )}
               </>
             )}
 
@@ -248,7 +485,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
               <button
                 type="button"
                 onClick={handleSaveImport}
-                disabled={saving || !refreshToken.trim()}
+                disabled={saving || (!refreshToken.trim() && !detectedAccessToken.trim())}
                 className="flex-1 rt-btn rt-btn--primary disabled:opacity-50"
               >
                 {saving ? "Saving..." : "Save Connection"}
@@ -257,56 +494,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
           </div>
         )}
 
-        {method === "idc" && (
-          <div className="space-y-3.5 text-xs">
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">Account Label</label>
-              <input
-                type="text"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder="Enterprise Kiro Account"
-                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">AWS IDC Start URL</label>
-              <input
-                type="text"
-                value={idcStartUrl}
-                onChange={(e) => setIdcStartUrl(e.target.value)}
-                placeholder="https://my-company.awsapps.com/start"
-                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">AWS Region</label>
-              <input
-                type="text"
-                value={idcRegion}
-                onChange={(e) => setIdcRegion(e.target.value)}
-                placeholder="us-east-1"
-                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white font-mono"
-              />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              For IAM Identity Center SSO, log in once via the Kiro IDE or AWS CLI, then switch to the Auto-Import tab to read cached tokens.
-            </p>
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setMethod("import")}
-                className="flex-1 rt-btn rt-btn--primary"
-              >
-                Use Auto-Import
-              </button>
-              <button type="button" onClick={onClose} className="rt-btn rt-btn--secondary">
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
+        {/* Method 4: Headless API Key */}
         {method === "apikey" && (
           <div className="space-y-3.5 text-xs">
             <div>

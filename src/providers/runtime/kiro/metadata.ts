@@ -62,6 +62,8 @@ export const metadata: ProviderRegistryItem = {
     "authMethods": [
       "builder-id",
       "idc",
+      "access-token",
+      "external_idp",
       "google",
       "github",
       "import"

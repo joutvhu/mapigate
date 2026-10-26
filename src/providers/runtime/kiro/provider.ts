@@ -1,4 +1,5 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
+import { extractTokenFromAccount } from "../../core/base/baseProvider.js";
 import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getKiroUsage, resolveDefaultProfileArn } from "./quota.js";
@@ -68,6 +69,50 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const converted = super.transformRequestBody({ ...context, targetModel });
     converted.model = targetModel;
     return converted;
+  }
+
+  public override buildUrl(context: ProviderRequestContext): string {
+    const accountBase = (context.account?.providerSpecificData?.baseUrl || "").trim();
+    if (accountBase) return accountBase;
+
+    const psd = (context.account?.providerSpecificData || {}) as Record<string, any>;
+    const authMethod = psd.authMethod;
+    const region = psd.region || "us-east-1";
+
+    if (authMethod === "external_idp") {
+      return `https://codewhisperer.${region}.amazonaws.com/generateAssistantResponse`;
+    }
+    if (authMethod === "api-key" || authMethod === "api_key") {
+      return `https://q.${region}.amazonaws.com/generateAssistantResponse`;
+    }
+
+    return super.buildUrl(context);
+  }
+
+  public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
+    const headers = await super.buildHeaders(context);
+    const psd = (context.account?.providerSpecificData || {}) as Record<string, any>;
+    const authMethod = psd.authMethod;
+
+    if (authMethod === "api-key" || authMethod === "api_key") {
+      headers["tokentype"] = "API_KEY";
+    } else if (authMethod === "external_idp") {
+      headers["TokenType"] = "EXTERNAL_IDP";
+    }
+
+    const bearerToken = extractTokenFromAccount(context.account);
+    if (bearerToken) {
+      headers["x-amz-sso-bearer"] = bearerToken;
+    }
+    headers["x-amzn-kiro-agent-mode"] = "spec";
+    headers["x-amzn-codewhisperer-machine-id"] = "kiro-desktop";
+
+    const profileArn = psd.profileArn;
+    if (profileArn) {
+      headers["x-amzn-codewhisperer-profile-arn"] = profileArn;
+    }
+
+    return headers;
   }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {

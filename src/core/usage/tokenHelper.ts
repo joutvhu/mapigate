@@ -342,7 +342,27 @@ export async function ensureFreshCredentials(
       const authMethod = creds.providerSpecificData.authMethod || "builder-id";
       const region = creds.providerSpecificData.region || "us-east-1";
 
-      if (clientId && clientSecret) {
+      if (authMethod === "external_idp" && creds.providerSpecificData.tokenEndpoint) {
+        const tokenEndpoint = creds.providerSpecificData.tokenEndpoint;
+        const scope = creds.providerSpecificData.scope || "https://service.codewhisperer.amazonaws.com/.default offline_access";
+
+        const res = await fetch(tokenEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            client_id: clientId || "",
+            refresh_token: creds.refreshToken,
+            scope,
+          }),
+        });
+        if (res.ok) {
+          const data: any = await res.json();
+          newAccessToken = data.access_token || data.accessToken;
+          if (data.refresh_token) newRefreshToken = data.refresh_token;
+          if (data.expires_in) expiresInSec = Number(data.expires_in);
+        }
+      } else if (clientId && clientSecret) {
         const isIDC = authMethod === "idc";
         const endpoint = isIDC && region
           ? `https://oidc.${region}.amazonaws.com/token`
