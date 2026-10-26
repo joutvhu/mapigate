@@ -31,6 +31,23 @@ export class LogRepository {
       log.status,
       log.errorMessage || null
     );
+
+    // Periodic retention prune (1 in 50 writes) to keep database lean and prevent unbounded table growth
+    if (Math.random() < 0.02) {
+      try {
+        const maxLogs = Number(process.env.MAPIGATE_MAX_LOGS) || 20000;
+        const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM request_logs");
+        if (countRow && countRow.count > maxLogs) {
+          const excess = countRow.count - maxLogs;
+          db.run(
+            "DELETE FROM request_logs WHERE id IN (SELECT id FROM request_logs ORDER BY timestamp ASC LIMIT ?)",
+            excess
+          );
+        }
+      } catch {
+        // Best effort
+      }
+    }
   }
 
   public static getRecentLogs(limit: number = 100): RequestUsageLog[] {

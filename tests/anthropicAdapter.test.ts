@@ -339,3 +339,67 @@ test("AnthropicAdapter - anthropicChunkToOpenAiEvent ensures 0-based tool_calls.
   assert.equal(parsed3.choices[0].delta.tool_calls[0].index, 1); // Incremented to 1!
   assert.equal(parsed3.choices[0].delta.tool_calls[0].id, "toolu_02_grep");
 });
+
+test("AnthropicAdapter - openAiToAnthropic converts image_url to Anthropic image source block", () => {
+  const openAiPayload = {
+    model: "claude-3-5-sonnet",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is in this diagram?" },
+          {
+            type: "image_url",
+            image_url: {
+              url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const anthropicPayload = AnthropicAdapter.openAiToAnthropic(openAiPayload);
+  const msg = anthropicPayload.messages[0];
+  assert.equal(msg.role, "user");
+  assert.ok(Array.isArray(msg.content));
+  assert.equal(msg.content.length, 2);
+  assert.deepEqual(msg.content[0], { type: "text", text: "What is in this diagram?" });
+  assert.equal(msg.content[1].type, "image");
+  assert.equal(msg.content[1].source.type, "base64");
+  assert.equal(msg.content[1].source.media_type, "image/png");
+  assert.ok(msg.content[1].source.data.startsWith("iVBORw"));
+});
+
+test("AnthropicAdapter - anthropicToOpenAi converts Anthropic image block to image_url", () => {
+  const anthropicPayload = {
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Analyze this image" },
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: "image/jpeg",
+              data: "/9j/4AAQSkZJRg==",
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  const openAiPayload = AnthropicAdapter.anthropicToOpenAi(anthropicPayload);
+  const msg = openAiPayload.messages[0];
+  assert.equal(msg.role, "user");
+  assert.ok(Array.isArray(msg.content));
+  assert.equal(msg.content.length, 2);
+  assert.deepEqual(msg.content[0], { type: "text", text: "Analyze this image" });
+  assert.deepEqual(msg.content[1], {
+    type: "image_url",
+    image_url: { url: "data:image/jpeg;base64,/9j/4AAQSkZJRg==" },
+  });
+});

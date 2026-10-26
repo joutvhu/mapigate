@@ -24,6 +24,36 @@ export interface AnthropicToOpenAiStreamState {
   blockIndexToToolCallIndex: Map<number, number>;
 }
 
+function convertOpenAiContentToAnthropic(content: any): any {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return content;
+
+  return content.map((item: any) => {
+    if (item?.type === "image_url" && item.image_url?.url) {
+      const url = String(item.image_url.url);
+      const match = url.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/s);
+      if (match) {
+        return {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: match[1],
+            data: match[2].trim(),
+          },
+        };
+      }
+      return {
+        type: "image",
+        source: {
+          type: "url",
+          url,
+        },
+      };
+    }
+    return item;
+  });
+}
+
 /**
  * Anthropic Adapter
  * Translates bidirectionally between Anthropic Messages format and OpenAI Chat format
@@ -100,6 +130,7 @@ export class AnthropicAdapter {
           let thinkingSignature: string | undefined = undefined;
           let redactedThinking: string | undefined = undefined;
           const toolCalls: any[] = [];
+          const imageBlocks: any[] = [];
 
           for (const block of msg.content) {
             if (block.type === "text") {
@@ -124,11 +155,36 @@ export class AnthropicAdapter {
                   arguments: typeof block.input === "string" ? block.input : JSON.stringify(block.input || {}),
                 },
               });
+            } else if (block.type === "image" && block.source) {
+              if (block.source.type === "base64" && block.source.data) {
+                imageBlocks.push({
+                  type: "image_url",
+                  image_url: {
+                    url: `data:${block.source.media_type || "image/png"};base64,${block.source.data}`,
+                  },
+                });
+              } else if (block.source.type === "url" && block.source.url) {
+                imageBlocks.push({
+                  type: "image_url",
+                  image_url: { url: block.source.url },
+                });
+              }
             } else if (block.type === "tool_result") {
+              let toolContent = "";
+              if (typeof block.content === "string") {
+                toolContent = block.content;
+              } else if (Array.isArray(block.content)) {
+                toolContent = block.content
+                  .map((c: any) => (typeof c === "string" ? c : c?.text || (c?.type === "text" ? c.text : JSON.stringify(c))))
+                  .join("\n");
+              } else {
+                toolContent = JSON.stringify(block.content || "");
+              }
+
               messages.push({
                 role: "tool",
                 tool_call_id: block.tool_use_id,
-                content: typeof block.content === "string" ? block.content : JSON.stringify(block.content || ""),
+                content: toolContent,
               });
             }
           }
@@ -136,9 +192,19 @@ export class AnthropicAdapter {
           const hasText = Boolean(textAccumulator.trim());
           const hasReasoning = Boolean(reasoningAccumulator.trim());
           const hasToolCalls = toolCalls.length > 0;
+          const hasImages = imageBlocks.length > 0;
 
-          if (hasText || hasReasoning || hasToolCalls || redactedThinking) {
-            const outMsg: any = { role, content: textAccumulator.trim() || null };
+          if (hasText || hasReasoning || hasToolCalls || redactedThinking || hasImages) {
+            let finalContent: any = textAccumulator.trim() || null;
+            if (hasImages) {
+              finalContent = [];
+              if (textAccumulator.trim()) {
+                finalContent.push({ type: "text", text: textAccumulator.trim() });
+              }
+              finalContent.push(...imageBlocks);
+            }
+
+            const outMsg: any = { role, content: finalContent };
             if (hasReasoning) {
               outMsg.reasoning_content = reasoningAccumulator.trim();
             }
@@ -301,7 +367,7 @@ export class AnthropicAdapter {
         // Default role: user
         anthropicMessages.push({
           role: "user",
-          content: msg.content,
+          content: convertOpenAiContentToAnthropic(msg.content),
         });
       }
     }
