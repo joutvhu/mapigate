@@ -23,6 +23,20 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 }) => {
   const [focusedProvider, setFocusedProvider] = useState<string | null>(null);
 
+  // Only actual ongoing streaming/processing requests activate the animated laser beam
+  const activeProviderSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const req of activeRequests) {
+      if (req.provider) {
+        const raw = req.provider.toLowerCase();
+        set.add(raw);
+        const meta = getProviderMeta(raw);
+        set.add(meta.id.toLowerCase());
+      }
+    }
+    return set;
+  }, [activeRequests]);
+
   // Filter and sort providers, prioritizing active ones and capping to avoid card collision
   const { displayProviders, totalCount } = useMemo(() => {
     const rawList = [...providers];
@@ -53,20 +67,6 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       totalCount: sorted.length,
     };
   }, [providers, activeRequests, activeProviderSet, focusedProvider]);
-
-  // Only actual ongoing streaming/processing requests activate the animated laser beam
-  const activeProviderSet = useMemo(() => {
-    const set = new Set<string>();
-    for (const req of activeRequests) {
-      if (req.provider) {
-        const raw = req.provider.toLowerCase();
-        set.add(raw);
-        const meta = getProviderMeta(raw);
-        set.add(meta.id.toLowerCase());
-      }
-    }
-    return set;
-  }, [activeRequests]);
 
   // Center coordinate of our normalized 800x440 SVG canvas
   const centerX = 400;
