@@ -4,6 +4,7 @@ import { ProviderRepository } from "../src/storage/repositories/providerRepo.js"
 import { importAccessToken, importAccount } from "../src/providers/runtime/kiro/routes.js";
 import { normalizeKiroExternalIdpAuth, importExternalIdpAccount } from "../src/providers/runtime/kiro/externalIdp.js";
 import { KiroProvider } from "../src/providers/runtime/kiro/provider.js";
+import { pollKiroDeviceToken } from "../src/providers/runtime/kiro/deviceFlow.js";
 import { getDatabase } from "../src/storage/database.js";
 
 describe("Kiro Education & Direct Access Token Connections", () => {
@@ -105,5 +106,42 @@ describe("Kiro Education & Direct Access Token Connections", () => {
     const accounts = ProviderRepository.getAccountsByProvider("kiro");
     assert.equal(accounts.length, 1);
     assert.equal(accounts[0].rawApiKey, "aoaAAAAAG_single_access_token");
+  });
+
+  it("preserves custom Account Label in Device Code flow", async () => {
+    const fakeTokenResponse = {
+      accessToken: "aoaAAAAAG_mock_access",
+      refreshToken: "aorAAAAAG_mock_refresh",
+      expiresIn: 3600,
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      ok: true,
+      json: async () => fakeTokenResponse,
+    })) as any;
+
+    try {
+      const res = await pollKiroDeviceToken({
+        deviceCode: "mock-code",
+        extraData: {
+          _clientId: "mock-client",
+          _clientSecret: "mock-secret",
+          _region: "us-east-1",
+          _authMethod: "builder-id",
+          _startUrl: "https://view.awsapps.com/start",
+          _name: "My Custom Builder Account",
+        },
+      });
+
+      assert.equal(res.ok, true);
+      assert.equal(res.account?.name, "My Custom Builder Account");
+
+      const accounts = ProviderRepository.getAccountsByProvider("kiro");
+      assert.equal(accounts.length, 1);
+      assert.equal(accounts[0].name, "My Custom Builder Account");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

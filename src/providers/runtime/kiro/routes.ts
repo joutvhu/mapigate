@@ -7,6 +7,7 @@ import { ProviderRepository } from "../../../storage/repositories/providerRepo.j
 import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type { ProviderOAuthHandler, IdeAutoImportResult } from "../../core/oauthTypes.js";
 import { importExternalIdpAccount } from "./externalIdp.js";
+import { requestKiroDeviceCode, pollKiroDeviceToken } from "./deviceFlow.js";
 
 export function scanAwsSsoCache(): IdeAutoImportResult {
   const cachePath = path.join(os.homedir(), ".aws", "sso", "cache");
@@ -234,6 +235,19 @@ export function importApiKey(params: {
 
 export const kiroOAuthHandler: ProviderOAuthHandler = {
   id: "kiro",
+  deviceCode: async (params) => {
+    return await requestKiroDeviceCode({
+      region: params?.region,
+      startUrl: params?.startUrl,
+      authMethod: params?.authMethod,
+    });
+  },
+  poll: async (params) => {
+    return await pollKiroDeviceToken({
+      deviceCode: params.deviceCode || params.device_code!,
+      extraData: params.extraData,
+    });
+  },
   autoImport,
   importAccount,
   importApiKey,
@@ -249,6 +263,27 @@ export function registerRoutes(router: Router): void {
       res.json(await kiroOAuthHandler.autoImport!());
     } catch (err: any) {
       res.json({ found: false, error: err.message || "Failed to scan AWS SSO cache" });
+    }
+  });
+
+  router.post("/kiro/device-code", async (req, res) => {
+    try {
+      const result = await requestKiroDeviceCode(req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to request device code" });
+    }
+  });
+
+  router.post("/kiro/device-poll", async (req, res) => {
+    const { deviceCode, device_code, extraData } = req.body;
+    const code = deviceCode || device_code;
+    if (!code) return res.status(400).json({ error: "Missing device code" });
+    try {
+      const result = await pollKiroDeviceToken({ deviceCode: code, extraData });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to poll device token" });
     }
   });
 
