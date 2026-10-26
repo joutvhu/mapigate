@@ -397,5 +397,77 @@ describe("Responses API Adapter & Endpoints", () => {
       assert.equal(converted.output[1].content[0].text, "Hello from Antigravity!");
       assert.equal(converted.usage.total_tokens, 18);
     });
+
+    it("accumulates tool call argument deltas and emits full arguments on done and completed", async () => {
+      const { createResponsesStreamState, openAiChunkToResponsesEvents } = await import(
+        "../src/core/adapters/responsesAdapter.js"
+      );
+
+      const state = createResponsesStreamState("req-test-tools");
+
+      // Chunk 1: Tool call start with initial arguments
+      const ev1 = openAiChunkToResponsesEvents(
+        {
+          id: "chatcmpl-tools",
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call_abc",
+                    function: { name: "readFile", arguments: '{"path":' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        state
+      );
+      assert.ok(ev1.some((e) => e.event === "response.output_item.added"));
+      assert.ok(ev1.some((e) => e.event === "response.function_call_arguments.delta"));
+
+      // Chunk 2: More arguments delta
+      const ev2 = openAiChunkToResponsesEvents(
+        {
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    function: { arguments: '"src/index.ts"}' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        state
+      );
+      assert.ok(ev2.some((e) => e.event === "response.function_call_arguments.delta"));
+
+      // Chunk 3: Finalize stream with tool_calls finish_reason
+      const finishEvents = openAiChunkToResponsesEvents(
+        {
+          choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+        },
+        state
+      );
+
+      const funcDone = finishEvents.find((e) => e.event === "response.function_call_arguments.done");
+      assert.ok(funcDone, "Must emit response.function_call_arguments.done");
+      assert.equal(funcDone.data.arguments, '{"path":"src/index.ts"}');
+
+      const itemDone = finishEvents.find((e) => e.event === "response.output_item.done");
+      assert.ok(itemDone, "Must emit response.output_item.done");
+      assert.equal(itemDone.data.item.arguments, '{"path":"src/index.ts"}');
+
+      const completed = finishEvents.find((e) => e.event === "response.completed");
+      assert.ok(completed, "Must emit response.completed");
+    });
   });
 });

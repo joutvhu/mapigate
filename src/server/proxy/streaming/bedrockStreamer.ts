@@ -28,89 +28,121 @@ export async function pipeBedrockEventStream(
   const responsesState =
     clientFormat === "responses" ? createResponsesStreamState(requestId) : undefined;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (!value) continue;
+  let clientDisconnected = false;
+  const onClose = () => {
+    clientDisconnected = true;
+    reader.cancel().catch(() => {});
+  };
 
-    if (!state.ttftMs) {
-      state.ttftMs = Date.now() - startTime;
-      logger.line(reqTag || "STREAM", LogSymbol.STREAM, `TTFT ${state.ttftMs}ms · streaming chunks...`);
+  if (typeof clientRes?.once === "function") {
+    clientRes.once("close", onClose);
+  }
+
+  const safeWrite = (data: string): boolean => {
+    if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) return false;
+    try {
+      return clientRes.write(data);
+    } catch {
+      return false;
     }
+  };
 
-    const { frames, remainder } = decodeEventStreamChunk(value, residualBuffer);
-    residualBuffer = remainder;
+  try {
+    while (true) {
+      if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
 
-    for (const frame of frames) {
-      if (!frame.payload?.bytes) continue;
-      try {
-        const rawEventString = Buffer.from(frame.payload.bytes, "base64").toString("utf8");
-        const eventObj = JSON.parse(rawEventString);
+      const { done, value } = await reader.read();
+      if (done || clientDisconnected) break;
+      if (!value) continue;
 
-        if (eventObj.type === "message_start" && eventObj.message?.usage) {
-          const u = eventObj.message.usage;
-          if (u.input_tokens) state.promptTokens = u.input_tokens;
-          if (u.cache_read_input_tokens) state.cachedTokens = u.cache_read_input_tokens;
-          if (u.cache_creation_input_tokens) state.cacheCreationTokens = u.cache_creation_input_tokens;
-        } else if (eventObj.type === "message_delta" && eventObj.usage) {
-          if (eventObj.usage.output_tokens) state.completionTokens = eventObj.usage.output_tokens;
-        }
+      if (!state.ttftMs) {
+        state.ttftMs = Date.now() - startTime;
+        logger.line(reqTag || "STREAM", LogSymbol.STREAM, `TTFT ${state.ttftMs}ms · streaming chunks...`);
+      }
 
-        // Detect and record tool calls in stream chunks (with deduplication tracking)
-        recordStreamToolCall(eventObj, state, (toolName) => {
-          logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
-        });
+      const { frames, remainder } = decodeEventStreamChunk(value, residualBuffer);
+      residualBuffer = remainder;
 
-        if (eventObj.delta?.text) {
-          if (state.capturedResponseText.length < 4000) {
-            state.capturedResponseText += eventObj.delta.text;
+      for (const frame of frames) {
+        if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
+        if (!frame.payload?.bytes) continue;
+        try {
+          const rawEventString = Buffer.from(frame.payload.bytes, "base64").toString("utf8");
+          const eventObj = JSON.parse(rawEventString);
+
+          if (eventObj.type === "message_start" && eventObj.message?.usage) {
+            const u = eventObj.message.usage;
+            if (u.input_tokens) state.promptTokens = u.input_tokens;
+            if (u.cache_read_input_tokens) state.cachedTokens = u.cache_read_input_tokens;
+            if (u.cache_creation_input_tokens) state.cacheCreationTokens = u.cache_creation_input_tokens;
+          } else if (eventObj.type === "message_delta" && eventObj.usage) {
+            if (eventObj.usage.output_tokens) state.completionTokens = eventObj.usage.output_tokens;
           }
-        }
 
-        if (clientFormat === "responses" && responsesState) {
-          const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
-            eventObj,
-            requestId,
-            bedrockOpenAiState
-          );
-          for (const ch of openAiChunks) {
-            const trimmed = ch.trim();
-            if (trimmed.startsWith("data:") && !trimmed.includes("[DONE]")) {
-              try {
-                const parsed = JSON.parse(trimmed.slice(5).trim());
-                const responsesEvents = openAiChunkToResponsesEvents(parsed, responsesState);
-                for (const ev of responsesEvents) {
-                  clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
-                }
-              } catch {}
+          // Detect and record tool calls in stream chunks (with deduplication tracking)
+          recordStreamToolCall(eventObj, state, (toolName) => {
+            logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
+          });
+
+          if (eventObj.delta?.text) {
+            if (state.capturedResponseText.length < 4000) {
+              state.capturedResponseText += eventObj.delta.text;
             }
           }
-        } else if (clientFormat === "anthropic") {
-          clientRes.write(`event: ${eventObj.type || "content_block_delta"}\ndata: ${rawEventString}\n\n`);
-        } else {
-          const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
-            eventObj,
-            requestId,
-            bedrockOpenAiState
-          );
-          for (const ch of openAiChunks) {
-            clientRes.write(ch);
+
+          if (clientFormat === "responses" && responsesState) {
+            const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+              eventObj,
+              requestId,
+              bedrockOpenAiState
+            );
+            for (const ch of openAiChunks) {
+              const trimmed = ch.trim();
+              if (trimmed.startsWith("data:") && !trimmed.includes("[DONE]")) {
+                try {
+                  const parsed = JSON.parse(trimmed.slice(5).trim());
+                  const responsesEvents = openAiChunkToResponsesEvents(parsed, responsesState);
+                  for (const ev of responsesEvents) {
+                    safeWrite(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+                  }
+                } catch {}
+              }
+            }
+          } else if (clientFormat === "anthropic") {
+            safeWrite(`event: ${eventObj.type || "content_block_delta"}\ndata: ${rawEventString}\n\n`);
+          } else {
+            const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+              eventObj,
+              requestId,
+              bedrockOpenAiState
+            );
+            for (const ch of openAiChunks) {
+              safeWrite(ch);
+            }
           }
+        } catch {}
+      }
+    }
+
+    if (!clientDisconnected && !clientRes?.writableEnded && !clientRes?.destroyed) {
+      if (clientFormat === "responses" && responsesState) {
+        const finalEvents = finalizeResponsesStream(responsesState);
+        for (const ev of finalEvents) {
+          safeWrite(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
         }
+        safeWrite("data: [DONE]\n\n");
+      } else if (clientFormat === "openai") {
+        safeWrite("data: [DONE]\n\n");
+      }
+      try {
+        clientRes.end();
       } catch {}
     }
-  }
-
-  if (clientFormat === "responses" && responsesState) {
-    const finalEvents = finalizeResponsesStream(responsesState);
-    for (const ev of finalEvents) {
-      clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+  } finally {
+    if (typeof clientRes?.removeListener === "function") {
+      clientRes.removeListener("close", onClose);
     }
-    clientRes.write("data: [DONE]\n\n");
-  } else if (clientFormat === "openai") {
-    clientRes.write("data: [DONE]\n\n");
   }
-  clientRes.end();
 
   if (state.completionTokens === 0 && state.capturedResponseText.length > 0) {
     state.completionTokens = Math.max(1, Math.round(state.capturedResponseText.length / 4));
