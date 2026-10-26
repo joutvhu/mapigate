@@ -8,6 +8,8 @@ declare global {
     interface Request {
       reqId?: string;
       reqTag?: string;
+      apiKeyId?: string;
+      apiKeyName?: string;
     }
   }
 }

@@ -669,6 +669,7 @@ export const EndpointTab: React.FC = () => {
                   <th className="py-3 px-3">Name / Label</th>
                   <th className="py-3 px-3">API Token</th>
                   <th className="py-3 px-3">Created</th>
+                  <th className="py-3 px-3">Last Used</th>
                   <th className="py-3 px-3 text-center">Status</th>
                   <th className="py-3 px-3 text-right">Actions</th>
                 </tr>
@@ -732,6 +733,11 @@ export const EndpointTab: React.FC = () => {
                       {/* Created Date */}
                       <td className="py-3.5 px-3 text-slate-400 text-[11px]">
                         {new Date(k.createdAt).toLocaleDateString()}
+                      </td>
+
+                      {/* Last Used */}
+                      <td className="py-3.5 px-3 text-slate-400 text-[11px] font-mono">
+                        {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : "Never"}
                       </td>
 
                       {/* Status Toggle */}

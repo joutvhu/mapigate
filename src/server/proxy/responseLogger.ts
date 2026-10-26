@@ -14,6 +14,8 @@ export interface LogSuccessOptions {
   providerId: string;
   accountId?: string;
   accountName?: string;
+  apiKeyId?: string;
+  apiKeyName?: string;
   promptTokens: number;
   completionTokens: number;
   cachedTokens: number;
@@ -37,6 +39,8 @@ export interface LogFailureOptions {
   rawModel: string;
   actualModel: string;
   providerId: string;
+  apiKeyId?: string;
+  apiKeyName?: string;
   status: number;
   errorMessage: string;
   tokensSavedByRtk: number;
@@ -57,6 +61,8 @@ export class ResponseLogger {
       providerId,
       accountId,
       accountName,
+      apiKeyId,
+      apiKeyName,
       promptTokens,
       completionTokens,
       cachedTokens,
@@ -99,6 +105,8 @@ export class ResponseLogger {
       cost: calculatedCost,
       accountId,
       accountName,
+      apiKeyId,
+      apiKeyName,
       durationMs,
       status: "success",
     });
@@ -150,6 +158,8 @@ export class ResponseLogger {
       errorMessage,
       tokensSavedByRtk,
       is1mContext,
+      apiKeyId,
+      apiKeyName,
       requestHeaders,
       requestBody,
     } = options;
@@ -167,6 +177,8 @@ export class ResponseLogger {
       cachedTokens: 0,
       cacheCreationTokens: 0,
       cost: 0,
+      apiKeyId,
+      apiKeyName,
       durationMs,
       status: status === 429 ? "rate_limited" : "error",
       errorMessage: errorMessage.slice(0, 500),

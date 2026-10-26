@@ -9,8 +9,8 @@ export class LogRepository {
         id, timestamp, client_tool, requested_model, actual_model,
         provider_id, prompt_tokens, completion_tokens, tokens_saved_by_rtk,
         cached_tokens, cache_creation_tokens, cost, account_id, account_name,
-        duration_ms, status, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        api_key_id, api_key_name, duration_ms, status, error_message
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       log.id,
       log.timestamp,
       log.clientTool,
@@ -25,6 +25,8 @@ export class LogRepository {
       log.cost || 0,
       log.accountId || null,
       log.accountName || null,
+      log.apiKeyId || null,
+      log.apiKeyName || null,
       log.durationMs || 0,
       log.status,
       log.errorMessage || null
@@ -53,6 +55,8 @@ export class LogRepository {
       cost: r.cost || 0,
       accountId: r.account_id || undefined,
       accountName: r.account_name || undefined,
+      apiKeyId: r.api_key_id || undefined,
+      apiKeyName: r.api_key_name || undefined,
       durationMs: r.duration_ms,
       status: r.status,
       errorMessage: r.error_message,

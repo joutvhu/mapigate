@@ -145,6 +145,8 @@ test("usageRepo - computes usage stats and chart buckets from saved logs", () =>
     tokensSavedByRtk: 300,
     cachedTokens: 150,
     cost: 0.0035,
+    apiKeyId: "key_cursor_team",
+    apiKeyName: "Cursor Team Key",
     durationMs: 250,
     status: "success",
   });
@@ -154,6 +156,10 @@ test("usageRepo - computes usage stats and chart buckets from saved logs", () =>
   assert.ok(stats.totalPromptTokens >= 1000);
   assert.ok(stats.byProvider["openai"]);
   assert.ok(stats.byProvider["openai"].requests >= 1);
+  assert.ok(stats.byApiKey?.["key_cursor_team"]);
+  assert.equal(stats.byApiKey["key_cursor_team"].apiKeyName, "Cursor Team Key");
+  assert.ok(stats.byApiKey["key_cursor_team"].requests >= 1);
+  assert.ok(stats.byApiKey["key_cursor_team"].promptTokens >= 1000);
 
   const chart = UsageRepository.getChartData("24h");
   assert.equal(chart.length, 24);

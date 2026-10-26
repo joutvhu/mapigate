@@ -134,6 +134,8 @@ export interface ProviderRequestContext {
   clientTool: string;
   rawModel: string;
   rtkStats: { compressedTokens: number; tokensSaved: number };
+  apiKeyId?: string;
+  apiKeyName?: string;
 }
 
 export interface IProvider {

@@ -17,4 +17,6 @@ export interface ExecuteSingleModelOptions {
   rtkStats: { compressedTokens: number; tokensSaved: number };
   is1mContext?: boolean;
   reqTag: string;
+  apiKeyId?: string;
+  apiKeyName?: string;
 }

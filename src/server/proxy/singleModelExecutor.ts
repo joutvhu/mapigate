@@ -64,6 +64,8 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     requestId, startTime, clientTool, rawModel, rtkStats,
     is1mContext: optionIs1m,
     reqTag = options.req.reqTag || tagForSession(options.requestId),
+    apiKeyId,
+    apiKeyName,
   } = options;
 
   const resolved = resolveTargetModelAndProvider(modelStr);
@@ -161,6 +163,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       body: cloneBodyForUpstream(adjustedBody), provider: providerConfig, account,
       isPanel, is1mContext, reqTag, requestId, startTime,
       clientTool, rawModel, rtkStats,
+      apiKeyId, apiKeyName,
     };
 
     if (provider.execute && provider.id !== "combo") {

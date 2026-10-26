@@ -15,22 +15,26 @@ export async function handleProxyRequest(
   clientFormat: "openai" | "anthropic" | "responses"
 ): Promise<void> {
   const endpointSettings = SettingsRepository.getEndpointSettings();
-  if (endpointSettings.requireApiKey) {
-    const activeKeys = SettingsRepository.getGatewayApiKeys().filter((k) => k.isActive);
-    if (activeKeys.length > 0) {
-      const authHeader = (req.headers["authorization"] as string) || "";
-      const apiKeyHeader = (req.headers["x-api-key"] as string) || "";
-      let providedKey = "";
-      if (authHeader.startsWith("Bearer ")) {
-        providedKey = authHeader.substring(7).trim();
-      } else if (authHeader) {
-        providedKey = authHeader.trim();
-      } else if (apiKeyHeader) {
-        providedKey = apiKeyHeader.trim();
-      }
+  const allKeys = SettingsRepository.getGatewayApiKeys();
 
-      const isValid = activeKeys.some((k) => k.key === providedKey);
-      if (!isValid) {
+  const authHeader = (req.headers["authorization"] as string) || "";
+  const apiKeyHeader = (req.headers["x-api-key"] as string) || "";
+  let providedKey = "";
+  if (authHeader.startsWith("Bearer ")) {
+    providedKey = authHeader.substring(7).trim();
+  } else if (authHeader) {
+    providedKey = authHeader.trim();
+  } else if (apiKeyHeader) {
+    providedKey = apiKeyHeader.trim();
+  }
+
+  // Resolve client gateway API key if provided
+  let matchedKey = providedKey ? allKeys.find((k) => k.key === providedKey) : undefined;
+
+  if (endpointSettings.requireApiKey) {
+    const activeKeys = allKeys.filter((k) => k.isActive);
+    if (activeKeys.length > 0) {
+      if (!matchedKey || !matchedKey.isActive) {
         res.status(401).json({
           error: {
             message: "Unauthorized: Invalid or missing gateway API key.",
@@ -41,6 +45,12 @@ export async function handleProxyRequest(
         return;
       }
     }
+  }
+
+  if (matchedKey) {
+    (req as any).apiKeyId = matchedKey.id;
+    (req as any).apiKeyName = matchedKey.name;
+    SettingsRepository.recordGatewayApiKeyUsage(matchedKey.id);
   }
 
   await runProxyPipeline(req, res, clientFormat);

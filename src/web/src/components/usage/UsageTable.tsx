@@ -3,21 +3,24 @@ import type {
   CounterBucket,
   ModelCounterBucket,
   AccountCounterBucket,
+  ApiKeyCounterBucket,
 } from "../../../../shared/types/index.js";
-import { Table, Layers } from "lucide-react";
+import { Table, Layers, Key } from "lucide-react";
 
 interface UsageTableProps {
   byProvider: Record<string, CounterBucket>;
   byModel: Record<string, ModelCounterBucket>;
   byAccount: Record<string, AccountCounterBucket>;
+  byApiKey?: Record<string, ApiKeyCounterBucket>;
 }
 
 export const UsageTable: React.FC<UsageTableProps> = ({
   byProvider,
   byModel,
   byAccount,
+  byApiKey,
 }) => {
-  const [groupBy, setGroupBy] = useState<"provider" | "model" | "account">("model");
+  const [groupBy, setGroupBy] = useState<"model" | "provider" | "account" | "apiKey">("model");
 
   let tableData: Array<{
     id: string;
@@ -54,11 +57,23 @@ export const UsageTable: React.FC<UsageTableProps> = ({
       cost: d.cost || 0,
       lastUsed: d.lastUsed,
     }));
-  } else {
+  } else if (groupBy === "account") {
     tableData = Object.entries(byAccount || {}).map(([id, d]) => ({
       id,
       name: d.accountName || d.accountId || id,
       sublabel: d.rawModel ? `${d.rawModel} (${d.provider || "default"})` : undefined,
+      requests: d.requests || 0,
+      promptTokens: d.promptTokens || 0,
+      cachedTokens: d.cachedTokens || 0,
+      completionTokens: d.completionTokens || 0,
+      cost: d.cost || 0,
+      lastUsed: d.lastUsed,
+    }));
+  } else {
+    tableData = Object.entries(byApiKey || {}).map(([id, d]) => ({
+      id,
+      name: d.apiKeyName || (id === "no_key" ? "Direct / No Key" : id),
+      sublabel: id === "no_key" ? "Unauthenticated / Local Ping" : `Key ID: ${id}`,
       requests: d.requests || 0,
       promptTokens: d.promptTokens || 0,
       cachedTokens: d.cachedTokens || 0,
@@ -92,7 +107,7 @@ export const UsageTable: React.FC<UsageTableProps> = ({
           <span className="px-2 text-slate-500 flex items-center gap-1">
             <Layers className="w-3 h-3" /> Group:
           </span>
-          {(["model", "provider", "account"] as const).map((g) => (
+          {(["model", "provider", "account", "apiKey"] as const).map((g) => (
             <button
               key={g}
               onClick={() => setGroupBy(g)}
@@ -102,7 +117,7 @@ export const UsageTable: React.FC<UsageTableProps> = ({
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              {g}
+              {g === "apiKey" ? "API Key" : g}
             </button>
           ))}
         </div>

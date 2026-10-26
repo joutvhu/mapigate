@@ -33,6 +33,8 @@ export async function runProxyPipeline(
   const body = req.body || {};
   const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "unknown";
   const rawModel = body.model || "default";
+  const apiKeyId = req.apiKeyId;
+  const apiKeyName = req.apiKeyName;
 
   const { model: strippedModel, contextMarker, is1mContext } = stripModelContextMarker(body.model);
   if (contextMarker && strippedModel) {
@@ -155,6 +157,8 @@ export async function runProxyPipeline(
       rtkStats,
       is1mContext,
       reqTag,
+      apiKeyId,
+      apiKeyName,
     });
   };
 
@@ -173,6 +177,8 @@ export async function runProxyPipeline(
     clientTool,
     rawModel,
     rtkStats,
+    apiKeyId,
+    apiKeyName,
   };
 
   try {
@@ -256,6 +262,8 @@ export async function runProxyPipeline(
         errorMessage: errMsg,
         tokensSavedByRtk: rtkStats.tokensSaved,
         is1mContext,
+        apiKeyId,
+        apiKeyName,
         requestHeaders: req.headers as Record<string, string>,
         requestBody: body,
       });
@@ -321,6 +329,8 @@ export async function runProxyPipeline(
       errorMessage: sanitizedMsg,
       tokensSavedByRtk: rtkStats.tokensSaved,
       is1mContext,
+      apiKeyId,
+      apiKeyName,
       requestHeaders: req.headers as Record<string, string>,
       requestBody: body,
     });

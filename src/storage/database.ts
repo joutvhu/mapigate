@@ -181,6 +181,8 @@ function initSchema(db: DatabaseDriver) {
       cost REAL NOT NULL DEFAULT 0,
       account_id TEXT,
       account_name TEXT,
+      api_key_id TEXT,
+      api_key_name TEXT,
       duration_ms INTEGER NOT NULL DEFAULT 0,
       status TEXT NOT NULL,
       error_message TEXT
@@ -260,5 +262,8 @@ function initSchema(db: DatabaseDriver) {
   try { db.exec("ALTER TABLE request_logs ADD COLUMN cost REAL NOT NULL DEFAULT 0;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN account_id TEXT;"); } catch {}
   try { db.exec("ALTER TABLE request_logs ADD COLUMN account_name TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN api_key_id TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE request_logs ADD COLUMN api_key_name TEXT;"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);"); } catch {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);"); } catch {}
 }

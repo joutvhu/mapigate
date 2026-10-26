@@ -292,6 +292,14 @@ export class SettingsRepository {
     return keys[index];
   }
 
+  public static recordGatewayApiKeyUsage(idOrKey: string): void {
+    const keys = this.getGatewayApiKeys();
+    const index = keys.findIndex((k) => k.id === idOrKey || k.key === idOrKey);
+    if (index === -1) return;
+    keys[index].lastUsedAt = Date.now();
+    this.setSetting("gatewayApiKeys", keys);
+  }
+
   // --- Token Saver Settings ---
 
   public static getTokenSaverSettings(): TokenSaverSettings {

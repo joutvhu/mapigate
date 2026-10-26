@@ -63,6 +63,8 @@ export interface RequestUsageLog {
   cost?: number;
   accountId?: string;
   accountName?: string;
+  apiKeyId?: string;
+  apiKeyName?: string;
   durationMs: number;
   status: "success" | "error" | "rate_limited";
   errorMessage?: string;
@@ -100,6 +102,12 @@ export interface AccountCounterBucket extends CounterBucket {
   lastUsed?: string | number;
 }
 
+export interface ApiKeyCounterBucket extends CounterBucket {
+  apiKeyId?: string;
+  apiKeyName?: string;
+  lastUsed?: string | number;
+}
+
 export interface ActiveRequestItem {
   model: string;
   provider: string;
@@ -131,6 +139,7 @@ export interface UsageStatsResult {
   byProvider: Record<string, CounterBucket>;
   byModel: Record<string, ModelCounterBucket>;
   byAccount: Record<string, AccountCounterBucket>;
+  byApiKey?: Record<string, ApiKeyCounterBucket>;
   activeRequests: ActiveRequestItem[];
   recentRequests: RecentRequestItem[];
   errorProvider?: string;

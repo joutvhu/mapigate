@@ -8,6 +8,7 @@ import type {
   CounterBucket,
   ModelCounterBucket,
   AccountCounterBucket,
+  ApiKeyCounterBucket,
 } from "../../shared/types/index.js";
 
 export const usageEventEmitter = new EventEmitter();
@@ -283,7 +284,49 @@ export class UsageRepository {
       };
     }
 
-    // 5. Recent Requests (20 entries)
+    // 5. Breakdown by API Key
+    const apiKeyRows = db.all<{
+      api_key_id: string;
+      api_key_name: string;
+      count: number;
+      prompt: number;
+      completion: number;
+      cached: number;
+      cost: number;
+      last_used: number;
+    }>(
+      `SELECT 
+        COALESCE(api_key_id, 'no_key') as api_key_id,
+        COALESCE(api_key_name, 'Direct / Public') as api_key_name,
+        COUNT(*) as count,
+        COALESCE(SUM(prompt_tokens), 0) as prompt,
+        COALESCE(SUM(completion_tokens), 0) as completion,
+        COALESCE(SUM(cached_tokens), 0) as cached,
+        COALESCE(SUM(cost), 0) as cost,
+        MAX(timestamp) as last_used
+      FROM request_logs
+      WHERE timestamp >= ?
+      GROUP BY api_key_id, api_key_name`,
+      startTs
+    );
+
+    const byApiKey: Record<string, ApiKeyCounterBucket> = {};
+    for (const r of apiKeyRows) {
+      const kid = r.api_key_id || "no_key";
+      const kname = r.api_key_name || (kid === "no_key" ? "Direct / Public" : `Key ${kid.slice(0, 8)}`);
+      byApiKey[kid] = {
+        requests: Number(r.count || 0),
+        promptTokens: Number(r.prompt || 0),
+        completionTokens: Number(r.completion || 0),
+        cachedTokens: Number(r.cached || 0),
+        cost: Number((r.cost || 0).toFixed(4)),
+        apiKeyId: kid,
+        apiKeyName: kname,
+        lastUsed: r.last_used ? new Date(r.last_used).toISOString() : undefined,
+      };
+    }
+
+    // 6. Recent Requests (20 entries)
     const recentRows = db.all<{
       id: string;
       timestamp: number;
@@ -332,6 +375,7 @@ export class UsageRepository {
       byProvider,
       byModel,
       byAccount,
+      byApiKey,
       activeRequests,
       recentRequests,
       errorProvider: isErrRecent ? lastErrorProvider.provider : undefined,

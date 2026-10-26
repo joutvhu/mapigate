@@ -287,11 +287,12 @@ export const UsageTab: React.FC = () => {
             <ProviderBarChart byProvider={stats?.byProvider || {}} />
           </div>
 
-          {/* Multi-level Usage Table with Group By (Model / Provider / Account) */}
+          {/* Multi-level Usage Table with Group By (Model / Provider / Account / API Key) */}
           <UsageTable
             byProvider={stats?.byProvider || {}}
             byModel={stats?.byModel || {}}
             byAccount={stats?.byAccount || {}}
+            byApiKey={stats?.byApiKey || {}}
           />
         </div>
       )}
