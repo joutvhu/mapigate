@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import { resolveDefaultProfileArn } from "./quota.js";
 
 const TOOL_NAME_PATTERN = /[^a-zA-Z0-9_-]/g;
 
@@ -285,8 +284,7 @@ export function buildKiroPayload(
   };
 
   const psd = (account?.providerSpecificData || {}) as Record<string, any>;
-  const authMethod = psd.authMethod;
-  const profileArn = psd.profileArn || resolveDefaultProfileArn(authMethod);
+  const profileArn = (psd.profileArn || "").trim();
 
   const payload: any = {
     conversationState: {

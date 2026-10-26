@@ -9,9 +9,9 @@ import {
 } from "../../../core/adapters/responsesAdapter.js";
 import { decodeEventStreamChunk } from "../bedrock/eventStream.js";
 import { extractTokenFromAccount } from "../../core/base/baseProvider.js";
-import { resolveDefaultProfileArn } from "./quota.js";
 import { buildKiroPayload } from "./converter.js";
 import { normalizeKiroUpstreamModelId } from "./provider.js";
+import { refreshKiroToken } from "./auth.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
 
 export async function executeKiro(
@@ -31,7 +31,7 @@ export async function executeKiro(
   const psd = (context.account?.providerSpecificData || {}) as Record<string, any>;
   const authMethod = psd.authMethod || "builder-id";
   const region = psd.region || "us-east-1";
-  const profileArn = psd.profileArn || resolveDefaultProfileArn(authMethod);
+  const profileArn = (psd.profileArn || "").trim();
 
   // 1. Build Payload
   const upstreamPayload = buildKiroPayload(body, upstreamModel, context.account, requestId);
@@ -75,14 +75,32 @@ export async function executeKiro(
     }
   }
 
+  if (targetUrl.includes("://codewhisperer.")) {
+    headers["X-Amz-Target"] = "AmazonCodeWhispererStreamingService.GenerateAssistantResponse";
+  }
+
   const effectiveProxy = (context.provider?.proxyUrl && context.provider.proxyUrl.trim()) || "";
 
   // 4. Dispatch Upstream
-  const upstreamRes = await executeUpstreamFetch(
+  let upstreamRes = await executeUpstreamFetch(
     targetUrl,
     { method: "POST", headers, body: JSON.stringify(upstreamPayload) },
     effectiveProxy
   );
+
+  // Auto-refresh token and retry on 401 or 403
+  if (!upstreamRes.ok && (upstreamRes.status === 401 || upstreamRes.status === 403)) {
+    const refreshedToken = await refreshKiroToken(context.account);
+    if (refreshedToken) {
+      headers["Authorization"] = `Bearer ${refreshedToken}`;
+      headers["x-amz-sso-bearer"] = refreshedToken.replace(/^Bearer\s+/i, "");
+      upstreamRes = await executeUpstreamFetch(
+        targetUrl,
+        { method: "POST", headers, body: JSON.stringify(upstreamPayload) },
+        effectiveProxy
+      );
+    }
+  }
 
   if (!upstreamRes.ok) {
     const errText = await upstreamRes.text().catch(() => "");

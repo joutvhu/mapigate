@@ -7,6 +7,7 @@ import { getPublicDnsAgent } from "../../../shared/utils/dnsResolver.js";
 import { fetch as undiciFetch } from "undici";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { executeKiro } from "./executor.js";
+import { refreshKiroToken } from "./auth.js";
 
 const ANTHROPIC_SNAPSHOT_SUFFIX = /-\d{8}$/;
 
@@ -66,6 +67,15 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     _dispatchSingleModel?: any
   ): Promise<ModelCallResult> {
     return await executeKiro(context, this);
+  }
+
+  public async handleAuthRefresh(
+    context: ProviderRequestContext,
+    status: number
+  ): Promise<boolean> {
+    if ((status !== 401 && status !== 403) || !context.account) return false;
+    const refreshed = await refreshKiroToken(context.account);
+    return Boolean(refreshed);
   }
 
   public async fetchQuota(context: ProviderUsageContext): Promise<RawProviderQuotaResult> {
