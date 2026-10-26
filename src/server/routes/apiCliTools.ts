@@ -6,6 +6,7 @@ import path from "node:path";
 import os from "node:os";
 import { CLI_TOOLS, MAPIGATE_BASE_URL, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
 import { serverLifecycle } from "../lifecycle.js";
+import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
 
 const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
@@ -31,21 +32,6 @@ function resolveUserPath(p?: string): string | null {
     return path.join(home, p.slice(1));
   }
   return p;
-}
-
-async function checkBinaryInstalled(binary?: string): Promise<boolean> {
-  if (!binary) return false;
-  try {
-    const isWindows = process.platform === "win32";
-    const command = isWindows ? `where ${binary}` : `which ${binary}`;
-    const env = isWindows
-      ? { ...process.env, PATH: `${process.env.APPDATA}\\npm;${process.env.PATH}` }
-      : process.env;
-    await execAsync(command, { windowsHide: true, env });
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function checkFileExists(filePath: string | null): Promise<boolean> {

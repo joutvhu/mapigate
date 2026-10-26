@@ -239,10 +239,19 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     const effectiveProxy = (providerConfig.proxyUrl && providerConfig.proxyUrl.trim()) ||
       (globalSettings.proxyUrl && globalSettings.proxyUrl.trim()) || "";
 
+    const abortController = new AbortController();
+    const onClientClose = () => {
+      abortController.abort();
+    };
+    if (typeof res?.once === "function") {
+      res.once("close", onClientClose);
+    }
+
     const fetchOptions: any = {
       method: "POST",
       headers: outgoingHeaders,
       body: JSON.stringify(upstreamBody),
+      signal: abortController.signal,
     };
 
     if (logger.isDebugEnabled()) {
@@ -259,6 +268,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
     let upstreamRes: any;
     try {
+      if (res?.writableEnded || res?.destroyed) {
+        return {
+          ok: false,
+          status: 499,
+          error: "Client closed connection before upstream dispatch",
+        };
+      }
+
       upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
 
       if (!upstreamRes.ok && upstreamRes.status === 401 && provider.handleAuthRefresh) {
@@ -269,6 +286,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         }
       }
     } catch (fetchErr: any) {
+      if (abortController.signal.aborted) {
+        return {
+          ok: false,
+          status: 499,
+          error: "Client aborted request",
+        };
+      }
+
       const errMsg = fetchErr?.message || String(fetchErr);
       const cleanErrText = sanitizeErrorMessage(errMsg);
       recordResilienceFailure({
@@ -313,6 +338,10 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         rawText: `[${reqTag}] ❌ FETCH FAILED · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${cleanErrText}`,
       });
       return { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
+    } finally {
+      if (typeof res?.removeListener === "function") {
+        res.removeListener("close", onClientClose);
+      }
     }
 
     if (!upstreamRes.ok) {

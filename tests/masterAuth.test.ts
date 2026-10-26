@@ -140,13 +140,35 @@ test("Integration - Master Password API and Route Protection Lifecycle", async (
     assert.equal(modelsBadQueryAuthRes.status, 401);
 
     // 6. Login endpoint
-    // Bad password
-    const loginFailRes = await fetch(`${baseUrl}/api/auth/login`, {
+    // Bad password - test rate limiting after 5 consecutive failures
+    for (let i = 0; i < 4; i++) {
+      const res = await fetch(`${baseUrl}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: "wrong-password" }),
+      });
+      assert.equal(res.status, 401);
+    }
+    const fifthFailRes = await fetch(`${baseUrl}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: "wrong-password" }),
     });
-    assert.equal(loginFailRes.status, 401);
+    assert.equal(fifthFailRes.status, 401);
+
+    // 6th attempt is rate-limited (HTTP 429)
+    const rateLimitedRes = await fetch(`${baseUrl}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: "wrong-password" }),
+    });
+    assert.equal(rateLimitedRes.status, 429);
+    const rateLimitedBody = (await rateLimitedRes.json()) as any;
+    assert.equal(rateLimitedBody.code, "RATE_LIMITED");
+
+    // Clear rate limit record for test continuation
+    const { loginAttempts } = await import("../src/server/routes/apiAuth.js");
+    loginAttempts?.clear();
 
     // Correct password
     const loginOkRes = await fetch(`${baseUrl}/api/auth/login`, {
@@ -226,6 +248,17 @@ test("Integration - Master Password API and Route Protection Lifecycle", async (
 
     const finalModelsRes = await fetch(`${baseUrl}/api/models`);
     assert.equal(finalModelsRes.status, 200);
+
+    // 10. Verify CORS behavior: loopback allowed, untrusted origin rejected
+    const corsAllowedRes = await fetch(`${baseUrl}/health`, {
+      headers: { Origin: "http://localhost:5173" },
+    });
+    assert.equal(corsAllowedRes.headers.get("access-control-allow-origin"), "http://localhost:5173");
+
+    const corsBlockedRes = await fetch(`${baseUrl}/health`, {
+      headers: { Origin: "https://evil-attacker.com" },
+    });
+    assert.equal(corsBlockedRes.headers.get("access-control-allow-origin"), null);
   } finally {
     SettingsRepository.clearMasterPassword();
     await new Promise<void>((resolve) => server.close(() => resolve()));

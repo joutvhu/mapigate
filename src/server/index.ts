@@ -51,7 +51,37 @@ const app = express();
 const port = Number(process.env.PORT) || DEFAULT_PORT;
 const host = process.env.HOST || DEFAULT_HOST;
 
-app.use(cors());
+// Secure CORS configuration: allow CLI/desktop tools and localhost/webview origins, block foreign internet origins
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, direct AI coding CLIs like Claude Code, Cursor)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Allow custom origin override from environment if explicitly provided
+      const customOrigin = process.env.MAPIGATE_CORS_ORIGIN;
+      if (customOrigin && (origin === customOrigin || customOrigin === "*")) {
+        return callback(null, true);
+      }
+
+      // Allow loopback origins (localhost, 127.0.0.1, IPv6 [::1] on any port) and IDE webviews
+      const isTrustedLocalOrigin =
+        /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ||
+        origin.startsWith("vscode-webview://") ||
+        origin.startsWith("chrome-extension://");
+
+      if (isTrustedLocalOrigin) {
+        return callback(null, true);
+      }
+
+      // Deny untrusted foreign origin (prevents malicious websites from driving local Mapigate proxy)
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "50mb" }));
 app.use(requestLogger);
 
@@ -168,10 +198,11 @@ app.get(["/callback", "/auth/callback"], (_req, res) => {
       fullUrl: window.location.href,
     };
 
-    // 1. postMessage to opener
+    // 1. postMessage to opener with origin validation
     if (window.opener) {
       try {
-        window.opener.postMessage({ type: "oauth_callback", data: callbackData }, "*");
+        const targetOrigin = window.location.origin || "*";
+        window.opener.postMessage({ type: "oauth_callback", data: callbackData }, targetOrigin);
       } catch (e) {}
     }
 

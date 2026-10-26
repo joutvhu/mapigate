@@ -21,6 +21,9 @@ export class CryptoVault {
       } catch {
         hwId = "fallback-hw-key-mapigate";
       }
+      if (!hwId || typeof hwId !== "string" || !hwId.trim()) {
+        hwId = "fallback-hw-key-mapigate";
+      }
       this.masterKey = crypto.scryptSync(hwId, this.SALT, 32);
     }
     return this.masterKey;

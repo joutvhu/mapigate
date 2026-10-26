@@ -446,4 +446,50 @@ describe("API Provider Scan Endpoints", () => {
       globalThis.fetch = origFetch;
     }
   });
+
+  test("GET /api/providers/:id masks sensitive fields in providerSpecificData", async () => {
+    const providerId = `psd-mask-test-${Date.now()}`;
+    ProviderRepository.saveProvider({
+      id: providerId,
+      name: "PSD Mask Test",
+      baseUrl: `http://127.0.0.1:${mockPort}/v1`,
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: `acc-psd-${Date.now()}`,
+      providerId,
+      name: "OAuth Account",
+      rawApiKey: "sk-plain-secret",
+      providerSpecificData: {
+        email: "user@example.com",
+        refreshToken: "secret-refresh-token-xyz",
+        secretAccessKey: "secret-aws-key-123",
+        region: "us-east-1",
+      },
+    });
+
+    const res = await fetch(`http://127.0.0.1:${apiPort}/api/providers/${providerId}`);
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as any;
+    assert.ok(body.accounts && body.accounts.length > 0);
+    const account = body.accounts[0];
+
+    // Non-sensitive fields preserved
+    assert.equal(account.providerSpecificData.email, "user@example.com");
+    assert.equal(account.providerSpecificData.region, "us-east-1");
+
+    // Sensitive fields masked
+    assert.equal(account.providerSpecificData.refreshToken, "••••••••");
+    assert.equal(account.providerSpecificData.secretAccessKey, "••••••••");
+
+    // rawApiKey and apiKeyEncrypted not exposed in accounts array
+    assert.equal(account.rawApiKey, undefined);
+    assert.equal(account.apiKeyEncrypted, undefined);
+  });
 });

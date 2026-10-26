@@ -79,69 +79,129 @@ export async function pipeSseStream(
   const decoder = new TextDecoder();
   let buffer = "";
   let currentEventName = "";
+  let clientDisconnected = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  const onClose = () => {
+    clientDisconnected = true;
+    reader.cancel().catch(() => {});
+  };
 
-    if (!state.ttftMs) {
-      state.ttftMs = Date.now() - startTime;
-      logger.line(reqTag || "STREAM", LogSymbol.STREAM, `TTFT ${state.ttftMs}ms · streaming chunks...`);
+  if (typeof clientRes?.once === "function") {
+    clientRes.once("close", onClose);
+  }
+
+  const safeWrite = (data: string): boolean => {
+    if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) return false;
+    try {
+      return clientRes.write(data);
+    } catch {
+      return false;
     }
+  };
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+  try {
+    while (true) {
+      if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
 
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-      if (!line) continue;
+      const { done, value } = await reader.read();
+      if (done || clientDisconnected) break;
 
-      if (line.startsWith("event:")) {
-        currentEventName = line.slice(6).trim();
-        if (clientFormat === "anthropic" && targetFormat === "claude") {
-          clientRes.write(rawLine + "\n");
-        }
-        continue;
+      if (!state.ttftMs) {
+        state.ttftMs = Date.now() - startTime;
+        logger.line(reqTag || "STREAM", LogSymbol.STREAM, `TTFT ${state.ttftMs}ms · streaming chunks...`);
       }
 
-      if (!line.startsWith("data:")) continue;
-      const dataStr = line.slice(5).trim();
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-      if (dataStr === "[DONE]") {
-        if (clientFormat === "openai") {
-          clientRes.write("data: [DONE]\n\n");
-        }
-        continue;
-      }
+      for (const rawLine of lines) {
+        if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
+        const line = rawLine.trim();
+        if (!line) continue;
 
-      try {
-        let jsonChunk = JSON.parse(dataStr);
-        let chunkModified = false;
-
-        if (provider.transformResponseChunk) {
-          jsonChunk = provider.transformResponseChunk(jsonChunk, context);
-          chunkModified = true;
+        if (line.startsWith("event:")) {
+          currentEventName = line.slice(6).trim();
+          if (clientFormat === "anthropic" && targetFormat === "claude") {
+            safeWrite(rawLine + "\n");
+          }
+          continue;
         }
 
-        if (jsonChunk?.choices?.[0]?.delta?.tool_calls) {
-          OpenAiAdapter.repairToolCalls(jsonChunk.choices[0].delta.tool_calls, toolSchemas);
-          chunkModified = true;
+        if (!line.startsWith("data:")) continue;
+        const dataStr = line.slice(5).trim();
+
+        if (dataStr === "[DONE]") {
+          if (clientFormat === "openai") {
+            safeWrite("data: [DONE]\n\n");
+          }
+          continue;
         }
 
-        if (ensureStreamToolCallIds(jsonChunk, seenToolCallIds)) {
-          chunkModified = true;
-        }
+        try {
+          let jsonChunk = JSON.parse(dataStr);
+          let chunkModified = false;
 
-        extractTokensFromChunk(jsonChunk, state);
+          if (provider.transformResponseChunk) {
+            jsonChunk = provider.transformResponseChunk(jsonChunk, context);
+            chunkModified = true;
+          }
 
-        // Detect and record tool calls in stream chunks (with deduplication tracking)
-        recordStreamToolCall(jsonChunk, state, (toolName) => {
-          logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
-        });
+          if (jsonChunk?.choices?.[0]?.delta?.tool_calls) {
+            OpenAiAdapter.repairToolCalls(jsonChunk.choices[0].delta.tool_calls, toolSchemas);
+            chunkModified = true;
+          }
 
-        if (clientFormat === "responses" && responsesState) {
-          if (targetFormat === "claude") {
+          if (ensureStreamToolCallIds(jsonChunk, seenToolCallIds)) {
+            chunkModified = true;
+          }
+
+          extractTokensFromChunk(jsonChunk, state);
+
+          // Detect and record tool calls in stream chunks (with deduplication tracking)
+          recordStreamToolCall(jsonChunk, state, (toolName) => {
+            logger.line(reqTag || "STREAM", "🛠️", `Tool invoked: ${toolName}`);
+          });
+
+          if (clientFormat === "responses" && responsesState) {
+            if (targetFormat === "claude") {
+              const eventPayload = {
+                type: currentEventName || jsonChunk.type,
+                ...jsonChunk,
+              };
+              const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
+                eventPayload,
+                requestId,
+                claudeToOpenAiState
+              );
+              for (const ch of openAiChunks) {
+                const trimmed = ch.trim();
+                if (trimmed.startsWith("data:") && !trimmed.includes("[DONE]")) {
+                  try {
+                    const parsedOpenAiChunk = JSON.parse(trimmed.slice(5).trim());
+                    const responsesEvents = openAiChunkToResponsesEvents(parsedOpenAiChunk, responsesState);
+                    for (const ev of responsesEvents) {
+                      safeWrite(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+                    }
+                  } catch {}
+                }
+              }
+            } else {
+              const responsesEvents = openAiChunkToResponsesEvents(jsonChunk, responsesState);
+              for (const ev of responsesEvents) {
+                safeWrite(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+              }
+            }
+          } else if (clientFormat === "anthropic" && targetFormat === "openai") {
+            const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
+              jsonChunk,
+              requestId,
+              openAiToAnthropicState
+            );
+            for (const ev of anthropicEvents) {
+              safeWrite(ev);
+            }
+          } else if (clientFormat === "openai" && targetFormat === "claude") {
             const eventPayload = {
               type: currentEventName || jsonChunk.type,
               ...jsonChunk,
@@ -152,75 +212,46 @@ export async function pipeSseStream(
               claudeToOpenAiState
             );
             for (const ch of openAiChunks) {
-              const trimmed = ch.trim();
-              if (trimmed.startsWith("data:") && !trimmed.includes("[DONE]")) {
-                try {
-                  const parsedOpenAiChunk = JSON.parse(trimmed.slice(5).trim());
-                  const responsesEvents = openAiChunkToResponsesEvents(parsedOpenAiChunk, responsesState);
-                  for (const ev of responsesEvents) {
-                    clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
-                  }
-                } catch {}
-              }
+              safeWrite(ch);
             }
           } else {
-            const responsesEvents = openAiChunkToResponsesEvents(jsonChunk, responsesState);
-            for (const ev of responsesEvents) {
-              clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+            if (currentEventName && clientFormat === "anthropic") {
+              safeWrite(`event: ${currentEventName}\n`);
+            }
+            if (provider.transformResponseChunk || chunkModified) {
+              safeWrite(`data: ${JSON.stringify(jsonChunk)}\n\n`);
+            } else {
+              safeWrite(rawLine + "\n\n");
             }
           }
-        } else if (clientFormat === "anthropic" && targetFormat === "openai") {
-          const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
-            jsonChunk,
-            requestId,
-            openAiToAnthropicState
-          );
-          for (const ev of anthropicEvents) {
-            clientRes.write(ev);
-          }
-        } else if (clientFormat === "openai" && targetFormat === "claude") {
-          const eventPayload = {
-            type: currentEventName || jsonChunk.type,
-            ...jsonChunk,
-          };
-          const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
-            eventPayload,
-            requestId,
-            claudeToOpenAiState
-          );
-          for (const ch of openAiChunks) {
-            clientRes.write(ch);
-          }
-        } else {
-          if (currentEventName && clientFormat === "anthropic") {
-            clientRes.write(`event: ${currentEventName}\n`);
-          }
-          if (provider.transformResponseChunk || chunkModified) {
-            clientRes.write(`data: ${JSON.stringify(jsonChunk)}\n\n`);
-          } else {
-            clientRes.write(rawLine + "\n\n");
-          }
+        } catch {
+          safeWrite(rawLine + "\n\n");
         }
-      } catch {
-        clientRes.write(rawLine + "\n\n");
       }
     }
-  }
 
-  if (clientFormat === "responses" && responsesState) {
-    const finalEvents = finalizeResponsesStream(responsesState);
-    for (const ev of finalEvents) {
-      clientRes.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+    if (!clientDisconnected && !clientRes?.writableEnded && !clientRes?.destroyed) {
+      if (clientFormat === "responses" && responsesState) {
+        const finalEvents = finalizeResponsesStream(responsesState);
+        for (const ev of finalEvents) {
+          safeWrite(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+        }
+        safeWrite("data: [DONE]\n\n");
+      } else if (clientFormat === "anthropic" && targetFormat === "openai") {
+        const finalEvents = AnthropicAdapter.finalizeStream(openAiToAnthropicState);
+        for (const ev of finalEvents) {
+          safeWrite(ev);
+        }
+      }
+      try {
+        clientRes.end();
+      } catch {}
     }
-    clientRes.write("data: [DONE]\n\n");
-  } else if (clientFormat === "anthropic" && targetFormat === "openai") {
-    const finalEvents = AnthropicAdapter.finalizeStream(openAiToAnthropicState);
-    for (const ev of finalEvents) {
-      clientRes.write(ev);
+  } finally {
+    if (typeof clientRes?.removeListener === "function") {
+      clientRes.removeListener("close", onClose);
     }
   }
-
-  clientRes.end();
 
   if (logger.isDebugEnabled()) {
     logger.debug(

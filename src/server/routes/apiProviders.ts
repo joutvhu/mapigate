@@ -408,6 +408,28 @@ providerRouter.post("/:id/scan-models", async (req, res) => {
   }
 });
 
+function maskSensitivePsd(psd?: Record<string, any> | null): Record<string, any> | undefined {
+  if (!psd || typeof psd !== "object") return undefined;
+  const SENSITIVE_KEYS = new Set([
+    "refreshtoken",
+    "secretaccesskey",
+    "clientsecret",
+    "privatekey",
+    "password",
+    "secretkey",
+  ]);
+
+  const sanitized: Record<string, any> = {};
+  for (const [k, v] of Object.entries(psd)) {
+    if (SENSITIVE_KEYS.has(k.toLowerCase()) && typeof v === "string" && v.length > 0) {
+      sanitized[k] = "••••••••";
+    } else {
+      sanitized[k] = v;
+    }
+  }
+  return sanitized;
+}
+
 // GET single provider details
 providerRouter.get("/:id", (req, res) => {
   const provider = ProviderRepository.getProviderWithDefaults(req.params.id);
@@ -425,7 +447,7 @@ providerRouter.get("/:id", (req, res) => {
       isActive: a.isActive,
       rateLimitHits: a.rateLimitHits,
       lastUsedAt: a.lastUsedAt,
-      providerSpecificData: a.providerSpecificData,
+      providerSpecificData: maskSensitivePsd(a.providerSpecificData),
     })),
   });
 });
@@ -442,11 +464,23 @@ providerRouter.put("/:id/accounts/:accountId", (req, res) => {
       return;
     }
 
+    // Preserve existing secrets if UI sent back masked placeholder
+    let mergedPsd = providerSpecificData;
+    if (providerSpecificData && typeof providerSpecificData === "object" && existing.providerSpecificData) {
+      mergedPsd = { ...existing.providerSpecificData };
+      for (const [k, v] of Object.entries(providerSpecificData)) {
+        if (v === "••••••••" && existing.providerSpecificData[k]) {
+          continue;
+        }
+        mergedPsd[k] = v;
+      }
+    }
+
     ProviderRepository.updateAccount(accountId, {
       name,
       rawApiKey: apiKey !== undefined ? apiKey : undefined,
       isActive,
-      providerSpecificData,
+      providerSpecificData: mergedPsd,
     });
 
     const updated = ProviderRepository.getAccountById(accountId);
@@ -456,7 +490,7 @@ providerRouter.put("/:id/accounts/:accountId", (req, res) => {
         id: updated?.id,
         name: updated?.name,
         isActive: updated?.isActive,
-        providerSpecificData: updated?.providerSpecificData,
+        providerSpecificData: maskSensitivePsd(updated?.providerSpecificData),
       },
     });
   } catch (err: any) {

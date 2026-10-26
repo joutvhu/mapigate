@@ -4,6 +4,19 @@ import { extractMasterToken } from "../middlewares/masterAuthMiddleware.js";
 
 export const authRouter = Router();
 
+interface LoginAttemptRecord {
+  attempts: number;
+  lockedUntil: number;
+}
+
+export const loginAttempts = new Map<string, LoginAttemptRecord>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCKOUT_MS = 60 * 1000; // 60 seconds lockout after 5 failed attempts
+
+function getClientIp(req: any): string {
+  return String(req.ip || req.socket?.remoteAddress || "127.0.0.1");
+}
+
 // GET /api/auth/status - Get master password status and authentication state
 authRouter.get("/status", (req, res) => {
   try {
@@ -30,6 +43,18 @@ authRouter.get("/status", (req, res) => {
 // POST /api/auth/login - Verify master password and generate session token
 authRouter.post("/login", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    const now = Date.now();
+    const attempt = loginAttempts.get(clientIp);
+
+    if (attempt && attempt.lockedUntil > now) {
+      const waitSec = Math.ceil((attempt.lockedUntil - now) / 1000);
+      return res.status(429).json({
+        error: `Too many failed login attempts. Please wait ${waitSec}s before retrying.`,
+        code: "RATE_LIMITED",
+      });
+    }
+
     const { password } = req.body || {};
     if (!MasterAuth.isPasswordSet()) {
       return res.json({
@@ -48,11 +73,22 @@ authRouter.post("/login", async (req, res) => {
 
     const isValid = await MasterAuth.verifyPassword(password);
     if (!isValid) {
+      const currentAttempts = (attempt?.attempts || 0) + 1;
+      const isLocked = currentAttempts >= MAX_LOGIN_ATTEMPTS;
+      loginAttempts.set(clientIp, {
+        attempts: currentAttempts,
+        lockedUntil: isLocked ? now + LOGIN_LOCKOUT_MS : 0,
+      });
+
       return res.status(401).json({
         error: "Invalid master password",
         code: "INVALID_PASSWORD",
+        remainingAttempts: Math.max(0, MAX_LOGIN_ATTEMPTS - currentAttempts),
       });
     }
+
+    // Success: clear failed attempts
+    loginAttempts.delete(clientIp);
 
     const token = MasterAuth.createSessionToken();
     res.json({
