@@ -7,6 +7,7 @@ import { TokenEconomicsPanel } from "./TokenEconomicsPanel.js";
 import { ToolCallsPanel } from "./ToolCallsPanel.js";
 import { LogPayloadViewer } from "./LogPayloadViewer.js";
 import { useSystemInfo } from "../../hooks/useSystemInfo.js";
+import { useBackdropClose } from "../../hooks/useBackdropClose.js";
 import {
   X,
   Copy,
@@ -135,12 +136,12 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
     return `curl -X POST http://${effectiveHost}:${effectivePort}${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '${bodyStr}'`;
   };
 
+  const { backdropProps } = useBackdropClose(onClose);
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-xs animate-rt-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      {...backdropProps}
     >
       <div
         className="w-full max-w-2xl sm:max-w-3xl h-full bg-[#0D121F] border-l border-[#1E293B] shadow-2xl flex flex-col text-slate-100 overflow-hidden animate-rt-slide-in-right"

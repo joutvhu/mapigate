@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useBackdropClose } from "../hooks/useBackdropClose";
 
 export interface PortalModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export const PortalModal: React.FC<PortalModalProps> = ({
   maxWidthClass = "max-w-xl",
   className = "",
 }) => {
+  const { backdropProps } = useBackdropClose(onClose);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -42,11 +45,7 @@ export const PortalModal: React.FC<PortalModalProps> = ({
       role="dialog"
       aria-modal="true"
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-rt-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      {...backdropProps}
     >
       <div
         className={`w-full ${maxWidthClass} bg-[#0F1420] border border-[#1E293B] rounded-2xl shadow-2xl overflow-hidden p-6 animate-rt-scale-in text-slate-100 ${className}`}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { RequestDetail } from "../../../../shared/types/index.js";
+import { useBackdropClose } from "../../hooks/useBackdropClose.js";
 import {
   X,
   Copy,
@@ -84,12 +85,12 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
     );
   };
 
+  const { backdropProps } = useBackdropClose(onClose);
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-xs animate-rt-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      {...backdropProps}
     >
       <div
         className="w-full max-w-2xl sm:max-w-3xl h-full bg-[#0D121F] border-l border-[#1E293B] shadow-2xl flex flex-col text-slate-100 overflow-hidden animate-rt-slide-in-right"
