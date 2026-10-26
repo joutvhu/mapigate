@@ -1,5 +1,6 @@
 import { MITM_TOOLS } from "./handlers/generated/toolsConfig.js";
 import type { MitmHttpRequestLike, MitmToolUiConfig } from "./types.js";
+import { getDatabase } from "../storage/database.js";
 
 export const TOOL_HOSTS: Record<string, string[]> = Object.fromEntries(
   MITM_TOOLS.map((t) => [t.id, t.hosts])
@@ -40,17 +41,110 @@ export const MITM_TOOLS_METADATA: MitmToolUiConfig[] = MITM_TOOLS.map((t) => ({
   defaultHost: t.defaultHost,
 }));
 
+let customHostsCache: {
+  toolHostsMap: Map<string, string>;
+  allCustomHosts: Set<string>;
+  ts: number;
+} | null = null;
+
+const CACHE_TTL_MS = 5000;
+
+export function invalidateCustomMitmHostsCache(): void {
+  customHostsCache = null;
+}
+
+export function parseHostnamesFromHostsEntries(entries?: string | null): string[] {
+  if (!entries) return [];
+  const lines = entries.split(/\r?\n/);
+  const hostnames: string[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      for (let i = 1; i < parts.length; i++) {
+        let domain = parts[i].trim().toLowerCase();
+        if (domain.startsWith("#")) break;
+        domain = domain.split(":")[0];
+        if (domain && domain !== "localhost") {
+          hostnames.push(domain);
+        }
+      }
+    } else if (parts.length === 1) {
+      let domain = parts[0].trim().toLowerCase();
+      domain = domain.split(":")[0];
+      if (domain && domain !== "127.0.0.1" && domain !== "::1" && domain !== "localhost") {
+        hostnames.push(domain);
+      }
+    }
+  }
+  return hostnames;
+}
+
+export function getCustomMitmHosts(): {
+  toolHostsMap: Map<string, string>;
+  allCustomHosts: Set<string>;
+} {
+  const now = Date.now();
+  if (customHostsCache && now - customHostsCache.ts < CACHE_TTL_MS) {
+    return customHostsCache;
+  }
+
+  const toolHostsMap = new Map<string, string>();
+  const allCustomHosts = new Set<string>();
+
+  try {
+    const db = getDatabase();
+    for (const tool of MITM_TOOLS) {
+      const row = db.get<{ value?: string }>(
+        "SELECT value FROM settings WHERE key = ?",
+        `mitm_hosts_${tool.id}`
+      );
+      if (row?.value) {
+        const hostnames = parseHostnamesFromHostsEntries(row.value);
+        for (const h of hostnames) {
+          toolHostsMap.set(h, tool.id);
+          allCustomHosts.add(h);
+        }
+      }
+    }
+
+    const globalRow = db.get<{ value?: string }>(
+      "SELECT value FROM settings WHERE key = 'mitm_hosts'"
+    );
+    if (globalRow?.value) {
+      const hostnames = parseHostnamesFromHostsEntries(globalRow.value);
+      for (const h of hostnames) {
+        allCustomHosts.add(h);
+      }
+    }
+  } catch {
+    // Database uninitialized or in an isolated test environment without SQLite table
+  }
+
+  customHostsCache = { toolHostsMap, allCustomHosts, ts: now };
+  return customHostsCache;
+}
+
 export function getToolForHost(host?: string | null): string | null {
   if (!host) return null;
   const h = host.split(":")[0].trim().toLowerCase();
 
+  // 1. Static built-in tool hosts
   for (const tool of MITM_TOOLS) {
     if (tool.hosts.some((target) => target.toLowerCase() === h)) {
       return tool.id;
     }
   }
 
-  // Tool-specific custom matchers / fallback heuristics
+  // 2. Custom hosts configured by user in settings/database
+  const { toolHostsMap } = getCustomMitmHosts();
+  const customTool = toolHostsMap.get(h);
+  if (customTool) {
+    return customTool;
+  }
+
+  // 3. Tool-specific custom matchers / fallback heuristics
   for (const tool of MITM_TOOLS) {
     if (tool.matchesHost?.(h)) {
       return tool.id;
@@ -61,7 +155,18 @@ export function getToolForHost(host?: string | null): string | null {
 }
 
 export function isMitmHost(host?: string | null): boolean {
-  return getToolForHost(host) !== null;
+  if (!host) return false;
+  if (getToolForHost(host) !== null) {
+    return true;
+  }
+  const h = host.split(":")[0].trim().toLowerCase();
+  const { allCustomHosts } = getCustomMitmHosts();
+  return allCustomHosts.has(h);
+}
+
+export function getAllActiveMitmHosts(): string[] {
+  const { allCustomHosts } = getCustomMitmHosts();
+  return Array.from(new Set([...ALL_MITM_HOSTS, ...allCustomHosts]));
 }
 
 export function formatToolDefaultHosts(tool: string, ip = "127.0.0.1"): string {

@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { Router } from "express";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
 import type {
@@ -59,7 +60,7 @@ export async function loadCodeAssist(accessToken: string): Promise<{ projectId: 
   let projectId = "";
   let tierId = "legacy-tier";
   try {
-    const res = await fetch("https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist", {
+    const res = await fetchWithDnsBypass("https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -95,7 +96,7 @@ export function onboardUser(accessToken: string, tierId: string): void {
   (async () => {
     for (let i = 0; i < 10; i++) {
       try {
-        const res = await fetch("https://cloudcode-pa.googleapis.com/v1internal:onboardUser", {
+        const res = await fetchWithDnsBypass("https://cloudcode-pa.googleapis.com/v1internal:onboardUser", {
           method: "POST",
           headers,
           body: JSON.stringify({ tierId, metadata: { ideType: 9, platform: getPlatformId(), pluginType: 2 } }),

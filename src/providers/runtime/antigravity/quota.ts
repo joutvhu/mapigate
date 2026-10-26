@@ -1,5 +1,6 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../../../core/usage/types.js";
 import { parseResetTime } from "../../../core/usage/utils.js";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 import {
   ANTIGRAVITY_IDE_VERSION,
   ANTIGRAVITY_USER_AGENT,
@@ -15,7 +16,7 @@ export * from "./weekly.js";
 
 export async function getAntigravitySubscriptionInfo(
   accessToken: string,
-  fetchFn: typeof fetch = globalThis.fetch
+  fetchFn: typeof fetch = fetchWithDnsBypass as any
 ): Promise<any> {
   try {
     const response = await fetchFn(ANTIGRAVITY_LOAD_PROJECT_URL, {
@@ -45,7 +46,7 @@ export async function getAntigravityUsage(
   providerSpecificData?: Record<string, any>,
   options?: { fetchFn?: typeof fetch; force?: boolean }
 ): Promise<RawProviderQuotaResult> {
-  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const fetchFn = (options?.fetchFn as any) || fetchWithDnsBypass;
   if (!accessToken) {
     return { plan: "Free", message: "Antigravity access token not available." };
   }

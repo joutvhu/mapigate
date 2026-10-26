@@ -2,6 +2,7 @@ import { fetch as undiciFetch, ProxyAgent } from "undici";
 import { getPublicDnsAgent } from "../../shared/utils/dnsResolver.js";
 import { isMitmHost } from "../../mitm/toolsHelper.js";
 
+const defaultGlobalFetch = globalThis.fetch;
 const MAX_PROXY_DISPATCHERS = 50;
 const proxyDispatchers = new Map<string, ProxyAgent>();
 
@@ -28,6 +29,11 @@ export async function executeUpstreamFetch(
   options: RequestInit & { dispatcher?: any },
   proxyUrl?: string
 ): Promise<globalThis.Response> {
+  // If globalThis.fetch was mocked (e.g. in unit tests), honor the mock
+  if (globalThis.fetch !== defaultGlobalFetch && !proxyUrl && !options?.dispatcher) {
+    return (await globalThis.fetch(url, options as any)) as globalThis.Response;
+  }
+
   const effectiveProxy = proxyUrl?.trim();
   if (effectiveProxy) {
     const dispatcher = getProxyDispatcher(effectiveProxy);

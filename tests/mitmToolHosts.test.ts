@@ -78,6 +78,35 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.equal(isMitmHost("api.openai.com"), false);
   });
 
+  it("dynamically resolves user-configured custom hosts from database", () => {
+    const customKiroHost = "custom-bedrock.us-west-2.amazonaws.com";
+    assert.equal(getToolForHost(customKiroHost), null);
+    assert.equal(isMitmHost(customKiroHost), false);
+
+    try {
+      const customEntries = `${TOOL_DEFAULT_HOSTS.kiro}\n127.0.0.1 ${customKiroHost}\n127.0.0.1 secondary-kiro.internal # internal custom`;
+      MitmRepository.saveToolHosts("kiro", customEntries);
+
+      assert.equal(getToolForHost(customKiroHost), "kiro");
+      assert.equal(getToolForHost(`${customKiroHost}:443`), "kiro");
+      assert.equal(isMitmHost(customKiroHost), true);
+      assert.equal(isMitmHost(`${customKiroHost}:443`), true);
+      assert.equal(getToolForHost("secondary-kiro.internal"), "kiro");
+      assert.equal(isMitmHost("secondary-kiro.internal"), true);
+
+      MitmRepository.saveHostsEntries("127.0.0.1 unmapped-custom.ai.net");
+      assert.equal(isMitmHost("unmapped-custom.ai.net"), true);
+      assert.equal(getToolForHost("unmapped-custom.ai.net"), null);
+
+      MitmRepository.resetToolHosts("kiro");
+      assert.equal(getToolForHost(customKiroHost), null);
+      assert.equal(isMitmHost(customKiroHost), false);
+    } finally {
+      MitmRepository.resetToolHosts("kiro");
+      MitmRepository.resetHostsEntries();
+    }
+  });
+
   it("formats tool default hosts for OS hosts file", () => {
     const agHosts = formatToolDefaultHosts("antigravity");
     assert.ok(agHosts.includes("127.0.0.1 daily-cloudcode-pa.googleapis.com"));

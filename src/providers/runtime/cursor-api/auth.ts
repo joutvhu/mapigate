@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 
 export const CURSOR_API_BASE_URL = "https://api2.cursor.sh";
 export const CURSOR_API_KEY_PREFIX = "crsr_";
@@ -93,7 +94,7 @@ export async function exchangeCursorApiKey(
     );
   }
 
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchImpl = options.fetchImpl ?? (fetchWithDnsBypass as any);
   const now = options.now ?? Date.now;
   const signal = options.signal ?? AbortSignal.timeout(EXCHANGE_TIMEOUT_MS);
 

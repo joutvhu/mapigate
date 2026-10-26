@@ -1,5 +1,6 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 import { parseResetTime } from "../../../core/usage/utils.js";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 import {
   ANTIGRAVITY_IDE_VERSION,
   ANTIGRAVITY_USER_AGENT,
@@ -97,7 +98,7 @@ export async function fetchAntigravityWeeklyQuota(
   projectId?: string | null,
   options?: { fetchFn?: typeof fetch; force?: boolean }
 ): Promise<Record<string, RawQuotaBucket>> {
-  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const fetchFn = (options?.fetchFn as any) || fetchWithDnsBypass;
   const key = cacheKey(accessToken, projectId);
 
   if (!options?.force) {

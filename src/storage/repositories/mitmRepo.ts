@@ -2,6 +2,7 @@ import { getDatabase, type DatabaseDriver } from "../database.js";
 import {
   TOOL_HOSTS,
   formatToolDefaultHosts,
+  invalidateCustomMitmHostsCache,
   type MitmToolId,
 } from "../../shared/constants/mitmToolHosts.js";
 
@@ -163,6 +164,9 @@ export class MitmRepository {
       `mitm_hosts_${tool}`,
       entries
     );
+    try {
+      invalidateCustomMitmHostsCache();
+    } catch {}
   }
 
   public static resetToolHosts(tool: string): string {
@@ -185,6 +189,9 @@ export class MitmRepository {
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
       entries
     );
+    try {
+      invalidateCustomMitmHostsCache();
+    } catch {}
   }
 
   public static resetHostsEntries(): string {
