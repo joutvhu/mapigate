@@ -33,6 +33,7 @@ import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 import { PidFileManager } from "../cli/daemon/pidFile.js";
 import { SettingsRepository } from "../storage/repositories/settingsRepo.js";
+import { getRegistryProvider } from "../providers/metadataRegistry.js";
 
 // Sync persisted log level from settings repository if env is not explicitly set
 const envLevel = process.env.LOG_LEVEL || process.env.MAPIGATE_LOG_LEVEL;
@@ -270,41 +271,45 @@ app.get(["/assets/providers/:provider/:file", "/assets/tools/:provider/:file", "
     return;
   }
 
+  // Resolve aliases (e.g. devin-cli -> devin, copilot -> github)
+  const reg = getRegistryProvider(provider);
+  const resolvedProvider = reg?.id && reg.id !== provider ? reg.id : undefined;
+  const candidateProviderIds = resolvedProvider ? [provider, resolvedProvider] : [provider];
+
   // Potential directories where the provider or tool assets may reside
-  const searchDirs: string[] = [
-    // Built web distribution (primary in production and npm packages)
-    path.resolve(webDistPath, "assets", "providers", provider),
-    path.resolve(webDistPath, "assets", "tools", provider),
-    path.resolve(webDistPath, "assets", "cli-tools", provider),
-    path.resolve(__dirname, "../web", "assets", "providers", provider),
-    path.resolve(__dirname, "../web", "assets", "tools", provider),
-    // Source directories (for development mode)
-    path.resolve(packageRoot, "src", "providers", "runtime", provider, "assets"),
-    path.resolve(packageRoot, "src", "providers", "catalog", provider, "assets"),
-    path.resolve(packageRoot, "src", "providers", "composite", provider, "assets"),
-    path.resolve(packageRoot, "src", "providers", provider, "assets"),
-    path.resolve(packageRoot, "src", "cli", "tools", "definitions", provider, "assets"),
-    path.resolve(packageRoot, "src", "mitm", "handlers", provider, "assets"),
-    // Fallback relative to process.cwd()
-    path.resolve(process.cwd(), "dist", "web", "assets", "providers", provider),
-    path.resolve(process.cwd(), "dist", "web", "assets", "tools", provider),
-    path.resolve(process.cwd(), "src", "providers", "runtime", provider, "assets"),
-    path.resolve(process.cwd(), "src", "providers", "catalog", provider, "assets"),
-    path.resolve(process.cwd(), "src", "providers", provider, "assets"),
-    path.resolve(process.cwd(), "src", "cli", "tools", "definitions", provider, "assets"),
-    path.resolve(process.cwd(), "src", "mitm", "handlers", provider, "assets"),
-  ];
+  const searchDirs: string[] = [];
+  for (const p of candidateProviderIds) {
+    searchDirs.push(
+      // Built web distribution (primary in production and npm packages)
+      path.resolve(webDistPath, "assets", "providers", p),
+      path.resolve(webDistPath, "assets", "tools", p),
+      path.resolve(webDistPath, "assets", "cli-tools", p),
+      path.resolve(__dirname, "../web", "assets", "providers", p),
+      path.resolve(__dirname, "../web", "assets", "tools", p),
+      // Source directories (for development mode)
+      path.resolve(packageRoot, "src", "providers", "runtime", p, "assets"),
+      path.resolve(packageRoot, "src", "providers", "catalog", p, "assets"),
+      path.resolve(packageRoot, "src", "providers", "composite", p, "assets"),
+      path.resolve(packageRoot, "src", "providers", p, "assets"),
+      path.resolve(packageRoot, "src", "cli", "tools", "definitions", p, "assets"),
+      path.resolve(packageRoot, "src", "mitm", "handlers", p, "assets"),
+      // Fallback relative to process.cwd()
+      path.resolve(process.cwd(), "dist", "web", "assets", "providers", p),
+      path.resolve(process.cwd(), "dist", "web", "assets", "tools", p),
+      path.resolve(process.cwd(), "src", "providers", "runtime", p, "assets"),
+      path.resolve(process.cwd(), "src", "providers", "catalog", p, "assets"),
+      path.resolve(process.cwd(), "src", "providers", p, "assets"),
+      path.resolve(process.cwd(), "src", "cli", "tools", "definitions", p, "assets"),
+      path.resolve(process.cwd(), "src", "mitm", "handlers", p, "assets")
+    );
+  }
 
   // Variations to try if the exact file is not present (e.g. icon.png -> cursor.png, icon.svg, etc.)
-  const fileVariations = [
-    file,
-    "icon.png",
-    "icon.svg",
-    `${provider}.png`,
-    `${provider}.svg`,
-    "logo.png",
-    "logo.svg",
-  ];
+  const fileVariations: string[] = [file, "icon.png", "icon.svg"];
+  for (const p of candidateProviderIds) {
+    fileVariations.push(`${p}.png`, `${p}.svg`);
+  }
+  fileVariations.push("logo.png", "logo.svg");
 
   for (const dir of searchDirs) {
     try {
@@ -334,6 +339,23 @@ app.get(["/assets/providers/:provider/:file", "/assets/tools/:provider/:file", "
     } catch {
       // Continue checking next search directory
     }
+  }
+
+  // If the provider is known in the registry or catalog, but has no custom asset file on disk:
+  // Serve a sleek SVG avatar with the provider's brand color & initials instead of 404 console errors!
+  if (reg) {
+    const displayName = reg.name || provider;
+    const initials = displayName.trim().slice(0, 2).toUpperCase() || "AI";
+    const brandColor = reg.color || "#6366F1";
+    const svgFallback = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <rect width="40" height="40" rx="10" fill="#0F172A" stroke="#1E293B" stroke-width="1.5"/>
+  <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="${brandColor}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="bold" font-size="14">${initials}</text>
+</svg>`;
+
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.status(200).send(svgFallback);
+    return;
   }
 
   res.status(404).send("Provider asset not found");

@@ -83,4 +83,18 @@ test("Asset Serving Endpoint Tests", async (t) => {
     const res = await makeRequest(server, "/assets/providers/completely-unknown-provider-xyz/icon.png");
     assert.equal(res.status, 404);
   });
+
+  await t.test("Resolves provider alias like devin-cli to devin runtime asset", async () => {
+    const res = await makeRequest(server, "/assets/providers/devin-cli/icon.png");
+    assert.equal(res.status, 200, "devin-cli should resolve to devin asset");
+    assert.match(String(res.headers["content-type"]), /image\/png/);
+    assert.ok(res.body.length > 0);
+  });
+
+  await t.test("Serves clean themed SVG avatar for catalog provider without on-disk icon", async () => {
+    const res = await makeRequest(server, "/assets/providers/pollinations/icon.png");
+    assert.equal(res.status, 200);
+    assert.match(String(res.headers["content-type"]), /image\/svg\+xml/);
+    assert.ok(res.body.toString("utf8").includes("<svg"));
+  });
 });

@@ -207,7 +207,7 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
   { id: "deepseek-tui", name: "DeepSeek TUI", image: "/assets/tools/deepseek-tui/icon.png", status: "Not installed" },
   { id: "jcode", name: "Jcode", image: "/assets/tools/jcode/icon.png", status: "Not installed" },
   { id: "grok-build", name: "Grok Build", image: "/assets/tools/grok-build/icon.png", status: "Not installed" },
-  { id: "devin", name: "Devin CLI", image: "/assets/providers/devin-cli/icon.png", status: "Guide" },
+  { id: "devin", name: "Devin CLI", image: "/assets/providers/devin/icon.png", status: "Guide" },
   { id: "opendesign", name: "OpenDesign", image: "/assets/tools/opendesign/icon.png", status: "Guide" },
   { id: "pi", name: "Pi (pi-coding-agent)", image: "/assets/tools/pi/icon.svg", status: "Not installed" },
   { id: "omp", name: "Oh My Pi", image: "/assets/tools/omp/icon.png", status: "Not installed" },

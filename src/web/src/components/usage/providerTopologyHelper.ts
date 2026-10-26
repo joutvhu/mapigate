@@ -11,6 +11,10 @@ export interface ProviderTopologyMeta {
 const TOPOLOGY_PROVIDER_ALIASES: Record<string, string> = {
   "github-copilot": "github",
   copilot: "github",
+  "devin-cli": "devin",
+  "devin-desktop": "devin",
+  "devin-cli-agentic": "devin",
+  dvd: "devin",
 };
 
 /**
