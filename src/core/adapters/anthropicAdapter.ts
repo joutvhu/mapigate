@@ -76,6 +76,7 @@ export class AnthropicAdapter {
       nextBlockIndex: 0,
       currentBlockType: null,
       currentBlockIndex: null,
+      currentToolCallIndex: undefined,
       toolCalls: new Map(),
       toolSchemas: tools ? toolSchemaMap(tools) : undefined,
     };
@@ -88,6 +89,9 @@ export class AnthropicAdapter {
     return {
       toolCallIndex: 0,
       blockIndexToToolCallIndex: new Map(),
+      promptTokens: 0,
+      cachedTokens: 0,
+      cacheCreationTokens: 0,
     };
   }
 
@@ -256,6 +260,7 @@ export class AnthropicAdapter {
    */
   public static openAiToAnthropic(openAiBody: any): any {
     let systemPrompt = "";
+    let systemCacheControl: any = undefined;
     const anthropicMessages: any[] = [];
     const toolSchemas = toolSchemaMap(openAiBody.tools);
     const toolNames = extractToolNames(openAiBody.tools);
@@ -265,6 +270,9 @@ export class AnthropicAdapter {
         if (msg.role === "system") {
           const sysText = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content || "");
           systemPrompt = systemPrompt ? `${systemPrompt}\n${sysText}` : sysText;
+          if (msg.cache_control) {
+            systemCacheControl = msg.cache_control;
+          }
           continue;
         }
 
@@ -321,6 +329,9 @@ export class AnthropicAdapter {
                 } catch {
                   parsedInput = { raw: repaired };
                 }
+                if (!parsedInput || typeof parsedInput !== "object" || Array.isArray(parsedInput)) {
+                  parsedInput = { input: parsedInput };
+                }
                 rescuedBlocks.push({
                   type: "tool_use",
                   id: `toolu_rescued_${timestamp}_${i + 1}`,
@@ -343,7 +354,7 @@ export class AnthropicAdapter {
 
           if (hasToolCalls) {
             for (const tc of msg.tool_calls) {
-              let parsedInput = {};
+              let parsedInput: any = {};
               if (tc.function?.arguments) {
                 try {
                   const repaired = repairToolArguments(tc.function.arguments, toolSchemas.get(tc.function?.name));
@@ -352,9 +363,13 @@ export class AnthropicAdapter {
                   parsedInput = { raw: tc.function.arguments };
                 }
               }
+              // Ensure Anthropic tool_use.input is strictly a JSON dictionary/object
+              if (!parsedInput || typeof parsedInput !== "object" || Array.isArray(parsedInput)) {
+                parsedInput = { input: parsedInput };
+              }
               contentBlocks.push({
                 type: "tool_use",
-                id: tc.id,
+                id: tc.id || `toolu_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
                 name: tc.function?.name,
                 input: parsedInput,
               });
@@ -388,10 +403,21 @@ export class AnthropicAdapter {
         }));
     }
 
+    let formattedSystem: any = systemPrompt || undefined;
+    if (systemPrompt && systemCacheControl) {
+      formattedSystem = [
+        {
+          type: "text",
+          text: systemPrompt,
+          cache_control: systemCacheControl,
+        },
+      ];
+    }
+
     return {
       model: openAiBody.model,
       messages: anthropicMessages,
-      system: systemPrompt || undefined,
+      system: formattedSystem,
       tools: tools && tools.length > 0 ? tools : undefined,
       max_tokens: openAiBody.max_tokens || 4096,
       temperature: openAiBody.temperature,
@@ -449,6 +475,21 @@ export class AnthropicAdapter {
     }
 
     if (reasoningText) {
+      // If a tool call block was open, close it first
+      if (streamState.currentToolCallIndex !== undefined) {
+        const prevEntry = streamState.toolCalls.get(streamState.currentToolCallIndex);
+        if (prevEntry && prevEntry.started && !prevEntry.stopped) {
+          events.push(
+            `event: content_block_stop\ndata: ${JSON.stringify({
+              type: "content_block_stop",
+              index: prevEntry.blockIndex,
+            })}\n\n`
+          );
+          prevEntry.stopped = true;
+        }
+        streamState.currentToolCallIndex = undefined;
+      }
+
       if (streamState.currentBlockType !== "thinking") {
         if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
           events.push(
@@ -480,6 +521,21 @@ export class AnthropicAdapter {
 
     // 2. Text delta
     if (typeof delta?.content === "string" && delta.content) {
+      // If a tool call block was open, close it first
+      if (streamState.currentToolCallIndex !== undefined) {
+        const prevEntry = streamState.toolCalls.get(streamState.currentToolCallIndex);
+        if (prevEntry && prevEntry.started && !prevEntry.stopped) {
+          events.push(
+            `event: content_block_stop\ndata: ${JSON.stringify({
+              type: "content_block_stop",
+              index: prevEntry.blockIndex,
+            })}\n\n`
+          );
+          prevEntry.stopped = true;
+        }
+        streamState.currentToolCallIndex = undefined;
+      }
+
       if (streamState.currentBlockType !== "text") {
         if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
           events.push(
@@ -511,7 +567,7 @@ export class AnthropicAdapter {
 
     // 3. Tool calls delta
     if (Array.isArray(delta?.tool_calls)) {
-      if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
+      if (streamState.currentBlockType === "thinking" || streamState.currentBlockType === "text") {
         events.push(
           `event: content_block_stop\ndata: ${JSON.stringify({
             type: "content_block_stop",
@@ -524,26 +580,59 @@ export class AnthropicAdapter {
 
       for (const tc of delta.tool_calls) {
         const tcIndex = tc.index ?? 0;
+
+        // If switching from a previous tool call block to a new tool call block, close the previous one first
+        if (
+          streamState.currentToolCallIndex !== undefined &&
+          streamState.currentToolCallIndex !== tcIndex
+        ) {
+          const prevEntry = streamState.toolCalls.get(streamState.currentToolCallIndex);
+          if (prevEntry && prevEntry.started && !prevEntry.stopped) {
+            events.push(
+              `event: content_block_stop\ndata: ${JSON.stringify({
+                type: "content_block_stop",
+                index: prevEntry.blockIndex,
+              })}\n\n`
+            );
+            prevEntry.stopped = true;
+          }
+        }
+
         let toolInfo = streamState.toolCalls.get(tcIndex);
 
-        if (tc.id && tc.function?.name && !toolInfo) {
+        if (!toolInfo) {
           const toolBlockIndex = streamState.nextBlockIndex++;
           toolInfo = {
-            id: tc.id,
-            name: tc.function.name,
+            id: tc.id || `call_${Math.random().toString(36).slice(2, 9)}`,
+            name: tc.function?.name || "",
             blockIndex: toolBlockIndex,
-            started: true,
+            started: false,
           };
           streamState.toolCalls.set(tcIndex, toolInfo);
+        }
 
+        streamState.currentToolCallIndex = tcIndex;
+        streamState.currentBlockType = "tool_use";
+        streamState.currentBlockIndex = toolInfo.blockIndex;
+
+        if (tc.id && !toolInfo.id) {
+          toolInfo.id = tc.id;
+        }
+
+        if (tc.function?.name && !toolInfo.name) {
+          toolInfo.name = tc.function.name;
+        }
+
+        if (!toolInfo.started && toolInfo.name) {
+          toolInfo.started = true;
           events.push(
             `event: content_block_start\ndata: ${JSON.stringify({
               type: "content_block_start",
-              index: toolBlockIndex,
+              index: toolInfo.blockIndex,
               content_block: {
                 type: "tool_use",
-                id: tc.id,
-                name: tc.function.name,
+                id: toolInfo.id,
+                name: toolInfo.name,
                 input: {},
               },
             })}\n\n`
@@ -551,13 +640,12 @@ export class AnthropicAdapter {
         }
 
         if (tc.function?.arguments) {
-          const blockIdx = toolInfo ? toolInfo.blockIndex : streamState.nextBlockIndex;
-          const schema = streamState.toolSchemas?.get(toolInfo?.name || tc.function?.name);
+          const schema = streamState.toolSchemas?.get(toolInfo.name || tc.function?.name);
           const sanitizedArgs = repairToolArguments(tc.function.arguments, schema);
           events.push(
             `event: content_block_delta\ndata: ${JSON.stringify({
               type: "content_block_delta",
-              index: blockIdx,
+              index: toolInfo.blockIndex,
               delta: {
                 type: "input_json_delta",
                 partial_json: sanitizedArgs,
@@ -570,7 +658,7 @@ export class AnthropicAdapter {
 
     // 4. Finish reason
     if (finishReason) {
-      if (streamState.currentBlockType !== null && streamState.currentBlockIndex !== null) {
+      if (streamState.currentBlockType === "thinking" || streamState.currentBlockType === "text") {
         events.push(
           `event: content_block_stop\ndata: ${JSON.stringify({
             type: "content_block_stop",
@@ -592,6 +680,7 @@ export class AnthropicAdapter {
           );
         }
       }
+      streamState.currentToolCallIndex = undefined;
 
       const stopReason =
         finishReason === "tool_calls"
@@ -690,7 +779,20 @@ export class AnthropicAdapter {
       }
     }
 
-    if (event.type === "content_block_delta") {
+    if (event.type === "message_start") {
+      const message = event.message;
+      if (message?.usage) {
+        streamState.promptTokens =
+          (message.usage.input_tokens || 0) +
+          (message.usage.cache_creation_input_tokens || 0) +
+          (message.usage.cache_read_input_tokens || 0);
+        streamState.cachedTokens = message.usage.cache_read_input_tokens || 0;
+        streamState.cacheCreationTokens = message.usage.cache_creation_input_tokens || 0;
+      }
+      if (message?.role) {
+        // Can emit empty role: assistant chunk if desired
+      }
+    } else if (event.type === "content_block_delta") {
       if (event.delta?.type === "text_delta" && event.delta.text) {
         events.push(
           `data: ${JSON.stringify({
@@ -786,7 +888,17 @@ export class AnthropicAdapter {
         })}\n\n`
       );
     } else if (event.type === "message_delta") {
-      const finishReason = event.delta?.stop_reason === "tool_use" ? "tool_calls" : "stop";
+      const stopReason = event.delta?.stop_reason;
+      let finishReason: string | null = null;
+      if (stopReason === "end_turn") finishReason = "stop";
+      else if (stopReason === "max_tokens") finishReason = "length";
+      else if (stopReason === "tool_use") finishReason = "tool_calls";
+      else if (stopReason) finishReason = stopReason;
+
+      const completionTokens = event.usage?.output_tokens || 0;
+      const promptTokens = streamState.promptTokens || 0;
+      const cachedTokens = streamState.cachedTokens || 0;
+
       events.push(
         `data: ${JSON.stringify({
           id: chunkId,
@@ -799,6 +911,12 @@ export class AnthropicAdapter {
               finish_reason: finishReason,
             },
           ],
+          usage: {
+            prompt_tokens: promptTokens,
+            completion_tokens: completionTokens,
+            total_tokens: promptTokens + completionTokens,
+            ...(cachedTokens > 0 ? { prompt_tokens_details: { cached_tokens: cachedTokens } } : {}),
+          },
         })}\n\n`
       );
     } else if (event.type === "message_stop") {
