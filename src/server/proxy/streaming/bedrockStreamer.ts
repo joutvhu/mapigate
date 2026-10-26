@@ -8,7 +8,7 @@ import {
 import { decodeEventStreamChunk } from "../../../providers/runtime/bedrock/eventStream.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
-import { createStreamTrackingState, recordStreamToolCall } from "./streamState.js";
+import { createStreamTrackingState, recordStreamToolCall, extractTokensFromChunk } from "./streamState.js";
 
 export async function pipeBedrockEventStream(
   upstreamRes: globalThis.Response,
@@ -70,14 +70,7 @@ export async function pipeBedrockEventStream(
           const rawEventString = Buffer.from(frame.payload.bytes, "base64").toString("utf8");
           const eventObj = JSON.parse(rawEventString);
 
-          if (eventObj.type === "message_start" && eventObj.message?.usage) {
-            const u = eventObj.message.usage;
-            if (u.input_tokens) state.promptTokens = u.input_tokens;
-            if (u.cache_read_input_tokens) state.cachedTokens = u.cache_read_input_tokens;
-            if (u.cache_creation_input_tokens) state.cacheCreationTokens = u.cache_creation_input_tokens;
-          } else if (eventObj.type === "message_delta" && eventObj.usage) {
-            if (eventObj.usage.output_tokens) state.completionTokens = eventObj.usage.output_tokens;
-          }
+          extractTokensFromChunk(eventObj, state);
 
           // Detect and record tool calls in stream chunks (with deduplication tracking)
           recordStreamToolCall(eventObj, state, (toolName) => {

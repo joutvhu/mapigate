@@ -45,9 +45,12 @@ export function extractTokensFromChunk(chunk: any, state: StreamTrackingState): 
 
   if (chunk.type === "message_start" && chunk.message?.usage) {
     const u = chunk.message.usage;
-    if (u.input_tokens) state.promptTokens = u.input_tokens;
-    if (u.cache_read_input_tokens) state.cachedTokens = u.cache_read_input_tokens;
-    if (u.cache_creation_input_tokens) state.cacheCreationTokens = u.cache_creation_input_tokens;
+    const baseInput = u.input_tokens || 0;
+    const cacheRead = u.cache_read_input_tokens || 0;
+    const cacheCreation = u.cache_creation_input_tokens || 0;
+    state.promptTokens = baseInput + cacheRead + cacheCreation;
+    if (cacheRead) state.cachedTokens = cacheRead;
+    if (cacheCreation) state.cacheCreationTokens = cacheCreation;
   } else if (chunk.type === "message_delta" && chunk.usage) {
     if (chunk.usage.output_tokens) state.completionTokens = chunk.usage.output_tokens;
   }
