@@ -268,7 +268,7 @@ async function main() {
       log(`  ${colors.cyan}mpg start${colors.reset}           - Start gateway server on port 20127`);
       log(`  ${colors.cyan}mpg status${colors.reset}          - Check server status & RTK savings`);
       log(`\nTo uninstall this test version from local npm when done:`);
-      log(`  ${colors.yellow}npm run local:uninstall${colors.reset}  (hoặc npm uninstall -g ${pkgName})\n`);
+      log(`  ${colors.yellow}npm run local:uninstall${colors.reset}  (or npm uninstall -g ${pkgName})\n`);
 
       // Clean up temporary tarball by default
       if (!args.includes("--keep-pack")) {

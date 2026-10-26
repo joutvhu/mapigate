@@ -23,18 +23,36 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 }) => {
   const [focusedProvider, setFocusedProvider] = useState<string | null>(null);
 
-  // Filter out empty or placeholder/unknown names
-  const displayProviders = useMemo(() => {
+  // Filter and sort providers, prioritizing active ones and capping to avoid card collision
+  const { displayProviders, totalCount } = useMemo(() => {
     const rawList = [...providers];
     for (const req of activeRequests) {
       if (req.provider) rawList.push(req.provider);
     }
-    return Array.from(new Set(rawList)).filter((p) => {
+    const filtered = Array.from(new Set(rawList)).filter((p) => {
       if (!p) return false;
       const lower = p.toLowerCase().trim();
       return lower !== "unknown" && lower !== "null" && lower !== "undefined";
     });
-  }, [providers, activeRequests]);
+
+    // Sort: active providers first, then focused provider, then alphabetical
+    const sorted = filtered.sort((a, b) => {
+      const aActive = activeProviderSet.has(a.toLowerCase());
+      const bActive = activeProviderSet.has(b.toLowerCase());
+      if (aActive && !bActive) return -1;
+      if (!aActive && bActive) return 1;
+      if (focusedProvider) {
+        if (a.toLowerCase() === focusedProvider.toLowerCase()) return -1;
+        if (b.toLowerCase() === focusedProvider.toLowerCase()) return 1;
+      }
+      return a.localeCompare(b);
+    });
+
+    return {
+      displayProviders: sorted.slice(0, 10),
+      totalCount: sorted.length,
+    };
+  }, [providers, activeRequests, activeProviderSet, focusedProvider]);
 
   // Only actual ongoing streaming/processing requests activate the animated laser beam
   const activeProviderSet = useMemo(() => {
@@ -78,18 +96,28 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 
       // Smooth flowing Bézier curve:
       // Control points extend vertically from Gateway (up/down) and horizontally into Provider nodes (left/right)
-      // This produces the signature flowing circuit-board / neural cable wave curve.
-      const isTopOrBottom = Math.abs(Math.sin(angle)) > 0.35;
+      const isNearVertical = Math.abs(px - centerX) < 20;
       const verticalDirection = py < centerY ? -1 : 1;
       const horizontalDirection = px < centerX ? -1 : 1;
 
-      // Start by flowing vertically or with strong curve out of gateway
-      const cp1X = isTopOrBottom ? centerX : centerX + (px - centerX) * 0.5;
-      const cp1Y = isTopOrBottom ? centerY + verticalDirection * Math.min(ry * 0.7, 75) : centerY;
+      let cp1X: number;
+      let cp1Y: number;
+      let cp2X: number;
+      let cp2Y: number;
 
-      // Enter smoothly into the provider node horizontally
-      const cp2X = px - horizontalDirection * Math.min(rx * 0.45, 60);
-      const cp2Y = py;
+      if (isNearVertical) {
+        // Direct, smooth vertical curve without asymmetric horizontal hooking
+        cp1X = centerX;
+        cp1Y = centerY + verticalDirection * Math.min(ry * 0.5, 50);
+        cp2X = px;
+        cp2Y = py - verticalDirection * Math.min(ry * 0.5, 50);
+      } else {
+        const isTopOrBottom = Math.abs(Math.sin(angle)) > 0.35;
+        cp1X = isTopOrBottom ? centerX : centerX + (px - centerX) * 0.5;
+        cp1Y = isTopOrBottom ? centerY + verticalDirection * Math.min(ry * 0.7, 75) : centerY;
+        cp2X = px - horizontalDirection * Math.min(rx * 0.45, 60);
+        cp2Y = py;
+      }
 
       const pathData = `M ${centerX} ${centerY} C ${cp1X.toFixed(1)} ${cp1Y.toFixed(1)}, ${cp2X.toFixed(1)} ${cp2Y.toFixed(1)}, ${px.toFixed(1)} ${py.toFixed(1)}`;
 
@@ -119,7 +147,9 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
           <h3 className="text-sm sm:text-base font-bold text-white">
             Active Routing Topology
           </h3>
-          <span className="text-xs text-slate-500">(Real-time Mesh)</span>
+          <span className="text-xs text-slate-500">
+            {totalCount > 10 ? `(Top 10 of ${totalCount} Mesh)` : "(Real-time Mesh)"}
+          </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 text-slate-400">
