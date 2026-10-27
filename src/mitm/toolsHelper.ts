@@ -168,6 +168,40 @@ export function formatToolDefaultHosts(tool: string, ip = "127.0.0.1"): string {
   return hosts.map((h) => `${ip} ${h}`).join("\n");
 }
 
+export const TOOL_DEFAULT_HOSTS: Record<string, string> = Object.fromEntries(
+  MITM_TOOLS.map((t) => [t.id, t.defaultHost || formatToolDefaultHosts(t.id)])
+);
+
+export interface MitmDefaultMappingItem {
+  ide: string;
+  sourceModel: string;
+  targetModel: string;
+}
+
+export function getDefaultMappings(toolId?: string | null): MitmDefaultMappingItem[] {
+  const tId = (toolId || "").toLowerCase();
+  const target = MITM_TOOLS.find((t) => t.id.toLowerCase() === tId);
+  if (!target) return [];
+
+  if (target.defaultMappings) {
+    return target.defaultMappings.map((m) => ({
+      ide: target.id,
+      sourceModel: m.sourceModel,
+      targetModel: m.targetModel || "",
+    }));
+  }
+
+  if (target.defaultModels) {
+    return target.defaultModels.map((m) => ({
+      ide: target.id,
+      sourceModel: m,
+      targetModel: "",
+    }));
+  }
+
+  return [];
+}
+
 export function isChatRequest(
   tool: string,
   req: MitmHttpRequestLike

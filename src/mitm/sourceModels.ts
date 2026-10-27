@@ -1,5 +1,5 @@
 import { MITM_TOOLS } from "./handlers/generated/toolsConfig.js";
-import { getDefaultMappings } from "../storage/repositories/mitmRepo.js";
+import { getDefaultMappings } from "./toolsHelper.js";
 import { getCanonicalModelList, resolveModelDisplayName } from "../core/capabilities/modelDictionary.js";
 
 export interface SuggestedSourceModel {

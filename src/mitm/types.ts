@@ -45,4 +45,6 @@ export interface MitmToolConfig {
   modelNoMap?: RegExp[];
   matchesHost?: (hostname: string) => boolean;
   isChatRequest?: (req: MitmHttpRequestLike) => boolean;
+  defaultModels?: string[];
+  defaultMappings?: Array<{ sourceModel: string; targetModel?: string }>;
 }

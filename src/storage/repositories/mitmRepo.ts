@@ -15,31 +15,19 @@ export interface MitmMapping {
   targetModel: string;
 }
 
-export const TOOL_DEFAULT_HOSTS: Record<string, string> = {
-  antigravity: formatToolDefaultHosts("antigravity"),
-  kiro: formatToolDefaultHosts("kiro"),
-  copilot: formatToolDefaultHosts("copilot"),
-  cursor: formatToolDefaultHosts("cursor"),
-};
+import {
+  TOOL_DEFAULT_HOSTS,
+  getDefaultMappings,
+} from "../../mitm/toolsHelper.js";
+
+export { TOOL_DEFAULT_HOSTS, getDefaultMappings };
 
 export const DEFAULT_HOSTS_ENTRIES = Object.values(TOOL_DEFAULT_HOSTS).join("\n");
 
-export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = [
-  { ide: "kiro", sourceModel: "claude-sonnet-4.5", targetModel: "" },
-  { ide: "kiro", sourceModel: "claude-sonnet-4", targetModel: "" },
-  { ide: "kiro", sourceModel: "claude-haiku-4.5", targetModel: "" },
-  { ide: "kiro", sourceModel: "claude-sonnet-5", targetModel: "" },
-  { ide: "kiro", sourceModel: "deepseek-3.2", targetModel: "" },
-  { ide: "kiro", sourceModel: "minimax-m2.5", targetModel: "" },
-  { ide: "kiro", sourceModel: "minimax-m2.1", targetModel: "" },
-  { ide: "kiro", sourceModel: "glm-5", targetModel: "" },
-  { ide: "kiro", sourceModel: "auto", targetModel: "" },
-  { ide: "kiro", sourceModel: "simple-task", targetModel: "" },
-  { ide: "kiro", sourceModel: "gpt-5.6-sol", targetModel: "" },
-  { ide: "kiro", sourceModel: "gpt-5.6-terra", targetModel: "" },
-  { ide: "kiro", sourceModel: "gpt-5.6-luna", targetModel: "" },
-  { ide: "kiro", sourceModel: "qwen3-coder-next", targetModel: "" },
-];
+export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = getDefaultMappings("kiro");
+export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = getDefaultMappings("antigravity");
+export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = getDefaultMappings("copilot");
+export const DEFAULT_CURSOR_MAPPINGS: MitmMapping[] = getDefaultMappings("cursor");
 
 export const LEGACY_KIRO_DISPLAY_TO_SLUG: Record<string, string> = {
   "auto (kiro agent)": "auto",
@@ -58,53 +46,6 @@ export const LEGACY_KIRO_DISPLAY_TO_SLUG: Record<string, string> = {
   "glm 5": "glm-5",
   "qwen3 coder next": "qwen3-coder-next",
 };
-
-export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = [
-  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (High)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Medium)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.8 Flash (Low)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (High)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Medium)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.7 Flash (Low)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (High)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Medium)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.6 Flash (Low)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (Low)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Gemini 3.1 Pro (High) / Legacy", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Thinking)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (High)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Medium)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 5.5 (Low)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Thinking)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (High)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Medium)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Opus 5.5 (Low)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Sonnet 4.6 (Thinking)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "Claude Opus 4.6 (Thinking)", targetModel: "" },
-  { ide: "antigravity", sourceModel: "GPT-OSS 120B (Medium)", targetModel: "" },
-];
-
-export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = [
-  { ide: "copilot", sourceModel: "gpt-4o", targetModel: "" },
-  { ide: "copilot", sourceModel: "claude-3.5-sonnet", targetModel: "" },
-  { ide: "copilot", sourceModel: "claude-3.7-sonnet", targetModel: "" },
-  { ide: "copilot", sourceModel: "o1", targetModel: "" },
-];
-
-export const DEFAULT_CURSOR_MAPPINGS: MitmMapping[] = [
-  { ide: "cursor", sourceModel: "claude-sonnet-4-5", targetModel: "" },
-  { ide: "cursor", sourceModel: "claude-opus-4", targetModel: "" },
-  { ide: "cursor", sourceModel: "gpt-4o", targetModel: "" },
-];
-
-export function getDefaultMappings(tool: string): MitmMapping[] {
-  const t = tool.toLowerCase();
-  if (t === "antigravity") return DEFAULT_ANTIGRAVITY_MAPPINGS;
-  if (t === "copilot") return DEFAULT_COPILOT_MAPPINGS;
-  if (t === "cursor") return DEFAULT_CURSOR_MAPPINGS;
-  return DEFAULT_KIRO_MAPPINGS;
-}
 
 export class MitmRepository {
   public static getToolDnsStatus(tool: string): boolean {
@@ -216,14 +157,14 @@ export class MitmRepository {
     });
   }
 
-  public static migrateKiroMappings(db: DatabaseDriver): void {
-    const rows = db.all<any>("SELECT source_model, target_model FROM mitm_mappings WHERE ide = 'kiro'");
+  public static migrateToolDisplayMappings(db: DatabaseDriver, ide: string): void {
+    const rows = db.all<any>("SELECT source_model, target_model FROM mitm_mappings WHERE ide = ?", ide);
     if (rows.length === 0) return;
 
     const hasLegacy = rows.some((r: any) => {
-      const lower = r.source_model.toLowerCase();
+      const lower = String(r.source_model || "").toLowerCase();
       return (
-        LEGACY_KIRO_DISPLAY_TO_SLUG[lower] !== undefined ||
+        (ide === "kiro" && LEGACY_KIRO_DISPLAY_TO_SLUG[lower] !== undefined) ||
         /[A-Z\s()]/.test(r.source_model)
       );
     });
@@ -232,13 +173,18 @@ export class MitmRepository {
 
     const targetMap = new Map<string, string>();
     const customModels = new Set<string>();
+    const defaults = getDefaultMappings(ide);
 
     for (const r of rows) {
-      const raw = r.source_model.trim();
+      const raw = String(r.source_model || "").trim();
       const lower = raw.toLowerCase();
       const canonical =
-        LEGACY_KIRO_DISPLAY_TO_SLUG[lower] ||
-        lower.replace(/[\s_]+/g, "-").replace(/[()]/g, "");
+        (ide === "kiro" && LEGACY_KIRO_DISPLAY_TO_SLUG[lower]) ||
+        lower
+          .replace(/[\s_]+/g, "-")
+          .replace(/[()]/g, "")
+          .replace(/\//g, "-")
+          .replace(/-+/g, "-");
 
       const target = (r.target_model || "").trim();
       if (target) {
@@ -249,18 +195,19 @@ export class MitmRepository {
         targetMap.set(canonical, "");
       }
 
-      const isDefault = DEFAULT_KIRO_MAPPINGS.some((m) => m.sourceModel === canonical);
+      const isDefault = defaults.some((m) => m.sourceModel === canonical);
       if (!isDefault) {
         customModels.add(canonical);
       }
     }
 
-    db.run("DELETE FROM mitm_mappings WHERE ide = 'kiro'");
+    db.run("DELETE FROM mitm_mappings WHERE ide = ?", ide);
 
-    for (const def of DEFAULT_KIRO_MAPPINGS) {
+    for (const def of defaults) {
       const tgt = targetMap.get(def.sourceModel) || "";
       db.run(
-        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', ?, ?)",
+        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
+        ide,
         def.sourceModel,
         tgt
       );
@@ -269,18 +216,21 @@ export class MitmRepository {
     for (const cust of customModels) {
       const tgt = targetMap.get(cust) || "";
       db.run(
-        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', ?, ?)",
+        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
+        ide,
         cust,
         tgt
       );
     }
   }
 
+  public static migrateKiroMappings(db: DatabaseDriver): void {
+    this.migrateToolDisplayMappings(db, "kiro");
+  }
+
   public static getMappings(ide: string): MitmMapping[] {
     const db = getDatabase();
-    if (ide.toLowerCase() === "kiro") {
-      this.migrateKiroMappings(db);
-    }
+    this.migrateToolDisplayMappings(db, ide.toLowerCase());
     const rows = db.all<any>("SELECT * FROM mitm_mappings WHERE ide = ?", ide);
     if (rows.length === 0) {
       const defaults = getDefaultMappings(ide);
@@ -317,8 +267,12 @@ export class MitmRepository {
         existingTargetMap.set(r.source_model, r.target_model.trim());
         const lower = r.source_model.toLowerCase();
         const canonical =
-          LEGACY_KIRO_DISPLAY_TO_SLUG[lower] ||
-          lower.replace(/[\s_]+/g, "-").replace(/[()]/g, "");
+          (ide.toLowerCase() === "kiro" && LEGACY_KIRO_DISPLAY_TO_SLUG[lower]) ||
+          lower
+            .replace(/[\s_]+/g, "-")
+            .replace(/[()]/g, "")
+            .replace(/\//g, "-")
+            .replace(/-+/g, "-");
         existingTargetMap.set(canonical, r.target_model.trim());
       }
     }

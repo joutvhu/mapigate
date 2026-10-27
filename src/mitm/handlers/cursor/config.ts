@@ -17,4 +17,9 @@ export const toolConfig: MitmToolConfig = {
   ],
   defaultHost: "127.0.0.1 api2.cursor.sh",
   matchesHost: (h: string) => h.includes("cursor.sh"),
+  defaultModels: [
+    "claude-sonnet-4-5",
+    "claude-opus-4",
+    "gpt-4o",
+  ],
 };

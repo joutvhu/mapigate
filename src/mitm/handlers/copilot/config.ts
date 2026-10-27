@@ -16,4 +16,10 @@ export const toolConfig: MitmToolConfig = {
   ],
   defaultHost: "127.0.0.1 api.individual.githubcopilot.com",
   matchesHost: (h: string) => h.includes("githubcopilot.com") || h.includes("copilot-proxy.githubusercontent.com"),
+  defaultModels: [
+    "gpt-4o",
+    "claude-3.5-sonnet",
+    "claude-3.7-sonnet",
+    "o1",
+  ],
 };

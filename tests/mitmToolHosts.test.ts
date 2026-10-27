@@ -189,8 +189,8 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
   it("provides comprehensive default model mappings for all tools with empty target models", () => {
     const agDefaults = getDefaultMappings("antigravity");
     assert.ok(agDefaults.length >= 20);
-    assert.ok(agDefaults.some((m) => m.sourceModel === "Gemini 3.8 Flash (High)"));
-    assert.ok(agDefaults.some((m) => m.sourceModel === "Claude Sonnet 5.5 (Thinking)"));
+    assert.ok(agDefaults.some((m) => m.sourceModel === "gemini-3.8-flash-high"));
+    assert.ok(agDefaults.some((m) => m.sourceModel === "claude-sonnet-5.5-thinking"));
 
     const kiroDefaults = getDefaultMappings("kiro");
     assert.ok(kiroDefaults.some((m) => m.sourceModel === "auto"));
