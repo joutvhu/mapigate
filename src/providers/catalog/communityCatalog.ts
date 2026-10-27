@@ -287,8 +287,27 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
     "category": "apikey",
     "authType": "apikey",
     "website": "https://requesty.ai",
-    "notice": "",
-    "models": []
+    "notice": "Unified AI Router with permanent free models (20 RPM, 200 req/day for new orgs) and multi-provider routing.",
+    "models": [
+      {
+        "id": "mistral/leanstral-1.5",
+        "name": "mistral/leanstral-1.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "nemotron/nemotron-3-nano-30b-a3b",
+        "name": "nemotron/nemotron-3-nano-30b-a3b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "ling/ling-3.0-tiny",
+        "name": "ling/ling-3.0-tiny",
+        "isDefault": false,
+        "contextLength": 128000
+      }
+    ]
   },
   {
     "id": "zylo-api",
