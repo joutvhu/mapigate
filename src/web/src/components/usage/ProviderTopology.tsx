@@ -46,14 +46,28 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
     setZoom((prev) => Math.max(0.4, +(prev - 0.2).toFixed(2)));
   }, []);
 
-  // Mouse wheel zoom
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    setZoom((prev) => {
-      const next = +(prev * zoomFactor).toFixed(2);
-      return Math.min(2.5, Math.max(0.4, next));
-    });
+  // Mouse wheel zoom: Only zoom when Ctrl or Meta key is pressed, otherwise allow normal page scrolling
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      // Only zoom if Ctrl (or Cmd on Mac) is held down
+      if (!e.ctrlKey && !e.metaKey) {
+        return; // Let browser scroll the page normally
+      }
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      setZoom((prev) => {
+        const next = +(prev * zoomFactor).toFixed(2);
+        return Math.min(2.5, Math.max(0.4, next));
+      });
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+    };
   }, []);
 
   // Pan mouse event handlers
@@ -222,7 +236,10 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
         </div>
         <div className="flex items-center gap-3 text-xs">
           {/* Zoom controls */}
-          <div className="flex items-center bg-[#070A11] border border-[#1E293B] rounded-lg p-0.5 mr-1">
+          <div
+            className="flex items-center bg-[#070A11] border border-[#1E293B] rounded-lg p-0.5 mr-1"
+            title="Ctrl + Scroll or use buttons to Zoom"
+          >
             <button
               type="button"
               onClick={handleZoomIn}
@@ -271,7 +288,6 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       {/* Main Canvas Container */}
       <div
         ref={containerRef}
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         className={`relative h-72 sm:h-80 w-full rounded-lg overflow-hidden bg-[#070A11] border border-[#162032] flex items-center justify-center select-none ${
           isDragging ? "cursor-grabbing" : "cursor-grab"
