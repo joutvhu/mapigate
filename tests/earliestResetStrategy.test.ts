@@ -461,3 +461,49 @@ test("LoadBalancer - Earliest Reset dynamically switches accounts even with same
     "Request 2 must re-evaluate and switch to Account 2 because Account 1 reset and increased its time to 7 days"
   );
 });
+
+test("Generic Providers (Claude / GitHub Copilot / Codex) - Earliest Reset works across non-Antigravity providers", () => {
+  const fixedNow = 1740000000000;
+
+  // Account Claude 1: Weekly (7d) resets in 6 hours (6 * 3600 * 1000)
+  const claudeAcc1: ProviderAccount = {
+    id: "acc_claude_1",
+    providerId: "claude",
+    name: "Claude Code 1",
+    apiKeyEncrypted: "",
+    isActive: true,
+    rateLimitHits: 0,
+    cachedQuotas: JSON.stringify({
+      accountId: "acc_claude_1",
+      providerId: "claude",
+      quotas: [
+        { label: "Session (5h)", remainingPercentage: 100, resetAt: fixedNow + 4 * 3600 * 1000 },
+        { label: "Weekly (7d)", remainingPercentage: 40, resetAt: fixedNow + 6 * 3600 * 1000 },
+      ],
+    }),
+  };
+
+  // Account Claude 2: Weekly (7d) resets in 5 days (5 * 86400 * 1000)
+  const claudeAcc2: ProviderAccount = {
+    id: "acc_claude_2",
+    providerId: "claude",
+    name: "Claude Code 2",
+    apiKeyEncrypted: "",
+    isActive: true,
+    rateLimitHits: 0,
+    cachedQuotas: JSON.stringify({
+      accountId: "acc_claude_2",
+      providerId: "claude",
+      quotas: [
+        { label: "Session (5h)", remainingPercentage: 90, resetAt: fixedNow + 2 * 3600 * 1000 },
+        { label: "Weekly (7d)", remainingPercentage: 80, resetAt: fixedNow + 5 * 86400 * 1000 },
+      ],
+    }),
+  };
+
+  const cmp = compareAccountsEarliestReset(claudeAcc1, claudeAcc2, "claude", undefined, fixedNow);
+  assert.ok(
+    cmp < 0,
+    "Claude Account 1 must be picked because its Weekly (7d) resets earlier (6h < 5d)"
+  );
+});

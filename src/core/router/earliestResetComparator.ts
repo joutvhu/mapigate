@@ -169,40 +169,58 @@ export function getGenericQuotaMetrics(
     return null;
   }
 
-  let minResetMs = Infinity;
+  // Prioritize primary macro-period bucket (weekly / monthly) if available
+  // e.g. Claude "Weekly (7d)", GitHub Copilot "monthly"
+  const weeklyOrMonthly = quotaResult.quotas.find(
+    (q) => /weekly|7d|7_day|month/i.test(q.label) && toEpochMs(q.resetAt) !== null
+  );
+
+  let targetBucket = weeklyOrMonthly;
+  if (!targetBucket) {
+    targetBucket = quotaResult.quotas.find((q) => toEpochMs(q.resetAt) !== null);
+  }
+
   let minRemainingPct = 100;
-  let hasValidBucket = false;
   let anyExhausted = false;
 
   for (const bucket of quotaResult.quotas) {
     const remPct = bucket.remainingPercentage ?? 100;
     if (remPct === 0) anyExhausted = true;
     if (remPct < minRemainingPct) minRemainingPct = remPct;
-
-    const ts = toEpochMs(bucket.resetAt);
-    if (ts !== null) {
-      hasValidBucket = true;
-      let diff = Infinity;
-      if (ts > now) {
-        diff = ts - now;
-      } else {
-        try {
-          QuotaService.getInstance().fetchQuotaForAccount(account.id, true).catch(() => {});
-        } catch {}
-        const DEFAULT_CYCLE_MS = 24 * 3600 * 1000;
-        const elapsed = now - ts;
-        diff = DEFAULT_CYCLE_MS - (elapsed % DEFAULT_CYCLE_MS);
-      }
-      if (diff < minResetMs) minResetMs = diff;
-    }
   }
 
-  if (!hasValidBucket && minRemainingPct === 100) return null;
+  const ts = toEpochMs(targetBucket?.resetAt);
+  if (ts === null && minRemainingPct === 100) return null;
+
+  let resetRemainingMs = Infinity;
+  if (ts !== null) {
+    if (ts > now) {
+      resetRemainingMs = ts - now;
+    } else {
+      try {
+        QuotaService.getInstance().fetchQuotaForAccount(account.id, true).catch(() => {});
+      } catch {}
+      const isMonthly = /month/i.test(targetBucket?.label || "");
+      const isWeekly = /weekly|7d|7_day/i.test(targetBucket?.label || "");
+      const isSession = /session|5h/i.test(targetBucket?.label || "");
+
+      const cycleMs = isMonthly
+        ? 30 * 86400 * 1000
+        : isWeekly
+        ? 7 * 86400 * 1000
+        : isSession
+        ? 5 * 3600 * 1000
+        : 24 * 3600 * 1000;
+
+      const elapsed = now - ts;
+      resetRemainingMs = cycleMs - (elapsed % cycleMs);
+    }
+  }
 
   return {
     hasQuotaData: true,
     isExhausted: anyExhausted,
-    resetRemainingMs: minResetMs,
+    resetRemainingMs,
     remainingPercentage: minRemainingPct,
   };
 }
@@ -280,6 +298,10 @@ export function compareAccountsEarliestReset(
       if (gA.resetRemainingMs !== gB.resetRemainingMs) {
         return gA.resetRemainingMs - gB.resetRemainingMs;
       }
+    } else if (gA && !gB) {
+      return gA.isExhausted ? 1 : -1;
+    } else if (!gA && gB) {
+      return gB.isExhausted ? -1 : 1;
     }
   }
 
