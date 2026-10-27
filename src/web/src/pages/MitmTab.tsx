@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput.js";
 import { SourceModelAutocompleteInput } from "../components/SourceModelAutocompleteInput.js";
+import { resolveModelDisplayName } from "../../../core/capabilities/index.js";
 
 interface MitmMappingRow {
   sourceModel: string;
@@ -988,16 +989,50 @@ export const MitmTab: React.FC = () => {
                         </div>
                       ) : (
                         <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-[#0D121F] text-slate-400 font-sans text-[11px] uppercase tracking-wider border-b border-[#1E293B]">
+                            <tr>
+                              <th className="p-3 font-semibold">Source Model (IDE)</th>
+                              <th className="p-3 font-semibold">Target Model (Mapigate)</th>
+                              <th className="p-3 font-semibold text-right">Actions</th>
+                            </tr>
+                          </thead>
                           <tbody className="divide-y divide-[#1E293B]">
                             {toolMappings.map((m, idx) => {
                               const isEditing = editingTool === tool.id && editingSource === m.sourceModel;
+                              const sourceDisplayName = resolveModelDisplayName(m.sourceModel);
+                              const isSourceDifferent = Boolean(
+                                sourceDisplayName &&
+                                sourceDisplayName.toLowerCase() !== m.sourceModel.toLowerCase()
+                              );
+                              const targetDisplayName = m.targetModel
+                                ? resolveModelDisplayName(m.targetModel)
+                                : "";
+                              const isTargetDifferent = Boolean(
+                                m.targetModel &&
+                                targetDisplayName &&
+                                targetDisplayName.toLowerCase() !== m.targetModel.toLowerCase()
+                              );
+                              const isCombo = Boolean(
+                                m.targetModel &&
+                                (m.targetModel.startsWith("combo/") || comboNames.has(m.targetModel.toLowerCase()))
+                              );
+
                               return (
                                 <tr
                                   key={idx}
                                   className={`transition-colors ${isEditing ? "bg-blue-500/10" : "hover:bg-white/5"}`}
                                 >
-                                  <td className="p-3 text-slate-200 font-sans font-medium">
-                                    {m.sourceModel}
+                                  <td className="p-3">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-slate-100 font-sans font-semibold text-xs leading-snug">
+                                        {sourceDisplayName || m.sourceModel}
+                                      </span>
+                                      {isSourceDifferent && (
+                                        <span className="text-[10.5px] font-mono text-slate-400">
+                                          {m.sourceModel}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="p-3 text-blue-400">
                                     {isEditing ? (
@@ -1013,16 +1048,24 @@ export const MitmTab: React.FC = () => {
                                         />
                                       </div>
                                     ) : m.targetModel ? (
-                                      <span className="inline-flex items-center gap-1.5 font-mono text-xs">
-                                        <span className="text-slate-500">→</span>
-                                        {(m.targetModel.startsWith("combo/") ||
-                                          comboNames.has(m.targetModel.toLowerCase())) && (
-                                          <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 text-[9.5px] font-mono text-cyan-300 font-semibold tracking-wide">
-                                            COMBO
+                                      <div className="flex flex-col gap-0.5">
+                                        <div className="inline-flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-slate-500 font-mono">→</span>
+                                          {isCombo && (
+                                            <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 text-[9.5px] font-mono text-cyan-300 font-semibold tracking-wide">
+                                              COMBO
+                                            </span>
+                                          )}
+                                          <span className="text-emerald-300 font-sans font-semibold text-xs leading-snug">
+                                            {targetDisplayName || m.targetModel}
+                                          </span>
+                                        </div>
+                                        {isTargetDifferent && (
+                                          <span className="text-[10.5px] font-mono text-slate-400 pl-4">
+                                            {m.targetModel}
                                           </span>
                                         )}
-                                        <span className="text-emerald-300">{m.targetModel}</span>
-                                      </span>
+                                      </div>
                                     ) : (
                                       <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
                                         (unmapped)
