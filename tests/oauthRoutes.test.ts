@@ -61,7 +61,7 @@ after(() => {
   }
 });
 
-test("Backward Compatibility - Re-exported helpers and provider constants", () => {
+test("OAuth Provider Constants and Helpers Verification", () => {
   assert.equal(typeof generateCodeVerifier, "function");
   assert.equal(typeof generateCodeChallenge, "function");
   assert.equal(typeof generateState, "function");

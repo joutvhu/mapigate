@@ -148,7 +148,7 @@ export class SettingsRepository {
         enabled: settings.vision.enabled !== undefined ? settings.vision.enabled : current.vision.enabled,
         roundRobin: settings.vision.roundRobin !== undefined ? settings.vision.roundRobin : current.vision.roundRobin,
         models: Array.isArray(settings.vision.models)
-          ? settings.vision.models.filter(Boolean)
+          ? settings.vision.models.map((m: any) => (typeof m === "string" ? m : m?.model || "")).filter(Boolean)
           : current.vision.models,
       };
     }
@@ -158,7 +158,7 @@ export class SettingsRepository {
         enabled: settings.audioInput.enabled !== undefined ? settings.audioInput.enabled : current.audioInput.enabled,
         roundRobin: settings.audioInput.roundRobin !== undefined ? settings.audioInput.roundRobin : current.audioInput.roundRobin,
         models: Array.isArray(settings.audioInput.models)
-          ? settings.audioInput.models.filter(Boolean)
+          ? settings.audioInput.models.map((m: any) => (typeof m === "string" ? m : m?.model || "")).filter(Boolean)
           : current.audioInput.models,
       };
     }
@@ -168,7 +168,7 @@ export class SettingsRepository {
         enabled: settings.pdf.enabled !== undefined ? settings.pdf.enabled : (current.pdf?.enabled ?? false),
         roundRobin: settings.pdf.roundRobin !== undefined ? settings.pdf.roundRobin : (current.pdf?.roundRobin ?? false),
         models: Array.isArray(settings.pdf.models)
-          ? settings.pdf.models.filter(Boolean)
+          ? settings.pdf.models.map((m: any) => (typeof m === "string" ? m : m?.model || "")).filter(Boolean)
           : (current.pdf?.models ?? []),
       };
     }
@@ -178,7 +178,7 @@ export class SettingsRepository {
         enabled: settings.videoInput.enabled !== undefined ? settings.videoInput.enabled : (current.videoInput?.enabled ?? false),
         roundRobin: settings.videoInput.roundRobin !== undefined ? settings.videoInput.roundRobin : (current.videoInput?.roundRobin ?? false),
         models: Array.isArray(settings.videoInput.models)
-          ? settings.videoInput.models.filter(Boolean)
+          ? settings.videoInput.models.map((m: any) => (typeof m === "string" ? m : m?.model || "")).filter(Boolean)
           : (current.videoInput?.models ?? []),
       };
     }
