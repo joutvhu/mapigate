@@ -60,22 +60,6 @@ function generateProviders() {
     }
   }
 
-  // Fallback: scan root providersDir for any uncategorized provider
-  const rootExcluded = new Set(["base", "catalog", "core", "runtime", "composite", "generated", "metadata"]);
-  if (fs.existsSync(providersDir)) {
-    const rootEntries = fs.readdirSync(providersDir, { withFileTypes: true });
-    for (const entry of rootEntries) {
-      if (entry.isDirectory() && !rootExcluded.has(entry.name) && !seenIds.has(entry.name)) {
-        const metaPath = path.join(providersDir, entry.name, "metadata.ts");
-        const provPath = path.join(providersDir, entry.name, "provider.ts");
-        if (fs.existsSync(metaPath) && fs.existsSync(provPath)) {
-          providers.push({ id: entry.name, category: "" });
-          seenIds.add(entry.name);
-        }
-      }
-    }
-  }
-
   providers.sort((a, b) => a.id.localeCompare(b.id));
 
   console.log(`[codegen] Found ${providers.length} provider modules in src/providers/`);
@@ -356,21 +340,6 @@ function generateProviderRoutes() {
         const routePath = path.join(catDir, entry.name, "routes.ts");
         if (fs.existsSync(routePath)) {
           routeProviders.push({ id: entry.name, category: cat });
-          seenRouteIds.add(entry.name);
-        }
-      }
-    }
-  }
-
-  // Fallback: scan root providersDir
-  const rootExcluded = new Set(["base", "catalog", "core", "runtime", "composite", "generated", "metadata"]);
-  if (fs.existsSync(providersDir)) {
-    const rootEntries = fs.readdirSync(providersDir, { withFileTypes: true });
-    for (const entry of rootEntries) {
-      if (entry.isDirectory() && !rootExcluded.has(entry.name) && !seenRouteIds.has(entry.name)) {
-        const routePath = path.join(providersDir, entry.name, "routes.ts");
-        if (fs.existsSync(routePath)) {
-          routeProviders.push({ id: entry.name, category: "" });
           seenRouteIds.add(entry.name);
         }
       }

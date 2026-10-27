@@ -15,7 +15,7 @@ import {
 } from "../src/providers/composite/combo/index.js";
 import { ComboRepository } from "../src/storage/repositories/comboRepo.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
-import { ProviderRegistry } from "../src/providers/registry.js";
+import { ProviderRegistry } from "../src/providers/core/registry.js";
 import { executeSingleModel } from "../src/server/proxy/singleModelExecutor.js";
 import type { ProviderRequestContext } from "../src/providers/core/types.js";
 

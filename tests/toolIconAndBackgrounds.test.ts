@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getRegistryProvider, PROVIDER_REGISTRY } from "../src/providers/metadataRegistry.js";
+import { getRegistryProvider, PROVIDER_REGISTRY } from "../src/providers/core/metadataRegistry.js";
 import { CLI_TOOLS, CLI_TOOLS_ARRAY } from "../src/cli/tools/index.js";
 import { MITM_TOOLS } from "../src/mitm/config.js";
 import {

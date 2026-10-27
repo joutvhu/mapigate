@@ -1,5 +1,5 @@
 import type { ModelCallResult, ExecuteSingleModelOptions, ProviderRequestContext } from "./types.js";
-import type { SingleModelHandler } from "../../providers/types.js";
+import type { SingleModelHandler } from "../../providers/core/types.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import {
   getProviderCircuitBreaker,
@@ -8,8 +8,8 @@ import {
 } from "../../core/resilience/index.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
-import { ProviderRegistry } from "../../providers/registry.js";
-import { getRegistryProvider } from "../../providers/metadataRegistry.js";
+import { ProviderRegistry } from "../../providers/core/registry.js";
+import { getRegistryProvider } from "../../providers/core/metadataRegistry.js";
 import { getCapabilitiesForModel } from "../../core/capabilities/index.js";
 import { stripHistoryForContext } from "../../core/router/capacityAdapter.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";

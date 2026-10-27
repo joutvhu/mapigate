@@ -2,12 +2,16 @@ import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import {
   ANTIGRAVITY_CLIENT_ID,
   ANTIGRAVITY_CLIENT_SECRET,
+} from "../../providers/runtime/antigravity/routes.js";
+import {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
-  CLAUDE_CLIENT_ID,
+} from "../../providers/runtime/gemini-cli/routes.js";
+import { CLAUDE_CLIENT_ID } from "../../providers/runtime/claude/routes.js";
+import {
   CODEX_CLIENT_ID,
   CODEX_TOKEN_URL,
-} from "../../server/routes/apiOAuth.js";
+} from "../../providers/runtime/codex/routes.js";
 import {
   refreshCopilotToken,
   normalizeExpiryMs,

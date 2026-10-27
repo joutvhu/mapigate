@@ -216,25 +216,6 @@ mitmRouter.post("/hosts/:tool", (req, res) => {
   res.json({ success: true, tool, entries: MitmRepository.getToolHosts(tool) });
 });
 
-// Legacy backward-compatible hosts endpoints
-mitmRouter.get("/hosts", (_req, res) => {
-  const entries = MitmRepository.getHostsEntries();
-  res.json({ entries });
-});
-
-mitmRouter.post("/hosts", (req, res) => {
-  const { entries } = req.body;
-  if (typeof entries === "string") {
-    MitmRepository.saveHostsEntries(entries);
-  }
-  res.json({ success: true, entries: MitmRepository.getHostsEntries() });
-});
-
-mitmRouter.post("/hosts/reset", (_req, res) => {
-  const entries = MitmRepository.resetHostsEntries();
-  res.json({ success: true, entries });
-});
-
 // GET suggested source models for an IDE / tool
 mitmRouter.get("/mappings/source-models/:ide", (req, res) => {
   const suggestions = getSuggestedSourceModels(req.params.ide);

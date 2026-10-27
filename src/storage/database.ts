@@ -321,6 +321,7 @@ function initSchema(db: DatabaseDriver) {
 
     CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_logs_provider ON request_logs(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);
     CREATE INDEX IF NOT EXISTS idx_request_details_timestamp ON request_details(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_details_provider ON request_details(provider);
     CREATE INDEX IF NOT EXISTS idx_request_details_model ON request_details(model);
@@ -328,24 +329,4 @@ function initSchema(db: DatabaseDriver) {
     CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);
     CREATE INDEX IF NOT EXISTS idx_kv_store_scope ON kv_store(scope);
   `);
-
-  // Safe migrations for newly added columns
-  try { db.exec("ALTER TABLE providers ADD COLUMN custom_headers TEXT NOT NULL DEFAULT '{}';"); } catch {}
-  try { db.exec("ALTER TABLE providers ADD COLUMN proxy_url TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE providers ADD COLUMN thinking_mode TEXT NOT NULL DEFAULT 'auto';"); } catch {}
-  try { db.exec("ALTER TABLE providers ADD COLUMN strategy TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER;"); } catch {}
-  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN provider_specific_data TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN cached_quotas TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN quota_fetched_at INTEGER;"); } catch {}
-  try { db.exec("ALTER TABLE provider_accounts ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN cached_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN cache_creation_tokens INTEGER NOT NULL DEFAULT 0;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN cost REAL NOT NULL DEFAULT 0;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN account_id TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN account_name TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN api_key_id TEXT;"); } catch {}
-  try { db.exec("ALTER TABLE request_logs ADD COLUMN api_key_name TEXT;"); } catch {}
-  try { db.exec("CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);"); } catch {}
-  try { db.exec("CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);"); } catch {}
 }

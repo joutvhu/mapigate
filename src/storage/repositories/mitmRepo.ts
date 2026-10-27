@@ -22,8 +22,6 @@ import {
 
 export { TOOL_DEFAULT_HOSTS, getDefaultMappings };
 
-export const DEFAULT_HOSTS_ENTRIES = Object.values(TOOL_DEFAULT_HOSTS).join("\n");
-
 export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = getDefaultMappings("kiro");
 export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = getDefaultMappings("antigravity");
 export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = getDefaultMappings("copilot");
@@ -99,30 +97,6 @@ export class MitmRepository {
     const defaultEntries = TOOL_DEFAULT_HOSTS[tool] || "";
     this.saveToolHosts(tool, defaultEntries);
     return defaultEntries;
-  }
-
-  // Backward compatibility methods for global hosts
-  public static getHostsEntries(): string {
-    const db = getDatabase();
-    const row = db.get<any>("SELECT value FROM settings WHERE key = 'mitm_hosts'");
-    return row?.value || DEFAULT_HOSTS_ENTRIES;
-  }
-
-  public static saveHostsEntries(entries: string): void {
-    const db = getDatabase();
-    db.run(
-      `INSERT INTO settings (key, value) VALUES ('mitm_hosts', ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      entries
-    );
-    try {
-      invalidateCustomMitmHostsCache();
-    } catch {}
-  }
-
-  public static resetHostsEntries(): string {
-    this.saveHostsEntries(DEFAULT_HOSTS_ENTRIES);
-    return DEFAULT_HOSTS_ENTRIES;
   }
 
   public static sortMappingsCanonical(ide: string, mappings: MitmMapping[]): MitmMapping[] {
@@ -239,16 +213,6 @@ registerCustomHostsProvider(() => {
           toolHostsMap.set(h, tool.id);
           allCustomHosts.add(h);
         }
-      }
-    }
-
-    const globalRow = db.get<{ value?: string }>(
-      "SELECT value FROM settings WHERE key = 'mitm_hosts'"
-    );
-    if (globalRow?.value) {
-      const hostnames = parseHostnamesFromHostsEntries(globalRow.value);
-      for (const h of hostnames) {
-        allCustomHosts.add(h);
       }
     }
   } catch {

@@ -8,7 +8,7 @@ import {
 } from "../../../core/adapters/responsesAdapter.js";
 import { toolSchemaMap } from "../../../core/adapters/helpers/index.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
-import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
+import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/core/types.js";
 import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
 import { reasoningCache } from "../../../core/caching/reasoningCache.js";
 

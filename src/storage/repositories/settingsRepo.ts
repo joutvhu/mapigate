@@ -83,24 +83,13 @@ export const DEFAULT_MASTER_PASSWORD_CONFIG: MasterPasswordConfig = {
   enabled: false,
 };
 
-function upgradeLegacyModel(m: string): string {
-  return m === "oc/mimo-v2.5-free" ? DEFAULT_FALLBACK_MODEL : m;
-}
-
 function normalizeCapEntry(entry: any, defaultEntry: CapacityAdapterEntry): CapacityAdapterEntry {
-  if (Array.isArray(entry)) {
-    return {
-      enabled: defaultEntry.enabled,
-      roundRobin: false,
-      models: entry.map((e) => upgradeLegacyModel(typeof e === "string" ? e : e?.model || "")).filter(Boolean),
-    };
-  }
   if (entry && typeof entry === "object") {
     return {
       enabled: entry.enabled !== undefined ? Boolean(entry.enabled) : defaultEntry.enabled,
       roundRobin: Boolean(entry.roundRobin),
       models: Array.isArray(entry.models)
-        ? entry.models.map((m: any) => upgradeLegacyModel(typeof m === "string" ? m : m?.model || "")).filter(Boolean)
+        ? entry.models.map((m: any) => (typeof m === "string" ? m : m?.model || "")).filter(Boolean)
         : [...defaultEntry.models],
     };
   }
@@ -159,7 +148,7 @@ export class SettingsRepository {
         enabled: settings.vision.enabled !== undefined ? settings.vision.enabled : current.vision.enabled,
         roundRobin: settings.vision.roundRobin !== undefined ? settings.vision.roundRobin : current.vision.roundRobin,
         models: Array.isArray(settings.vision.models)
-          ? settings.vision.models.map(upgradeLegacyModel).filter(Boolean)
+          ? settings.vision.models.filter(Boolean)
           : current.vision.models,
       };
     }
@@ -169,7 +158,7 @@ export class SettingsRepository {
         enabled: settings.audioInput.enabled !== undefined ? settings.audioInput.enabled : current.audioInput.enabled,
         roundRobin: settings.audioInput.roundRobin !== undefined ? settings.audioInput.roundRobin : current.audioInput.roundRobin,
         models: Array.isArray(settings.audioInput.models)
-          ? settings.audioInput.models.map(upgradeLegacyModel).filter(Boolean)
+          ? settings.audioInput.models.filter(Boolean)
           : current.audioInput.models,
       };
     }
@@ -179,7 +168,7 @@ export class SettingsRepository {
         enabled: settings.pdf.enabled !== undefined ? settings.pdf.enabled : (current.pdf?.enabled ?? false),
         roundRobin: settings.pdf.roundRobin !== undefined ? settings.pdf.roundRobin : (current.pdf?.roundRobin ?? false),
         models: Array.isArray(settings.pdf.models)
-          ? settings.pdf.models.map(upgradeLegacyModel).filter(Boolean)
+          ? settings.pdf.models.filter(Boolean)
           : (current.pdf?.models ?? []),
       };
     }
@@ -189,7 +178,7 @@ export class SettingsRepository {
         enabled: settings.videoInput.enabled !== undefined ? settings.videoInput.enabled : (current.videoInput?.enabled ?? false),
         roundRobin: settings.videoInput.roundRobin !== undefined ? settings.videoInput.roundRobin : (current.videoInput?.roundRobin ?? false),
         models: Array.isArray(settings.videoInput.models)
-          ? settings.videoInput.models.map(upgradeLegacyModel).filter(Boolean)
+          ? settings.videoInput.models.filter(Boolean)
           : (current.videoInput?.models ?? []),
       };
     }

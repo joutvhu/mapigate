@@ -7,7 +7,7 @@ import {
 } from "../../../core/adapters/responsesAdapter.js";
 import { decodeEventStreamChunk } from "../../../providers/runtime/bedrock/eventStream.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
-import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/types.js";
+import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/core/types.js";
 import { createStreamTrackingState, recordStreamToolCall, extractTokensFromChunk } from "./streamState.js";
 
 export async function pipeBedrockEventStream(

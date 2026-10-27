@@ -11,28 +11,38 @@ import {
   generateCodeVerifier,
   generateCodeChallenge,
   generateState,
+} from "../src/shared/utils/pkce.js";
+import {
   refreshGoogleOAuthToken,
-  startCodexProxy,
-  stopCodexProxy,
   ANTIGRAVITY_CLIENT_ID,
   ANTIGRAVITY_CLIENT_SECRET,
   ANTIGRAVITY_SCOPES,
+} from "../src/providers/runtime/antigravity/routes.js";
+import {
   GOOGLE_OAUTH_CLIENT_ID,
   GOOGLE_OAUTH_CLIENT_SECRET,
   GOOGLE_OAUTH_SCOPES,
+} from "../src/providers/runtime/gemini-cli/routes.js";
+import {
   CLAUDE_CLIENT_ID,
   CLAUDE_AUTHORIZE_URL,
   CLAUDE_TOKEN_URL,
   CLAUDE_SCOPES,
+} from "../src/providers/runtime/claude/routes.js";
+import {
   CODEX_CLIENT_ID,
   CODEX_AUTHORIZE_URL,
   CODEX_TOKEN_URL,
   CODEX_SCOPE,
+  startCodexProxy,
+  stopCodexProxy,
+} from "../src/providers/runtime/codex/routes.js";
+import {
   KIMI_CLIENT_ID,
   KIMI_DEVICE_CODE_URL,
   KIMI_TOKEN_URL,
   KIMI_AUTHORIZE_DEVICE_URL,
-} from "../src/server/routes/apiOAuth.js";
+} from "../src/providers/runtime/kimi/routes.js";
 
 let server: http.Server;
 let baseUrl: string;
@@ -438,7 +448,7 @@ test("Kiro Routes - Auto-import, account import, and api-key delegation", async 
   });
   assert.equal(importMissingRes.status, 400);
   const importMissingData = (await importMissingRes.json()) as any;
-  assert.equal(importMissingData.error, "Refresh token is required");
+  assert.equal(importMissingData.error, "Refresh token or access token is required");
 
   // 3. POST /api/oauth/kiro/import - Successful import
   const importRes = await fetch(`${baseUrl}/api/oauth/kiro/import`, {

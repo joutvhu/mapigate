@@ -209,21 +209,6 @@ export async function flushDNS(sudoPassword?: string): Promise<void> {
 }
 
 /**
- * Check if dual-stack DNS entry exists in system hosts file for a specific host.
- */
-export function checkDNSEntry(host: string | null = null): boolean {
-  try {
-    if (!fs.existsSync(HOSTS_FILE)) return false;
-    const hostsContent = fs.readFileSync(HOSTS_FILE, "utf8");
-    if (host) return hasHostEntry(hostsContent, host);
-    // Legacy check: all antigravity hosts present
-    return TOOL_HOSTS.antigravity.every((h) => hasHostEntry(hostsContent, h));
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Check DNS status per tool — returns { [tool]: boolean }
  */
 export function checkAllDNSStatus(): Record<MitmToolId, boolean> {

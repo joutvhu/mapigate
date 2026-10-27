@@ -94,16 +94,11 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
       assert.equal(getToolForHost("secondary-kiro.internal"), "kiro");
       assert.equal(isMitmHost("secondary-kiro.internal"), true);
 
-      MitmRepository.saveHostsEntries("127.0.0.1 unmapped-custom.ai.net");
-      assert.equal(isMitmHost("unmapped-custom.ai.net"), true);
-      assert.equal(getToolForHost("unmapped-custom.ai.net"), null);
-
       MitmRepository.resetToolHosts("kiro");
       assert.equal(getToolForHost(customKiroHost), null);
       assert.equal(isMitmHost(customKiroHost), false);
     } finally {
       MitmRepository.resetToolHosts("kiro");
-      MitmRepository.resetHostsEntries();
     }
   });
 

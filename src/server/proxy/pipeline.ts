@@ -4,8 +4,8 @@ import { TokenSaverCoordinator } from "../../core/tokenSaver/index.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { UsageRepository } from "../../storage/repositories/usageRepo.js";
-import { ProviderRegistry } from "../../providers/registry.js";
-import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../providers/types.js";
+import { ProviderRegistry } from "../../providers/core/registry.js";
+import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../providers/core/types.js";
 import {
   detectRequiredCapabilities,
   augmentModelsWithCapacityAdapter,

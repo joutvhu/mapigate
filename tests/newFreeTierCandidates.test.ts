@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { PROVIDER_REGISTRY } from "../src/providers/metadataRegistry.js";
+import { PROVIDER_REGISTRY } from "../src/providers/core/metadataRegistry.js";
 import { ProviderRegistry } from "../src/providers/core/registry.js";
 
 test("New Free Tier Providers - IteraCompute metadata and registry verification", () => {

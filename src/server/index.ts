@@ -33,7 +33,7 @@ import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 import { PidFileManager } from "../cli/daemon/pidFile.js";
 import { SettingsRepository } from "../storage/repositories/settingsRepo.js";
-import { getRegistryProvider } from "../providers/metadataRegistry.js";
+import { getRegistryProvider } from "../providers/core/metadataRegistry.js";
 
 // Sync persisted log level from settings repository if env is not explicitly set
 const envLevel = process.env.LOG_LEVEL || process.env.MAPIGATE_LOG_LEVEL;

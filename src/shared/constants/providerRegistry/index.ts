@@ -3,4 +3,4 @@ export {
   PROVIDER_REGISTRY,
   getRegistryProvider,
   getAllRegistryProviders,
-} from "../../../providers/metadataRegistry.js";
+} from "../../../providers/core/metadataRegistry.js";

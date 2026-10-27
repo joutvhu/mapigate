@@ -9,7 +9,7 @@ import { ProviderRepository } from "../src/storage/repositories/providerRepo.js"
 import {
   PROVIDER_REGISTRY,
   getRegistryProvider,
-} from "../src/providers/metadataRegistry.js";
+} from "../src/providers/core/metadataRegistry.js";
 import {
   COMMUNITY_PROVIDERS_CATALOG,
   getCommunityCatalogProvider,

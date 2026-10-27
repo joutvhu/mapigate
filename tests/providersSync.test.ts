@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ProviderRegistry } from "../src/providers/registry.js";
-import { getRegistryProvider } from "../src/providers/metadataRegistry.js";
+import { ProviderRegistry } from "../src/providers/core/registry.js";
+import { getRegistryProvider } from "../src/providers/core/metadataRegistry.js";
 import { OAuthHandlerRegistry } from "../src/providers/core/oauthRegistry.js";
 import { getClineAccessToken } from "../src/providers/runtime/cline/provider.js";
 import {

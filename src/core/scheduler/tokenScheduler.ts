@@ -1,5 +1,5 @@
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { refreshGoogleOAuthToken } from "../../server/routes/apiOAuth.js";
+import { refreshGoogleOAuthToken } from "../../providers/runtime/antigravity/routes.js";
 import {
   ensureFreshCopilotCredentials,
   isCopilotTokenExpiring,

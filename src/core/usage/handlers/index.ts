@@ -1,5 +1,5 @@
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../types.js";
-import { ProviderRegistry } from "../../../providers/registry.js";
+import { ProviderRegistry } from "../../../providers/core/registry.js";
 
 export async function fetchRawQuotaForProvider(
   context: ProviderUsageContext

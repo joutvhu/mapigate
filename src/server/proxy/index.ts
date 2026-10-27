@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { runProxyPipeline } from "./pipeline.js";
-import { extractHeader, mergeAnthropicBeta } from "../../providers/base/baseProvider.js";
+import { extractHeader, mergeAnthropicBeta } from "../../providers/core/base/baseProvider.js";
 
 export { extractHeader, mergeAnthropicBeta };
 export { executeSingleModel } from "./singleModelExecutor.js";

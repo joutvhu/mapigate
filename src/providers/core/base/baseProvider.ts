@@ -7,7 +7,7 @@ import type {
 import { isRateLimitOrQuotaError } from "../../../core/router/loadBalancer.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { resolveCandidateUrls } from "../../../core/scanner/urlResolver.js";
-import { getRegistryProvider } from "../../metadataRegistry.js";
+import { getRegistryProvider } from "../metadataRegistry.js";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 

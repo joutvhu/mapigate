@@ -11,7 +11,6 @@ import {
   SettingsRepository,
   type CapacityAdapterSettings,
   type CapacityAdapterEntry,
-  DEFAULT_FALLBACK_MODEL,
 } from "../../storage/repositories/settingsRepo.js";
 
 export const CAPABILITY_KEYS = ["vision", "pdf", "audioInput", "videoInput"] as const;
@@ -19,10 +18,6 @@ export const HARD_CAPS = new Set<string>(CAPABILITY_KEYS);
 
 const CHARS_PER_TOKEN = 4;
 const HEAD_KEEP = 6;
-
-function upgradeLegacyModel(m: string): string {
-  return m === "oc/mimo-v2.5-free" ? DEFAULT_FALLBACK_MODEL : m;
-}
 
 /**
  * Returns trailing user turns (items after the last assistant/model turn).
@@ -141,10 +136,9 @@ export function getCapacityAdapterModels(settings?: CapacityAdapterSettings | nu
     const entry = getCapacityAdapterConfig(cap, s);
     if (!entry.enabled) continue;
     for (const m of entry.models) {
-      const upgraded = upgradeLegacyModel(m);
-      if (!seen.has(upgraded)) {
-        seen.add(upgraded);
-        models.push(upgraded);
+      if (!seen.has(m)) {
+        seen.add(m);
+        models.push(m);
       }
     }
   }

@@ -24,7 +24,7 @@ import {
 import {
   getRegistryProvider,
   getAllRegistryProviders,
-} from "../../providers/metadataRegistry.js";
+} from "../../providers/core/metadataRegistry.js";
 
 export * from "./types.js";
 export * from "./constants.js";

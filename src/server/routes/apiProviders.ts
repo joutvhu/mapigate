@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { PROVIDER_REGISTRY, getRegistryProvider } from "../../providers/metadataRegistry.js";
+import { PROVIDER_REGISTRY, getRegistryProvider } from "../../providers/core/metadataRegistry.js";
 import {
   COMMUNITY_PROVIDERS_CATALOG,
   getCommunityCatalogProvider,

@@ -7,14 +7,6 @@ import { parseJwtPayload } from "../../shared/utils/jwt.js";
 import { generatePKCE } from "../../shared/utils/pkce.js";
 import { serverLifecycle } from "../lifecycle.js";
 
-// Re-exports for backward compatibility
-export { generateCodeVerifier, generateCodeChallenge, generateState, generatePKCE } from "../../shared/utils/pkce.js";
-export { ANTIGRAVITY_CLIENT_ID, ANTIGRAVITY_CLIENT_SECRET, ANTIGRAVITY_SCOPES, refreshGoogleOAuthToken } from "../../providers/runtime/antigravity/routes.js";
-export { GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_SCOPES } from "../../providers/runtime/gemini-cli/routes.js";
-export { CLAUDE_CLIENT_ID, CLAUDE_AUTHORIZE_URL, CLAUDE_TOKEN_URL, CLAUDE_SCOPES } from "../../providers/runtime/claude/routes.js";
-export { CODEX_CLIENT_ID, CODEX_AUTHORIZE_URL, CODEX_TOKEN_URL, CODEX_SCOPE, startCodexProxy, stopCodexProxy } from "../../providers/runtime/codex/routes.js";
-export { KIMI_CLIENT_ID, KIMI_DEVICE_CODE_URL, KIMI_TOKEN_URL, KIMI_AUTHORIZE_DEVICE_URL } from "../../providers/runtime/kimi/routes.js";
-
 export const oauthRouter = Router();
 
 // Register all provider-specific custom routes and OAuth handlers

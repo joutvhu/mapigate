@@ -1,1 +1,1 @@
-export * from "../../../providers/types.js";
+export * from "../../../providers/core/types.js";

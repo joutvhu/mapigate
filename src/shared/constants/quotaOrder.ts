@@ -1,4 +1,4 @@
-import { getRegistryProvider, PROVIDER_REGISTRY } from "../../providers/metadataRegistry.js";
+import { getRegistryProvider, PROVIDER_REGISTRY } from "../../providers/core/metadataRegistry.js";
 
 /**
  * Fallback static map for common providers if accessed outside registered providers context.
