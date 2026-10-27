@@ -122,4 +122,89 @@ describe("Kiro Converter - OpenAI to CodeWhisperer wire format", () => {
     assert.equal(currentMsg.userInputMessageContext.tools.length, 1);
     assert.equal(currentMsg.userInputMessageContext.tools[0].toolSpecification.name, "execute_pwsh");
   });
+
+  it("assembles fragmented toolUseEvent chunks and emits valid tool call sequence with finish_reason tool_calls", async () => {
+    const { executeKiro } = await import("../src/providers/runtime/kiro/executor.js");
+    const { buildEventStreamFrame } = await import("../src/mitm/handlers/kiro/state.js");
+
+    // Construct mock frames from AWS CodeWhisperer
+    const frame1 = buildEventStreamFrame("assistantResponseEvent", { content: "Searching code..." });
+    // Frame 2: Init frame (name + toolUseId, no input)
+    const frame2 = buildEventStreamFrame("toolUseEvent", { toolUseId: "call_grep_1", name: "grep_search" });
+    // Frame 3: Input fragment 1
+    const frame3 = buildEventStreamFrame("toolUseEvent", { toolUseId: "call_grep_1", input: '{"query":' });
+    // Frame 4: Input fragment 2
+    const frame4 = buildEventStreamFrame("toolUseEvent", { toolUseId: "call_grep_1", input: '"test"}' });
+
+    const fullBinaryStream = Buffer.concat([frame1, frame2, frame3, frame4]);
+
+    const originalFetch = global.fetch;
+    global.fetch = async () =>
+      new Response(fullBinaryStream, {
+        status: 200,
+        headers: { "Content-Type": "application/vnd.amazon.eventstream" },
+      });
+
+    try {
+      const writtenChunks: string[] = [];
+      const mockRes: any = {
+        headersSent: false,
+        writableEnded: false,
+        destroyed: false,
+        setHeader() {},
+        flushHeaders() {},
+        write(chunk: string) {
+          writtenChunks.push(chunk);
+          return true;
+        },
+        end() {
+          this.writableEnded = true;
+        },
+      };
+
+      const result = await executeKiro({
+        req: {} as any,
+        res: mockRes,
+        clientFormat: "openai",
+        targetModel: "claude-sonnet-5.5",
+        targetFormat: "openai",
+        body: { stream: true, messages: [{ role: "user", content: "search test" }] },
+        requestId: "test_req_123",
+        startTime: Date.now(),
+      });
+
+      assert.equal(result.ok, true);
+      assert.equal(result.status, 200);
+
+      const parsedChunks = writtenChunks
+        .map((str) => str.trim())
+        .filter((str) => str.startsWith("data: ") && str !== "data: [DONE]")
+        .map((str) => JSON.parse(str.slice(6)));
+
+      // 1. Text chunk
+      const textChunk = parsedChunks.find((c) => c.choices?.[0]?.delta?.content === "Searching code...");
+      assert.ok(textChunk, "Must contain assistantResponse text chunk");
+
+      // 2. Tool call init chunk must have arguments: "" (NEVER "{}")
+      const initToolChunk = parsedChunks.find((c) => c.choices?.[0]?.delta?.tool_calls?.[0]?.function?.name === "grep_search");
+      assert.ok(initToolChunk, "Must emit tool call init chunk");
+      assert.equal(initToolChunk.choices[0].delta.tool_calls[0].id, "call_grep_1");
+      assert.equal(initToolChunk.choices[0].delta.tool_calls[0].function.arguments, "");
+
+      // 3. Full arguments chunk must assemble fragments
+      const argsToolChunk = parsedChunks.find(
+        (c) => c.choices?.[0]?.delta?.tool_calls?.[0]?.function?.arguments === '{"query":"test"}'
+      );
+      assert.ok(argsToolChunk, "Must assemble input chunks into valid JSON argument");
+
+      // 4. Terminal chunk must have finish_reason: "tool_calls"
+      const finishChunk = parsedChunks.find((c) => c.choices?.[0]?.finish_reason === "tool_calls");
+      assert.ok(finishChunk, "Must emit finish_reason: tool_calls when tool was called");
+
+      // 5. Must conclude with data: [DONE]
+      assert.ok(writtenChunks.some((w) => w.includes("data: [DONE]")));
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });

@@ -8,11 +8,40 @@ import {
   finalizeResponsesStream,
 } from "../../../core/adapters/responsesAdapter.js";
 import { decodeEventStreamChunk } from "../bedrock/eventStream.js";
-import { extractTokenFromAccount } from "../../core/base/baseProvider.js";
+import { extractTokenFromAccount } from "../../core/base/tokenExtractor.js";
 import { buildKiroPayload } from "./converter.js";
-import { normalizeKiroUpstreamModelId } from "./provider.js";
+import { normalizeKiroUpstreamModelId } from "./models.js";
 import { refreshKiroToken } from "./auth.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
+
+interface BufferedToolCall {
+  id: string;
+  name: string;
+  inputChunks: string[];
+  inputObject?: any;
+}
+
+function serializeToolInput(tool: BufferedToolCall): string {
+  if (tool.inputObject && typeof tool.inputObject === "object") {
+    try {
+      return JSON.stringify(tool.inputObject);
+    } catch {
+      return "{}";
+    }
+  }
+  if (tool.inputChunks.length > 0) {
+    const raw = tool.inputChunks.join("").trim();
+    if (raw) {
+      try {
+        JSON.parse(raw);
+        return raw;
+      } catch {
+        return raw;
+      }
+    }
+  }
+  return "{}";
+}
 
 export async function executeKiro(
   context: ProviderRequestContext,
@@ -134,6 +163,10 @@ export async function executeKiro(
 
     let fullText = "";
     let clientDisconnected = false;
+    const bufferedTools = new Map<string, BufferedToolCall>();
+    let sawToolUse = false;
+    let lastToolId = "";
+
     const onClose = () => {
       clientDisconnected = true;
       reader.cancel().catch(() => {});
@@ -141,6 +174,81 @@ export async function executeKiro(
     if (typeof res?.once === "function") {
       res.once("close", onClose);
     }
+
+    const writeChunkToClient = (openAiChunk: any) => {
+      if (clientDisconnected || res?.writableEnded || res?.destroyed) return;
+      if (clientFormat === "responses" && responsesState) {
+        const responsesEvents = openAiChunkToResponsesEvents(openAiChunk, responsesState);
+        for (const ev of responsesEvents) {
+          res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+        }
+      } else if (clientFormat === "anthropic" && anthropicState) {
+        const events = AnthropicAdapter.openAiChunkToAnthropicEvent(openAiChunk, `msg_${requestId}`, anthropicState);
+        for (const ev of events) res.write(ev);
+      } else {
+        res.write(`data: ${JSON.stringify(openAiChunk)}\n\n`);
+      }
+    };
+
+    const emitAssembledTools = () => {
+      if (bufferedTools.size === 0) return;
+      let toolIdx = 0;
+      for (const tool of bufferedTools.values()) {
+        const argsStr = serializeToolInput(tool);
+        // Chunk 1: Init tool call (name + id, arguments: "")
+        writeChunkToClient({
+          id: responseId,
+          object: "chat.completion.chunk",
+          created,
+          model: rawModel,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: toolIdx,
+                    id: tool.id,
+                    type: "function",
+                    function: {
+                      name: tool.name,
+                      arguments: "",
+                    },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        });
+
+        // Chunk 2: Full arguments
+        writeChunkToClient({
+          id: responseId,
+          object: "chat.completion.chunk",
+          created,
+          model: rawModel,
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [
+                  {
+                    index: toolIdx,
+                    function: {
+                      arguments: argsStr,
+                    },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        });
+        toolIdx++;
+      }
+      bufferedTools.clear();
+    };
 
     try {
       while (true) {
@@ -161,69 +269,76 @@ export async function executeKiro(
 
           let deltaText: string | null = null;
           let deltaReasoning: string | null = null;
-          let deltaToolCalls: any[] | null = null;
 
           if (eventType === "assistantResponseEvent" || payload.content) {
             deltaText = payload.content || "";
             fullText += deltaText;
           } else if (eventType === "reasoningContentEvent") {
-            deltaReasoning = payload.content || "";
+            deltaReasoning = payload.content || payload.text || "";
           } else if (eventType === "toolUseEvent") {
-            let inputArgs = "{}";
-            try {
-              inputArgs = typeof payload.input === "string" ? payload.input : JSON.stringify(payload.input || {});
-            } catch {
-              inputArgs = "{}";
+            sawToolUse = true;
+            const values = Array.isArray(payload) ? payload : [payload];
+            for (const val of values) {
+              if (!val) continue;
+              const toolId = val.toolUseId || lastToolId || `call_${Date.now()}_${bufferedTools.size + 1}`;
+              lastToolId = toolId;
+              let tool = bufferedTools.get(toolId);
+              if (!tool) {
+                tool = { id: toolId, name: (val.name || "").trim(), inputChunks: [] };
+                bufferedTools.set(toolId, tool);
+              } else if (!tool.name && val.name) {
+                tool.name = val.name.trim();
+              }
+              if (val.input !== undefined && val.input !== null) {
+                if (typeof val.input === "string") {
+                  tool.inputChunks.push(val.input);
+                } else if (typeof val.input === "object") {
+                  tool.inputObject = val.input;
+                }
+              }
             }
-            deltaToolCalls = [
-              {
-                index: 0,
-                id: payload.toolUseId || crypto.randomUUID(),
-                type: "function",
-                function: {
-                  name: payload.name || "",
-                  arguments: inputArgs,
-                },
-              },
-            ];
           }
 
-          if (!deltaText && !deltaReasoning && !deltaToolCalls) continue;
-
-          const openAiChunk = {
-            id: responseId,
-            object: "chat.completion.chunk",
-            created,
-            model: rawModel,
-            choices: [
-              {
-                index: 0,
-                delta: {
-                  ...(deltaText ? { content: deltaText } : {}),
-                  ...(deltaReasoning ? { reasoning_content: deltaReasoning } : {}),
-                  ...(deltaToolCalls ? { tool_calls: deltaToolCalls } : {}),
+          if (deltaText || deltaReasoning) {
+            writeChunkToClient({
+              id: responseId,
+              object: "chat.completion.chunk",
+              created,
+              model: rawModel,
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    ...(deltaText ? { content: deltaText } : {}),
+                    ...(deltaReasoning ? { reasoning_content: deltaReasoning } : {}),
+                  },
+                  finish_reason: null,
                 },
-                finish_reason: null,
-              },
-            ],
-          };
-
-          if (clientFormat === "responses" && responsesState) {
-            const responsesEvents = openAiChunkToResponsesEvents(openAiChunk, responsesState);
-            for (const ev of responsesEvents) {
-              res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
-            }
-          } else if (clientFormat === "anthropic" && anthropicState) {
-            const events = AnthropicAdapter.openAiChunkToAnthropicEvent(openAiChunk, `msg_${requestId}`, anthropicState);
-            for (const ev of events) res.write(ev);
-          } else {
-            res.write(`data: ${JSON.stringify(openAiChunk)}\n\n`);
+              ],
+            });
           }
         }
       }
 
       // Finalize Stream
       if (!clientDisconnected && !res?.writableEnded && !res?.destroyed) {
+        emitAssembledTools();
+
+        const finishReason = sawToolUse ? "tool_calls" : "stop";
+        writeChunkToClient({
+          id: responseId,
+          object: "chat.completion.chunk",
+          created,
+          model: rawModel,
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: finishReason,
+            },
+          ],
+        });
+
         if (clientFormat === "responses" && responsesState) {
           const finalEvents = finalizeResponsesStream(responsesState);
           for (const ev of finalEvents) {
@@ -269,6 +384,8 @@ export async function executeKiro(
 
   let fullContent = "";
   let residualBuffer: any = new Uint8Array(0);
+  const bufferedTools = new Map<string, BufferedToolCall>();
+  let lastToolId = "";
 
   while (true) {
     const { done, value } = await reader.read();
@@ -279,13 +396,48 @@ export async function executeKiro(
     residualBuffer = remainder || new Uint8Array(0);
 
     for (const frame of frames) {
+      const eventType = frame.headers[":event-type"] || frame.headers["event-type"] || "";
       const payload = frame.payload || {};
-      if (payload.content) {
-        fullContent += payload.content;
+      if (eventType === "assistantResponseEvent" || payload.content) {
+        fullContent += payload.content || "";
+      } else if (eventType === "toolUseEvent") {
+        const values = Array.isArray(payload) ? payload : [payload];
+        for (const val of values) {
+          if (!val) continue;
+          const toolId = val.toolUseId || lastToolId || `call_${Date.now()}_${bufferedTools.size + 1}`;
+          lastToolId = toolId;
+          let tool = bufferedTools.get(toolId);
+          if (!tool) {
+            tool = { id: toolId, name: (val.name || "").trim(), inputChunks: [] };
+            bufferedTools.set(toolId, tool);
+          } else if (!tool.name && val.name) {
+            tool.name = val.name.trim();
+          }
+          if (val.input !== undefined && val.input !== null) {
+            if (typeof val.input === "string") {
+              tool.inputChunks.push(val.input);
+            } else if (typeof val.input === "object") {
+              tool.inputObject = val.input;
+            }
+          }
+        }
       }
     }
   }
 
+  const assembledTools: any[] = [];
+  for (const tool of bufferedTools.values()) {
+    assembledTools.push({
+      id: tool.id,
+      type: "function",
+      function: {
+        name: tool.name,
+        arguments: serializeToolInput(tool),
+      },
+    });
+  }
+
+  const hasTools = assembledTools.length > 0;
   const responseJson = {
     id: responseId,
     object: "chat.completion",
@@ -296,9 +448,10 @@ export async function executeKiro(
         index: 0,
         message: {
           role: "assistant",
-          content: fullContent,
+          content: fullContent || null,
+          ...(hasTools ? { tool_calls: assembledTools } : {}),
         },
-        finish_reason: "stop",
+        finish_reason: hasTools ? "tool_calls" : "stop",
       },
     ],
   };
