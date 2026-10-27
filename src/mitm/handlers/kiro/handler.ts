@@ -1,5 +1,6 @@
 import type { IMitmHandler, MitmRequestContext } from "../../types.js";
 import { interceptKiro } from "./interceptor.js";
+import { interceptKiroModels } from "./modelInjector.js";
 
 export class KiroMitmHandler implements IMitmHandler {
   public readonly id = "kiro";
@@ -10,6 +11,10 @@ export class KiroMitmHandler implements IMitmHandler {
   }
 
   public async handle(context: MitmRequestContext): Promise<void> {
+    if (context.isModelDiscovery) {
+      await interceptKiroModels(context.req, context.res, context.bodyBuffer, context.passthrough);
+      return;
+    }
     await interceptKiro(context.req, context.res, context.bodyBuffer, context.mappedModel || "");
   }
 }

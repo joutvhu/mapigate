@@ -122,6 +122,64 @@ export async function passthroughHttps(
   }
 }
 
+export interface UpstreamResponse {
+  statusCode: number;
+  headers: IncomingHttpHeaders;
+  body: Buffer;
+}
+
+/**
+ * Forward request to real upstream server and collect the complete response buffer.
+ */
+export async function fetchUpstreamDirect(
+  req: IncomingMessage,
+  bodyBuffer: Buffer,
+  overrideTargetHost?: string
+): Promise<UpstreamResponse> {
+  const originalHost = (overrideTargetHost || (req.headers.host as string) || "").split(":")[0];
+  const targetHost = HOST_REWRITE[originalHost] || originalHost;
+  const targetIP = await resolveTargetIP(targetHost);
+  if (targetIP === "127.0.0.1" || targetIP === "::1" || targetIP.startsWith("127.")) {
+    throw new Error(`Target IP for ${targetHost} resolved to loopback (${targetIP})`);
+  }
+
+  const headers = { ...req.headers, host: targetHost, "x-mapigate-mitm-loop": "1" };
+  if (bodyBuffer.length > 0) {
+    headers["content-length"] = String(bodyBuffer.length);
+  }
+
+  return new Promise((resolve, reject) => {
+    const forwardReq = https.request(
+      {
+        hostname: targetIP,
+        port: 443,
+        path: req.url,
+        method: req.method,
+        headers,
+        servername: targetHost,
+        rejectUnauthorized: process.env.MITM_DISABLE_TLS_VERIFY === "1" ? false : true,
+      },
+      (forwardRes) => {
+        const chunks: Buffer[] = [];
+        forwardRes.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        forwardRes.on("end", () => {
+          resolve({
+            statusCode: forwardRes.statusCode || 200,
+            headers: forwardRes.headers,
+            body: Buffer.concat(chunks),
+          });
+        });
+      }
+    );
+
+    forwardReq.on("error", reject);
+    if (bodyBuffer.length > 0) {
+      forwardReq.write(bodyBuffer);
+    }
+    forwardReq.end();
+  });
+}
+
 export async function fetchRouter(
   openaiBody: any,
   path = "/v1/chat/completions",

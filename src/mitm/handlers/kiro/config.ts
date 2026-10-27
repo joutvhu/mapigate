@@ -7,6 +7,7 @@ export const toolConfig: MitmToolConfig = {
   desc: "Intercept Amazon Kiro IDE requests via MITM proxy",
   iconBg: "#9046ff",
   hosts: [
+    "management.us-east-1.kiro.dev",
     "runtime.us-east-1.kiro.dev",
     "q.us-east-1.amazonaws.com",
     "codewhisperer.us-east-1.amazonaws.com",
@@ -14,8 +15,12 @@ export const toolConfig: MitmToolConfig = {
   urlPatterns: [
     "/generateAssistantResponse",
     "/responses",
+    "/List-Available-Models",
+    "/list-available-models",
+    "/ListAvailableModels",
+    "/listavailablemodels",
   ],
-  defaultHost: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
+  defaultHost: "127.0.0.1 management.us-east-1.kiro.dev\n127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
   matchesHost: (h: string) =>
     h.includes("kiro.dev") ||
     h.includes("q.us-east-1.amazonaws.com") ||
@@ -24,6 +29,21 @@ export const toolConfig: MitmToolConfig = {
     const rawTarget = req.headers?.["x-amz-target"];
     const target = Array.isArray(rawTarget) ? rawTarget[0] : String(rawTarget || "");
     return target.includes("GenerateAssistantResponse") || target.includes("CreateResponse");
+  },
+  isModelListRequest: (req) => {
+    const rawUrl = (req.url || "").toLowerCase();
+    const cleanUrl = rawUrl.replace(/[-_]/g, "");
+    if (
+      cleanUrl.includes("listavailablemodels") ||
+      cleanUrl.includes("listmodels") ||
+      rawUrl.includes("list-available-models") ||
+      rawUrl.includes("listavailablemodels")
+    ) {
+      return true;
+    }
+    const rawTarget = req.headers?.["x-amz-target"];
+    const target = Array.isArray(rawTarget) ? rawTarget[0] : String(rawTarget || "");
+    return target.includes("ListAvailableModels") || target.includes("ListModels");
   },
   modelSynonyms: {
     "auto (kiro agent)": "auto",

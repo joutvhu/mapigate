@@ -25,7 +25,10 @@ export const mitmRouter = Router();
 mitmRouter.get("/status", async (_req, res) => {
   try {
     const status = await mitmManager.getStatus();
-    res.json(status);
+    res.json({
+      ...status,
+      augmentModels: MitmRepository.getAllToolAugmentModels(),
+    });
   } catch (error: any) {
     res.json({
       running: MitmRepository.getMitmServerRunning(),
@@ -34,8 +37,38 @@ mitmRouter.get("/status", async (_req, res) => {
       serverOk: true,
       dnsStatus: checkAllDNSStatus(),
       routerBaseUrl: getMapigateBaseUrl(serverLifecycle.getPort()),
+      augmentModels: MitmRepository.getAllToolAugmentModels(),
     });
   }
+});
+
+// GET augment models status across all tools
+mitmRouter.get("/augment-models", (_req, res) => {
+  res.json(MitmRepository.getAllToolAugmentModels());
+});
+
+mitmRouter.get("/augment-models/:tool", (req, res) => {
+  const { tool } = req.params;
+  const enabled = MitmRepository.getToolAugmentModels(tool);
+  res.json({ tool, enabled });
+});
+
+// POST toggle augment models for a tool
+mitmRouter.post("/augment-models", (req, res) => {
+  const { tool, enabled } = req.body || {};
+  if (!tool || typeof tool !== "string") {
+    res.status(400).json({ error: "Missing required tool parameter" });
+    return;
+  }
+  const current = MitmRepository.getToolAugmentModels(tool);
+  const next = enabled !== undefined ? Boolean(enabled) : !current;
+  MitmRepository.setToolAugmentModels(tool, next);
+  res.json({
+    success: true,
+    tool,
+    enabled: next,
+    augmentModels: MitmRepository.getAllToolAugmentModels(),
+  });
 });
 
 // GET download Root CA certificate

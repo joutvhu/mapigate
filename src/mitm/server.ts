@@ -13,6 +13,7 @@ import { MitmRepository } from "../storage/repositories/mitmRepo.js";
 import {
   getToolForHost,
   isChatRequest,
+  isModelDiscoveryRequest,
   extractModel,
   normalizeModelSlug,
   MODEL_SYNONYMS,
@@ -155,8 +156,30 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
       return passthroughHttps(req, res, bodyBuffer);
     }
 
-    // Pass through non-chat traffic (telemetry, auth, experiments, etc.)
-    if (!isChatRequest(tool, req)) {
+    // Pass through non-chat and non-model-discovery traffic (telemetry, auth, experiments, etc.)
+    const isChat = isChatRequest(tool, req);
+    const isModelDisc = isModelDiscoveryRequest(tool, req);
+
+    if (!isChat && !isModelDisc) {
+      return passthroughHttps(req, res, bodyBuffer);
+    }
+
+    if (isModelDisc) {
+      const augmentEnabled = MitmRepository.getToolAugmentModels(tool);
+      if (!augmentEnabled) {
+        return passthroughHttps(req, res, bodyBuffer);
+      }
+      const handler = MitmHandlerRegistry.get(tool);
+      if (handler) {
+        return await handler.handle({
+          req,
+          res,
+          bodyBuffer,
+          mappedModel: null,
+          isModelDiscovery: true,
+          passthrough: passthroughHttps,
+        });
+      }
       return passthroughHttps(req, res, bodyBuffer);
     }
 

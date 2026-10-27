@@ -58,6 +58,36 @@ export class MitmRepository {
     );
   }
 
+  public static getToolAugmentModels(tool: string): boolean {
+    const db = getDatabase();
+    const key = `mitm_augment_${tool.toLowerCase()}`;
+    const row = db.get<any>("SELECT value FROM settings WHERE key = ?", key);
+    if (!row) {
+      return false;
+    }
+    return row.value === "true" || row.value === "1";
+  }
+
+  public static setToolAugmentModels(tool: string, active: boolean): void {
+    const db = getDatabase();
+    const key = `mitm_augment_${tool.toLowerCase()}`;
+    db.run(
+      `INSERT INTO settings (key, value) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      key,
+      active ? "true" : "false"
+    );
+  }
+
+  public static getAllToolAugmentModels(): Record<string, boolean> {
+    const tools: MitmToolId[] = ["antigravity", "kiro", "copilot", "cursor"];
+    const result: Record<string, boolean> = {};
+    for (const tool of tools) {
+      result[tool] = this.getToolAugmentModels(tool);
+    }
+    return result;
+  }
+
   public static getMitmServerRunning(): boolean {
     const db = getDatabase();
     const row = db.get<any>("SELECT value FROM settings WHERE key = 'mitm_server_running'");

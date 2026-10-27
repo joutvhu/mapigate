@@ -223,6 +223,16 @@ export function isChatRequest(
   return false;
 }
 
+export function isModelDiscoveryRequest(
+  tool: string,
+  req: MitmHttpRequestLike
+): boolean {
+  const targetTool = MITM_TOOLS.find((t) => t.id === tool);
+  if (!targetTool) return false;
+
+  return Boolean(targetTool.isModelListRequest?.(req));
+}
+
 export function isBinaryData(buffer: Buffer): boolean {
   if (!buffer || buffer.length === 0) return false;
   const sample = buffer.subarray(0, Math.min(100, buffer.length));

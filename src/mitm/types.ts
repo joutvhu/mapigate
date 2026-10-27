@@ -5,6 +5,7 @@ export interface MitmRequestContext {
   res: ServerResponse;
   bodyBuffer: Buffer;
   mappedModel?: string | null;
+  isModelDiscovery?: boolean;
   passthrough: (req: IncomingMessage, res: ServerResponse, buffer: Buffer) => Promise<void>;
 }
 
@@ -45,6 +46,7 @@ export interface MitmToolConfig {
   modelNoMap?: RegExp[];
   matchesHost?: (hostname: string) => boolean;
   isChatRequest?: (req: MitmHttpRequestLike) => boolean;
+  isModelListRequest?: (req: MitmHttpRequestLike) => boolean;
   defaultModels?: string[];
   defaultMappings?: Array<{ sourceModel: string; targetModel?: string }>;
 }

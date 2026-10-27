@@ -55,6 +55,7 @@ interface MitmStatusData {
     linux: string;
   };
   dnsStatus?: Record<string, boolean>;
+  augmentModels?: Record<string, boolean>;
   routerBaseUrl: string;
 }
 
@@ -102,6 +103,12 @@ export const MitmTab: React.FC = () => {
     copilot: false,
     cursor: false,
   });
+  const [augmentModelsByTool, setAugmentModelsByTool] = useState<Record<string, boolean>>({
+    antigravity: false,
+    kiro: false,
+    copilot: false,
+    cursor: false,
+  });
   const [expandedTool, setExpandedTool] = useState<MitmToolId | null>(null);
 
   const sortedMitmTools = useMemo(
@@ -112,7 +119,7 @@ export const MitmTab: React.FC = () => {
   // Per-tool Hosts State
   const [hostsByTool, setHostsByTool] = useState<Record<string, string>>({
     antigravity: "127.0.0.1 daily-cloudcode-pa.googleapis.com\n127.0.0.1 cloudcode-pa.googleapis.com",
-    kiro: "127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
+    kiro: "127.0.0.1 management.us-east-1.kiro.dev\n127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
     copilot: "127.0.0.1 api.individual.githubcopilot.com",
     cursor: "127.0.0.1 api2.cursor.sh",
   });
@@ -177,6 +184,12 @@ export const MitmTab: React.FC = () => {
             kiro: Boolean(d.dnsStatus?.kiro),
             copilot: Boolean(d.dnsStatus?.copilot),
             cursor: Boolean(d.dnsStatus?.cursor),
+          }));
+        }
+        if (d.augmentModels) {
+          setAugmentModelsByTool((prev) => ({
+            ...prev,
+            ...d.augmentModels,
           }));
         }
       })
@@ -362,6 +375,24 @@ export const MitmTab: React.FC = () => {
       loadStatus();
     } catch {
       //
+    }
+  };
+
+  const toggleAugmentModels = async (toolId: string) => {
+    const next = !augmentModelsByTool[toolId];
+    setAugmentModelsByTool((prev) => ({ ...prev, [toolId]: next }));
+    try {
+      const res = await fetch("/api/mitm/augment-models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tool: toolId, enabled: next }),
+      });
+      const data = await res.json();
+      if (data.augmentModels) {
+        setAugmentModelsByTool((prev) => ({ ...prev, ...data.augmentModels }));
+      }
+    } catch {
+      setAugmentModelsByTool((prev) => ({ ...prev, [toolId]: !next }));
     }
   };
 
@@ -947,6 +978,41 @@ export const MitmTab: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Block 1.5: Expand / Augment Models in IDE */}
+                  {(tool.id === "kiro" || Boolean(tool.isModelListRequest)) && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-[#0A0D14] border border-[#1E293B]">
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className="size-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                          <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white text-xs">Augment Models in IDE</span>
+                            <span className={`rt-badge ${augmentModelsByTool[tool.id] ? "rt-badge--success" : "rt-badge--muted"}`}>
+                              {augmentModelsByTool[tool.id] ? "Enabled" : "Disabled"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Injects Mapigate's rich model catalog into {tool.name} so you can select from all models in the IDE regardless of your account's tier.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleAugmentModels(tool.id)}
+                        className={`rt-btn text-xs py-1.5 px-3.5 shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                          augmentModelsByTool[tool.id] ? "rt-btn--primary" : "rt-btn--secondary"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[15px]">
+                          {augmentModelsByTool[tool.id] ? "toggle_on" : "toggle_off"}
+                        </span>
+                        {augmentModelsByTool[tool.id] ? "Enabled" : "Enable"}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Block 2: Model Redirection Mappings */}
                   <div className="space-y-3">
