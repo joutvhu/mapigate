@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import type { ActiveRequestItem } from "../../../../shared/types/index.js";
-import { Network } from "lucide-react";
+import { Network, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { ToolIcon } from "../ui/ToolIcon.js";
 import {
   getProviderMeta,
@@ -23,6 +23,77 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
 }) => {
   const [focusedProvider, setFocusedProvider] = useState<string | null>(null);
 
+  // Pan and zoom states
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const initialPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const hasMovedRef = useRef<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Reset zoom & pan to default
+  const handleResetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => Math.min(2.5, +(prev + 0.2).toFixed(2)));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => Math.max(0.4, +(prev - 0.2).toFixed(2)));
+  }, []);
+
+  // Mouse wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    setZoom((prev) => {
+      const next = +(prev * zoomFactor).toFixed(2);
+      return Math.min(2.5, Math.max(0.4, next));
+    });
+  }, []);
+
+  // Pan mouse event handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Only primary mouse button triggers drag
+    if (e.button !== 0) return;
+    setIsDragging(true);
+    hasMovedRef.current = false;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    initialPanRef.current = { ...pan };
+  }, [pan]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+        hasMovedRef.current = true;
+      }
+      setPan({
+        x: initialPanRef.current.x + dx,
+        y: initialPanRef.current.y + dy,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDragging]);
+
   // Only actual ongoing streaming/processing requests activate the animated laser beam
   const activeProviderSet = useMemo(() => {
     const set = new Set<string>();
@@ -37,7 +108,8 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
     return set;
   }, [activeRequests]);
 
-  // Filter and sort providers, prioritizing active ones and capping to avoid card collision
+  // Filter and sort providers STABLY: active providers first, then alphabetical.
+  // Note: We DO NOT sort by focusedProvider here, preventing nodes from jumping positions upon click!
   const { displayProviders, totalCount } = useMemo(() => {
     const rawList = [...providers];
     for (const req of activeRequests) {
@@ -49,16 +121,12 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       return lower !== "unknown" && lower !== "null" && lower !== "undefined";
     });
 
-    // Sort: active providers first, then focused provider, then alphabetical
+    // Stable sort: active providers first, then alphabetical by name
     const sorted = filtered.sort((a, b) => {
       const aActive = activeProviderSet.has(a.toLowerCase());
       const bActive = activeProviderSet.has(b.toLowerCase());
       if (aActive && !bActive) return -1;
       if (!aActive && bActive) return 1;
-      if (focusedProvider) {
-        if (a.toLowerCase() === focusedProvider.toLowerCase()) return -1;
-        if (b.toLowerCase() === focusedProvider.toLowerCase()) return 1;
-      }
       return a.localeCompare(b);
     });
 
@@ -66,7 +134,7 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       displayProviders: sorted.slice(0, 10),
       totalCount: sorted.length,
     };
-  }, [providers, activeRequests, activeProviderSet, focusedProvider]);
+  }, [providers, activeRequests, activeProviderSet]);
 
   // Center coordinate of our normalized 800x440 SVG canvas
   const centerX = 400;
@@ -86,7 +154,8 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       const isProvActive =
         activeProviderSet.has(provId.toLowerCase()) ||
         activeProviderSet.has(meta.id.toLowerCase());
-      const isProvFocused = focusedProvider?.toLowerCase() === provId.toLowerCase() ||
+      const isProvFocused =
+        focusedProvider?.toLowerCase() === provId.toLowerCase() ||
         focusedProvider?.toLowerCase() === meta.id.toLowerCase();
 
       // Distribute evenly around 360 degrees starting from -90 deg (top)
@@ -152,6 +221,42 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
+          {/* Zoom controls */}
+          <div className="flex items-center bg-[#070A11] border border-[#1E293B] rounded-lg p-0.5 mr-1">
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              className="p-1 hover:text-white text-slate-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
+              title="Zoom In"
+              aria-label="Zoom In"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <span className="px-1.5 text-[10px] font-mono text-slate-400 select-none min-w-[34px] text-center">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              className="p-1 hover:text-white text-slate-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
+              title="Zoom Out"
+              aria-label="Zoom Out"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            {(zoom !== 1 || pan.x !== 0 || pan.y !== 0) && (
+              <button
+                type="button"
+                onClick={handleResetView}
+                className="p-1 hover:text-cyan-400 text-slate-400 hover:bg-slate-800 rounded transition-colors cursor-pointer ml-0.5 border-l border-[#1E293B]"
+                title="Reset View"
+                aria-label="Reset View"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center gap-1.5 text-slate-400">
             <span className="w-2 h-2 rounded-full bg-slate-600" />
             <span>Idle</span>
@@ -164,14 +269,28 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
       </div>
 
       {/* Main Canvas Container */}
-      <div className="relative h-72 sm:h-80 w-full rounded-lg overflow-hidden bg-[#070A11] border border-[#162032] flex items-center justify-center">
+      <div
+        ref={containerRef}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        className={`relative h-72 sm:h-80 w-full rounded-lg overflow-hidden bg-[#070A11] border border-[#162032] flex items-center justify-center select-none ${
+          isDragging ? "cursor-grabbing" : "cursor-grab"
+        }`}
+      >
         {displayProviders.length === 0 ? (
           <div className="text-center p-6 text-slate-500 text-xs sm:text-sm">
             <Network className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-60" />
             <p>No upstream provider traffic recorded yet</p>
           </div>
         ) : (
-          <div className="relative w-full h-full select-none">
+          <div
+            className="relative w-full h-full will-change-transform"
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              transformOrigin: "center center",
+              transition: isDragging ? "none" : "transform 0.15s ease-out",
+            }}
+          >
             {/* SVG Background Layer for Curved Bézier Links & Flowing Plasma */}
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
@@ -313,11 +432,14 @@ export const ProviderTopology: React.FC<ProviderTopologyProps> = ({
                     className="overflow-visible pointer-events-auto"
                   >
                     <div
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // If user was dragging canvas, do not toggle focus
+                        if (hasMovedRef.current) return;
                         setFocusedProvider((curr) =>
                           curr === item.id ? null : item.id
                         )
-                      }
+                      }}
                       className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border-2 transition-all duration-300 cursor-pointer select-none bg-[#0B0F19] ${
                         item.isActive
                           ? "shadow-[0_0_18px_rgba(56,189,248,0.4)]"
