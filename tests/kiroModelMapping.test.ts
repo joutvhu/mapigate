@@ -95,56 +95,41 @@ describe("Kiro Model Mapping & Slug Normalization", () => {
     assert.equal(resolveModelMapping("kiro", "unknown-random-model"), null);
   });
 
-  it("automatically migrates legacy display-name rows in SQLite to kebab-case while preserving target_model", () => {
+  it("stores and retrieves kebab-case mappings while preserving target_model", () => {
     const db = getDatabase();
 
-    // Insert legacy format rows into mitm_mappings
+    // Insert standard kebab-case rows into mitm_mappings
     db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'Claude Sonnet 4.5', 'anthropic/claude-3-7-sonnet')"
+      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'claude-sonnet-4.5', 'anthropic/claude-3-7-sonnet')"
     );
     db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'Auto (Kiro Agent)', 'combo/default-combo')"
+      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'auto', 'combo/default-combo')"
     );
     db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'GPT 5.6 Sol', 'openai/gpt-5-sol')"
+      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'gpt-5.6-sol', 'openai/gpt-5-sol')"
     );
     db.run(
       "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'custom-special-model', 'custom/my-target')"
     );
 
-    // Calling getMappings triggers auto-migration
-    const migrated = MitmRepository.getMappings("kiro");
+    const mappings = MitmRepository.getMappings("kiro");
 
-    // Legacy display names must no longer exist as source_model
-    assert.equal(migrated.some((m) => m.sourceModel === "Claude Sonnet 4.5"), false);
-    assert.equal(migrated.some((m) => m.sourceModel === "Auto (Kiro Agent)"), false);
-    assert.equal(migrated.some((m) => m.sourceModel === "GPT 5.6 Sol"), false);
-
-    // Standard kebab-case models must have preserved the user's targetModel
-    const sonnet = migrated.find((m) => m.sourceModel === "claude-sonnet-4.5");
+    const sonnet = mappings.find((m) => m.sourceModel === "claude-sonnet-4.5");
     assert.ok(sonnet);
     assert.equal(sonnet.targetModel, "anthropic/claude-3-7-sonnet");
 
-    const auto = migrated.find((m) => m.sourceModel === "auto");
+    const auto = mappings.find((m) => m.sourceModel === "auto");
     assert.ok(auto);
     assert.equal(auto.targetModel, "combo/default-combo");
 
-    const sol = migrated.find((m) => m.sourceModel === "gpt-5.6-sol");
+    const sol = mappings.find((m) => m.sourceModel === "gpt-5.6-sol");
     assert.ok(sol);
     assert.equal(sol.targetModel, "openai/gpt-5-sol");
 
     // Custom model must be preserved
-    const custom = migrated.find((m) => m.sourceModel === "custom-special-model");
+    const custom = mappings.find((m) => m.sourceModel === "custom-special-model");
     assert.ok(custom);
     assert.equal(custom.targetModel, "custom/my-target");
-
-    // All standard defaults should be present
-    for (const def of DEFAULT_KIRO_MAPPINGS) {
-      assert.ok(
-        migrated.some((m) => m.sourceModel === def.sourceModel),
-        `Default model '${def.sourceModel}' missing after migration`
-      );
-    }
   });
 
   it("handles smart resetMappings preserving user choices across kebab-case", () => {

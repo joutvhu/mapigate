@@ -29,24 +29,6 @@ export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = getDefaultMappings("a
 export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = getDefaultMappings("copilot");
 export const DEFAULT_CURSOR_MAPPINGS: MitmMapping[] = getDefaultMappings("cursor");
 
-export const LEGACY_KIRO_DISPLAY_TO_SLUG: Record<string, string> = {
-  "auto (kiro agent)": "auto",
-  "auto": "auto",
-  "simple-task": "simple-task",
-  "claude sonnet 5": "claude-sonnet-5",
-  "claude sonnet 4.5": "claude-sonnet-4.5",
-  "claude sonnet 4": "claude-sonnet-4",
-  "claude haiku 4.5": "claude-haiku-4.5",
-  "deepseek 3.2": "deepseek-3.2",
-  "minimax m2.5": "minimax-m2.5",
-  "minimax m2.1": "minimax-m2.1",
-  "gpt 5.6 sol": "gpt-5.6-sol",
-  "gpt 5.6 terra": "gpt-5.6-terra",
-  "gpt 5.6 luna": "gpt-5.6-luna",
-  "glm 5": "glm-5",
-  "qwen3 coder next": "qwen3-coder-next",
-};
-
 export class MitmRepository {
   public static getToolDnsStatus(tool: string): boolean {
     const db = getDatabase();
@@ -157,80 +139,8 @@ export class MitmRepository {
     });
   }
 
-  public static migrateToolDisplayMappings(db: DatabaseDriver, ide: string): void {
-    const rows = db.all<any>("SELECT source_model, target_model FROM mitm_mappings WHERE ide = ?", ide);
-    if (rows.length === 0) return;
-
-    const hasLegacy = rows.some((r: any) => {
-      const lower = String(r.source_model || "").toLowerCase();
-      return (
-        (ide === "kiro" && LEGACY_KIRO_DISPLAY_TO_SLUG[lower] !== undefined) ||
-        /[A-Z\s()]/.test(r.source_model)
-      );
-    });
-
-    if (!hasLegacy) return;
-
-    const targetMap = new Map<string, string>();
-    const customModels = new Set<string>();
-    const defaults = getDefaultMappings(ide);
-
-    for (const r of rows) {
-      const raw = String(r.source_model || "").trim();
-      const lower = raw.toLowerCase();
-      const canonical =
-        (ide === "kiro" && LEGACY_KIRO_DISPLAY_TO_SLUG[lower]) ||
-        lower
-          .replace(/[\s_]+/g, "-")
-          .replace(/[()]/g, "")
-          .replace(/\//g, "-")
-          .replace(/-+/g, "-");
-
-      const target = (r.target_model || "").trim();
-      if (target) {
-        if (!targetMap.has(canonical) || !targetMap.get(canonical)) {
-          targetMap.set(canonical, target);
-        }
-      } else if (!targetMap.has(canonical)) {
-        targetMap.set(canonical, "");
-      }
-
-      const isDefault = defaults.some((m) => m.sourceModel === canonical);
-      if (!isDefault) {
-        customModels.add(canonical);
-      }
-    }
-
-    db.run("DELETE FROM mitm_mappings WHERE ide = ?", ide);
-
-    for (const def of defaults) {
-      const tgt = targetMap.get(def.sourceModel) || "";
-      db.run(
-        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
-        ide,
-        def.sourceModel,
-        tgt
-      );
-    }
-
-    for (const cust of customModels) {
-      const tgt = targetMap.get(cust) || "";
-      db.run(
-        "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
-        ide,
-        cust,
-        tgt
-      );
-    }
-  }
-
-  public static migrateKiroMappings(db: DatabaseDriver): void {
-    this.migrateToolDisplayMappings(db, "kiro");
-  }
-
   public static getMappings(ide: string): MitmMapping[] {
     const db = getDatabase();
-    this.migrateToolDisplayMappings(db, ide.toLowerCase());
     const rows = db.all<any>("SELECT * FROM mitm_mappings WHERE ide = ?", ide);
     if (rows.length === 0) {
       const defaults = getDefaultMappings(ide);
@@ -265,15 +175,6 @@ export class MitmRepository {
     for (const r of currentRows) {
       if (r.target_model && r.target_model.trim().length > 0) {
         existingTargetMap.set(r.source_model, r.target_model.trim());
-        const lower = r.source_model.toLowerCase();
-        const canonical =
-          (ide.toLowerCase() === "kiro" && LEGACY_KIRO_DISPLAY_TO_SLUG[lower]) ||
-          lower
-            .replace(/[\s_]+/g, "-")
-            .replace(/[()]/g, "")
-            .replace(/\//g, "-")
-            .replace(/-+/g, "-");
-        existingTargetMap.set(canonical, r.target_model.trim());
       }
     }
 
