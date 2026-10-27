@@ -9,46 +9,31 @@ interface MitmMappingRow {
   targetModel: string;
 }
 
-const DEFAULT_TOOL_MODEL_ORDER: Record<string, string[]> = {
-  kiro: [
-    "claude-sonnet-4.5", "claude-sonnet-4", "claude-haiku-4.5", "claude-sonnet-5",
-    "deepseek-3.2", "minimax-m2.5", "minimax-m2.1", "glm-5",
-    "auto", "simple-task",
-    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
-    "qwen3-coder-next",
-  ],
-  antigravity: [
-    "Gemini 3.8 Flash (High)", "Gemini 3.8 Flash (Medium)", "Gemini 3.8 Flash (Low)",
-    "Gemini 3.7 Flash (High)", "Gemini 3.7 Flash (Medium)", "Gemini 3.7 Flash (Low)",
-    "Gemini 3.6 Flash (High)", "Gemini 3.6 Flash (Medium)", "Gemini 3.6 Flash (Low)",
-    "Gemini 3.1 Pro (High)", "Gemini 3.1 Pro (Low)", "Gemini 3.1 Pro (High) / Legacy",
-    "Claude Sonnet 5.5 (Thinking)", "Claude Sonnet 5.5 (High)", "Claude Sonnet 5.5 (Medium)", "Claude Sonnet 5.5 (Low)",
-    "Claude Opus 5.5 (Thinking)", "Claude Opus 5.5 (High)", "Claude Opus 5.5 (Medium)", "Claude Opus 5.5 (Low)",
-    "Claude Sonnet 4.6 (Thinking)", "Claude Opus 4.6 (Thinking)", "GPT-OSS 120B (Medium)",
-  ],
-  copilot: [
-    "gpt-4o", "claude-3.5-sonnet", "claude-3.7-sonnet", "o1",
-  ],
-  cursor: [
-    "claude-sonnet-4-5", "claude-opus-4", "gpt-4o",
-  ],
-};
-
-function sortMitmMappings(ide: string, mappings: MitmMappingRow[]): MitmMappingRow[] {
-  const known = DEFAULT_TOOL_MODEL_ORDER[ide.toLowerCase()] || [];
-  const rankMap = new Map<string, number>();
-  known.forEach((m, idx) => rankMap.set(m.toLowerCase(), idx));
-
+function sortMitmMappings(
+  mappings: MitmMappingRow[],
+  sortBy: "source" | "target" = "source",
+  sortOrder: "asc" | "desc" = "asc"
+): MitmMappingRow[] {
   return [...mappings].sort((a, b) => {
-    const rankA = rankMap.has(a.sourceModel.toLowerCase())
-      ? rankMap.get(a.sourceModel.toLowerCase())!
-      : 10000;
-    const rankB = rankMap.has(b.sourceModel.toLowerCase())
-      ? rankMap.get(b.sourceModel.toLowerCase())!
-      : 10000;
+    if (sortBy === "target") {
+      const valA = a.targetModel || "";
+      const valB = b.targetModel || "";
+      if (!valA && valB) return 1;
+      if (valA && !valB) return -1;
+      const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: "base" });
+      if (cmp !== 0) return sortOrder === "asc" ? cmp : -cmp;
+    }
 
-    if (rankA !== rankB) return rankA - rankB;
-    return a.sourceModel.localeCompare(b.sourceModel);
+    const isAutoA = a.sourceModel.toLowerCase() === "auto";
+    const isAutoB = b.sourceModel.toLowerCase() === "auto";
+    if (isAutoA && !isAutoB) return sortOrder === "asc" ? -1 : 1;
+    if (!isAutoA && isAutoB) return sortOrder === "asc" ? 1 : -1;
+
+    const cmp = a.sourceModel.localeCompare(b.sourceModel, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return sortOrder === "asc" ? cmp : -cmp;
   });
 }
 
@@ -142,6 +127,8 @@ export const MitmTab: React.FC = () => {
     copilot: [],
     cursor: [],
   });
+  const [sortColumnByTool, setSortColumnByTool] = useState<Record<string, "source" | "target">>({});
+  const [sortOrderByTool, setSortOrderByTool] = useState<Record<string, "asc" | "desc">>({});
 
   // Editing mapping
   const [editingTool, setEditingTool] = useState<string | null>(null);
@@ -806,8 +793,22 @@ export const MitmTab: React.FC = () => {
           const isDnsOn = Boolean(dnsStatus[tool.id]);
           const isEditingHosts = Boolean(editingHostsByTool[tool.id]);
           const toolHosts = hostsByTool[tool.id] || tool.defaultHost;
-          const toolMappings = sortMitmMappings(tool.id, mappingsByTool[tool.id] || []);
+          const sortBy = sortColumnByTool[tool.id] || "source";
+          const sortOrder = sortOrderByTool[tool.id] || "asc";
+          const toolMappings = sortMitmMappings(mappingsByTool[tool.id] || [], sortBy, sortOrder);
           const savedMsg = hostsSavedMsgByTool[tool.id];
+
+          const toggleSort = (col: "source" | "target") => {
+            if (sortBy === col) {
+              setSortOrderByTool((prev) => ({
+                ...prev,
+                [tool.id]: sortOrder === "asc" ? "desc" : "asc",
+              }));
+            } else {
+              setSortColumnByTool((prev) => ({ ...prev, [tool.id]: col }));
+              setSortOrderByTool((prev) => ({ ...prev, [tool.id]: "asc" }));
+            }
+          };
 
           return (
             <div key={tool.id} className="rt-card p-5 space-y-4">
@@ -991,8 +992,30 @@ export const MitmTab: React.FC = () => {
                         <table className="w-full text-left text-xs font-mono">
                           <thead className="bg-[#0D121F] text-slate-400 font-sans text-[11px] uppercase tracking-wider border-b border-[#1E293B]">
                             <tr>
-                              <th className="p-3 font-semibold">Source Model (IDE)</th>
-                              <th className="p-3 font-semibold">Target Model (Mapigate)</th>
+                              <th
+                                onClick={() => toggleSort("source")}
+                                className="p-3 font-semibold cursor-pointer hover:text-white select-none transition-colors"
+                                title="Click to sort by Source Model"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span>Source Model (IDE)</span>
+                                  <span className="material-symbols-outlined text-[14px] text-blue-400">
+                                    {sortBy === "source" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                                  </span>
+                                </div>
+                              </th>
+                              <th
+                                onClick={() => toggleSort("target")}
+                                className="p-3 font-semibold cursor-pointer hover:text-white select-none transition-colors"
+                                title="Click to sort by Target Model"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span>Target Model (Mapigate)</span>
+                                  <span className="material-symbols-outlined text-[14px] text-blue-400">
+                                    {sortBy === "target" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                                  </span>
+                                </div>
+                              </th>
                               <th className="p-3 font-semibold text-right">Actions</th>
                             </tr>
                           </thead>

@@ -203,24 +203,16 @@ export class MitmRepository {
   }
 
   public static sortMappingsCanonical(ide: string, mappings: MitmMapping[]): MitmMapping[] {
-    const defaults = getDefaultMappings(ide);
-    const orderMap = new Map<string, number>();
-    defaults.forEach((m, idx) => {
-      orderMap.set(m.sourceModel.toLowerCase(), idx);
-    });
-
     return [...mappings].sort((a, b) => {
-      const idxA = orderMap.has(a.sourceModel.toLowerCase())
-        ? orderMap.get(a.sourceModel.toLowerCase())!
-        : 10000;
-      const idxB = orderMap.has(b.sourceModel.toLowerCase())
-        ? orderMap.get(b.sourceModel.toLowerCase())!
-        : 10000;
+      const isAutoA = a.sourceModel.toLowerCase() === "auto";
+      const isAutoB = b.sourceModel.toLowerCase() === "auto";
+      if (isAutoA && !isAutoB) return -1;
+      if (!isAutoA && isAutoB) return 1;
 
-      if (idxA !== idxB) {
-        return idxA - idxB;
-      }
-      return a.sourceModel.localeCompare(b.sourceModel);
+      return a.sourceModel.localeCompare(b.sourceModel, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
     });
   }
 
