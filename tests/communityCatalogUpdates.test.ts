@@ -39,4 +39,9 @@ test("Community Catalog - Gonka Broker, Requesty, Inception, Routeway, Pollinati
   assert.ok(pollinations.models?.some((m) => m.id === "glm-5.3-flash"));
   assert.ok(pollinations.models?.some((m) => m.id === "gpt-oss-20b"));
   assert.ok(pollinations.models?.some((m) => m.id === "kimi-k2.6"));
+
+  const freeaiapikey = COMMUNITY_PROVIDERS_CATALOG.find((p) => p.id === "freeaiapikey");
+  assert.ok(freeaiapikey, "freeaiapikey must exist in community catalog");
+  assert.ok(freeaiapikey.models?.some((m) => m.id === "openai/gpt-6-sol"));
+  assert.ok(freeaiapikey.models?.some((m) => m.id === "anthropic/claude-opus-5.5"));
 });

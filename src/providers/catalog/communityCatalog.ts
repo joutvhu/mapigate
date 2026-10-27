@@ -1225,35 +1225,35 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
     "category": "apikey",
     "authType": "apikey",
     "website": "https://freeaiapikey.com",
-    "notice": "",
+    "notice": "OpenAI-compatible gateway with 100K free tokens daily ($2 signup credit). No credit card required.",
     "models": [
       {
-        "id": "openai/gpt-4o",
-        "name": "openai/gpt-4o",
+        "id": "openai/gpt-6-sol",
+        "name": "openai/gpt-6-sol",
         "isDefault": true,
         "contextLength": 128000
       },
       {
-        "id": "openai/gpt-5.4",
-        "name": "openai/gpt-5.4",
+        "id": "openai/gpt-6-astra",
+        "name": "openai/gpt-6-astra",
         "isDefault": false,
         "contextLength": 128000
       },
       {
-        "id": "openai/gpt-5.5",
-        "name": "openai/gpt-5.5",
+        "id": "anthropic/claude-opus-5.5",
+        "name": "anthropic/claude-opus-5.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "anthropic/claude-sonnet-5",
+        "name": "anthropic/claude-sonnet-5",
         "isDefault": false,
         "contextLength": 128000
       },
       {
         "id": "openai/gpt-5.6-sol",
         "name": "openai/gpt-5.6-sol",
-        "isDefault": false,
-        "contextLength": 128000
-      },
-      {
-        "id": "anthropic/claude-opus-4.6",
-        "name": "anthropic/claude-opus-4.6",
         "isDefault": false,
         "contextLength": 128000
       }
