@@ -49,8 +49,15 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
         }
 
         const lastMsg = anthropicMessages[anthropicMessages.length - 1];
-        if (lastMsg && lastMsg.role === "user" && Array.isArray(lastMsg.content)) {
-          lastMsg.content.push(toolResultBlock);
+        if (lastMsg && lastMsg.role === "user") {
+          if (Array.isArray(lastMsg.content)) {
+            lastMsg.content.push(toolResultBlock);
+          } else {
+            const existingText = typeof lastMsg.content === "string" ? lastMsg.content : "";
+            lastMsg.content = existingText
+              ? [{ type: "text", text: existingText }, toolResultBlock]
+              : [toolResultBlock];
+          }
         } else {
           anthropicMessages.push({
             role: "user",
@@ -140,18 +147,63 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
           }
         }
 
-        anthropicMessages.push({
-          role: "assistant",
-          content: contentBlocks.length === 1 && contentBlocks[0].type === "text" ? contentBlocks[0].text : contentBlocks,
-        });
+        const assistantContent =
+          contentBlocks.length === 1 && contentBlocks[0].type === "text"
+            ? contentBlocks[0].text
+            : contentBlocks.length > 0
+            ? contentBlocks
+            : "...";
+
+        const lastMsg = anthropicMessages[anthropicMessages.length - 1];
+        if (lastMsg && lastMsg.role === "assistant") {
+          const existingBlocks = Array.isArray(lastMsg.content)
+            ? lastMsg.content
+            : typeof lastMsg.content === "string" && lastMsg.content
+            ? [{ type: "text", text: lastMsg.content }]
+            : [];
+          const newBlocks = Array.isArray(assistantContent)
+            ? assistantContent
+            : typeof assistantContent === "string" && assistantContent
+            ? [{ type: "text", text: assistantContent }]
+            : [];
+          lastMsg.content = [...existingBlocks, ...newBlocks];
+        } else {
+          anthropicMessages.push({
+            role: "assistant",
+            content: assistantContent,
+          });
+        }
         continue;
       }
 
       // Default role: user
-      anthropicMessages.push({
-        role: "user",
-        content: convertOpenAiContentToAnthropic(msg.content),
-      });
+      const userContent = convertOpenAiContentToAnthropic(msg.content);
+      const lastMsg = anthropicMessages[anthropicMessages.length - 1];
+      if (lastMsg && lastMsg.role === "user") {
+        const existingBlocks = Array.isArray(lastMsg.content)
+          ? lastMsg.content
+          : typeof lastMsg.content === "string" && lastMsg.content
+          ? [{ type: "text", text: lastMsg.content }]
+          : [];
+        const newBlocks = Array.isArray(userContent)
+          ? userContent
+          : typeof userContent === "string" && userContent
+          ? [{ type: "text", text: userContent }]
+          : [];
+        lastMsg.content = [...existingBlocks, ...newBlocks];
+      } else {
+        anthropicMessages.push({
+          role: "user",
+          content: userContent,
+        });
+      }
+    }
+  }
+
+  // Clean empty content messages
+  for (const m of anthropicMessages) {
+    if (!m.content || (Array.isArray(m.content) && m.content.length === 0)) {
+      m.content = "...";
     }
   }
 

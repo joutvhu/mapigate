@@ -293,3 +293,58 @@ test("Integration - Settings System Info GET /api/settings/system-info", async (
   }
 });
 
+
+test("Security - requireApiKey fails closed (401) when enabled even with 0 active keys", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    // 1. Enable requireApiKey with NO active keys in database
+    SettingsRepository.setEndpointSettings({
+      host: "127.0.0.1",
+      port: 20127,
+      requireApiKey: true,
+      proxyUrl: "",
+      customHeaders: {},
+    });
+
+    // Clear any gateway keys
+    const allKeys = SettingsRepository.getGatewayApiKeys();
+    for (const k of allKeys) {
+      SettingsRepository.deleteGatewayApiKey(k.id);
+    }
+
+    // 2. Request /v1/chat/completions without key -> MUST be 401 Unauthorized
+    const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gpt-4o", messages: [{ role: "user", content: "Hi" }] }),
+    });
+
+    assert.equal(res.status, 401);
+    const body = (await res.json()) as any;
+    assert.equal(body.error?.type, "authentication_error");
+
+    // 3. Create an active key and verify it works
+    const created = SettingsRepository.createGatewayApiKey("Test Active Key");
+    const authedRes = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${created.key}`,
+      },
+      body: JSON.stringify({ model: "non-existent-model", messages: [{ role: "user", content: "Hi" }] }),
+    });
+
+    // Should pass gateway auth (status is 503 for non-existent model, NOT 401 gateway auth error)
+    assert.notEqual(authedRes.status, 401);
+
+    // Clean up
+    SettingsRepository.deleteGatewayApiKey(created.id);
+    SettingsRepository.setEndpointSettings(DEFAULT_ENDPOINT_SETTINGS);
+  } finally {
+    server.close();
+  }
+});

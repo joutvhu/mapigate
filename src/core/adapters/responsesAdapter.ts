@@ -518,6 +518,8 @@ function sendCompleted(state: ResponsesStreamState, emit: (event: string, data: 
         status: "completed",
         background: false,
         error: null,
+        output: collectCompletedOutputItems(state),
+        ...(state.responsesUsage ? { usage: state.responsesUsage } : {}),
       },
     });
   }

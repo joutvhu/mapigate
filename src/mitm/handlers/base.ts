@@ -3,11 +3,26 @@ import https from "node:https";
 import dns from "node:dns";
 import { promisify } from "node:util";
 import { HOST_REWRITE } from "../../shared/constants/mitmToolHosts.js";
+import { serverLifecycle } from "../../server/lifecycle.js";
 
 export const DEFAULT_ROUTER_BASE = "http://127.0.0.1:20127";
 export const ROUTER_BASE = String(process.env.MAPIGATE_BASE_URL || DEFAULT_ROUTER_BASE)
   .trim()
   .replace(/\/+$/, "");
+
+export function getRouterBaseUrl(): string {
+  if (process.env.MAPIGATE_BASE_URL) {
+    return process.env.MAPIGATE_BASE_URL.trim().replace(/\/+$/, "");
+  }
+  try {
+    const port = serverLifecycle.getPort();
+    const host = serverLifecycle.getHost() || "127.0.0.1";
+    const cleanHost = host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
+    return `http://${cleanHost}:${port}`;
+  } catch {
+    return DEFAULT_ROUTER_BASE;
+  }
+}
 
 const STRIP_HEADERS = new Set([
   "host",
@@ -110,7 +125,8 @@ export async function fetchRouter(
     }
   }
 
-  const response = await fetch(`${ROUTER_BASE}${path}`, {
+  const baseUrl = getRouterBaseUrl();
+  const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
     headers: {
       ...forwarded,

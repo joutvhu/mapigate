@@ -340,6 +340,11 @@ describe("Responses API Adapter & Endpoints", () => {
 
       const completed = finishEvents.find((e) => e.event === "response.completed");
       assert.equal(completed?.data.response.status, "completed");
+      assert.ok(Array.isArray(completed?.data.response.output), "Must include output array in response.completed");
+      assert.equal(completed?.data.response.output.length, 1);
+      assert.equal(completed?.data.response.output[0].type, "message");
+      assert.equal(completed?.data.response.output[0].content[0].text, "Hello world!");
+      assert.equal(completed?.data.response.usage?.total_tokens, 15);
     });
 
     it("finishes cleanly when upstream stream produces 0 text without synthesizing artificial fallback text (9router standard)", async () => {

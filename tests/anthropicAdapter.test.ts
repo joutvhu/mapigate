@@ -668,3 +668,48 @@ test("AnthropicAdapter - bidirectional effort translation (output_config.effort 
   const anthropicOut = AnthropicAdapter.openAiToAnthropic(openAiReq);
   assert.deepEqual(anthropicOut.output_config, { effort: "max" });
 });
+
+test("AnthropicAdapter - openAiToAnthropic merges adjacent same-role messages ensuring strict role alternation", () => {
+  const openAiPayload = {
+    model: "claude-sonnet-4-5",
+    messages: [
+      { role: "user", content: "First turn" },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_read_1",
+            type: "function",
+            function: { name: "read_file", arguments: '{"path":"main.ts"}' },
+          },
+        ],
+      },
+      // Tool message (converts to role: 'user')
+      { role: "tool", tool_call_id: "call_read_1", content: "console.log('hello');" },
+      // Followed immediately by user text message
+      { role: "user", content: "Now explain the file" },
+      // Followed by another user prompt
+      { role: "user", content: "And summarize it" },
+    ],
+  };
+
+  const anthropicPayload = AnthropicAdapter.openAiToAnthropic(openAiPayload);
+
+  // Must have exactly 3 turns: user -> assistant -> user (merged)
+  assert.equal(anthropicPayload.messages.length, 3);
+  assert.equal(anthropicPayload.messages[0].role, "user");
+  assert.equal(anthropicPayload.messages[1].role, "assistant");
+  assert.equal(anthropicPayload.messages[2].role, "user");
+
+  // Verify the 3 user turns were merged into array blocks of message[2]
+  const lastUserTurn = anthropicPayload.messages[2];
+  assert.ok(Array.isArray(lastUserTurn.content));
+  assert.equal(lastUserTurn.content.length, 3);
+  assert.equal(lastUserTurn.content[0].type, "tool_result");
+  assert.equal(lastUserTurn.content[0].tool_use_id, "call_read_1");
+  assert.equal(lastUserTurn.content[1].type, "text");
+  assert.equal(lastUserTurn.content[1].text, "Now explain the file");
+  assert.equal(lastUserTurn.content[2].type, "text");
+  assert.equal(lastUserTurn.content[2].text, "And summarize it");
+});

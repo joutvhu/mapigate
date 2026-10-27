@@ -36,26 +36,34 @@ export async function requestKiroDeviceCode(options?: {
   const deviceAuthUrl = `https://oidc.${region}.amazonaws.com/device_authorization`;
 
   // Step 1: Register client with AWS SSO OIDC
+  const registerPayload: any = {
+    clientName: "kiro-oauth-client",
+    clientType: "public",
+    scopes: [
+      "codewhisperer:completions",
+      "codewhisperer:analysis",
+      "codewhisperer:conversations",
+    ],
+    grantTypes: [
+      "urn:ietf:params:oauth:grant-type:device_code",
+      "refresh_token",
+    ],
+  };
+
+  // Only attach default issuerUrl for standard Builder ID flow.
+  // For custom enterprise IDC tenants (e.g. https://d-tenant.awsapps.com/start),
+  // sending a foreign issuerUrl causes AWS OIDC registration rejection.
+  if (authMethod !== "idc" && (!options?.startUrl || options.startUrl.trim() === DEFAULT_START_URL)) {
+    registerPayload.issuerUrl = "https://identitycenter.amazonaws.com/ssoins-722374e8c3c8e6c6";
+  }
+
   const regRes = await fetch(registerClientUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({
-      clientName: "kiro-oauth-client",
-      clientType: "public",
-      scopes: [
-        "codewhisperer:completions",
-        "codewhisperer:analysis",
-        "codewhisperer:conversations",
-      ],
-      grantTypes: [
-        "urn:ietf:params:oauth:grant-type:device_code",
-        "refresh_token",
-      ],
-      issuerUrl: "https://identitycenter.amazonaws.com/ssoins-722374e8c3c8e6c6",
-    }),
+    body: JSON.stringify(registerPayload),
   });
 
   if (!regRes.ok) {
