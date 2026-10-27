@@ -8,6 +8,7 @@ export interface PortalModalProps {
   children: React.ReactNode;
   maxWidthClass?: string;
   className?: string;
+  overflowHidden?: boolean;
 }
 
 export const PortalModal: React.FC<PortalModalProps> = ({
@@ -16,6 +17,7 @@ export const PortalModal: React.FC<PortalModalProps> = ({
   children,
   maxWidthClass = "max-w-xl",
   className = "",
+  overflowHidden = false,
 }) => {
   const { backdropProps } = useBackdropClose(onClose);
 
@@ -40,6 +42,12 @@ export const PortalModal: React.FC<PortalModalProps> = ({
 
   if (!isOpen || typeof document === "undefined") return null;
 
+  const overflowClass = overflowHidden
+    ? "overflow-hidden"
+    : className.includes("overflow-")
+    ? ""
+    : "overflow-visible";
+
   return createPortal(
     <div
       role="dialog"
@@ -48,7 +56,7 @@ export const PortalModal: React.FC<PortalModalProps> = ({
       {...backdropProps}
     >
       <div
-        className={`w-full ${maxWidthClass} bg-[#0F1420] border border-[#1E293B] rounded-2xl shadow-2xl overflow-hidden p-6 animate-rt-scale-in text-slate-100 ${className}`}
+        className={`w-full ${maxWidthClass} bg-[#0F1420] border border-[#1E293B] rounded-2xl shadow-2xl p-6 animate-rt-scale-in text-slate-100 ${overflowClass} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

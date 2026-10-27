@@ -92,9 +92,25 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const [filterConnected, setFilterConnected] = useState(connectedOnly);
+  const [placement, setPlacement] = useState<"bottom" | "top">("bottom");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const dropdownHeight = 280;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+
+      if (spaceBelow < dropdownHeight && spaceAbove > spaceBelow) {
+        setPlacement("top");
+      } else {
+        setPlacement("bottom");
+      }
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     let isMounted = true;
@@ -308,7 +324,11 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
       )}
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl bg-[#0A0D14] border border-[#1E293B] shadow-2xl overflow-hidden animate-rt-scale-in min-w-[280px]">
+        <div
+          className={`absolute left-0 right-0 ${
+            placement === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"
+          } z-50 rounded-xl bg-[#0A0D14] border border-[#1E293B] shadow-2xl overflow-hidden animate-rt-scale-in min-w-[280px]`}
+        >
           {/* Header with filter toggle */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-[#1E293B] bg-[#05070B] text-[11px]">
             <span className="text-slate-400 font-mono text-[10.5px]">
