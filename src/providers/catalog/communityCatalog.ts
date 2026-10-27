@@ -104,18 +104,30 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
   },
   {
     "id": "inception",
-    "name": "Inception",
+    "name": "Inception Labs",
     "baseUrl": "https://api.inceptionlabs.ai/v1/chat/completions",
     "format": "openai",
     "category": "apikey",
     "authType": "apikey",
-    "website": "https://docs.inceptionlabs.ai",
-    "notice": "",
+    "website": "https://inceptionlabs.ai",
+    "notice": "Ultra-fast diffusion-based language models (Mercury series).",
     "models": [
+      {
+        "id": "mercury-3",
+        "name": "mercury-3",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "mercury-2.5",
+        "name": "mercury-2.5",
+        "isDefault": false,
+        "contextLength": 128000
+      },
       {
         "id": "mercury-2",
         "name": "mercury-2",
-        "isDefault": true,
+        "isDefault": false,
         "contextLength": 128000
       }
     ]
@@ -1556,12 +1568,30 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
     "category": "apikey",
     "authType": "apikey",
     "website": "https://routeway.ai",
-    "notice": "",
+    "notice": "Routeway AI Router with daily free quotas on :free models (5 RPM, 200 req/day).",
     "models": [
+      {
+        "id": "deepseek-v4-flash:free",
+        "name": "deepseek-v4-flash:free",
+        "isDefault": true,
+        "contextLength": 128000
+      },
+      {
+        "id": "minimax-m2.7:free",
+        "name": "minimax-m2.7:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "muse-glimmer-30b:free",
+        "name": "muse-glimmer-30b:free",
+        "isDefault": false,
+        "contextLength": 128000
+      },
       {
         "id": "llama-3.3-70b-instruct:free",
         "name": "llama-3.3-70b-instruct:free",
-        "isDefault": true,
+        "isDefault": false,
         "contextLength": 128000
       },
       {
@@ -2123,8 +2153,32 @@ export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
     "category": "optional",
     "authType": "optional",
     "website": "https://pollinations.ai",
-    "notice": "",
+    "notice": "Pollinations.ai community inference. Free access to text and coding models via Pollen tokens.",
     "models": [
+      {
+        "id": "mistral-large-3",
+        "name": "mistral-large-3",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "glm-5.3-flash",
+        "name": "glm-5.3-flash",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "gpt-oss-20b",
+        "name": "gpt-oss-20b",
+        "isDefault": false,
+        "contextLength": 128000
+      },
+      {
+        "id": "kimi-k2.6",
+        "name": "kimi-k2.6",
+        "isDefault": false,
+        "contextLength": 128000
+      },
       {
         "id": "openai",
         "name": "openai",

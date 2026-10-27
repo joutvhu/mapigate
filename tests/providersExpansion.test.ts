@@ -150,7 +150,7 @@ test("Providers Expansion - Deduplication Invariant", () => {
   assert.equal(resolvedMimo.id, "mimo");
 });
 
-test("Providers Expansion - Community Providers Catalog (P3)", () => {
+test("Providers Expansion - Community Providers Catalog", () => {
   const catalogPath = path.resolve("src/shared/constants/communityProvidersCatalog.json");
   assert.ok(fs.existsSync(catalogPath), "communityProvidersCatalog.json must exist");
 
