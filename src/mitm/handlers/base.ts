@@ -53,7 +53,16 @@ export async function passthroughHttps(
 
   try {
     const targetIP = await resolveTargetIP(targetHost);
-    const headers = { ...req.headers, host: targetHost };
+    if (targetIP === "127.0.0.1" || targetIP === "::1" || targetIP.startsWith("127.")) {
+      console.error(`[MITM Passthrough] Target IP for ${targetHost} resolved to loopback (${targetIP}). Aborting forward to prevent infinite recursion.`);
+      if (!res.headersSent) {
+        res.writeHead(502, { "Content-Type": "application/json" });
+      }
+      res.end(JSON.stringify({ error: { message: "Bad Gateway: DNS resolution pointed to local loopback", type: "mitm_loop_prevention" } }));
+      return;
+    }
+
+    const headers = { ...req.headers, host: targetHost, "x-mapigate-mitm-loop": "1" };
     if (bodyBuffer.length > 0) {
       headers["content-length"] = String(bodyBuffer.length);
     }

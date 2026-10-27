@@ -126,6 +126,14 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
       return;
     }
 
+    // Loop detection guard (MITM-02)
+    if (req.headers["x-mapigate-mitm-loop"]) {
+      console.warn(`[MITM Server] Infinite proxy loop detected for ${req.headers.host || ""}${req.url || ""}`);
+      res.writeHead(508, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { message: "Infinite MITM loop detected", type: "mitm_loop_error" } }));
+      return;
+    }
+
     const bodyBuffer = await collectBody(req);
 
     // Anti-loop: skip requests originated from Mapigate itself

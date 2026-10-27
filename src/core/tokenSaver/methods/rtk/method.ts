@@ -54,11 +54,12 @@ export class RtkMethod implements ITokenSaverMethod {
       return { text: output, tokensSaved: 0 };
     }
 
-    // Do NOT compress JSON structures
+    // Do NOT compress JSON structures (bound length to prevent V8 main-thread freeze, RTK-06)
     const trimmed = output.trim();
     if (
-      (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-      (trimmed.startsWith("[") && trimmed.endsWith("]"))
+      trimmed.length < 100_000 &&
+      ((trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+        (trimmed.startsWith("[") && trimmed.endsWith("]")))
     ) {
       try {
         JSON.parse(trimmed);
@@ -66,6 +67,17 @@ export class RtkMethod implements ITokenSaverMethod {
       } catch {
         // Not valid JSON, proceed
       }
+    }
+
+    // Preserve diagnostic error traces & test failures (RTK-04)
+    if (
+      /Traceback \(most recent call last\):/i.test(output) ||
+      /\b(SyntaxError|ReferenceError|TypeError|RangeError|AssertionError)\b/.test(output) ||
+      /\berror TS\d+:/.test(output) ||
+      /\b(FATAL|PANIC|CRITICAL)\b/.test(output) ||
+      /\b(FAILED|FAILURE)\b.*(test|spec)/i.test(output)
+    ) {
+      return { text: output, tokensSaved: 0 };
     }
 
     try {
@@ -226,10 +238,16 @@ export class RtkMethod implements ITokenSaverMethod {
 
           // Shape: Anthropic tool_result blocks in content array
           if (Array.isArray(msg.content)) {
+            // Preserve Anthropic message-level prompt cache breakpoint
+            if (msg.cache_control) continue;
+
             for (const block of msg.content) {
               if (!block || block.type !== "tool_result") continue;
               // Preserve error traces
               if (block.is_error === true) continue;
+              // Preserve Anthropic block-level prompt cache breakpoint (RTK-02)
+              // Modifying cached tool_result content breaks the prefix hash, causing 100% cache miss (10x cost spike)
+              if (block.cache_control) continue;
 
               if (typeof block.content === "string") {
                 const { text, tokensSaved, filterName } = this.compressText(block.content);

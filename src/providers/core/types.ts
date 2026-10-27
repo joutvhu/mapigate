@@ -136,6 +136,7 @@ export interface ProviderRequestContext {
   rtkStats: { compressedTokens: number; tokensSaved: number };
   apiKeyId?: string;
   apiKeyName?: string;
+  abortController?: AbortController;
 }
 
 export interface IProvider {

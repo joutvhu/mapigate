@@ -40,12 +40,12 @@ export function gitDiff(diff: string, maxLines = 500): string {
       }
       inHunk = true;
       hunkShown = 0;
-      result.push(`  ${line}`);
+      result.push(line);
     } else if (inHunk) {
       if (line.startsWith("+") && !line.startsWith("+++")) {
         added += 1;
         if (hunkShown < maxHunkLines) {
-          result.push(`  ${line}`);
+          result.push(line);
           hunkShown += 1;
         } else {
           hunkSkipped += 1;
@@ -53,16 +53,14 @@ export function gitDiff(diff: string, maxLines = 500): string {
       } else if (line.startsWith("-") && !line.startsWith("---")) {
         removed += 1;
         if (hunkShown < maxHunkLines) {
-          result.push(`  ${line}`);
+          result.push(line);
           hunkShown += 1;
         } else {
           hunkSkipped += 1;
         }
       } else if (hunkShown < maxHunkLines && !line.startsWith("\\")) {
-        if (hunkShown > 0) {
-          result.push(`  ${line}`);
-          hunkShown += 1;
-        }
+        result.push(line);
+        hunkShown += 1;
       }
     }
 

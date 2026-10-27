@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { DatabaseSync } from "node:sqlite";
+import { createRequire } from "node:module";
 import { getDefaultDataDir, MAPIGATE_DB_FILE, isTestEnvironment } from "../shared/constants/index.js";
+
+const nodeRequire = createRequire(import.meta.url);
 
 export interface DatabaseDriver {
   exec(sql: string): void;
@@ -22,10 +24,10 @@ function cleanParams(params: any[]): any[] {
 }
 
 class NodeSqliteDriver implements DatabaseDriver {
-  private db: DatabaseSync;
+  private db: any;
 
-  constructor(filePath: string) {
-    this.db = new DatabaseSync(filePath);
+  constructor(filePath: string, DatabaseSyncCtor: any) {
+    this.db = new DatabaseSyncCtor(filePath);
     this.initPragmas();
   }
 
@@ -34,6 +36,8 @@ class NodeSqliteDriver implements DatabaseDriver {
     this.db.exec("PRAGMA synchronous = NORMAL;");
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.db.exec("PRAGMA busy_timeout = 5000;");
+    this.db.exec("PRAGMA cache_size = -64000;");
+    this.db.exec("PRAGMA temp_store = MEMORY;");
   }
 
   public exec(sql: string): void {
@@ -61,11 +65,88 @@ class NodeSqliteDriver implements DatabaseDriver {
 
   public close(): void {
     try {
+      this.db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
+    } catch {}
+    try {
       this.db.close();
     } catch {
       // Ignored if already closed
     }
   }
+}
+
+class BetterSqliteDriver implements DatabaseDriver {
+  private db: any;
+
+  constructor(filePath: string, BetterSqliteCtor: any) {
+    this.db = new BetterSqliteCtor(filePath);
+    this.initPragmas();
+  }
+
+  private initPragmas() {
+    this.db.pragma("journal_mode = WAL");
+    this.db.pragma("synchronous = NORMAL");
+    this.db.pragma("foreign_keys = ON");
+    this.db.pragma("busy_timeout = 5000");
+    this.db.pragma("cache_size = -64000");
+    this.db.pragma("temp_store = MEMORY");
+  }
+
+  public exec(sql: string): void {
+    this.db.exec(sql);
+  }
+
+  public run(sql: string, ...params: any[]): { changes: number; lastInsertRowid: number | bigint } {
+    const stmt = this.db.prepare(sql);
+    const result = stmt.run(...cleanParams(params));
+    return {
+      changes: Number(result.changes),
+      lastInsertRowid: result.lastInsertRowid,
+    };
+  }
+
+  public get<T = any>(sql: string, ...params: any[]): T | undefined {
+    const stmt = this.db.prepare(sql);
+    return stmt.get(...cleanParams(params)) as T | undefined;
+  }
+
+  public all<T = any>(sql: string, ...params: any[]): T[] {
+    const stmt = this.db.prepare(sql);
+    return stmt.all(...cleanParams(params)) as T[];
+  }
+
+  public close(): void {
+    try {
+      this.db.pragma("wal_checkpoint(TRUNCATE)");
+    } catch {}
+    try {
+      this.db.close();
+    } catch {
+      // Ignored if already closed
+    }
+  }
+}
+
+function createDriver(dbPath: string): DatabaseDriver {
+  // 1. Try better-sqlite3 first if installed
+  try {
+    const betterSqlite = nodeRequire("better-sqlite3");
+    if (betterSqlite) {
+      return new BetterSqliteDriver(dbPath, betterSqlite);
+    }
+  } catch {}
+
+  // 2. Try node:sqlite (Node 22.5.0+)
+  try {
+    const { DatabaseSync } = nodeRequire("node:sqlite");
+    if (DatabaseSync) {
+      return new NodeSqliteDriver(dbPath, DatabaseSync);
+    }
+  } catch {}
+
+  throw new Error(
+    "[Database] No compatible SQLite driver found. Please use Node.js >= 22.5.0 or install 'better-sqlite3'."
+  );
 }
 
 let dbInstance: DatabaseDriver | null = null;
@@ -90,7 +171,7 @@ export function getDatabase(): DatabaseDriver {
   }
 
   const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
-  dbInstance = new NodeSqliteDriver(dbPath);
+  dbInstance = createDriver(dbPath);
 
   // Hook cleanup on process exit
   const cleanup = () => {

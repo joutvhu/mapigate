@@ -32,6 +32,7 @@ export async function pipeBedrockEventStream(
   const onClose = () => {
     clientDisconnected = true;
     reader.cancel().catch(() => {});
+    context.abortController?.abort();
   };
 
   if (typeof clientRes?.once === "function") {
@@ -65,6 +66,67 @@ export async function pipeBedrockEventStream(
 
       for (const frame of frames) {
         if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
+
+        const messageType = frame.headers?.[":message-type"];
+        if (messageType === "exception" || messageType === "error") {
+          const errorType =
+            frame.headers?.[":exception-type"] ||
+            frame.headers?.[":error-code"] ||
+            "bedrock_exception";
+          const rawErrPayload = frame.payload
+            ? typeof frame.payload === "string"
+              ? frame.payload
+              : frame.payload.bytes
+              ? Buffer.from(frame.payload.bytes, "base64").toString("utf8")
+              : JSON.stringify(frame.payload)
+            : "";
+          let errorMsg = frame.headers?.[":error-message"] || "Bedrock EventStream exception";
+          try {
+            const parsedErr = JSON.parse(rawErrPayload);
+            if (parsedErr.message || parsedErr.Message) {
+              errorMsg = parsedErr.message || parsedErr.Message;
+            }
+          } catch {}
+
+          logger.errorLine(reqTag || "BEDROCK", LogSymbol.ERROR, `Bedrock error: ${errorType} - ${errorMsg}`);
+          if (clientFormat === "anthropic") {
+            safeWrite(
+              `event: error\ndata: ${JSON.stringify({
+                type: "error",
+                error: { type: errorType, message: errorMsg },
+              })}\n\n`
+            );
+          } else if (clientFormat === "responses") {
+            safeWrite(
+              `event: response.failed\ndata: ${JSON.stringify({
+                type: "response.failed",
+                response: { id: `resp_${requestId}`, status: "failed", error: { type: errorType, message: errorMsg } },
+              })}\n\n`
+            );
+            safeWrite("data: [DONE]\n\n");
+          } else {
+            safeWrite(
+              `data: ${JSON.stringify({
+                error: { message: errorMsg, type: errorType, code: errorType },
+              })}\n\n`
+            );
+            safeWrite("data: [DONE]\n\n");
+          }
+          try {
+            clientRes.end();
+          } catch {}
+          return {
+            inputTokens: state.promptTokens,
+            outputTokens: 0,
+            cachedTokens: 0,
+            cacheCreationTokens: 0,
+            reasoningTokens: 0,
+            tools: state.tools,
+            ttftMs: state.ttftMs || Date.now() - startTime,
+            totalDurationMs: Date.now() - startTime,
+          };
+        }
+
         if (!frame.payload?.bytes) continue;
         try {
           const rawEventString = Buffer.from(frame.payload.bytes, "base64").toString("utf8");

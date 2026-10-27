@@ -85,6 +85,7 @@ export async function pipeSseStream(
   const onClose = () => {
     clientDisconnected = true;
     reader.cancel().catch(() => {});
+    context.abortController?.abort();
   };
 
   if (typeof clientRes?.once === "function") {
@@ -123,9 +124,6 @@ export async function pipeSseStream(
 
         if (line.startsWith("event:")) {
           currentEventName = line.slice(6).trim();
-          if (clientFormat === "anthropic" && targetFormat === "claude") {
-            safeWrite(rawLine + "\n");
-          }
           continue;
         }
 
@@ -214,11 +212,15 @@ export async function pipeSseStream(
               claudeToOpenAiState
             );
             for (const ch of openAiChunks) {
+              if (ch.includes("[DONE]")) {
+                doneSent = true;
+              }
               safeWrite(ch);
             }
           } else {
             if (currentEventName && clientFormat === "anthropic") {
               safeWrite(`event: ${currentEventName}\n`);
+              currentEventName = "";
             }
             if (provider.transformResponseChunk || chunkModified) {
               safeWrite(`data: ${JSON.stringify(jsonChunk)}\n\n`);

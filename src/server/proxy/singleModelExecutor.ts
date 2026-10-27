@@ -240,6 +240,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       (globalSettings.proxyUrl && globalSettings.proxyUrl.trim()) || "";
 
     const abortController = new AbortController();
+    context.abortController = abortController;
     const onClientClose = () => {
       abortController.abort();
     };
@@ -337,9 +338,33 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         },
         rawText: `[${reqTag}] ❌ FETCH FAILED · ${provider.id}/${targetModel} · ${durationMs}ms\n    ${cleanErrText}`,
       });
+
+      // Attempt intra-provider failover on network / connection failure (RES-02)
+      if (account) {
+        const cdMs = 5000;
+        if (
+          tryFailover(
+            targetProviderId,
+            account,
+            502,
+            cdMs,
+            triedAccountIds,
+            targetModel,
+            reqTag,
+            false,
+            prefixHash || undefined,
+            sessionId
+          )
+        ) {
+          lastFailureResult = { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
+          continue;
+        }
+      }
+
       return { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
     } finally {
-      if (typeof res?.removeListener === "function") {
+      const willStream = upstreamRes?.ok && upstreamBody?.stream !== false && !isPanel;
+      if (!willStream && typeof res?.removeListener === "function") {
         res.removeListener("close", onClientClose);
       }
     }
@@ -373,8 +398,15 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         status: upstreamRes.status, errorText: cleanErrText, headers: upstreamRes.headers,
       });
 
-      if (resFailure.rateLimited && account) {
-        const cdMs = resFailure.cooldownMs || 60_000;
+      const shouldFailover =
+        resFailure.rateLimited ||
+        upstreamRes.status >= 500 ||
+        upstreamRes.status === 401 ||
+        upstreamRes.status === 403 ||
+        upstreamRes.status === 404;
+
+      if (shouldFailover && account) {
+        const cdMs = resFailure.cooldownMs || (resFailure.rateLimited ? 60_000 : 5000);
         if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined, sessionId)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
           continue;

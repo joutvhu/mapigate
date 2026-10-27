@@ -8,6 +8,7 @@ import { gitDiff } from "./filters/gitDiff.js";
 import { gitStatus } from "./filters/gitStatus.js";
 import { gitLog } from "./filters/gitLog.js";
 import { buildOutput } from "./filters/buildOutput.js";
+import { terminalLogs } from "./filters/terminalLogs.js";
 import { grep } from "./filters/grep.js";
 import { find } from "./filters/find.js";
 import { dedupLog } from "./filters/dedupLog.js";
@@ -24,12 +25,38 @@ const RE_GIT_LOG = /^[*|/\\ ]*commit [0-9a-f]{7,40}$/m;
 const RE_PORCELAIN = /^[ MADRCU?!][ MADRCU?!] \S/m;
 const RE_BUILD_OUTPUT =
   /^(npm (warn|error|ERR!)|yarn (warn|error)|\s*Compiling\s+\S+|\s*Downloading\s+\S+|added \d+ package|\[ERROR\]|BUILD (SUCCESS|FAILED)|\s*Finished\s+|Successfully (installed|built)|ERROR:)/im;
+const RE_ANSI_OR_SPINNER = /\x1b\[[0-9;]*[a-zA-Z]|\[=+\]\s*\d+%|\[(?:progress|\.\.\.)\]/m;
 const RE_TREE_GLYPH = /[├└]──|│  /;
 const RE_LS_ROW = /^[-dlbcps][rwx-]{9}/m;
 const RE_LS_TOTAL = /^total \d+$/m;
 
+function isBase64Data(text: string): boolean {
+  if (text.startsWith("data:image/") || text.startsWith("data:application/")) return true;
+  const sample = text.slice(0, 500).trim();
+  const lines = sample.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length >= 3 && lines.every((l) => /^[A-Za-z0-9+/=]{40,}$/.test(l.trim()))) {
+    return true;
+  }
+  return false;
+}
+
+function looksLikeSourceCode(head: string): boolean {
+  const codePatterns = [
+    /^\s*(import\s+|export\s+|const\s+|let\s+|function\s+|class\s+|def\s+|public\s+|private\s+)/m,
+    /[;{}][\r\n]/,
+    /^\s*(package\s+|namespace\s+|using\s+|from\s+\S+\s+import)/m,
+  ];
+  return codePatterns.some((p) => p.test(head));
+}
+
 export function autoDetectFilter(text: string): FilterFunction | null {
   const head = text.length > DETECT_WINDOW ? text.slice(0, DETECT_WINDOW) : text;
+
+  // Protect MIME base64 image strings from binary stream corruption (RTK-05)
+  if (isBase64Data(head)) return null;
+
+  // Terminal log stripping for ANSI sequences and spinner noise (RTK-07)
+  if (RE_ANSI_OR_SPINNER.test(head)) return terminalLogs;
 
   if (RE_GIT_LOG.test(head)) return gitLog;
   if (RE_GIT_DIFF.test(head) || RE_GIT_DIFF_HUNK.test(head)) return gitDiff;
@@ -67,8 +94,10 @@ export function autoDetectFilter(text: string): FilterFunction | null {
   // Fallback: dedupLog for generic multi-line noise with duplicates
   if (nonEmpty.length >= 5) return dedupLog;
 
-  // Last resort: big blob with no structure — smart truncate
-  if (text.split("\n").length >= SMART_TRUNCATE_MIN_LINES) return smartTruncate;
+  // Last resort: big blob with no structure — smart truncate ONLY if not source code (RTK-03, #4559)
+  if (text.split("\n").length >= SMART_TRUNCATE_MIN_LINES && !looksLikeSourceCode(head)) {
+    return smartTruncate;
+  }
 
   return null;
 }
