@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 
 import { COMMUNITY_PROVIDERS_CATALOG } from "../src/providers/catalog/communityCatalog.js";
 
-test("Community Catalog - Requesty, Inception, Routeway, Pollinations", () => {
+test("Community Catalog - Gonka Broker, Requesty, Inception, Routeway, Pollinations", () => {
+  const gonka = COMMUNITY_PROVIDERS_CATALOG.find((p) => p.id === "gonkabroker");
+  assert.ok(gonka, "gonkabroker must exist in community catalog");
+  assert.equal(gonka.name, "Gonka Broker");
+  assert.equal(gonka.baseUrl, "https://proxy.gonkabroker.com/v1/chat/completions");
+  assert.ok(gonka.models?.some((m) => m.id === "MiniMaxAI/MiniMax-M2.7"));
+  assert.ok(gonka.models?.some((m) => m.id === "deepseek-ai/DeepSeek-V4-Flash-0731"));
+  assert.ok(gonka.models?.some((m) => m.id === "zai-org/GLM-5.3-Flash"));
+
   const requesty = COMMUNITY_PROVIDERS_CATALOG.find((p) => p.id === "requesty");
   assert.ok(requesty, "requesty must exist in community catalog");
   assert.equal(requesty.name, "Requesty");

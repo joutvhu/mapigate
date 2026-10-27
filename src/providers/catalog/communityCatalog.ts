@@ -19,6 +19,36 @@ export interface CommunityProviderItem {
 
 export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [
   {
+    "id": "gonkabroker",
+    "name": "Gonka Broker",
+    "baseUrl": "https://proxy.gonkabroker.com/v1/chat/completions",
+    "format": "openai",
+    "category": "apikey",
+    "authType": "apikey",
+    "website": "https://gonkabroker.com",
+    "notice": "Decentralized inference broker on Gonka network. Free tier offers ~1M tokens/month (SMS verification required, no credit card).",
+    "models": [
+      {
+        "id": "MiniMaxAI/MiniMax-M2.7",
+        "name": "MiniMaxAI/MiniMax-M2.7",
+        "isDefault": true,
+        "contextLength": 204800
+      },
+      {
+        "id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+        "name": "deepseek-ai/DeepSeek-V4-Flash-0731",
+        "isDefault": false,
+        "contextLength": 409600
+      },
+      {
+        "id": "zai-org/GLM-5.3-Flash",
+        "name": "zai-org/GLM-5.3-Flash",
+        "isDefault": false,
+        "contextLength": 409600
+      }
+    ]
+  },
+  {
     "id": "oci",
     "name": "OCI Generative AI",
     "baseUrl": "",
