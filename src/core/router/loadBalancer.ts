@@ -8,6 +8,7 @@ import {
   isRateLimitOrQuotaError,
 } from "../resilience/index.js";
 import { pickAffinityAccount } from "../caching/promptCacheAffinity.js";
+import { compareAccountsEarliestReset } from "./earliestResetComparator.js";
 
 export { isRateLimitOrQuotaError };
 
@@ -146,13 +147,10 @@ export class LoadBalancer {
       // Pick first active account in priority order
       chosen = pool[0];
     } else if (strategy === "earliest-reset") {
-      // Prioritize account whose cooldown expires soonest (or least rate limit hits)
-      const sorted = [...pool].sort((a, b) => {
-        const cdA = cooldownManager.getCooldownRemainingMs(a.id);
-        const cdB = cooldownManager.getCooldownRemainingMs(b.id);
-        if (cdA !== cdB) return cdA - cdB;
-        return a.rateLimitHits - b.rateLimitHits;
-      });
+      // Prioritize account whose weekly reset (or quota/cooldown) expires soonest
+      const sorted = [...pool].sort((a, b) =>
+        compareAccountsEarliestReset(a, b, providerId, targetModel)
+      );
       chosen = sorted[0];
     } else if (prefixHash && pool.length > 1) {
       // Prompt Cache Affinity: only invoke when strategy is round-robin (or default)

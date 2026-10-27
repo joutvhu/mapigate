@@ -25,6 +25,17 @@ export class QuotaService {
   }
 
   /**
+   * Returns cached quota result for a specific account from in-memory cache if not expired.
+   */
+  public getCachedQuota(accountId: string): AccountQuotaResult | null {
+    const cached = this.cache.get(accountId);
+    if (cached && cached.expiresAt > Date.now() && cached.data) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  /**
    * Fetches normalized quota for a single account with an 8-second timeout
    */
   public async fetchQuotaForAccount(
