@@ -259,7 +259,7 @@ export async function runProxyPipeline(
       }
     }
 
-    if (!result.ok && !res.headersSent) {
+    if (!result.ok) {
       const durationMs = Date.now() - startTime;
       const status = result.status || 503;
       const rawErrMsg = result.error || "All combo models failed";
@@ -316,7 +316,15 @@ export async function runProxyPipeline(
         requestBody: body,
       });
 
-      res.status(status).json(formatProxyErrorResponse(status, errMsg, clientFormat));
+      if (!res.headersSent) {
+        res.status(status).json(formatProxyErrorResponse(status, errMsg, clientFormat));
+      } else if (!res.writableEnded && !res.destroyed) {
+        try {
+          res.end();
+        } catch {
+          // ignore
+        }
+      }
     }
   } catch (err: any) {
     const totalDuration = Date.now() - startTime;

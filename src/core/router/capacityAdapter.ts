@@ -19,6 +19,22 @@ export const HARD_CAPS = new Set<string>(CAPABILITY_KEYS);
 const CHARS_PER_TOKEN = 4;
 const HEAD_KEEP = 6;
 
+const isToolResponse = (m: any): boolean => {
+  if (!m) return false;
+  if (m.role === "tool" || m.role === "function") return true;
+  if (Array.isArray(m.content) && m.content.some((b: any) => b?.type === "tool_result")) return true;
+  if (Array.isArray(m.parts) && m.parts.some((p: any) => p?.functionResponse)) return true;
+  return false;
+};
+
+const hasToolCall = (m: any): boolean => {
+  if (!m) return false;
+  if (Array.isArray(m.tool_calls) && m.tool_calls.length > 0) return true;
+  if (Array.isArray(m.content) && m.content.some((b: any) => b?.type === "tool_use")) return true;
+  if (Array.isArray(m.parts) && m.parts.some((p: any) => p?.functionCall)) return true;
+  return false;
+};
+
 /**
  * Returns trailing user turns (items after the last assistant/model turn).
  * Only the active user turn should trigger capacity adaptation.
@@ -240,8 +256,16 @@ export function stripHistoryForContext(body: any, contextWindow = 200000): any {
   const isAssistant = (r: string) => r === "assistant" || r === "model";
   let i = rest.length - 1;
   while (i >= 0 && !isAssistant(rest[i]?.role)) i--;
-  const tail = rest.slice(i + 1);
-  const older = rest.slice(0, i + 1);
+
+  // If the trailing items after the last assistant turn contain tool responses,
+  // we MUST include the assistant message at rest[i] in the tail to preserve the tool_call/tool_result pair.
+  let tailStart = i + 1;
+  if (i >= 0 && rest.slice(tailStart).some(isToolResponse)) {
+    tailStart = i;
+  }
+
+  const tail = rest.slice(tailStart);
+  const older = rest.slice(0, tailStart);
   if (older.length === 0) return body;
 
   const contentOf = (m: any) => m.content ?? m.parts;
@@ -254,6 +278,12 @@ export function stripHistoryForContext(body: any, contextWindow = 200000): any {
 
   const head = [...headKept];
   while (total > budgetChars && head.length > 0) {
+    const dropped = head.pop();
+    total -= blockLength(contentOf(dropped));
+  }
+
+  // Ensure head does not end on a dangling assistant message that calls tools without its response
+  while (head.length > 0 && hasToolCall(head[head.length - 1])) {
     const dropped = head.pop();
     total -= blockLength(contentOf(dropped));
   }

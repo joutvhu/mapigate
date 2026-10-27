@@ -130,7 +130,8 @@ export class LoadBalancer {
     const pool = available.length > 0 ? available : eligibleAccounts;
 
     // Session Stickiness: 100% Affinity for active sessions with healthy accounts
-    if (sessionId) {
+    // Dynamic strategies like 'earliest-reset' re-evaluate dynamically as account reset windows shift
+    if (sessionId && strategy !== "earliest-reset") {
       const stickyAccId = this.getStickyAccountId(providerId, sessionId);
       if (stickyAccId) {
         const found = pool.find((a) => a.id === stickyAccId);
@@ -185,7 +186,7 @@ export class LoadBalancer {
     }
 
     if (chosen) {
-      if (sessionId) {
+      if (sessionId && strategy !== "earliest-reset") {
         this.setStickyAccount(providerId, sessionId, chosen.id);
       }
       ProviderRepository.recordAccountUsed(chosen.id);

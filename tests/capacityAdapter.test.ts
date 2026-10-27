@@ -160,3 +160,46 @@ test("CapacityAdapter - stripHistoryForContext keeps system and tail turn", () =
   assert.equal(lastMsg.role, "user");
   assert.equal(lastMsg.content, "Active tail user turn with image");
 });
+
+test("CapacityAdapter - stripHistoryForContext preserves assistant tool_calls when tail has tool response", () => {
+  const longText = "B".repeat(6000);
+  const body = {
+    messages: [
+      { role: "system", content: "You are an assistant." },
+      { role: "user", content: "Previous question " + longText },
+      { role: "assistant", content: "Previous answer " + longText },
+      { role: "user", content: "Please run a command " + longText },
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_abc123",
+            type: "function",
+            function: { name: "execute_cmd", arguments: '{"cmd":"ls"}' },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_abc123",
+        content: "file1.txt\nfile2.txt",
+      },
+    ],
+  };
+
+  // Strip with budget that forces dropping older turns
+  const trimmed = stripHistoryForContext(body, 500);
+
+  // The assistant message with call_abc123 MUST be preserved immediately before the tool message
+  const toolMsgIdx = trimmed.messages.findIndex((m: any) => m.role === "tool" && m.tool_call_id === "call_abc123");
+  assert.ok(toolMsgIdx > 0, "Tool response must be preserved in trimmed messages");
+
+  const prevMsg = trimmed.messages[toolMsgIdx - 1];
+  assert.equal(prevMsg.role, "assistant", "Message immediately before tool response must be assistant");
+  assert.ok(
+    prevMsg.tool_calls?.some((tc: any) => tc.id === "call_abc123"),
+    "Assistant tool call must not be severed from tool response"
+  );
+});
+

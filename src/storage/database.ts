@@ -144,8 +144,9 @@ function createDriver(dbPath: string): DatabaseDriver {
     }
   } catch {}
 
+  const currentVersion = process.version;
   throw new Error(
-    "[Database] No compatible SQLite driver found. Please use Node.js >= 22.5.0 or install 'better-sqlite3'."
+    `[Database] No compatible SQLite driver found. Mapigate requires Node.js >= 22.5.0 (current: ${currentVersion}) with native 'node:sqlite' or 'better-sqlite3'. Please upgrade Node.js.`
   );
 }
 

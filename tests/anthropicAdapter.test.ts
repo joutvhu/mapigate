@@ -713,3 +713,73 @@ test("AnthropicAdapter - openAiToAnthropic merges adjacent same-role messages en
   assert.equal(lastUserTurn.content[2].type, "text");
   assert.equal(lastUserTurn.content[2].text, "And summarize it");
 });
+
+test("AnthropicAdapter - anthropicToOpenAi extracts image blocks from tool_result to image_url user turn", () => {
+  const anthropicPayload = {
+    model: "claude-3-7-sonnet",
+    messages: [
+      { role: "user", content: "Take a screenshot of the site" },
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "tool_use",
+            id: "toolu_shot_1",
+            name: "take_screenshot",
+            input: { url: "https://example.com" },
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "toolu_shot_1",
+            content: [
+              { type: "text", text: "Page captured successfully." },
+              {
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/png",
+                  data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                },
+              },
+            ],
+          },
+          {
+            type: "text",
+            text: "What do you see in the screenshot?",
+          },
+        ],
+      },
+    ],
+  };
+
+  const openAiOut = AnthropicAdapter.anthropicToOpenAi(anthropicPayload);
+
+  // Messages should contain:
+  // 0: user
+  // 1: assistant with tool_calls
+  // 2: tool with text content "Page captured successfully."
+  // 3: user turn containing the text and the extracted image_url block!
+  assert.equal(openAiOut.messages.length, 4);
+
+  const toolMsg = openAiOut.messages[2];
+  assert.equal(toolMsg.role, "tool");
+  assert.equal(toolMsg.tool_call_id, "toolu_shot_1");
+  assert.equal(toolMsg.content, "Page captured successfully.");
+
+  const userTurn = openAiOut.messages[3];
+  assert.equal(userTurn.role, "user");
+  assert.ok(Array.isArray(userTurn.content));
+
+  // The user turn should contain the user text, tag, and image_url object
+  const hasImageUrl = userTurn.content.some((b: any) => b?.type === "image_url" && b.image_url?.url?.includes("data:image/png;base64,"));
+  assert.ok(hasImageUrl, "User turn must contain image_url block extracted from tool_result");
+
+  const hasTag = userTurn.content.some((b: any) => b?.type === "text" && b.text?.includes("[Image from tool result toolu_shot_1]"));
+  assert.ok(hasTag, "User turn must identify tool result source for image");
+});
+

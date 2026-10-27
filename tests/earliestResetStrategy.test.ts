@@ -319,3 +319,145 @@ test("LoadBalancer - End-to-end pickAccount with Earliest Reset strategy on Anti
     "LoadBalancer under earliest-reset must select Account 1 whose Weekly resets in 2 hours rather than Account 2"
   );
 });
+
+test("Antigravity - Re-evaluates when an account resets and rolls over to a new 7-day cycle", () => {
+  const t0 = 1740000000000;
+
+  // Account 1 was set to reset at t0 + 1 hour (so at t0, it has 1h left)
+  const account1: ProviderAccount = {
+    id: "acc_anti_rollover_1",
+    providerId: "antigravity",
+    name: "Account 1",
+    apiKeyEncrypted: "",
+    isActive: true,
+    rateLimitHits: 0,
+    cachedQuotas: JSON.stringify({
+      accountId: "acc_anti_rollover_1",
+      providerId: "antigravity",
+      quotas: [
+        { label: "Gemini (Weekly)", remainingPercentage: 30, resetAt: t0 + 1 * 3600 * 1000 },
+      ],
+    }),
+  };
+
+  // Account 2 resets at t0 + 4 days (4 days left)
+  const account2: ProviderAccount = {
+    id: "acc_anti_rollover_2",
+    providerId: "antigravity",
+    name: "Account 2",
+    apiKeyEncrypted: "",
+    isActive: true,
+    rateLimitHits: 0,
+    cachedQuotas: JSON.stringify({
+      accountId: "acc_anti_rollover_2",
+      providerId: "antigravity",
+      quotas: [
+        { label: "Gemini (Weekly)", remainingPercentage: 50, resetAt: t0 + 4 * 86400 * 1000 },
+      ],
+    }),
+  };
+
+  // Phase 1: At t0, Account 1 has 1h remaining, Account 2 has 4 days remaining
+  // Account 1 MUST win
+  const cmpBefore = compareAccountsEarliestReset(account1, account2, "antigravity", "gemini-2.5-pro", t0);
+  assert.ok(cmpBefore < 0, "Account 1 must win before reset (1h < 4d)");
+
+  // Phase 2: At t0 + 1h 15m (75 minutes later), Account 1's reset time has passed!
+  // Account 1's reset has rolled over into a new 7-day cycle (effective ~7 days left).
+  // Account 2 still has ~4 days left.
+  // Account 2 MUST now win because 4 days < 7 days!
+  const tAfter = t0 + 75 * 60 * 1000;
+  const cmpAfter = compareAccountsEarliestReset(account1, account2, "antigravity", "gemini-2.5-pro", tAfter);
+  assert.ok(
+    cmpAfter > 0,
+    "After Account 1 resets, its time increases to 7 days, so Account 2 (4 days) must be evaluated as having less time and win!"
+  );
+});
+
+test("LoadBalancer - Earliest Reset dynamically switches accounts even with same sessionId", () => {
+  LoadBalancer.reset();
+
+  const providerId = `antigravity_dynamic_${Date.now()}`;
+  const now = Date.now();
+
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: "Antigravity Dynamic Reset Test",
+    baseUrl: "https://cloudcode-pa.googleapis.com",
+    format: "openai",
+    isActive: true,
+    priority: 1,
+    models: ["gemini-2.5-pro"],
+    strategy: "earliest-reset",
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const accId1 = `acc_dyn_1_${Date.now()}`;
+  const accId2 = `acc_dyn_2_${Date.now()}`;
+
+  // Account 1 initially has 10 minutes left until weekly reset
+  ProviderRepository.addAccount({
+    id: accId1,
+    providerId,
+    name: "Account 1 (Soon)",
+    rawApiKey: "tok-1",
+  });
+  ProviderRepository.updateCachedQuota(
+    accId1,
+    JSON.stringify({
+      accountId: accId1,
+      providerId,
+      quotas: [
+        { label: "Gemini (Weekly)", remainingPercentage: 50, resetAt: now + 10 * 60 * 1000 },
+      ],
+    }),
+    now
+  );
+
+  // Account 2 has 3 days left until weekly reset
+  ProviderRepository.addAccount({
+    id: accId2,
+    providerId,
+    name: "Account 2 (3 Days)",
+    rawApiKey: "tok-2",
+  });
+  ProviderRepository.updateCachedQuota(
+    accId2,
+    JSON.stringify({
+      accountId: accId2,
+      providerId,
+      quotas: [
+        { label: "Gemini (Weekly)", remainingPercentage: 50, resetAt: now + 3 * 86400 * 1000 },
+      ],
+    }),
+    now
+  );
+
+  const sessionId = "chat-session-user-123";
+
+  // Request 1: Account 1 is picked because 10m < 3d
+  const pick1 = LoadBalancer.pickAccount(providerId, { sessionId, targetModel: "gemini-2.5-pro" });
+  assert.equal(pick1?.id, accId1, "Request 1 must pick Account 1 (10m < 3d)");
+
+  // Now simulate that Account 1 reset, and its quota now has a new 7-day reset date!
+  ProviderRepository.updateCachedQuota(
+    accId1,
+    JSON.stringify({
+      accountId: accId1,
+      providerId,
+      quotas: [
+        { label: "Gemini (Weekly)", remainingPercentage: 100, resetAt: now + 7 * 86400 * 1000 },
+      ],
+    }),
+    now
+  );
+
+  // Request 2 (same sessionId!): Router MUST re-evaluate and switch to Account 2 (3d < 7d)
+  const pick2 = LoadBalancer.pickAccount(providerId, { sessionId, targetModel: "gemini-2.5-pro" });
+  assert.equal(
+    pick2?.id,
+    accId2,
+    "Request 2 must re-evaluate and switch to Account 2 because Account 1 reset and increased its time to 7 days"
+  );
+});

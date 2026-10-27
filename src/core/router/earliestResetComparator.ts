@@ -100,19 +100,52 @@ export function getAntigravityMetrics(
     sessionBucket = quotas.find((q) => /5h|session|daily/i.test(q.label));
   }
 
+  const WEEKLY_CYCLE_MS = 7 * 86400 * 1000;
+  const SESSION_CYCLE_MS = 5 * 3600 * 1000;
+
   // Calculate remaining ms until reset
   const weeklyTs = toEpochMs(weeklyBucket?.resetAt);
-  const weeklyResetRemainingMs =
-    weeklyTs !== null ? Math.max(0, weeklyTs - now) : Infinity;
+  let weeklyResetRemainingMs = Infinity;
+  let weeklyHasReset = false;
+
+  if (weeklyTs !== null) {
+    if (weeklyTs > now) {
+      weeklyResetRemainingMs = weeklyTs - now;
+    } else {
+      // Reset time has already elapsed! The account has rolled over into a new 7-day cycle.
+      // Trigger background refresh so fresh numbers are retrieved from Google.
+      weeklyHasReset = true;
+      try {
+        QuotaService.getInstance().fetchQuotaForAccount(account.id, true).catch(() => {});
+      } catch {}
+      const elapsed = now - weeklyTs;
+      weeklyResetRemainingMs = WEEKLY_CYCLE_MS - (elapsed % WEEKLY_CYCLE_MS);
+    }
+  }
 
   const sessionTs = toEpochMs(sessionBucket?.resetAt);
-  const sessionResetRemainingMs =
-    sessionTs !== null ? Math.max(0, sessionTs - now) : Infinity;
+  let sessionResetRemainingMs = Infinity;
+  let sessionHasReset = false;
 
-  const weeklyRemainingPct = weeklyBucket?.remainingPercentage ?? 100;
-  const sessionRemainingPct = sessionBucket?.remainingPercentage ?? 100;
+  if (sessionTs !== null) {
+    if (sessionTs > now) {
+      sessionResetRemainingMs = sessionTs - now;
+    } else {
+      // 5h session reset time has elapsed! Rolled over into a new 5h cycle.
+      sessionHasReset = true;
+      try {
+        QuotaService.getInstance().fetchQuotaForAccount(account.id, true).catch(() => {});
+      } catch {}
+      const elapsed = now - sessionTs;
+      sessionResetRemainingMs = SESSION_CYCLE_MS - (elapsed % SESSION_CYCLE_MS);
+    }
+  }
 
-  // Account is exhausted if either weekly or session bucket is at 0%
+  // If the reset timestamp has passed, the account has reset and recovered its quota
+  const weeklyRemainingPct = weeklyHasReset ? 100 : (weeklyBucket?.remainingPercentage ?? 100);
+  const sessionRemainingPct = sessionHasReset ? 100 : (sessionBucket?.remainingPercentage ?? 100);
+
+  // Account is exhausted if either bucket is at 0% and has NOT reset yet
   const isExhausted = weeklyRemainingPct === 0 || sessionRemainingPct === 0;
 
   return {
@@ -149,7 +182,17 @@ export function getGenericQuotaMetrics(
     const ts = toEpochMs(bucket.resetAt);
     if (ts !== null) {
       hasValidBucket = true;
-      const diff = Math.max(0, ts - now);
+      let diff = Infinity;
+      if (ts > now) {
+        diff = ts - now;
+      } else {
+        try {
+          QuotaService.getInstance().fetchQuotaForAccount(account.id, true).catch(() => {});
+        } catch {}
+        const DEFAULT_CYCLE_MS = 24 * 3600 * 1000;
+        const elapsed = now - ts;
+        diff = DEFAULT_CYCLE_MS - (elapsed % DEFAULT_CYCLE_MS);
+      }
       if (diff < minResetMs) minResetMs = diff;
     }
   }

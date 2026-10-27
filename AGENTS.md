@@ -23,7 +23,7 @@
 
 ### ⚡ Pillar 2: High Performance & Developer Experience (DX)
 * **Single Unified Port (20127):** Serves both real-time streaming AI proxy endpoints and the static Web Dashboard on a single port.
-* **Non-Blocking Storage:** SQLite running in WAL mode (`node:sqlite` or pure JS fallback), eliminating native compilation lockups during package installations.
+* **Non-Blocking Storage:** SQLite running in WAL mode (native `node:sqlite` in Node.js >= 22.5 or `better-sqlite3`), eliminating native compilation lockups during package installations.
 
 ### ✂️ Pillar 3: Coding-Centric Token Optimization (RTK Token Saver)
 * **In-Place Tool Result Compression:** Coding agents produce massive context payloads through repetitive tool invocations (`git diff`, `grep`, `file search`, `terminal logs`). RTK inspects and compresses these outputs in-place, achieving **20% – 40% context window savings**.

@@ -78,9 +78,24 @@ export function translateAnthropicToOpenAi(anthropicBody: any): any {
             if (typeof block.content === "string") {
               toolContent = block.content;
             } else if (Array.isArray(block.content)) {
-              toolContent = block.content
+              for (const c of block.content) {
+                if (c?.type === "image" && c.source) {
+                  const img = convertAnthropicImageToOpenAi(c.source);
+                  if (img) {
+                    imageBlocks.push({
+                      type: "text",
+                      text: `[Image from tool result ${block.tool_use_id}]`,
+                    });
+                    imageBlocks.push(img);
+                  }
+                }
+              }
+
+              const textParts = block.content
+                .filter((c: any) => c?.type !== "image")
                 .map((c: any) => (typeof c === "string" ? c : c?.text || (c?.type === "text" ? c.text : JSON.stringify(c))))
-                .join("\n");
+                .filter(Boolean);
+              toolContent = textParts.join("\n") || (imageBlocks.length > 0 ? "[Image returned]" : "");
             } else {
               toolContent = JSON.stringify(block.content || "");
             }
