@@ -9,6 +9,7 @@ import {
 } from "../resilience/index.js";
 import { pickAffinityAccount } from "../caching/promptCacheAffinity.js";
 import { compareAccountsEarliestReset } from "./earliestResetComparator.js";
+import { SequentialSelector } from "./sequentialSelector.js";
 
 export { isRateLimitOrQuotaError };
 
@@ -146,6 +147,14 @@ export class LoadBalancer {
     if (strategy === "fill-first") {
       // Pick first active account in priority order
       chosen = pool[0];
+    } else if (strategy === "sequential") {
+      // Drain current account until cooldown/exhausted, then advance sequentially to next
+      chosen = SequentialSelector.pickSequentialAccount(
+        providerId,
+        pool,
+        eligibleAccounts,
+        targetModel
+      );
     } else if (strategy === "earliest-reset") {
       // Prioritize account whose weekly reset (or quota/cooldown) expires soonest
       const sorted = [...pool].sort((a, b) =>
@@ -303,6 +312,7 @@ export class LoadBalancer {
 
   public static reset(): void {
     cooldownManager.reset();
+    SequentialSelector.clear();
     this.stickyCounts.clear();
     this.sessionAccountMap.clear();
   }

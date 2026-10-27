@@ -647,6 +647,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                 options={[
                   { value: "", label: "Default (Global)" },
                   { value: "fill-first", label: "Fill First" },
+                  { value: "sequential", label: "Sequential (Drain)" },
                   { value: "round-robin", label: "Round Robin" },
                   { value: "earliest-reset", label: "Earliest Reset" },
                 ]}
