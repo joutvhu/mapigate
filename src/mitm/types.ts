@@ -31,6 +31,11 @@ export interface MitmHttpRequestLike {
   headers?: Record<string, string | string[] | undefined>;
 }
 
+export interface CandidateModelItem {
+  id: string;
+  name?: string;
+}
+
 export interface MitmToolConfig {
   id: string;
   name: string;

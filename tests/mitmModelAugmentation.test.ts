@@ -6,7 +6,12 @@ import {
   augmentKiroModelsPayload,
   decompressBuffer,
 } from "../src/mitm/handlers/kiro/modelInjector.js";
+import {
+  augmentCopilotModelsPayload,
+  guessCopilotVendor,
+} from "../src/mitm/handlers/copilot/modelInjector.js";
 import { KiroMitmHandler } from "../src/mitm/handlers/kiro/handler.js";
+import { CopilotMitmHandler } from "../src/mitm/handlers/copilot/handler.js";
 import { MitmRepository } from "../src/storage/repositories/mitmRepo.js";
 import { getDatabase } from "../src/storage/database.js";
 
@@ -58,10 +63,19 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
 
     it("returns false for standard chat requests and unknown tools", () => {
       assert.equal(
-        isModelDiscoveryRequest("kiro", {
-          url: "/generateAssistantResponse",
-          headers: { "x-amz-target": "AmazonCodeWhispererService.GenerateAssistantResponse" },
-        }),
+        isModelDiscoveryRequest("kiro", { url: "/generateAssistantResponse", headers: { "x-amz-target": "AmazonCodeWhispererService.GenerateAssistantResponse" } }),
+        false
+      );
+      assert.equal(
+        isModelDiscoveryRequest("copilot", { url: "/models" }),
+        true
+      );
+      assert.equal(
+        isModelDiscoveryRequest("copilot", { url: "/models?client-id=vscode" }),
+        true
+      );
+      assert.equal(
+        isModelDiscoveryRequest("copilot", { url: "/chat/completions" }),
         false
       );
       assert.equal(
@@ -215,6 +229,89 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       });
 
       assert.equal(interceptedDiscovery, true, "Must have executed model discovery path");
+    });
+
+    it("routes CopilotMitmHandler to interceptCopilotModels when isModelDiscovery is set", async () => {
+      const handler = new CopilotMitmHandler();
+      let interceptedDiscovery = false;
+
+      const mockReq = { url: "/models", headers: {} } as any;
+      const mockRes = {
+        writeHead: () => mockRes,
+        end: () => mockRes,
+      } as any;
+      const mockPassthrough = async () => {
+        interceptedDiscovery = true;
+      };
+
+      await handler.handle({
+        req: mockReq,
+        res: mockRes,
+        bodyBuffer: Buffer.from(""),
+        isModelDiscovery: true,
+        passthrough: mockPassthrough,
+      });
+
+      assert.equal(interceptedDiscovery, true, "Must have executed Copilot model discovery path");
+    });
+  });
+
+  describe("Copilot Model Payload Augmentation", () => {
+    it("augments Copilot models payload with catalog without duplicates", () => {
+      const genuineUpstream = {
+        data: [
+          {
+            id: "gpt-4o",
+            name: "GPT-4o",
+            version: "gpt-4o-2024-05-13",
+            vendor: "openai",
+            capabilities: {
+              family: "gpt-4o",
+              type: "chat",
+              limits: { max_prompt_tokens: 128000, max_output_tokens: 4096 },
+            },
+          },
+        ],
+      };
+
+      const augmented = augmentCopilotModelsPayload(genuineUpstream);
+      assert.ok(Array.isArray(augmented.data), "Must have data array");
+      assert.ok(augmented.data.length > 5, "Must have added catalog models");
+
+      // Verify gpt-4o preserved
+      const gpt4o = augmented.data.find((m: any) => m.id === "gpt-4o");
+      assert.ok(gpt4o);
+      assert.equal(gpt4o.vendor, "openai");
+
+      // Verify claude and deepseek injected
+      const claudeSonnet = augmented.data.find((m: any) => m.id === "claude-3.7-sonnet");
+      assert.ok(claudeSonnet, "claude-3.7-sonnet must be present");
+      assert.equal(claudeSonnet.vendor, "anthropic");
+
+      const deepseek = augmented.data.find((m: any) => m.id === "deepseek-chat");
+      assert.ok(deepseek, "deepseek-chat must be present");
+      assert.equal(deepseek.vendor, "deepseek");
+
+      // No duplicate ids
+      const ids = augmented.data.map((m: any) => m.id.toLowerCase());
+      const uniqueIds = new Set(ids);
+      assert.equal(ids.length, uniqueIds.size);
+    });
+
+    it("guesses vendors correctly", () => {
+      assert.equal(guessCopilotVendor("claude-3.7-sonnet"), "anthropic");
+      assert.equal(guessCopilotVendor("deepseek-reasoner"), "deepseek");
+      assert.equal(guessCopilotVendor("gemini-2.5-pro"), "google");
+      assert.equal(guessCopilotVendor("qwen-2.5-coder"), "alibaba");
+      assert.equal(guessCopilotVendor("minimax-m2.5"), "minimax");
+      assert.equal(guessCopilotVendor("glm-4"), "zhipu");
+      assert.equal(guessCopilotVendor("o3-mini"), "openai");
+    });
+
+    it("fails open on upstream error responses", () => {
+      const errPayload = { error: { message: "Unauthorized", code: "401" } };
+      const res = augmentCopilotModelsPayload(errPayload);
+      assert.deepEqual(res, errPayload);
     });
   });
 });

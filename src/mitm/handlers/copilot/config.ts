@@ -13,13 +13,25 @@ export const toolConfig: MitmToolConfig = {
     "/chat/completions",
     "/v1/messages",
     "/responses",
+    "/models",
   ],
   defaultHost: "127.0.0.1 api.individual.githubcopilot.com",
   matchesHost: (h: string) => h.includes("githubcopilot.com") || h.includes("copilot-proxy.githubusercontent.com"),
+  isModelListRequest: (req) => {
+    const url = (req.url || "").toLowerCase();
+    return url === "/models" || url.startsWith("/models?") || url.endsWith("/models");
+  },
   defaultModels: [
     "gpt-4o",
-    "claude-3.5-sonnet",
+    "gpt-4o-mini",
     "claude-3.7-sonnet",
+    "claude-3.5-sonnet",
+    "claude-3.5-haiku",
     "o1",
+    "o3-mini",
+    "deepseek-chat",
+    "deepseek-reasoner",
+    "gemini-2.5-pro",
+    "gemini-2.0-flash",
   ],
 };

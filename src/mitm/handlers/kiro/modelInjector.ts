@@ -1,35 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import zlib from "node:zlib";
-import { fetchUpstreamDirect } from "../base.js";
+import type { CandidateModelItem } from "../../types.js";
+import { fetchUpstreamDirect, decompressBuffer } from "../base.js";
 import { toolConfig } from "./config.js";
 import { resolveModelDisplayName } from "../../../core/capabilities/modelDictionary.js";
 import { MitmRepository } from "../../../storage/repositories/mitmRepo.js";
 
-export interface CandidateModelItem {
-  id: string;
-  name?: string;
-}
-
-export function decompressBuffer(buffer: Buffer, encoding?: string | string[]): Buffer {
-  if (!buffer || buffer.length === 0) return buffer;
-  const enc = Array.isArray(encoding) ? encoding[0] : encoding;
-  const cleanEnc = (enc || "").toLowerCase().trim();
-
-  try {
-    if (cleanEnc === "gzip") {
-      return zlib.gunzipSync(buffer);
-    }
-    if (cleanEnc === "deflate") {
-      return zlib.inflateSync(buffer);
-    }
-    if (cleanEnc === "br") {
-      return zlib.brotliDecompressSync(buffer);
-    }
-  } catch {
-    // If decompression fails, return raw buffer fail-open
-  }
-  return buffer;
-}
+export { decompressBuffer };
 
 export function augmentKiroModelsPayload(
   payload: any,

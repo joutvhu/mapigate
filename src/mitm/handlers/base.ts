@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import https from "node:https";
 import dns from "node:dns";
+import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { HOST_REWRITE } from "../../shared/constants/mitmToolHosts.js";
 import { serverLifecycle } from "../../server/lifecycle.js";
@@ -178,6 +179,27 @@ export async function fetchUpstreamDirect(
     }
     forwardReq.end();
   });
+}
+
+export function decompressBuffer(buffer: Buffer, encoding?: string | string[]): Buffer {
+  if (!buffer || buffer.length === 0) return buffer;
+  const enc = Array.isArray(encoding) ? encoding[0] : encoding;
+  const cleanEnc = (enc || "").toLowerCase().trim();
+
+  try {
+    if (cleanEnc === "gzip") {
+      return zlib.gunzipSync(buffer);
+    }
+    if (cleanEnc === "deflate") {
+      return zlib.inflateSync(buffer);
+    }
+    if (cleanEnc === "br") {
+      return zlib.brotliDecompressSync(buffer);
+    }
+  } catch {
+    // If decompression fails, return raw buffer fail-open
+  }
+  return buffer;
 }
 
 export async function fetchRouter(

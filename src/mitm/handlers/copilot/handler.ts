@@ -1,5 +1,6 @@
 import type { IMitmHandler, MitmRequestContext } from "../../types.js";
 import { interceptCopilot } from "./interceptor.js";
+import { interceptCopilotModels } from "./modelInjector.js";
 
 export class CopilotMitmHandler implements IMitmHandler {
   public readonly id = "copilot";
@@ -10,6 +11,10 @@ export class CopilotMitmHandler implements IMitmHandler {
   }
 
   public async handle(context: MitmRequestContext): Promise<void> {
+    if (context.isModelDiscovery) {
+      await interceptCopilotModels(context.req, context.res, context.bodyBuffer, context.passthrough);
+      return;
+    }
     await interceptCopilot(context.req, context.res, context.bodyBuffer, context.mappedModel || "");
   }
 }
