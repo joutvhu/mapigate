@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "node:fs";
 import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
 import { mitmManager } from "../../mitm/manager.js";
+import { getSuggestedSourceModels } from "../../mitm/sourceModels.js";
 import { ROOT_CA_CERT_PATH } from "../../mitm/cert/rootCA.js";
 import {
   addDNSEntry,
@@ -232,6 +233,12 @@ mitmRouter.post("/hosts", (req, res) => {
 mitmRouter.post("/hosts/reset", (_req, res) => {
   const entries = MitmRepository.resetHostsEntries();
   res.json({ success: true, entries });
+});
+
+// GET suggested source models for an IDE / tool
+mitmRouter.get("/mappings/source-models/:ide", (req, res) => {
+  const suggestions = getSuggestedSourceModels(req.params.ide);
+  res.json(suggestions);
 });
 
 // GET mappings for an IDE / tool

@@ -1,8 +1,17 @@
 import type { ProviderRegistryItem } from "./types.js";
 import { PROVIDER_REGISTRY as GENERATED_REGISTRY } from "../generated/metadataRegistry.generated.js";
 import { COMMUNITY_PROVIDERS_CATALOG } from "../catalog/communityCatalog.js";
+import { normalizeRegistryModels, normalizeRegistryModel } from "./modelNormalizer.js";
 
-export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = GENERATED_REGISTRY;
+export const PROVIDER_REGISTRY: Record<string, ProviderRegistryItem> = Object.fromEntries(
+  Object.entries(GENERATED_REGISTRY).map(([k, v]) => [
+    k,
+    {
+      ...v,
+      models: normalizeRegistryModels(v.models as any),
+    },
+  ])
+);
 
 export function getRegistryProvider(id: string): ProviderRegistryItem | undefined {
   if (!id) return undefined;
@@ -29,7 +38,7 @@ export function getRegistryProvider(id: string): ProviderRegistryItem | undefine
       website: community.website,
       defaultHeaders: {},
       thinkingMode: "auto",
-      models: (community.models || []).map((m) => ({ id: m.id, name: m.name || m.id })),
+      models: (community.models || []).map((m) => normalizeRegistryModel(m)),
     };
   }
 

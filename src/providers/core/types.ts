@@ -13,6 +13,8 @@ export interface RegistryModel {
   contextLength?: number;
 }
 
+export type ProviderModelInput = string | (Partial<RegistryModel> & { id: string });
+
 export interface ProviderRegion {
   id: string;
   label: string;

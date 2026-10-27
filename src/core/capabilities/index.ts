@@ -29,6 +29,7 @@ import {
 export * from "./types.js";
 export * from "./constants.js";
 export * from "./patterns.js";
+export * from "./modelDictionary.js";
 
 function normalizeModelCapabilities(
   caps?: Partial<ModelCapabilities> | string[] | null

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput.js";
+import { SourceModelAutocompleteInput } from "../components/SourceModelAutocompleteInput.js";
 
 interface MitmMappingRow {
   sourceModel: string;
@@ -1111,12 +1112,11 @@ export const MitmTab: React.FC = () => {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
                   Source Model ID (Sent by IDE)
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. auto, claude-sonnet-5, gpt-4o"
+                <SourceModelAutocompleteInput
+                  toolId={modalTool}
                   value={newSourceModel}
-                  onChange={(e) => setNewSourceModel(e.target.value)}
-                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  onChange={setNewSourceModel}
+                  placeholder="Select or type model ID (e.g. auto, claude-sonnet-4.5)..."
                 />
               </div>
 
