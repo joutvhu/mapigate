@@ -327,6 +327,9 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       const claudeSonnet = augmented.data.find((m: any) => m.id === "claude-3.7-sonnet");
       assert.ok(claudeSonnet, "claude-3.7-sonnet must be present");
       assert.equal(claudeSonnet.vendor, "anthropic");
+      assert.equal(claudeSonnet.model_picker_enabled, true);
+      assert.equal(claudeSonnet.billing?.is_premium, false);
+      assert.equal(claudeSonnet.policy?.state, "enabled");
 
       const deepseek = augmented.data.find((m: any) => m.id === "deepseek-chat");
       assert.ok(deepseek, "deepseek-chat must be present");

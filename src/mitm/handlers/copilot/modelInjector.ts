@@ -52,6 +52,15 @@ export function augmentCopilotModelsPayload(
       if (id) {
         existingIds.add(id.toLowerCase());
       }
+      // Unlock existing models so they appear as selectable in VS Code without requiring upgrade
+      item.model_picker_enabled = true;
+      if (item.billing && typeof item.billing === "object") {
+        item.billing.is_premium = false;
+        item.billing.restricted_to = [];
+      }
+      if (item.policy && typeof item.policy === "object") {
+        item.policy.state = "enabled";
+      }
       if (!templateModel && item.capabilities) {
         templateModel = item;
       }
@@ -102,13 +111,36 @@ export function augmentCopilotModelsPayload(
       name: displayName,
       version: rawId,
       vendor: guessCopilotVendor(rawId),
+      model_picker_enabled: true,
+      is_chat_default: false,
+      is_chat_fallback: false,
+      policy: {
+        ...(templateModel?.policy || {}),
+        state: "enabled",
+      },
+      billing: {
+        ...(templateModel?.billing || {}),
+        is_premium: false,
+        multiplier: 0,
+        restricted_to: [],
+      },
       capabilities: {
         ...(templateModel?.capabilities || {}),
         family: rawId,
         type: "chat",
-        limits: templateModel?.capabilities?.limits || {
+        tokenizer: templateModel?.capabilities?.tokenizer || "o200k_base",
+        limits: {
           max_prompt_tokens: 128000,
           max_output_tokens: 8192,
+          max_context_window_tokens: 136192,
+          ...(templateModel?.capabilities?.limits || {}),
+        },
+        supports: {
+          tool_calls: true,
+          vision: true,
+          streaming: true,
+          prediction: false,
+          ...(templateModel?.capabilities?.supports || {}),
         },
       },
     };
@@ -152,6 +184,8 @@ export async function interceptCopilotModels(
     delete responseHeaders["Content-Encoding"];
     delete responseHeaders["transfer-encoding"];
     delete responseHeaders["Transfer-Encoding"];
+    delete responseHeaders["etag"];
+    delete responseHeaders["ETag"];
     responseHeaders["content-length"] = String(newBuffer.length);
 
     res.writeHead(200, responseHeaders);

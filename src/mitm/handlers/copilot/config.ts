@@ -6,8 +6,11 @@ export const toolConfig: MitmToolConfig = {
   image: "/assets/providers/github/icon.png",
   desc: "Intercept GitHub Copilot requests in VS Code via MITM proxy",
   hosts: [
-    "api.individual.githubcopilot.com",
+    "api.githubcopilot.com",
     "copilot-proxy.githubusercontent.com",
+    "api.individual.githubcopilot.com",
+    "api.business.githubcopilot.com",
+    "api.enterprise.githubcopilot.com",
   ],
   urlPatterns: [
     "/chat/completions",
@@ -15,11 +18,11 @@ export const toolConfig: MitmToolConfig = {
     "/responses",
     "/models",
   ],
-  defaultHost: "127.0.0.1 api.individual.githubcopilot.com",
+  defaultHost: "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com",
   matchesHost: (h: string) => h.includes("githubcopilot.com") || h.includes("copilot-proxy.githubusercontent.com"),
   isModelListRequest: (req) => {
-    const url = (req.url || "").toLowerCase();
-    return url === "/models" || url.startsWith("/models?") || url.endsWith("/models");
+    const url = (req.url || "").toLowerCase().split("?")[0];
+    return url === "/models" || url === "/v1/models" || url.endsWith("/models");
   },
   defaultModels: [
     "auto",
