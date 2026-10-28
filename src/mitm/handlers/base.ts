@@ -5,6 +5,7 @@ import zlib from "node:zlib";
 import { promisify } from "node:util";
 import { HOST_REWRITE } from "../../shared/constants/mitmToolHosts.js";
 import { serverLifecycle } from "../../server/lifecycle.js";
+import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 
 export const DEFAULT_ROUTER_BASE = "http://127.0.0.1:20127";
 export const ROUTER_BASE = String(process.env.MAPIGATE_BASE_URL || DEFAULT_ROUTER_BASE)
@@ -215,12 +216,22 @@ export async function fetchRouter(
   }
 
   const baseUrl = getRouterBaseUrl();
+  let authHeader = process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY}` : "";
+  if (!authHeader) {
+    try {
+      const activeKey = SettingsRepository.getGatewayApiKeys().find((k) => k.isActive)?.key;
+      if (activeKey) {
+        authHeader = `Bearer ${activeKey}`;
+      }
+    } catch {}
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",
     headers: {
       ...forwarded,
       "Content-Type": "application/json",
-      ...(process.env.ROUTER_API_KEY && { Authorization: `Bearer ${process.env.ROUTER_API_KEY}` }),
+      ...(authHeader ? { Authorization: authHeader } : {}),
     },
     body: JSON.stringify(openaiBody),
   });

@@ -4,6 +4,7 @@ import { fetchUpstreamDirect, decompressBuffer } from "../base.js";
 import { toolConfig } from "./config.js";
 import { resolveModelDisplayName } from "../../../core/capabilities/modelDictionary.js";
 import { MitmRepository } from "../../../storage/repositories/mitmRepo.js";
+import { normalizeModelSlug } from "../../toolsHelper.js";
 
 export function guessCopilotVendor(modelId: string): string {
   const lower = modelId.toLowerCase();
@@ -44,24 +45,59 @@ export function augmentCopilotModelsPayload(
   }
 
   const existingIds = new Set<string>();
+  const existingSlugs = new Set<string>();
+  const existingNames = new Set<string>();
+  const seenPickerNames = new Set<string>();
   let templateModel: any = null;
 
   for (const item of targetArray) {
     if (item && typeof item === "object") {
       const id = String(item.id || item.modelId || "").trim();
+      const rawName = String(item.name || "").trim();
+      const name = rawName.toLowerCase();
+      const isChat = !item.capabilities?.type || item.capabilities.type === "chat";
+
       if (id) {
         existingIds.add(id.toLowerCase());
+        existingSlugs.add(normalizeModelSlug(id));
       }
-      // Unlock existing models so they appear as selectable in VS Code without requiring upgrade
-      item.model_picker_enabled = true;
-      if (item.billing && typeof item.billing === "object") {
-        item.billing.is_premium = false;
-        item.billing.restricted_to = [];
+      if (name) {
+        existingNames.add(name);
+        existingSlugs.add(normalizeModelSlug(name));
       }
-      if (item.policy && typeof item.policy === "object") {
-        item.policy.state = "enabled";
+      if (item.capabilities?.family) {
+        existingSlugs.add(normalizeModelSlug(item.capabilities.family));
       }
-      if (!templateModel && item.capabilities) {
+
+      if (!isChat) {
+        // Non-chat models (embeddings, etc.) must NEVER be shown in chat model picker
+        item.model_picker_enabled = false;
+      } else {
+        // Upstream Copilot models often include multiple dated snapshots (e.g. 5x GPT-4o, 4x MAI-Code-1.1-Flash)
+        // Deduplicate so only the first one with the same normalized name/family is enabled in the picker
+        const normName = normalizeModelSlug(rawName).replace(/-(github|retiring|preview|latest)$/i, "");
+        if (normName) {
+          if (seenPickerNames.has(normName)) {
+            item.model_picker_enabled = false;
+          } else {
+            seenPickerNames.add(normName);
+            item.model_picker_enabled = true;
+          }
+        } else {
+          item.model_picker_enabled = true;
+        }
+
+        // Unlock premium/restricted models so they don't show an "Upgrade" button in VS Code
+        if (item.billing && typeof item.billing === "object") {
+          item.billing.is_premium = false;
+          item.billing.restricted_to = [];
+        }
+        if (item.policy && typeof item.policy === "object") {
+          item.policy.state = "enabled";
+        }
+      }
+
+      if (!templateModel && isChat && item.capabilities) {
         templateModel = item;
       }
     }
@@ -98,12 +134,28 @@ export function augmentCopilotModelsPayload(
 
   for (const cand of candidates) {
     const rawId = cand.id.trim();
-    if (!rawId || existingIds.has(rawId.toLowerCase())) {
+    if (!rawId) continue;
+
+    const lowerId = rawId.toLowerCase();
+    const candSlug = normalizeModelSlug(rawId);
+    const displayName = cand.name || resolveModelDisplayName(rawId) || rawId;
+    const lowerName = displayName.toLowerCase();
+    const cleanCandName = normalizeModelSlug(displayName).replace(/-(github|retiring|preview|latest)$/i, "");
+
+    // Skip if upstream already has this model (by exact ID, slug, or display name)
+    if (
+      existingIds.has(lowerId) ||
+      existingSlugs.has(candSlug) ||
+      existingNames.has(lowerName) ||
+      (cleanCandName && seenPickerNames.has(cleanCandName))
+    ) {
       continue;
     }
 
-    existingIds.add(rawId.toLowerCase());
-    const displayName = cand.name || resolveModelDisplayName(rawId) || rawId;
+    existingIds.add(lowerId);
+    existingSlugs.add(candSlug);
+    existingNames.add(lowerName);
+    if (cleanCandName) seenPickerNames.add(cleanCandName);
 
     const injected: any = {
       ...(templateModel ? { ...templateModel } : {}),

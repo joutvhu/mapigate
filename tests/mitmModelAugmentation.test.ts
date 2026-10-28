@@ -305,10 +305,30 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
             name: "GPT-4o",
             version: "gpt-4o-2024-05-13",
             vendor: "openai",
+            model_picker_enabled: true,
             capabilities: {
               family: "gpt-4o",
               type: "chat",
               limits: { max_prompt_tokens: 128000, max_output_tokens: 4096 },
+            },
+          },
+          {
+            id: "gpt-4o-2024-08-06",
+            name: "GPT-4o",
+            version: "gpt-4o-2024-08-06",
+            vendor: "openai",
+            model_picker_enabled: false,
+            capabilities: {
+              family: "gpt-4o",
+              type: "chat",
+              limits: { max_prompt_tokens: 128000, max_output_tokens: 4096 },
+            },
+          },
+          {
+            id: "text-embedding-3-small",
+            name: "Embedding V3 small",
+            capabilities: {
+              type: "embeddings",
             },
           },
         ],
@@ -317,6 +337,16 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       const augmented = augmentCopilotModelsPayload(genuineUpstream);
       assert.ok(Array.isArray(augmented.data), "Must have data array");
       assert.ok(augmented.data.length > 5, "Must have added catalog models");
+
+      // Verify embedding model has model_picker_enabled = false
+      const embedding = augmented.data.find((m: any) => m.id === "text-embedding-3-small");
+      assert.ok(embedding);
+      assert.equal(embedding.model_picker_enabled, false, "Embedding models must NOT be enabled in chat picker");
+
+      // Verify gpt-4o snapshot deduplication: first enabled, second disabled
+      const gpt4oList = augmented.data.filter((m: any) => m.name === "GPT-4o");
+      const enabledGpt4o = gpt4oList.filter((m: any) => m.model_picker_enabled);
+      assert.equal(enabledGpt4o.length, 1, "Only one GPT-4o should be enabled in the picker");
 
       // Verify gpt-4o preserved
       const gpt4o = augmented.data.find((m: any) => m.id === "gpt-4o");
