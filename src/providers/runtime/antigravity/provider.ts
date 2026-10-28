@@ -125,9 +125,9 @@ export class AntigravityProvider extends BaseProvider {
 
     const reqHeaders: Record<string, string> = {
       "Content-Type": "application/json",
-      "User-Agent": "antigravity/hub/2.24.0 darwin/arm64",
+      "User-Agent": "antigravity/hub/2.28.0 darwin/arm64",
       "X-Client-Name": "antigravity",
-      "X-Client-Version": "2.24.0",
+      "X-Client-Version": "2.28.0",
       "x-request-source": "local",
       Accept: "application/json",
       ...(context.customHeaders || {}),

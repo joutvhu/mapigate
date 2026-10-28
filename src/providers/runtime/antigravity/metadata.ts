@@ -28,7 +28,7 @@ export const metadata: ProviderRegistryItem = {
   "validateUrl": "",
   "format": "antigravity",
   "defaultHeaders": {
-    "User-Agent": "antigravity/hub/2.24.0 darwin/arm64"
+    "User-Agent": "antigravity/hub/2.28.0 darwin/arm64"
   },
   "thinkingMode": "auto",
   "oauth": {
@@ -46,7 +46,7 @@ export const metadata: ProviderRegistryItem = {
     "apiVersion": "v1internal",
     "loadCodeAssistEndpoint": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
     "onboardUserEndpoint": "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
-    "loadCodeAssistUserAgent": "antigravity/hub/2.24.0 darwin/arm64",
+    "loadCodeAssistUserAgent": "antigravity/hub/2.28.0 darwin/arm64",
     "refreshLeadMs": 300000
   }
 ,
