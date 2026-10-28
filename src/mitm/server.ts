@@ -183,21 +183,6 @@ async function handleMitmRequest(req: IncomingMessage, res: ServerResponse): Pro
       return passthroughHttps(req, res, bodyBuffer);
     }
 
-    // Cursor uses binary proto — delegate directly to Cursor handler
-    if (tool === "cursor") {
-      const cursorHandler = MitmHandlerRegistry.get("cursor");
-      if (cursorHandler) {
-        return await cursorHandler.handle({
-          req,
-          res,
-          bodyBuffer,
-          mappedModel: null,
-          passthrough: passthroughHttps,
-        });
-      }
-      return passthroughHttps(req, res, bodyBuffer);
-    }
-
     const incomingModel = extractModel(req.url, bodyBuffer);
 
     // Bypass models that must never be re-routed (e.g. Antigravity inline tab autocomplete)

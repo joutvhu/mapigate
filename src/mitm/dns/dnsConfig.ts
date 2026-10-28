@@ -214,7 +214,7 @@ export async function flushDNS(sudoPassword?: string): Promise<void> {
 export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
   try {
     if (!fs.existsSync(HOSTS_FILE)) {
-      return { antigravity: false, kiro: false, copilot: false, cursor: false };
+      return { antigravity: false, kiro: false, copilot: false };
     }
     const hostsContent = fs.readFileSync(HOSTS_FILE, "utf8");
     const result: Record<string, boolean> = {};
@@ -228,7 +228,7 @@ export function checkAllDNSStatus(): Record<MitmToolId, boolean> {
     }
     return result as Record<MitmToolId, boolean>;
   } catch {
-    return { antigravity: false, kiro: false, copilot: false, cursor: false };
+    return { antigravity: false, kiro: false, copilot: false };
   }
 }
 

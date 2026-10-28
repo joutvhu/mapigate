@@ -25,7 +25,6 @@ export { TOOL_DEFAULT_HOSTS, getDefaultMappings };
 export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = getDefaultMappings("kiro");
 export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = getDefaultMappings("antigravity");
 export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = getDefaultMappings("copilot");
-export const DEFAULT_CURSOR_MAPPINGS: MitmMapping[] = getDefaultMappings("cursor");
 
 export class MitmRepository {
   public static getToolDnsStatus(tool: string): boolean {
@@ -39,7 +38,7 @@ export class MitmRepository {
   }
 
   public static getAllToolDnsStatus(): Record<string, boolean> {
-    const tools: MitmToolId[] = ["antigravity", "kiro", "copilot", "cursor"];
+    const tools: MitmToolId[] = ["antigravity", "kiro", "copilot"];
     const result: Record<string, boolean> = {};
     for (const tool of tools) {
       result[tool] = this.getToolDnsStatus(tool);
@@ -80,7 +79,7 @@ export class MitmRepository {
   }
 
   public static getAllToolAugmentModels(): Record<string, boolean> {
-    const tools: MitmToolId[] = ["antigravity", "kiro", "copilot", "cursor"];
+    const tools: MitmToolId[] = ["antigravity", "kiro", "copilot"];
     const result: Record<string, boolean> = {};
     for (const tool of tools) {
       result[tool] = this.getToolAugmentModels(tool);

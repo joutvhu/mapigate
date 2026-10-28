@@ -15,7 +15,7 @@ export interface IMitmHandler {
   handle(context: MitmRequestContext): Promise<void>;
 }
 
-export type MitmToolId = "antigravity" | "kiro" | "copilot" | "cursor" | string;
+export type MitmToolId = "antigravity" | "kiro" | "copilot" | string;
 
 export interface MitmToolUiConfig {
   id: string;

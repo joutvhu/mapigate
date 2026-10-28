@@ -3,12 +3,10 @@ import type { MitmToolConfig } from "../../types.js";
 
 import { toolConfig as antigravityConfig } from "../antigravity/config.js";
 import { toolConfig as copilotConfig } from "../copilot/config.js";
-import { toolConfig as cursorConfig } from "../cursor/config.js";
 import { toolConfig as kiroConfig } from "../kiro/config.js";
 
 export const MITM_TOOLS: MitmToolConfig[] = [
   antigravityConfig,
   copilotConfig,
-  cursorConfig,
   kiroConfig,
 ];

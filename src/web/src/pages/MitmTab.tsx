@@ -101,13 +101,11 @@ export const MitmTab: React.FC = () => {
     antigravity: false,
     kiro: false,
     copilot: false,
-    cursor: false,
   });
   const [augmentModelsByTool, setAugmentModelsByTool] = useState<Record<string, boolean>>({
     antigravity: false,
     kiro: false,
     copilot: false,
-    cursor: false,
   });
   const [expandedTool, setExpandedTool] = useState<MitmToolId | null>(null);
 
@@ -121,7 +119,6 @@ export const MitmTab: React.FC = () => {
     antigravity: "127.0.0.1 daily-cloudcode-pa.googleapis.com\n127.0.0.1 cloudcode-pa.googleapis.com",
     kiro: "127.0.0.1 management.us-east-1.kiro.dev\n127.0.0.1 runtime.us-east-1.kiro.dev\n127.0.0.1 q.us-east-1.amazonaws.com\n127.0.0.1 codewhisperer.us-east-1.amazonaws.com",
     copilot: "127.0.0.1 api.individual.githubcopilot.com",
-    cursor: "127.0.0.1 api2.cursor.sh",
   });
   const [editingHostsByTool, setEditingHostsByTool] = useState<Record<string, boolean>>({});
   const [originalHostsByTool, setOriginalHostsByTool] = useState<Record<string, string>>({});
@@ -132,7 +129,6 @@ export const MitmTab: React.FC = () => {
     antigravity: [],
     kiro: [],
     copilot: [],
-    cursor: [],
   });
   const [sortColumnByTool, setSortColumnByTool] = useState<Record<string, "source" | "target">>({});
   const [sortOrderByTool, setSortOrderByTool] = useState<Record<string, "asc" | "desc">>({});
@@ -183,7 +179,6 @@ export const MitmTab: React.FC = () => {
             antigravity: Boolean(d.dnsStatus?.antigravity),
             kiro: Boolean(d.dnsStatus?.kiro),
             copilot: Boolean(d.dnsStatus?.copilot),
-            cursor: Boolean(d.dnsStatus?.cursor),
           }));
         }
         if (d.augmentModels) {
@@ -253,7 +248,6 @@ export const MitmTab: React.FC = () => {
             antigravity: Boolean(data.dnsStatus.antigravity),
             kiro: Boolean(data.dnsStatus.kiro),
             copilot: Boolean(data.dnsStatus.copilot),
-            cursor: Boolean(data.dnsStatus.cursor),
           });
         }
         loadStatus();
@@ -297,7 +291,6 @@ export const MitmTab: React.FC = () => {
           antigravity: Boolean(data.dnsStatus.antigravity),
           kiro: Boolean(data.dnsStatus.kiro),
           copilot: Boolean(data.dnsStatus.copilot),
-          cursor: Boolean(data.dnsStatus.cursor),
         });
       }
       if (data.warning) {
@@ -366,7 +359,6 @@ export const MitmTab: React.FC = () => {
           antigravity: Boolean(data.dnsStatus.antigravity),
           kiro: Boolean(data.dnsStatus.kiro),
           copilot: Boolean(data.dnsStatus.copilot),
-          cursor: Boolean(data.dnsStatus.cursor),
         }));
       }
       if (data.warning) {
@@ -527,7 +519,7 @@ export const MitmTab: React.FC = () => {
       <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
         <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>
         <p>
-          <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot, Cursor) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
+          <strong>MITM Interceptor:</strong> Intercepts HTTPS traffic of closed IDE tools (Antigravity, Kiro, GitHub Copilot) via a local Root CA to redirect requests to your chosen providers and models. DNS is controlled independently per tool.
         </p>
       </div>
 
@@ -653,7 +645,7 @@ export const MitmTab: React.FC = () => {
               <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11.5px] text-amber-300 leading-relaxed">
                 <span className="material-symbols-outlined text-[16px] text-amber-400 shrink-0 mt-0.5">warning</span>
                 <span>
-                  <strong>Notice:</strong> OS <code>hosts</code> file redirection maps domain names to IP addresses without port numbers. AI coding tools (Antigravity, Kiro, Copilot, Cursor) connect to port 443 by default. Running on custom ports will <strong>not</strong> intercept standard IDE traffic.
+                  <strong>Notice:</strong> OS <code>hosts</code> file redirection maps domain names to IP addresses without port numbers. AI coding tools (Antigravity, Kiro, Copilot) connect to port 443 by default. Running on custom ports will <strong>not</strong> intercept standard IDE traffic.
                 </span>
               </div>
             </div>

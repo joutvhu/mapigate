@@ -4,5 +4,4 @@ export * from "./defaultPassthrough.js";
 export * from "./generated/handlersRegistry.js";
 export * from "./antigravity/index.js";
 export * from "./copilot/index.js";
-export * from "./cursor/index.js";
 export * from "./kiro/index.js";

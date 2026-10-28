@@ -2,14 +2,12 @@
 import type { MitmHandlerRegistry } from "../../registry.js";
 import { AntigravityMitmHandler } from "../antigravity/handler.js";
 import { CopilotMitmHandler } from "../copilot/handler.js";
-import { CursorMitmHandler } from "../cursor/handler.js";
 import { KiroMitmHandler } from "../kiro/handler.js";
 import { DefaultPassthroughMitmHandler } from "../defaultPassthrough.js";
 
 export function registerAllMitmHandlers(registry: typeof MitmHandlerRegistry): void {
   registry.register(new AntigravityMitmHandler());
   registry.register(new CopilotMitmHandler());
-  registry.register(new CursorMitmHandler());
   registry.register(new KiroMitmHandler());
   registry.register(new DefaultPassthroughMitmHandler());
 }

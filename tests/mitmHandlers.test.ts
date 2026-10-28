@@ -2,7 +2,6 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 // Tool modular imports
-import { CursorMitmHandler, interceptCursor } from "../src/mitm/handlers/cursor/index.js";
 import { CopilotMitmHandler, interceptCopilot, resolveRouterPath } from "../src/mitm/handlers/copilot/index.js";
 import { AntigravityMitmHandler, interceptAntigravity } from "../src/mitm/handlers/antigravity/index.js";
 import {
@@ -32,7 +31,6 @@ import {
 describe("MITM Modular Tool Handlers", () => {
   describe("Handler Registration and Identification", () => {
     it("instantiates handlers with expected IDs", () => {
-      assert.equal(new CursorMitmHandler().id, "cursor");
       assert.equal(new CopilotMitmHandler().id, "copilot");
       assert.equal(new AntigravityMitmHandler().id, "antigravity");
       assert.equal(new KiroMitmHandler().id, "kiro");
@@ -40,17 +38,14 @@ describe("MITM Modular Tool Handlers", () => {
     });
 
     it("registers and retrieves all tool handlers in MitmHandlerRegistry", () => {
-      const cursor = new CursorMitmHandler();
       const copilot = new CopilotMitmHandler();
       const antigravity = new AntigravityMitmHandler();
       const kiro = new KiroMitmHandler();
 
-      MitmHandlerRegistry.register(cursor);
       MitmHandlerRegistry.register(copilot);
       MitmHandlerRegistry.register(antigravity);
       MitmHandlerRegistry.register(kiro);
 
-      assert.equal(MitmHandlerRegistry.get("cursor"), cursor);
       assert.equal(MitmHandlerRegistry.get("copilot"), copilot);
       assert.equal(MitmHandlerRegistry.get("antigravity"), antigravity);
       assert.equal(MitmHandlerRegistry.get("kiro"), kiro);
@@ -58,13 +53,6 @@ describe("MITM Modular Tool Handlers", () => {
   });
 
   describe("Hostname Matchers (canHandle)", () => {
-    it("CursorMitmHandler matches cursor and anysphere domains", () => {
-      const handler = new CursorMitmHandler();
-      assert.equal(handler.canHandle("api2.cursor.sh:443", ""), true);
-      assert.equal(handler.canHandle("api.anysphere.com", ""), true);
-      assert.equal(handler.canHandle("api.openai.com", ""), false);
-    });
-
     it("CopilotMitmHandler matches githubcopilot and copilot domains", () => {
       const handler = new CopilotMitmHandler();
       assert.equal(handler.canHandle("api.individual.githubcopilot.com:443", ""), true);
@@ -321,7 +309,6 @@ describe("MITM Modular Tool Handlers", () => {
     it("registerAllMitmHandlers populates registry with all handlers", () => {
       MitmHandlerRegistry.clear();
       registerAllMitmHandlers(MitmHandlerRegistry);
-      assert.ok(MitmHandlerRegistry.get("cursor"));
       assert.ok(MitmHandlerRegistry.get("copilot"));
       assert.ok(MitmHandlerRegistry.get("antigravity"));
       assert.ok(MitmHandlerRegistry.get("kiro"));
@@ -329,8 +316,6 @@ describe("MITM Modular Tool Handlers", () => {
     });
 
     it("re-exports tool symbols from central handlers index", () => {
-      assert.equal(handlersIndex.interceptCursor, interceptCursor);
-      assert.equal(handlersIndex.CursorMitmHandler, CursorMitmHandler);
       assert.equal(handlersIndex.interceptCopilot, interceptCopilot);
       assert.equal(handlersIndex.resolveRouterPath, resolveRouterPath);
       assert.equal(handlersIndex.CopilotMitmHandler, CopilotMitmHandler);

@@ -18,14 +18,13 @@ import {
   DEFAULT_ANTIGRAVITY_MAPPINGS,
   DEFAULT_KIRO_MAPPINGS,
   DEFAULT_COPILOT_MAPPINGS,
-  DEFAULT_CURSOR_MAPPINGS,
   TOOL_DEFAULT_HOSTS,
   MitmRepository,
 } from "../src/storage/repositories/mitmRepo.js";
 import { checkAllDNSStatus } from "../src/mitm/dns/dnsConfig.js";
 
 describe("MITM Tool Hosts and Routing Alignment", () => {
-  it("defines exact verified domains for all 4 tools", () => {
+  it("defines exact verified domains for all 3 tools", () => {
     assert.deepEqual(TOOL_HOSTS.antigravity, [
       "daily-cloudcode-pa.googleapis.com",
       "cloudcode-pa.googleapis.com",
@@ -40,10 +39,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
       "q.us-east-1.amazonaws.com",
       "codewhisperer.us-east-1.amazonaws.com",
     ]);
-    assert.deepEqual(TOOL_HOSTS.cursor, [
-      "api2.cursor.sh",
-    ]);
-    assert.equal(ALL_MITM_HOSTS.length, 9);
+    assert.equal(ALL_MITM_HOSTS.length, 8);
   });
 
   it("rewrites production cloudcode-pa to daily-cloudcode-pa", () => {
@@ -62,12 +58,9 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.equal(getToolForHost("management.us-east-1.kiro.dev"), "kiro");
     assert.equal(getToolForHost("q.us-east-1.amazonaws.com"), "kiro");
     assert.equal(getToolForHost("codewhisperer.us-east-1.amazonaws.com"), "kiro");
-    assert.equal(getToolForHost("api2.cursor.sh:443"), "cursor");
-    assert.equal(getToolForHost("api2.cursor.sh"), "cursor");
     // Subdomain matching via tool-level matchesHost predicate
     assert.equal(getToolForHost("custom-subdomain.cloudcode-pa.googleapis.com"), "antigravity");
     assert.equal(getToolForHost("subdomain.githubcopilot.com"), "copilot");
-    assert.equal(getToolForHost("subdomain.cursor.sh"), "cursor");
     assert.equal(getToolForHost("custom.kiro.dev"), "kiro");
     assert.equal(getToolForHost("unknown-domain.example.com"), null);
     assert.equal(getToolForHost(""), null);
@@ -76,7 +69,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
 
   it("correctly evaluates isMitmHost", () => {
     assert.equal(isMitmHost("daily-cloudcode-pa.googleapis.com"), true);
-    assert.equal(isMitmHost("api2.cursor.sh"), true);
+    assert.equal(isMitmHost("management.us-east-1.kiro.dev"), true);
     assert.equal(isMitmHost("api.openai.com"), false);
   });
 
@@ -109,8 +102,8 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.ok(agHosts.includes("127.0.0.1 daily-cloudcode-pa.googleapis.com"));
     assert.ok(agHosts.includes("127.0.0.1 cloudcode-pa.googleapis.com"));
 
-    const cursorHosts = formatToolDefaultHosts("cursor");
-    assert.equal(cursorHosts, "127.0.0.1 api2.cursor.sh");
+    const copilotHosts = formatToolDefaultHosts("copilot");
+    assert.equal(copilotHosts, "127.0.0.1 api.individual.githubcopilot.com");
   });
 
   it("detects chat requests across different tools", () => {
@@ -120,10 +113,6 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     );
     assert.equal(
       isChatRequest("copilot", { url: "/chat/completions" }),
-      true
-    );
-    assert.equal(
-      isChatRequest("cursor", { url: "/RunSSE" }),
       true
     );
     // Kiro header-based chat request
@@ -197,46 +186,42 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     const copilotDefaults = getDefaultMappings("copilot");
     assert.ok(copilotDefaults.some((m) => m.sourceModel === "gpt-4o"));
 
-    const cursorDefaults = getDefaultMappings("cursor");
-    assert.ok(cursorDefaults.some((m) => m.sourceModel === "claude-sonnet-4-5"));
-
     // Invariant: all default target models must be empty string
-    for (const mapping of [...agDefaults, ...kiroDefaults, ...copilotDefaults, ...cursorDefaults]) {
+    for (const mapping of [...agDefaults, ...kiroDefaults, ...copilotDefaults]) {
       assert.equal(mapping.targetModel, "", `Default mapping for '${mapping.sourceModel}' must have empty targetModel`);
     }
   });
 
   it("smart resetMappings preserves user selections while resetting standard models", () => {
     // Setup existing mapping with user choice
-    MitmRepository.updateMapping("cursor", "claude-sonnet-4-5", "custom/my-model-1");
-    MitmRepository.updateMapping("cursor", "non-standard-custom", "custom/random");
+    MitmRepository.updateMapping("copilot", "gpt-4o", "custom/my-model-1");
+    MitmRepository.updateMapping("copilot", "non-standard-custom", "custom/random");
 
-    // Before reset, cursor has custom mapping
-    const beforeReset = MitmRepository.getMappings("cursor");
-    assert.equal(beforeReset.find((m) => m.sourceModel === "claude-sonnet-4-5")?.targetModel, "custom/my-model-1");
+    // Before reset, copilot has custom mapping
+    const beforeReset = MitmRepository.getMappings("copilot");
+    assert.equal(beforeReset.find((m) => m.sourceModel === "gpt-4o")?.targetModel, "custom/my-model-1");
 
     // Execute smart reset
-    const afterReset = MitmRepository.resetMappings("cursor");
+    const afterReset = MitmRepository.resetMappings("copilot");
 
     // Standard model with user choice was PRESERVED
-    const preserved = afterReset.find((m) => m.sourceModel === "claude-sonnet-4-5");
+    const preserved = afterReset.find((m) => m.sourceModel === "gpt-4o");
     assert.equal(preserved?.targetModel, "custom/my-model-1");
 
     // Standard model without user choice was reset to ""
-    const unmapped = afterReset.find((m) => m.sourceModel === "claude-opus-4");
+    const unmapped = afterReset.find((m) => m.sourceModel === "o1");
     assert.equal(unmapped?.targetModel, "");
 
     // Non-standard custom model was pruned on reset to defaults
     assert.equal(afterReset.find((m) => m.sourceModel === "non-standard-custom"), undefined);
   });
 
-  it("checks DNS status returning keys for all 4 tools", () => {
+  it("checks DNS status returning keys for all 3 tools", () => {
     const dnsStatus = checkAllDNSStatus();
     assert.ok("antigravity" in dnsStatus);
     assert.ok("kiro" in dnsStatus);
     assert.ok("copilot" in dnsStatus);
-    assert.ok("cursor" in dnsStatus);
     assert.equal(typeof dnsStatus.antigravity, "boolean");
-    assert.equal(typeof dnsStatus.cursor, "boolean");
+    assert.equal(typeof dnsStatus.copilot, "boolean");
   });
 });
