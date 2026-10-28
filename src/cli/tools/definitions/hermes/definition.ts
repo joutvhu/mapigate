@@ -13,9 +13,9 @@ export const definition: CliToolDefinition = {
   baseUrlPath: "/v1",
   defaultModels: [
     "hermes-3",
-    "nousresearch/hermes-3-llama-3.1-405b",
-    "nousresearch/hermes-3-llama-3.1-70b",
-    "nousresearch/hermes-3-llama-3.1-8b",
+    "hermes-3-llama-3.1-405b",
+    "hermes-3-llama-3.1-70b",
+    "hermes-3-llama-3.1-8b",
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
     "gpt-4o",

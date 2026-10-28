@@ -19,10 +19,6 @@ export const definition: CliToolDefinition = {
     "gpt-6-astra",
     "glm-5.3-flash",
     "gpt-4o",
-    "low",
-    "medium",
-    "high",
-    "ultra",
   ],
   envVars: {
     baseUrl: "OPENAI_BASE_URL",

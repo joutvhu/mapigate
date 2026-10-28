@@ -12,8 +12,6 @@ export const definition: CliToolDefinition = {
   configPath: "~/.config/crush/crush.json",
   baseUrlPath: "/v1",
   defaultModels: [
-    "large",
-    "small",
     "claude-3-7-sonnet",
     "claude-3-5-sonnet",
     "gpt-4o",

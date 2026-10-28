@@ -15,8 +15,6 @@ export const definition: CliToolDefinition = {
     "deepseek-v4-flash",
     "deepseek-chat",
     "deepseek-reasoner",
-    "deepseek-ai/deepseek-v4-pro",
-    "deepseek-ai/deepseek-v4-flash",
     "glm-5.3",
     "glm-5.3-flash",
     "kimi-k3",
