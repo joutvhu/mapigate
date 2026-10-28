@@ -1,6 +1,7 @@
 import { getDatabase } from "../database.js";
 import { getDefaultMappings as getMitmDefaultMappings } from "../../mitm/toolsHelper.js";
 import { CLI_TOOLS } from "../../shared/constants/cliTools.js";
+import { ComboRepository } from "./comboRepo.js";
 
 export interface ToolMapping {
   toolId: string;
@@ -104,8 +105,28 @@ export class ToolMappingRepository {
     }
   }
 
+  public static normalizeTargetModel(targetModel: string): string {
+    const raw = (targetModel || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("combo/")) return raw;
+
+    try {
+      const allCombos = ComboRepository.getAllCombos();
+      const isCombo = allCombos.some(
+        (c) => c.isActive && c.name.toLowerCase() === raw.toLowerCase()
+      );
+      if (isCombo) {
+        return `combo/${raw}`;
+      }
+    } catch {
+      // ignore if database/combos not initialized
+    }
+    return raw;
+  }
+
   public static saveMapping(toolId: string, sourceModel: string, targetModel: string): void {
     const tid = (toolId || "").toLowerCase();
+    const normalizedTarget = this.normalizeTargetModel(targetModel);
     const db = getDatabase();
     db.run(
       `INSERT INTO tool_mappings (tool_id, source_model, target_model)
@@ -113,7 +134,7 @@ export class ToolMappingRepository {
        ON CONFLICT(tool_id, source_model) DO UPDATE SET target_model = excluded.target_model`,
       tid,
       sourceModel,
-      targetModel
+      normalizedTarget
     );
 
     // Keep legacy mitm_mappings table synchronized
@@ -124,7 +145,7 @@ export class ToolMappingRepository {
          ON CONFLICT(ide, source_model) DO UPDATE SET target_model = excluded.target_model`,
         tid,
         sourceModel,
-        targetModel
+        normalizedTarget
       );
     } catch {
       // ignore

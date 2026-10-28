@@ -474,7 +474,10 @@ export const MitmTab: React.FC = () => {
 
   const handleUpdateMapping = async (toolId: string) => {
     if (!editingSource || !targetInput.trim()) return;
-    const target = targetInput.trim();
+    let target = targetInput.trim();
+    if (comboNames.has(target.toLowerCase()) && !target.startsWith("combo/")) {
+      target = `combo/${target}`;
+    }
 
     setMappingsByTool((prev) => ({
       ...prev,
@@ -1088,14 +1091,17 @@ export const MitmTab: React.FC = () => {
                               const targetDisplayName = m.targetModel
                                 ? resolveModelDisplayName(m.targetModel)
                                 : "";
-                              const isTargetDifferent = Boolean(
-                                m.targetModel &&
-                                targetDisplayName &&
-                                targetDisplayName !== m.targetModel
-                              );
                               const isCombo = Boolean(
                                 m.targetModel &&
                                 (m.targetModel.startsWith("combo/") || comboNames.has(m.targetModel.toLowerCase()))
+                              );
+                              const effectiveTargetModel = isCombo && !m.targetModel.startsWith("combo/")
+                                ? `combo/${m.targetModel}`
+                                : m.targetModel;
+                              const isTargetDifferent = Boolean(
+                                effectiveTargetModel &&
+                                targetDisplayName &&
+                                targetDisplayName !== effectiveTargetModel
                               );
 
                               return (
@@ -1138,12 +1144,12 @@ export const MitmTab: React.FC = () => {
                                             </span>
                                           )}
                                           <span className="text-emerald-300 font-sans font-semibold text-xs leading-snug">
-                                            {targetDisplayName || m.targetModel}
+                                            {targetDisplayName || effectiveTargetModel}
                                           </span>
                                         </div>
                                         {isTargetDifferent && (
                                           <span className="text-[10.5px] font-mono text-slate-400 pl-4">
-                                            {m.targetModel}
+                                            {effectiveTargetModel}
                                           </span>
                                         )}
                                       </div>

@@ -145,7 +145,7 @@ modelRouter.get("/available", (req, res) => {
         continue;
       }
 
-      const val = combo.name;
+      const val = combo.name.startsWith("combo/") ? combo.name : `combo/${combo.name}`;
       if (seenValues.has(val)) continue;
       seenValues.add(val);
 
