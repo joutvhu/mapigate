@@ -366,20 +366,15 @@ export const CliToolsTab: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between text-xs text-slate-400 px-1">
             <p>
-              Click any tool card below to inspect connection instructions. Use <strong>Sync Aliases</strong> to import its models into Model Mappings without typing.
+              Click any tool card below to inspect connection instructions and sync its model aliases into Model Mappings.
             </p>
           </div>
 
           {/* GRID OF 26 CODING TOOLS */}
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
             {CLI_TOOLS_LIST.map((tool, idx) => {
               const currentStatus = getEffectiveStatus(tool);
               const def = CLI_TOOLS[tool.id];
-              const hasAliases = Boolean(
-                (def?.defaultMappings && def.defaultMappings.length > 0) ||
-                (def?.defaultModels && def.defaultModels.length > 0) ||
-                (def?.modelAliases && def.modelAliases.length > 0)
-              );
 
               return (
                 <div
@@ -395,49 +390,28 @@ export const CliToolsTab: React.FC = () => {
                       setActiveTab("powershell");
                     }
                   }}
-                  className="rt-card stagger-item flex flex-col justify-between gap-3 cursor-pointer p-4 hover:border-blue-500/40 hover:bg-[#131B2E] transition-all min-w-[260px] group"
+                  className="rt-card stagger-item flex items-center justify-between gap-3 cursor-pointer py-3.5 px-4 hover:border-blue-500/40 hover:bg-[#131B2E] transition-all min-w-[250px] group"
                   style={{ animationDelay: `${idx * 15}ms` }}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <ToolIcon
-                        src={tool.image}
-                        name={tool.name}
-                        color={def?.color}
-                        iconBg={def?.iconBg || tool.iconBg}
-                        size="md"
-                      />
-                      <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
-                          {tool.name}
-                        </h4>
-                        <div className="mt-1">{getStatusBadge(currentStatus)}</div>
-                      </div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ToolIcon
+                      src={tool.image}
+                      name={tool.name}
+                      color={def?.color}
+                      iconBg={def?.iconBg || tool.iconBg}
+                      size="md"
+                    />
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
+                        {tool.name}
+                      </h4>
+                      <div className="mt-1">{getStatusBadge(currentStatus)}</div>
                     </div>
-
-                    <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-blue-400 transition-colors shrink-0">
-                      chevron_right
-                    </span>
                   </div>
 
-                  {/* Quick Action: Sync Aliases */}
-                  {hasAliases && (
-                    <div className="pt-2 border-t border-[#1E293B]/60 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500 font-sans">Client Aliases</span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleImportToolToGlobal(tool.id, tool.name);
-                        }}
-                        className="px-2 py-0.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/25 border border-blue-500/30 text-[10.5px] font-mono text-blue-300 font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                        title={`Import ${tool.name} aliases into Model Mappings`}
-                      >
-                        <span className="material-symbols-outlined text-[13px]">add_circle</span>
-                        Sync Aliases
-                      </button>
-                    </div>
-                  )}
+                  <span className="material-symbols-outlined text-[18px] text-slate-500 group-hover:text-blue-400 transition-colors shrink-0">
+                    chevron_right
+                  </span>
                 </div>
               );
             })}
@@ -745,18 +719,24 @@ export const CliToolsTab: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    handleImportToolToGlobal(activeModalTool.id, activeModalTool.name);
-                    setActiveModalTool(null);
-                    setViewMode("mappings");
-                  }}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
-                  title="Import this tool's aliases directly into Model Mappings"
-                >
-                  <span className="material-symbols-outlined text-[16px]">alt_route</span>
-                  Sync Models to Mappings
-                </button>
+                {Boolean(
+                  (selectedDef?.defaultMappings && selectedDef.defaultMappings.length > 0) ||
+                  (selectedDef?.defaultModels && selectedDef.defaultModels.length > 0) ||
+                  (selectedDef?.modelAliases && selectedDef.modelAliases.length > 0)
+                ) && (
+                  <button
+                    onClick={() => {
+                      handleImportToolToGlobal(activeModalTool.id, activeModalTool.name);
+                      setActiveModalTool(null);
+                      setViewMode("mappings");
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 flex items-center gap-1.5 transition-all cursor-pointer"
+                    title="Import this tool's model aliases into Model Mappings"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">alt_route</span>
+                    Sync Models to Mappings
+                  </button>
+                )}
 
                 <button
                   onClick={() => setActiveModalTool(null)}
