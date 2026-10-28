@@ -46,9 +46,9 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
     icon: "savings",
   },
   clitools: {
-    title: "CLI Tools",
-    subtitle: "One-click connection setups for Claude Code, Cursor, Cline, Copilot & more",
-    icon: "terminal",
+    title: "Coding Tools & Model Mappings",
+    subtitle: "One-click connection setups and universal model rewrite rules for coding assistants & IDEs",
+    icon: "integration_instructions",
   },
   mitm: {
     title: "MITM Proxy",

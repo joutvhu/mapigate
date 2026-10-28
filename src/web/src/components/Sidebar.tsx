@@ -40,7 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: "usage" as NavTab, label: "Usage & Analytics", icon: "bar_chart" },
     { id: "quota" as NavTab, label: "Quota Tracker", icon: "data_usage" },
     { id: "tokensaver" as NavTab, label: "Token Saver", icon: "savings" },
-    { id: "clitools" as NavTab, label: "CLI Tools", icon: "terminal" },
+    { id: "clitools" as NavTab, label: "Coding Tools", icon: "integration_instructions" },
     { id: "mitm" as NavTab, label: "MITM Proxy", icon: "security" },
   ];
 

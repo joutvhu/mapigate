@@ -129,7 +129,7 @@ app.use("/api/stats", statsRouter);
 app.use("/api/combos", comboRouter);
 app.use("/api/mitm", mitmRouter);
 app.use("/api/oauth", oauthRouter);
-app.use("/api/cli-tools", cliToolsRouter);
+app.use(["/api/cli-tools", "/api/tools", "/api/model-mappings"], cliToolsRouter);
 app.use("/api/console-logs", consoleLogsRouter);
 app.use("/api/quota", quotaRouter);
 app.use("/api/usage", usageRouter);

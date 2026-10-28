@@ -7,6 +7,7 @@ import os from "node:os";
 import { CLI_TOOLS, MAPIGATE_BASE_URL, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
 import { serverLifecycle } from "../lifecycle.js";
 import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
+import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 
 const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
@@ -135,6 +136,56 @@ cliToolsRouter.get("/all-statuses", async (_req, res) => {
   }
 });
 
+// ==========================================
+// Universal / Global Model Mappings API
+// ==========================================
+
+cliToolsRouter.get("/global-mappings", (_req, res) => {
+  const mappings = ToolMappingRepository.getGlobalMappings();
+  res.json(mappings);
+});
+
+cliToolsRouter.post("/global-mappings", (req, res) => {
+  const { sourceModel, targetModel } = req.body;
+  if (!sourceModel || !targetModel) {
+    res.status(400).json({ error: "Missing sourceModel or targetModel" });
+    return;
+  }
+  ToolMappingRepository.saveGlobalMapping(sourceModel, targetModel);
+  res.json({ success: true, sourceModel, targetModel });
+});
+
+cliToolsRouter.delete("/global-mappings", (req, res) => {
+  const sourceModel = (req.query.sourceModel as string) || req.body?.sourceModel;
+  if (!sourceModel) {
+    res.status(400).json({ error: "Missing sourceModel parameter" });
+    return;
+  }
+  ToolMappingRepository.deleteGlobalMapping(sourceModel);
+  res.json({ success: true, sourceModel });
+});
+
+cliToolsRouter.delete("/global-mappings/*", (req, res) => {
+  const sourceModel = (req.params as any)[0] || (req.params as any).sourceModel;
+  if (!sourceModel) {
+    res.status(400).json({ error: "Missing sourceModel parameter" });
+    return;
+  }
+  ToolMappingRepository.deleteGlobalMapping(sourceModel);
+  res.json({ success: true, sourceModel });
+});
+
+cliToolsRouter.post("/global-mappings/import/:tool", (req, res) => {
+  const { tool } = req.params;
+  const mappings = ToolMappingRepository.importToolDefaultsToGlobal(tool);
+  res.json({ success: true, tool, mappings });
+});
+
+cliToolsRouter.post("/global-mappings/reset", (_req, res) => {
+  const mappings = ToolMappingRepository.resetGlobalMappings();
+  res.json({ success: true, mappings });
+});
+
 // GET specific tool status
 cliToolsRouter.get("/:tool", async (req, res) => {
   const { tool } = req.params;
@@ -238,3 +289,77 @@ cliToolsRouter.post("/:tool/reset", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to reset configuration" });
   }
 });
+
+// GET mappings for a tool
+cliToolsRouter.get("/:tool/mappings", (req, res) => {
+  const { tool } = req.params;
+  const mappings = ToolMappingRepository.getMappings(tool);
+  res.json(mappings);
+});
+
+cliToolsRouter.get("/mappings/:tool", (req, res) => {
+  const { tool } = req.params;
+  const mappings = ToolMappingRepository.getMappings(tool);
+  res.json(mappings);
+});
+
+// POST update mapping for a tool
+cliToolsRouter.post("/:tool/mappings", (req, res) => {
+  const { tool } = req.params;
+  const { sourceModel, targetModel } = req.body;
+  if (!sourceModel || !targetModel) {
+    res.status(400).json({ error: "Missing sourceModel or targetModel" });
+    return;
+  }
+  ToolMappingRepository.saveMapping(tool, sourceModel, targetModel);
+  res.json({ success: true, tool, sourceModel, targetModel });
+});
+
+cliToolsRouter.post("/mappings", (req, res) => {
+  const tool = req.body.tool || req.body.toolId || req.body.ide;
+  const { sourceModel, targetModel } = req.body;
+  if (!tool || !sourceModel || !targetModel) {
+    res.status(400).json({ error: "Missing tool, sourceModel, or targetModel" });
+    return;
+  }
+  ToolMappingRepository.saveMapping(tool, sourceModel, targetModel);
+  res.json({ success: true, tool, sourceModel, targetModel });
+});
+
+// POST reset tool mappings to defaults
+cliToolsRouter.post("/:tool/mappings/reset", (req, res) => {
+  const { tool } = req.params;
+  const mappings = ToolMappingRepository.resetMappings(tool);
+  res.json({ success: true, tool, mappings });
+});
+
+cliToolsRouter.post("/mappings/reset", (req, res) => {
+  const tool = req.body.tool || req.body.toolId || req.body.ide || "claude";
+  const mappings = ToolMappingRepository.resetMappings(tool);
+  res.json({ success: true, tool, mappings });
+});
+
+// DELETE tool mapping
+cliToolsRouter.delete("/:tool/mappings", (req, res) => {
+  const { tool } = req.params;
+  const sourceModel = (req.query.sourceModel as string) || req.body?.sourceModel;
+  if (!sourceModel) {
+    res.status(400).json({ error: "Missing sourceModel parameter" });
+    return;
+  }
+  ToolMappingRepository.deleteMapping(tool, sourceModel);
+  res.json({ success: true, tool, sourceModel });
+});
+
+cliToolsRouter.delete("/:tool/mappings/*", (req, res) => {
+  const { tool } = req.params;
+  const sourceModel = (req.params as any)[0] || (req.params as any).sourceModel;
+  if (!sourceModel) {
+    res.status(400).json({ error: "Missing sourceModel parameter" });
+    return;
+  }
+  ToolMappingRepository.deleteMapping(tool, sourceModel);
+  res.json({ success: true, tool, sourceModel });
+});
+
+

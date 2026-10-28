@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
 import { TokenSaverCoordinator } from "../../core/tokenSaver/index.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
+import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { ProviderRegistry } from "../../providers/core/registry.js";
@@ -136,9 +137,53 @@ export async function runProxyPipeline(
     }
   }
 
+  // 1. Resolve client tool and tool model mappings (e.g. sonnet -> claude/claude-sonnet-4-6 or combo/my-combo)
+  const explicitTool = (req.headers["x-client-tool"] as string)?.toLowerCase().trim();
+  const ua = ((req.headers["user-agent"] as string) || "").toLowerCase();
+  let detectedToolId = explicitTool || "";
+
+  if (!detectedToolId) {
+    if (ua.includes("claude-code") || ua.includes("claude_cli") || ua.includes("@anthropic-ai/claude-code")) {
+      detectedToolId = "claude";
+    } else if (ua.includes("cursor")) {
+      detectedToolId = "cursor";
+    } else if (ua.includes("cline")) {
+      detectedToolId = "cline";
+    } else if (ua.includes("continue")) {
+      detectedToolId = "continue";
+    } else if (ua.includes("roo") || ua.includes("roocode")) {
+      detectedToolId = "roo";
+    } else if (ua.includes("copilot")) {
+      detectedToolId = "copilot";
+    } else if (ua.includes("kiro")) {
+      detectedToolId = "kiro";
+    } else if (ua.includes("antigravity")) {
+      detectedToolId = "antigravity";
+    } else if (clientFormat === "anthropic" || (typeof req.path === "string" && req.path.includes("/messages"))) {
+      detectedToolId = "claude";
+    }
+  }
+
+  let resolvedModel = cleanModel;
+  if (detectedToolId) {
+    const mapped = ToolMappingRepository.resolveModelMapping(detectedToolId, cleanModel);
+    if (mapped) {
+      resolvedModel = mapped;
+      logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [${detectedToolId}]: '${cleanModel}' -> '${resolvedModel}'`);
+    }
+  } else {
+    const claudeMapped = ToolMappingRepository.resolveModelMapping("claude", cleanModel);
+    const cursorMapped = ToolMappingRepository.resolveModelMapping("cursor", cleanModel);
+    const fallbackMapped = claudeMapped || cursorMapped;
+    if (fallbackMapped) {
+      resolvedModel = fallbackMapped;
+      logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING: '${cleanModel}' -> '${resolvedModel}'`);
+    }
+  }
+
   const allCombos = ComboRepository.getAllCombos();
-  const comboLookup = cleanModel.startsWith("combo/") ? cleanModel.slice(6) : cleanModel;
-  const isComboCandidate = !cleanModel.includes("/") || cleanModel.startsWith("combo/");
+  const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
+  const isComboCandidate = !resolvedModel.includes("/") || resolvedModel.startsWith("combo/");
   const activeCombo = isComboCandidate
     ? allCombos.find(
         (c) =>
@@ -159,7 +204,7 @@ export async function runProxyPipeline(
       `COMBO "${comboName}" (${activeCombo.strategy}) · candidates: [${candidateModels.join(", ")}]`
     );
   } else {
-    candidateModels = [cleanModel];
+    candidateModels = [resolvedModel];
   }
 
   const requiredCaps = detectRequiredCapabilities(body);
@@ -208,7 +253,7 @@ export async function runProxyPipeline(
   const context: ProviderRequestContext = {
     req,
     res,
-    targetModel: comboName ? comboName : cleanModel,
+    targetModel: comboName ? comboName : resolvedModel,
     clientFormat,
     targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
     body,
@@ -232,10 +277,10 @@ export async function runProxyPipeline(
       if (comboProvider.execute) {
         result = await comboProvider.execute(context, handleSingleModel);
       } else {
-        result = await handleSingleModel(body, candidateModels[0] || cleanModel, false);
+        result = await handleSingleModel(body, candidateModels[0] || resolvedModel, false);
       }
     } else {
-      result = await handleSingleModel(body, cleanModel, false);
+      result = await handleSingleModel(body, resolvedModel, false);
     }
 
     if (result.ok && !res.headersSent) {

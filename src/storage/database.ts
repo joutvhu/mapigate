@@ -296,6 +296,13 @@ function initSchema(db: DatabaseDriver) {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS tool_mappings (
+      tool_id TEXT NOT NULL,
+      source_model TEXT NOT NULL,
+      target_model TEXT NOT NULL,
+      PRIMARY KEY (tool_id, source_model)
+    );
+
     CREATE TABLE IF NOT EXISTS mitm_mappings (
       ide TEXT NOT NULL,
       source_model TEXT NOT NULL,
@@ -329,5 +336,6 @@ function initSchema(db: DatabaseDriver) {
     CREATE INDEX IF NOT EXISTS idx_request_details_status ON request_details(status);
     CREATE INDEX IF NOT EXISTS idx_reasoning_cache_expires ON reasoning_cache(expires_at);
     CREATE INDEX IF NOT EXISTS idx_kv_store_scope ON kv_store(scope);
+    CREATE INDEX IF NOT EXISTS idx_tool_mappings_tool ON tool_mappings(tool_id);
   `);
 }

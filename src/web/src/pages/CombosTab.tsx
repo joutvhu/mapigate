@@ -40,7 +40,6 @@ export const CombosTab: React.FC = () => {
     DEFAULT_CAPACITY_ADAPTER
   );
   const [savingAdapter, setSavingAdapter] = useState(false);
-  const [presetLoading, setPresetLoading] = useState<"cursor" | "claude" | null>(null);
   const [copiedComboId, setCopiedComboId] = useState<string | null>(null);
   const [comboSearchQuery, setComboSearchQuery] = useState("");
 
@@ -286,69 +285,6 @@ export const CombosTab: React.FC = () => {
     });
   };
 
-  // 8. Preset Generator (Cursor Default / Claude Default)
-  const handleGeneratePresets = async (source: "cursor" | "claude") => {
-    const label = source === "cursor" ? "Cursor Default" : "Claude Default";
-    setPresetLoading(source);
-    try {
-      const res = await fetch(`/api/combos/presets?source=${source}`);
-      const preview = await res.json();
-      if (!res.ok) {
-        alert(preview.error || `Failed to preview ${label} presets`);
-        return;
-      }
-
-      const toCreate = preview.toCreate ?? (preview.items || []).filter((i: any) => !i.exists).length;
-      const toSkip = preview.toSkip ?? (preview.items || []).filter((i: any) => i.exists).length;
-      const total = (preview.items || []).length;
-
-      if (total === 0) {
-        alert(`No ${label} preset models available to generate.`);
-        return;
-      }
-
-      if (toCreate === 0) {
-        setConfirmState({
-          title: `${label} Presets Ready`,
-          message: `All ${total} ${label} combos already exist in your database. Nothing new to create.`,
-          confirmText: "OK",
-          onConfirm: () => setConfirmState(null),
-        });
-        return;
-      }
-
-      setConfirmState({
-        title: `Generate ${label} Presets`,
-        message: `Create ${toCreate} missing combo${
-          toCreate === 1 ? "" : "s"
-        } for ${label}? (${toSkip} already exist and will be untouched).`,
-        confirmText: `Create (${toCreate})`,
-        variant: "primary",
-        onConfirm: async () => {
-          try {
-            const createRes = await fetch("/api/combos/presets", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ source }),
-            });
-            if (createRes.ok) {
-              await loadCombos();
-              invalidateAvailableModelsCache();
-            }
-          } catch (err) {
-            console.error("Error generating presets:", err);
-          } finally {
-            setConfirmState(null);
-          }
-        },
-      });
-    } catch (err) {
-      console.error("Error previewing presets:", err);
-    } finally {
-      setPresetLoading(null);
-    }
-  };
-
   const handleCopyCombo = (name: string, id: string) => {
     navigator.clipboard.writeText(name);
     setCopiedComboId(id);
@@ -421,46 +357,8 @@ export const CombosTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Buttons: Preset Generators + Create Combo */}
+        {/* Buttons: Create Combo */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start xl:self-center">
-          <button
-            type="button"
-            onClick={() => handleGeneratePresets("cursor")}
-            disabled={presetLoading !== null}
-            className="px-3.5 py-2 rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-slate-600 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-            title="Generate standard Cursor Default combos"
-          >
-            {presetLoading === "cursor" ? (
-              <span className="material-symbols-outlined text-[16px] animate-spin">
-                progress_activity
-              </span>
-            ) : (
-              <span className="material-symbols-outlined text-[16px] text-purple-400">
-                auto_mode
-              </span>
-            )}
-            Cursor Default
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleGeneratePresets("claude")}
-            disabled={presetLoading !== null}
-            className="px-3.5 py-2 rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-slate-600 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-            title="Generate standard Claude Default combos"
-          >
-            {presetLoading === "claude" ? (
-              <span className="material-symbols-outlined text-[16px] animate-spin">
-                progress_activity
-              </span>
-            ) : (
-              <span className="material-symbols-outlined text-[16px] text-amber-400">
-                smart_toy
-              </span>
-            )}
-            Claude Default
-          </button>
-
           <button
             type="button"
             onClick={() => {
@@ -531,7 +429,7 @@ export const CombosTab: React.FC = () => {
               No combos configured in SQLite database yet
             </p>
             <p className="text-xs text-slate-500 max-w-md">
-              Click &ldquo;Create Combo&rdquo; to build your first alias, or click &ldquo;Claude Default&rdquo; / &ldquo;Cursor Default&rdquo; above to quickly generate presets.
+              Click &ldquo;Create Combo&rdquo; to build your first multi-model cluster (e.g. combo/smart-coding). Tool-specific model aliases (sonnet, default...) are configured in the CLI Tools tab.
             </p>
           </div>
         ) : filteredCombos.length === 0 ? (

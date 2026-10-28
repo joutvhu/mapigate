@@ -30,8 +30,11 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
       "cloudcode-pa.googleapis.com",
     ]);
     assert.deepEqual(TOOL_HOSTS.copilot, [
-      "api.individual.githubcopilot.com",
+      "api.githubcopilot.com",
       "copilot-proxy.githubusercontent.com",
+      "api.individual.githubcopilot.com",
+      "api.business.githubcopilot.com",
+      "api.enterprise.githubcopilot.com",
     ]);
     assert.deepEqual(TOOL_HOSTS.kiro, [
       "management.us-east-1.kiro.dev",
@@ -39,7 +42,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
       "q.us-east-1.amazonaws.com",
       "codewhisperer.us-east-1.amazonaws.com",
     ]);
-    assert.equal(ALL_MITM_HOSTS.length, 8);
+    assert.equal(ALL_MITM_HOSTS.length, 11);
   });
 
   it("rewrites production cloudcode-pa to daily-cloudcode-pa", () => {
@@ -103,7 +106,10 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.ok(agHosts.includes("127.0.0.1 cloudcode-pa.googleapis.com"));
 
     const copilotHosts = formatToolDefaultHosts("copilot");
-    assert.equal(copilotHosts, "127.0.0.1 api.individual.githubcopilot.com");
+    assert.equal(
+      copilotHosts,
+      "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com"
+    );
   });
 
   it("detects chat requests across different tools", () => {
@@ -186,7 +192,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     assert.ok(kiroDefaults.some((m) => m.sourceModel === "gpt-5.6-sol"));
 
     const copilotDefaults = getDefaultMappings("copilot");
-    assert.ok(copilotDefaults.some((m) => m.sourceModel === "gpt-4o"));
+    assert.ok(copilotDefaults.some((m) => m.sourceModel === "claude-sonnet-4.6"));
 
     // Invariant: all default target models must be empty string
     for (const mapping of [...agDefaults, ...kiroDefaults, ...copilotDefaults]) {
@@ -196,22 +202,22 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
 
   it("smart resetMappings preserves user selections while resetting standard models", () => {
     // Setup existing mapping with user choice
-    MitmRepository.updateMapping("copilot", "gpt-4o", "custom/my-model-1");
+    MitmRepository.updateMapping("copilot", "claude-sonnet-4.6", "custom/my-model-1");
     MitmRepository.updateMapping("copilot", "non-standard-custom", "custom/random");
 
     // Before reset, copilot has custom mapping
     const beforeReset = MitmRepository.getMappings("copilot");
-    assert.equal(beforeReset.find((m) => m.sourceModel === "gpt-4o")?.targetModel, "custom/my-model-1");
+    assert.equal(beforeReset.find((m) => m.sourceModel === "claude-sonnet-4.6")?.targetModel, "custom/my-model-1");
 
     // Execute smart reset
     const afterReset = MitmRepository.resetMappings("copilot");
 
     // Standard model with user choice was PRESERVED
-    const preserved = afterReset.find((m) => m.sourceModel === "gpt-4o");
+    const preserved = afterReset.find((m) => m.sourceModel === "claude-sonnet-4.6");
     assert.equal(preserved?.targetModel, "custom/my-model-1");
 
     // Standard model without user choice was reset to ""
-    const unmapped = afterReset.find((m) => m.sourceModel === "o1");
+    const unmapped = afterReset.find((m) => m.sourceModel === "claude-haiku-4.5");
     assert.equal(unmapped?.targetModel, "");
 
     // Non-standard custom model was pruned on reset to defaults

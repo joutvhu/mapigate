@@ -10,6 +10,16 @@ export const definition: CliToolDefinition = {
   configType: "guide",
   binary: "cursor",
   docsUrl: "https://cursor.com",
+  defaultMappings: [
+    { sourceModel: "claude-3-7-sonnet", targetModel: "claude/claude-3-7-sonnet" },
+    { sourceModel: "claude-3-5-sonnet", targetModel: "claude/claude-3-5-sonnet" },
+    { sourceModel: "claude-sonnet-4-6", targetModel: "claude/claude-sonnet-4-6" },
+    { sourceModel: "gpt-4o", targetModel: "openai/gpt-4o" },
+    { sourceModel: "gpt-4o-mini", targetModel: "openai/gpt-4o-mini" },
+    { sourceModel: "cursor-small", targetModel: "openai/gpt-4o-mini" },
+    { sourceModel: "deepseek-v3", targetModel: "deepseek/deepseek-chat" },
+    { sourceModel: "deepseek-r1", targetModel: "deepseek/deepseek-reasoner" },
+  ],
   guideSteps: [
     { step: 1, title: "Open Settings", desc: "In Cursor, go to Settings → Models" },
     { step: 2, title: "Enable OpenAI API", desc: "Toggle 'OpenAI API key' on" },
