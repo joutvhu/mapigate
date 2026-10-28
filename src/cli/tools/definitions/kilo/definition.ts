@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Kiro Code",
   image: "/assets/providers/kilocode/icon.png",
   color: "#FF6B6B",
+  iconBg: "#000000",
   description: "Kiro Code / Kilo Code AI Assistant",
   configType: "custom",
   binary: "kilo",

@@ -5,6 +5,7 @@ export const definition: CliToolDefinition = {
   name: "Crush",
   image: "/assets/tools/crush/icon.png",
   color: "#FB923C",
+  iconBg: "#6b50ff",
   description: "Charm Crush terminal AI coding agent",
   configType: "custom",
   binary: "crush",
