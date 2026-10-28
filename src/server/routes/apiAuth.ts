@@ -12,6 +12,26 @@ interface LoginAttemptRecord {
 export const loginAttempts = new Map<string, LoginAttemptRecord>();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 60 * 1000; // 60 seconds lockout after 5 failed attempts
+const MAX_ATTEMPTS_ENTRIES = 500;
+
+function sweepExpiredAttempts(): void {
+  const now = Date.now();
+  for (const [ip, record] of loginAttempts.entries()) {
+    if (record.lockedUntil > 0 && now >= record.lockedUntil) {
+      loginAttempts.delete(ip);
+    }
+  }
+}
+
+function getAttempt(ip: string): LoginAttemptRecord | undefined {
+  const attempt = loginAttempts.get(ip);
+  if (!attempt) return undefined;
+  if (attempt.lockedUntil > 0 && Date.now() >= attempt.lockedUntil) {
+    loginAttempts.delete(ip);
+    return undefined;
+  }
+  return attempt;
+}
 
 function getClientIp(req: any): string {
   return String(req.ip || req.socket?.remoteAddress || "127.0.0.1");
@@ -45,7 +65,7 @@ authRouter.post("/login", async (req, res) => {
   try {
     const clientIp = getClientIp(req);
     const now = Date.now();
-    const attempt = loginAttempts.get(clientIp);
+    const attempt = getAttempt(clientIp);
 
     if (attempt && attempt.lockedUntil > now) {
       const waitSec = Math.ceil((attempt.lockedUntil - now) / 1000);
@@ -53,6 +73,10 @@ authRouter.post("/login", async (req, res) => {
         error: `Too many failed login attempts. Please wait ${waitSec}s before retrying.`,
         code: "RATE_LIMITED",
       });
+    }
+
+    if (loginAttempts.size > MAX_ATTEMPTS_ENTRIES) {
+      sweepExpiredAttempts();
     }
 
     const { password } = req.body || {};

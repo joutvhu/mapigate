@@ -186,6 +186,33 @@ cliToolsRouter.post("/global-mappings/reset", (_req, res) => {
   res.json({ success: true, mappings });
 });
 
+// ==========================================
+// Mappings API (Fixed-path routes must precede /:tool)
+// ==========================================
+
+cliToolsRouter.get("/mappings/:tool", (req, res) => {
+  const { tool } = req.params;
+  const mappings = ToolMappingRepository.getMappings(tool);
+  res.json(mappings);
+});
+
+cliToolsRouter.post("/mappings", (req, res) => {
+  const tool = req.body.tool || req.body.toolId || req.body.ide;
+  const { sourceModel, targetModel } = req.body;
+  if (!tool || !sourceModel || !targetModel) {
+    res.status(400).json({ error: "Missing tool, sourceModel, or targetModel" });
+    return;
+  }
+  ToolMappingRepository.saveMapping(tool, sourceModel, targetModel);
+  res.json({ success: true, tool, sourceModel, targetModel });
+});
+
+cliToolsRouter.post("/mappings/reset", (req, res) => {
+  const tool = req.body.tool || req.body.toolId || req.body.ide || "claude";
+  const mappings = ToolMappingRepository.resetMappings(tool);
+  res.json({ success: true, tool, mappings });
+});
+
 // GET specific tool status
 cliToolsRouter.get("/:tool", async (req, res) => {
   const { tool } = req.params;
@@ -297,12 +324,6 @@ cliToolsRouter.get("/:tool/mappings", (req, res) => {
   res.json(mappings);
 });
 
-cliToolsRouter.get("/mappings/:tool", (req, res) => {
-  const { tool } = req.params;
-  const mappings = ToolMappingRepository.getMappings(tool);
-  res.json(mappings);
-});
-
 // POST update mapping for a tool
 cliToolsRouter.post("/:tool/mappings", (req, res) => {
   const { tool } = req.params;
@@ -315,26 +336,9 @@ cliToolsRouter.post("/:tool/mappings", (req, res) => {
   res.json({ success: true, tool, sourceModel, targetModel });
 });
 
-cliToolsRouter.post("/mappings", (req, res) => {
-  const tool = req.body.tool || req.body.toolId || req.body.ide;
-  const { sourceModel, targetModel } = req.body;
-  if (!tool || !sourceModel || !targetModel) {
-    res.status(400).json({ error: "Missing tool, sourceModel, or targetModel" });
-    return;
-  }
-  ToolMappingRepository.saveMapping(tool, sourceModel, targetModel);
-  res.json({ success: true, tool, sourceModel, targetModel });
-});
-
 // POST reset tool mappings to defaults
 cliToolsRouter.post("/:tool/mappings/reset", (req, res) => {
   const { tool } = req.params;
-  const mappings = ToolMappingRepository.resetMappings(tool);
-  res.json({ success: true, tool, mappings });
-});
-
-cliToolsRouter.post("/mappings/reset", (req, res) => {
-  const tool = req.body.tool || req.body.toolId || req.body.ide || "claude";
   const mappings = ToolMappingRepository.resetMappings(tool);
   res.json({ success: true, tool, mappings });
 });

@@ -26,6 +26,8 @@ import { removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 registerAllMitmHandlers(MitmHandlerRegistry);
 
 const DEFAULT_PRIMARY_PORT = 443;
+const MAX_CERT_CACHE_ENTRIES = 200;
+const MAX_MITM_BODY_BYTES = 50 * 1024 * 1024; // 50MB max body limit
 
 const certCache = new Map<string, tls.SecureContext>();
 let rootCAPem: string = "";
@@ -43,6 +45,12 @@ function sniCallback(servername: string, cb: (err: Error | null, ctx?: tls.Secur
       key: certData.key,
       cert: `${certData.cert}\n${rootCAPem}`,
     });
+    if (certCache.size >= MAX_CERT_CACHE_ENTRIES) {
+      const oldestKey = certCache.keys().next().value;
+      if (oldestKey) {
+        certCache.delete(oldestKey);
+      }
+    }
     certCache.set(servername, ctx);
     cb(null, ctx);
   } catch (err: any) {
@@ -110,10 +118,19 @@ export function resolveModelMapping(tool: string, incomingModel?: string | null)
   return null;
 }
 
-function collectBody(req: IncomingMessage): Promise<Buffer> {
+function collectBody(req: IncomingMessage, maxBytes = MAX_MITM_BODY_BYTES): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    let received = 0;
+    req.on("data", (chunk) => {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      received += buf.length;
+      if (received > maxBytes) {
+        req.destroy(new Error(`Payload too large: exceeded ${maxBytes} bytes`));
+        return;
+      }
+      chunks.push(buf);
+    });
     req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });

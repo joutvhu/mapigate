@@ -145,7 +145,12 @@ export async function fetchUpstreamDirect(
     throw new Error(`Target IP for ${targetHost} resolved to loopback (${targetIP})`);
   }
 
-  const headers = { ...req.headers, host: targetHost, "x-mapigate-mitm-loop": "1" };
+  const headers = {
+    ...req.headers,
+    host: targetHost,
+    "x-mapigate-mitm-loop": "1",
+    "accept-encoding": "gzip, deflate, br",
+  };
   if (bodyBuffer.length > 0) {
     headers["content-length"] = String(bodyBuffer.length);
   }

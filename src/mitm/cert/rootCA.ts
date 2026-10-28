@@ -101,7 +101,10 @@ export function generateRootCA(): RootCAFiles {
   const privateKeyPem = forge.pki.privateKeyToPem(keys.privateKey);
   const certPem = forge.pki.certificateToPem(cert);
 
-  fs.writeFileSync(ROOT_CA_KEY_PATH, privateKeyPem, "utf8");
+  fs.writeFileSync(ROOT_CA_KEY_PATH, privateKeyPem, { encoding: "utf8", mode: 0o600 });
+  try {
+    fs.chmodSync(ROOT_CA_KEY_PATH, 0o600);
+  } catch {}
   fs.writeFileSync(ROOT_CA_CERT_PATH, certPem, "utf8");
 
   return { key: ROOT_CA_KEY_PATH, cert: ROOT_CA_CERT_PATH };

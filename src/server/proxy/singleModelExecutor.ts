@@ -151,6 +151,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       provider.isLocal === true;
 
     if ((!account || !account.rawApiKey) && !hasCustomHeaders && requiresAccount && !isNoAuthOrProfile) {
+      cb.releaseProbe();
       if (triedAccountIds.size > 0 && lastFailureResult) return lastFailureResult;
       logger.errorLine(reqTag, LogSymbol.ERROR, `No active API key account found for provider '${providerConfig.name}'`);
       return { ok: false, status: 503, error: `No active API key account found for provider '${providerConfig.name}'.` };
@@ -248,11 +249,17 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       res.once("close", onClientClose);
     }
 
+    const upstreamTimeoutMs = Number(process.env.MAPIGATE_UPSTREAM_TIMEOUT_MS) || 180_000;
+    const timeoutSignal = AbortSignal.timeout(upstreamTimeoutMs);
+    const combinedSignal = (AbortSignal as any).any
+      ? (AbortSignal as any).any([abortController.signal, timeoutSignal])
+      : abortController.signal;
+
     const fetchOptions: any = {
       method: "POST",
       headers: outgoingHeaders,
       body: JSON.stringify(upstreamBody),
-      signal: abortController.signal,
+      signal: combinedSignal,
     };
 
     if (logger.isDebugEnabled()) {
@@ -270,6 +277,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     let upstreamRes: any;
     try {
       if (res?.writableEnded || res?.destroyed) {
+        cb.releaseProbe();
         return {
           ok: false,
           status: 499,
@@ -287,7 +295,16 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         }
       }
     } catch (fetchErr: any) {
+      if (timeoutSignal.aborted) {
+        cb.releaseProbe();
+        return {
+          ok: false,
+          status: 504,
+          error: `Upstream gateway timeout after ${upstreamTimeoutMs / 1000}s`,
+        };
+      }
       if (abortController.signal.aborted) {
+        cb.releaseProbe();
         return {
           ok: false,
           status: 499,
@@ -385,11 +402,12 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
                 status: upstreamRes.status,
                 error: cleanErrText,
                 headers: sanitizeHeaders(outgoingHeaders),
-                body: obsMode === "errors_only" || obsMode === "all" ? upstreamBody : undefined,
+                body: obsMode === "all" ? upstreamBody : undefined,
               },
               null,
               2
-            )
+            ),
+            { encoding: "utf8", mode: 0o600 }
           );
         }
       } catch {}

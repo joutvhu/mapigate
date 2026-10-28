@@ -40,15 +40,39 @@ export class ToolMappingRepository {
     // 2. Check CLI / IDE tool definitions
     const cliTool = CLI_TOOLS[tid];
     if (cliTool) {
+      const items: ToolMapping[] = [];
+      const seen = new Set<string>();
+
+      // Include model aliases first (e.g. default, sonnet, opus, fable, haiku for Claude Code)
+      if (cliTool.modelAliases && cliTool.modelAliases.length > 0) {
+        for (const a of cliTool.modelAliases) {
+          if (a && !seen.has(a.toLowerCase())) {
+            seen.add(a.toLowerCase());
+            items.push({
+              toolId: tid,
+              sourceModel: a,
+              targetModel: "",
+            });
+          }
+        }
+      }
+
       if (cliTool.defaultModels && cliTool.defaultModels.length > 0) {
-        return cliTool.defaultModels.map((m) => {
+        for (const m of cliTool.defaultModels) {
           const modelName = typeof m === "string" ? m : m.alias || m.id;
-          return {
-            toolId: tid,
-            sourceModel: modelName,
-            targetModel: "",
-          };
-        });
+          if (modelName && !seen.has(modelName.toLowerCase())) {
+            seen.add(modelName.toLowerCase());
+            items.push({
+              toolId: tid,
+              sourceModel: modelName,
+              targetModel: "",
+            });
+          }
+        }
+      }
+
+      if (items.length > 0) {
+        return items;
       }
     }
 
@@ -320,13 +344,15 @@ export class ToolMappingRepository {
       return null;
     }
 
-    // 3. Check any other tool mapping in database (universal fallback)
-    const anyRow = db.get<any>(
-      "SELECT target_model FROM tool_mappings WHERE LOWER(source_model) = LOWER(?) LIMIT 1",
-      raw
-    );
-    if (anyRow && anyRow.target_model && anyRow.target_model.trim().length > 0) {
-      return anyRow.target_model.trim();
+    // 3. Check any other tool mapping in database (universal fallback only when tool is unknown/unspecified)
+    if (!tid || tid === "unknown") {
+      const anyRow = db.get<any>(
+        "SELECT target_model FROM tool_mappings WHERE LOWER(source_model) = LOWER(?) LIMIT 1",
+        raw
+      );
+      if (anyRow && anyRow.target_model && anyRow.target_model.trim().length > 0) {
+        return anyRow.target_model.trim();
+      }
     }
 
     return null;

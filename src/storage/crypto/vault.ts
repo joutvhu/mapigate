@@ -1,5 +1,9 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import * as nodeMachineIdPkg from "node-machine-id";
+import { getDefaultDataDir } from "../../shared/constants/index.js";
+
 const machineIdSync: () => string =
   (nodeMachineIdPkg as any).machineIdSync ||
   (nodeMachineIdPkg as any).default?.machineIdSync ||
@@ -17,21 +21,48 @@ export class CryptoVault {
 
   private static getMasterKey(): Buffer {
     if (!this.masterKey) {
-      let hwId: string;
+      if (process.env.MAPIGATE_VAULT_KEY && process.env.MAPIGATE_VAULT_KEY.trim()) {
+        this.masterKey = crypto.scryptSync(process.env.MAPIGATE_VAULT_KEY.trim(), this.SALT, 32);
+        return this.masterKey;
+      }
+
+      let hwId: string | null = null;
+      const dataDir = getDefaultDataDir();
+      const machineIdFile = path.join(dataDir, "machine-id");
+
       try {
-        hwId = machineIdSync();
-      } catch (err: any) {
-        if (!this.warnedFallback && process.env.NODE_ENV !== "test") {
-          console.warn(
-            `[CryptoVault] Warning: machineIdSync() unavailable (${err?.message || err}). Using fallback salt. Credentials may be invalid if environment changes.`
-          );
-          this.warnedFallback = true;
+        if (fs.existsSync(machineIdFile)) {
+          const savedId = fs.readFileSync(machineIdFile, "utf8").trim();
+          if (savedId) {
+            hwId = savedId;
+          }
         }
-        hwId = "fallback-hw-key-mapigate";
+      } catch {}
+
+      if (!hwId) {
+        try {
+          hwId = machineIdSync();
+        } catch (err: any) {
+          if (!this.warnedFallback && process.env.NODE_ENV !== "test") {
+            console.warn(
+              `[CryptoVault] Warning: machineIdSync() unavailable (${err?.message || err}). Using fallback salt. Credentials may be invalid if environment changes.`
+            );
+            this.warnedFallback = true;
+          }
+          hwId = "fallback-hw-key-mapigate";
+        }
+        if (!hwId || typeof hwId !== "string" || !hwId.trim()) {
+          hwId = "fallback-hw-key-mapigate";
+        }
+
+        try {
+          if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+          }
+          fs.writeFileSync(machineIdFile, hwId, { encoding: "utf8", mode: 0o600 });
+        } catch {}
       }
-      if (!hwId || typeof hwId !== "string" || !hwId.trim()) {
-        hwId = "fallback-hw-key-mapigate";
-      }
+
       this.masterKey = crypto.scryptSync(hwId, this.SALT, 32);
     }
     return this.masterKey;

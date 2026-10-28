@@ -18,7 +18,8 @@ export const toolConfig: MitmToolConfig = {
     "/responses",
     "/models",
   ],
-  defaultHost: "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com",
+  defaultHost:
+    "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com\n127.0.0.1 api.business.githubcopilot.com\n127.0.0.1 api.enterprise.githubcopilot.com",
   matchesHost: (h: string) => h.includes("githubcopilot.com") || h.includes("copilot-proxy.githubusercontent.com"),
   isModelListRequest: (req) => {
     const url = (req.url || "").toLowerCase().split("?")[0];

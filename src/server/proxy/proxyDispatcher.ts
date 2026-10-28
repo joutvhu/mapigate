@@ -12,7 +12,12 @@ export function getProxyDispatcher(proxyUrl: string): ProxyAgent {
     if (proxyDispatchers.size >= MAX_PROXY_DISPATCHERS) {
       const oldestKey = proxyDispatchers.keys().next().value;
       if (oldestKey) {
+        const oldDispatcher = proxyDispatchers.get(oldestKey);
         proxyDispatchers.delete(oldestKey);
+        try {
+          (oldDispatcher as any)?.destroy?.();
+          (oldDispatcher as any)?.close?.();
+        } catch {}
       }
     }
     dispatcher = new ProxyAgent(proxyUrl);
@@ -58,5 +63,11 @@ export async function executeUpstreamFetch(
 }
 
 export function clearProxyDispatchers(): void {
+  for (const dispatcher of proxyDispatchers.values()) {
+    try {
+      (dispatcher as any)?.destroy?.();
+      (dispatcher as any)?.close?.();
+    } catch {}
+  }
   proxyDispatchers.clear();
 }

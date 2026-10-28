@@ -83,6 +83,37 @@ app.use(
     credentials: true,
   })
 );
+
+// Origin verification guard: reject cross-origin requests from untrusted foreign websites (CSRF / drive-by protection)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin) {
+    return next();
+  }
+
+  const customOrigin = process.env.MAPIGATE_CORS_ORIGIN;
+  if (customOrigin && (origin === customOrigin || customOrigin === "*")) {
+    return next();
+  }
+
+  const isTrustedLocalOrigin =
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ||
+    origin.startsWith("vscode-webview://") ||
+    origin.startsWith("chrome-extension://");
+
+  if (isTrustedLocalOrigin) {
+    return next();
+  }
+
+  res.status(403).json({
+    error: {
+      message: "Forbidden: Access denied from untrusted foreign origin",
+      type: "access_denied",
+      code: "untrusted_origin",
+    },
+  });
+});
+
 app.use(express.json({ limit: "50mb" }));
 app.use(requestLogger);
 
