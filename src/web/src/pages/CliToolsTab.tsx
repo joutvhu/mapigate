@@ -330,7 +330,7 @@ export const CliToolsTab: React.FC = () => {
           </button>
         </div>
 
-        {/* Right: Quick Port Status & Action */}
+        {/* Right: Refresh Action */}
         <div className="flex items-center gap-2 shrink-0">
           {viewMode === "catalog" ? (
             <button
@@ -351,11 +351,6 @@ export const CliToolsTab: React.FC = () => {
               Refresh Mappings
             </button>
           )}
-
-          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 flex items-center gap-1.5">
-            <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-            Port :{effectivePort} Ready
-          </span>
         </div>
       </div>
 
