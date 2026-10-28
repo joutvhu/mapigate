@@ -340,11 +340,17 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
 
     it("guesses vendors correctly", () => {
       assert.equal(guessCopilotVendor("claude-3.7-sonnet"), "anthropic");
+      assert.equal(guessCopilotVendor("claude-haiku-4.5"), "anthropic");
       assert.equal(guessCopilotVendor("deepseek-reasoner"), "deepseek");
       assert.equal(guessCopilotVendor("gemini-2.5-pro"), "google");
+      assert.equal(guessCopilotVendor("gemini-3.7-flash"), "google");
       assert.equal(guessCopilotVendor("qwen-2.5-coder"), "alibaba");
       assert.equal(guessCopilotVendor("minimax-m2.5"), "minimax");
       assert.equal(guessCopilotVendor("glm-4"), "zhipu");
+      assert.equal(guessCopilotVendor("grok-4.5"), "xai");
+      assert.equal(guessCopilotVendor("kimi-k3"), "moonshot");
+      assert.equal(guessCopilotVendor("mai-code-1.1-flash"), "microsoft");
+      assert.equal(guessCopilotVendor("gpt-5.6-terra"), "openai");
       assert.equal(guessCopilotVendor("o3-mini"), "openai");
     });
 

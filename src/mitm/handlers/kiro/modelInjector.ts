@@ -93,7 +93,7 @@ export function augmentKiroModelsPayload(
       status: "ACTIVE",
       origin: templateModel?.origin || "AI_EDITOR",
       rateMultiplier: templateModel?.rateMultiplier ?? 1,
-      rateUnit: templateModel?.rateUnit ?? "CREDIT",
+      rateUnit: templateModel?.rateUnit ?? "Credit",
       tokenLimits: templateModel?.tokenLimits || { maxInputTokens: 200000 },
       capabilities: {
         ...(templateModel?.capabilities || {}),

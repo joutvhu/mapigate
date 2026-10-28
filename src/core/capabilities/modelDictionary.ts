@@ -52,6 +52,7 @@ export const STANDARD_MODELS: Record<string, string> = {
 
   // ── OpenAI & Codex ──
   "gpt-6.1-sol": "GPT-6.1 Sol",
+  "gpt-6.1-terra": "GPT-6.1 Terra",
   "gpt-6-astra": "GPT-6.0 Astra",
   "gpt-6-sol": "GPT-6.0 Sol",
   "gpt-6-luna": "GPT-6.0 Luna",
@@ -240,6 +241,14 @@ export const STANDARD_MODELS: Record<string, string> = {
   // ── Microsoft AI ──
   "mai-code-1.1-flash": "MAI-Code 1.1 Flash",
   "mai-code-1.1": "MAI-Code 1.1",
+
+  // ── xAI Grok ──
+  "grok-4.7": "Grok 4.7",
+  "grok-4.6": "Grok 4.6",
+  "grok-4.5": "Grok 4.5",
+  "grok-4": "Grok 4",
+  "grok-3": "Grok 3",
+  "grok-2": "Grok 2",
 
   // ── Common MITM / Agent Modes ──
   "auto": "Auto (Agent Mode)",

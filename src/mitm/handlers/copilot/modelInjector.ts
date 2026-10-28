@@ -13,6 +13,9 @@ export function guessCopilotVendor(modelId: string): string {
   if (lower.includes("qwen")) return "alibaba";
   if (lower.includes("minimax")) return "minimax";
   if (lower.includes("glm")) return "zhipu";
+  if (lower.includes("grok") || lower.includes("xai")) return "xai";
+  if (lower.includes("kimi") || lower.includes("moonshot")) return "moonshot";
+  if (lower.includes("mai")) return "microsoft";
   return "openai";
 }
 
