@@ -365,7 +365,7 @@ export const CliToolsTab: React.FC = () => {
             </p>
           </div>
 
-          {/* GRID OF 26 CODING TOOLS */}
+          {/* GRID OF 26 TOOLS & ASSISTANTS */}
           <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-3">
             {CLI_TOOLS_LIST.map((tool, idx) => {
               const currentStatus = getEffectiveStatus(tool);

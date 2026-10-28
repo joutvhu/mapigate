@@ -46,9 +46,9 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
     icon: "savings",
   },
   clitools: {
-    title: "Coding Tools & Model Mappings",
-    subtitle: "One-click connection setups and universal model rewrite rules for coding assistants & IDEs",
-    icon: "integration_instructions",
+    title: "Tools & Mappings",
+    subtitle: "One-click connection setups and universal model rewrite rules for AI assistants, IDEs & tools",
+    icon: "widgets",
   },
   mitm: {
     title: "MITM Proxy",
