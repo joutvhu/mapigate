@@ -126,15 +126,24 @@ test("API - /api/tools/:id/mappings endpoints", async () => {
 });
 
 test("Unit & API - Universal Global Model Mappings and 1-Click Import", async () => {
-  // 1. Get global mappings (auto-seeded)
-  const globals = ToolMappingRepository.getGlobalMappings();
-  assert.ok(globals.length > 0);
-  assert.ok(globals.some((m) => m.sourceModel === "sonnet"));
-  assert.ok(globals.some((m) => m.sourceModel === "claude-3-7-sonnet"));
+  // Clean start
+  ToolMappingRepository.resetGlobalMappings();
 
-  // 2. Resolve for unknown client tool using global mappings
+  // 1. Import aliases for claude (creates aliases with empty target for user to choose)
+  const afterClaudeImport = ToolMappingRepository.importToolDefaultsToGlobal("claude");
+  assert.ok(afterClaudeImport.length > 0);
+  const sonnetItem = afterClaudeImport.find((m) => m.sourceModel === "sonnet");
+  assert.ok(sonnetItem);
+  assert.equal(sonnetItem.targetModel, "");
+
+  // Unmapped model with empty target returns null (user hasn't selected a provider yet)
+  const unmappedResolve = ToolMappingRepository.resolveModelMapping("unknown", "sonnet");
+  assert.equal(unmappedResolve, null);
+
+  // 2. User maps sonnet to a custom target
+  ToolMappingRepository.saveGlobalMapping("sonnet", "deepseek/deepseek-chat");
   const resolvedForUnknown = ToolMappingRepository.resolveModelMapping("unknown", "sonnet");
-  assert.equal(resolvedForUnknown, "claude/claude-sonnet-4-6");
+  assert.equal(resolvedForUnknown, "deepseek/deepseek-chat");
 
   // 3. Save custom global mapping
   ToolMappingRepository.saveGlobalMapping("universal-custom", "combo/global-coding");
@@ -154,14 +163,16 @@ test("Unit & API - Universal Global Model Mappings and 1-Click Import", async ()
     const list = (await getRes.json()) as any[];
     assert.ok(list.some((m) => m.sourceModel === "universal-custom"));
 
-    // POST 1-click import for cursor
+    // POST 1-click import for cursor (adds cursor aliases with empty target)
     const importRes = await fetch(`${baseUrl}/api/model-mappings/global-mappings/import/cursor`, {
       method: "POST",
     });
     assert.equal(importRes.status, 200);
     const importedData = (await importRes.json()) as any;
     assert.ok(Array.isArray(importedData.mappings));
-    assert.ok(importedData.mappings.some((m: any) => m.sourceModel === "claude-3-7-sonnet"));
+    const cursorModel = importedData.mappings.find((m: any) => m.sourceModel === "claude-3-7-sonnet");
+    assert.ok(cursorModel);
+    assert.equal(cursorModel.targetModel, "");
 
     // DELETE custom global mapping
     const delRes = await fetch(`${baseUrl}/api/model-mappings/global-mappings?sourceModel=universal-custom`, {

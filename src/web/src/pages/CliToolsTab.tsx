@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { LayoutGrid, GitFork } from "lucide-react";
 import { PortalModal } from "../components/PortalModal";
 import { CLI_TOOLS_LIST, type CliToolItem } from "../constants/providersData";
 import { CLI_TOOLS, type CliToolDefinition } from "../../../shared/constants/cliTools";
@@ -297,23 +298,20 @@ export const CliToolsTab: React.FC = () => {
         </div>
       )}
 
-      {/* TOP VIEW SWITCHER & BANNER */}
-      <div className="p-4 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        {/* Left: View Mode Toggle Tabs */}
-        <div className="flex bg-[#0A0D14] p-1 rounded-xl border border-[#1E293B] text-xs">
+      {/* TOP FILTER AND NAVIGATION HEADER */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0B0F19] border border-[#1E293B] rounded-2xl p-2 sm:p-2.5 shadow-sm">
+        {/* Main Segmented Control: Tool Catalog / Model Mappings */}
+        <div className="bg-[#151C2C] p-1 rounded-xl border border-[#243048] flex items-center shrink-0">
           <button
             onClick={() => setViewMode("catalog")}
-            className={`py-2 px-4 rounded-lg font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
               viewMode === "catalog"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            <span className="material-symbols-outlined text-[17px]">apps</span>
+            <LayoutGrid className="w-3.5 h-3.5" />
             Tool Catalog
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-blue-200 font-mono">
-              {CLI_TOOLS_LIST.length}
-            </span>
           </button>
 
           <button
@@ -321,19 +319,14 @@ export const CliToolsTab: React.FC = () => {
               setViewMode("mappings");
               loadGlobalMappings();
             }}
-            className={`py-2 px-4 rounded-lg font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
               viewMode === "mappings"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            <span className="material-symbols-outlined text-[17px]">alt_route</span>
+            <GitFork className="w-3.5 h-3.5" />
             Model Mappings
-            {globalMappings.length > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20 text-blue-200 font-mono">
-                {globalMappings.length}
-              </span>
-            )}
           </button>
         </div>
 
@@ -469,34 +462,7 @@ export const CliToolsTab: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => handleImportToolToGlobal("claude", "Claude Code")}
-                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-slate-600 text-slate-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Import Claude Code model aliases (sonnet, opus, haiku, default...)"
-              >
-                <span className="material-symbols-outlined text-[16px] text-amber-400">smart_toy</span>
-                Import Claude
-              </button>
-
-              <button
-                onClick={() => handleImportToolToGlobal("cursor", "Cursor")}
-                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-slate-600 text-slate-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Import Cursor model IDs (claude-3-7-sonnet, gpt-4o, cursor-small...)"
-              >
-                <span className="material-symbols-outlined text-[16px] text-purple-400">auto_mode</span>
-                Import Cursor
-              </button>
-
-              <button
-                onClick={handleResetGlobalMappings}
-                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#141B2D] border border-[#1E293B] hover:border-slate-600 text-slate-300 hover:text-white flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Reset to default canonical mappings"
-              >
-                <span className="material-symbols-outlined text-[16px] text-slate-400">restart_alt</span>
-                Reset Defaults
-              </button>
-
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setIsAddingMapping(!isAddingMapping)}
                 className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/30 text-white flex items-center gap-1.5 transition-all cursor-pointer"
@@ -599,27 +565,16 @@ export const CliToolsTab: React.FC = () => {
                 Loading model mappings...
               </div>
             ) : filteredMappings.length === 0 ? (
-              <div className="py-14 text-center text-xs text-slate-400 space-y-2.5">
+              <div className="py-14 text-center text-xs text-slate-400 space-y-2">
                 <span className="material-symbols-outlined text-3xl text-slate-600 block">
                   alt_route
                 </span>
                 <p className="font-semibold text-slate-300">
                   {mappingSearch ? `No mappings match "${mappingSearch}"` : "No model mappings configured yet"}
                 </p>
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <button
-                    onClick={() => handleImportToolToGlobal("claude", "Claude Code")}
-                    className="px-3 py-1 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 cursor-pointer"
-                  >
-                    Import Claude Aliases
-                  </button>
-                  <button
-                    onClick={() => handleImportToolToGlobal("cursor", "Cursor")}
-                    className="px-3 py-1 rounded-lg bg-purple-600/20 text-purple-400 border border-purple-500/30 hover:bg-purple-600/30 cursor-pointer"
-                  >
-                    Import Cursor Aliases
-                  </button>
-                </div>
+                <p className="text-slate-500 max-w-md mx-auto text-[11.5px] leading-relaxed">
+                  Click <strong className="text-slate-300">&ldquo;Sync Aliases&rdquo;</strong> on any tool card in the Tool Catalog to add its models (with target left empty for you to select), or click <strong className="text-blue-400">&ldquo;+ Add Mapping&rdquo;</strong> above.
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -691,9 +646,17 @@ export const CliToolsTab: React.FC = () => {
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
-                                (unmapped)
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSourceModel(m.sourceModel);
+                                  setEditingTargetInput("");
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 text-amber-300 hover:border-amber-400 hover:text-amber-200 text-xs font-medium transition-colors cursor-pointer"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">add</span>
+                                Click to select target model or combo
+                              </button>
                             )}
                           </td>
 

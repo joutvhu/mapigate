@@ -203,26 +203,10 @@ export class ToolMappingRepository {
       "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
     );
 
-    if (rows.length === 0) {
-      // Auto-initialize standard global presets on first use (Claude + Cursor)
-      this.importToolDefaultsToGlobal("claude");
-      this.importToolDefaultsToGlobal("cursor");
-      const seeded = db.all<any>(
-        "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
-      );
-      return this.sortMappingsCanonical(
-        seeded.map((r) => ({
-          toolId: "global",
-          sourceModel: r.source_model,
-          targetModel: r.target_model,
-        }))
-      );
-    }
-
     const list: ToolMapping[] = rows.map((r) => ({
       toolId: "global",
       sourceModel: r.source_model,
-      targetModel: r.target_model,
+      targetModel: r.target_model || "",
     }));
     return this.sortMappingsCanonical(list);
   }
@@ -236,12 +220,51 @@ export class ToolMappingRepository {
   }
 
   public static importToolDefaultsToGlobal(toolId: string): ToolMapping[] {
-    const defaults = this.getDefaultMappings(toolId);
-    for (const d of defaults) {
-      if (d.sourceModel && d.targetModel) {
-        this.saveGlobalMapping(d.sourceModel, d.targetModel);
+    const tid = (toolId || "").toLowerCase();
+    const db = getDatabase();
+
+    // 1. Get existing global mappings to preserve user-assigned targets
+    const existingRows = db.all<any>(
+      "SELECT source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
+    );
+    const existingMap = new Map<string, string>();
+    for (const r of existingRows) {
+      existingMap.set(r.source_model.toLowerCase(), r.target_model || "");
+    }
+
+    // 2. Collect all alias / model names for this tool
+    const aliases = new Set<string>();
+    const cliTool = CLI_TOOLS[tid];
+    if (cliTool) {
+      for (const m of cliTool.defaultMappings || []) {
+        if (m.sourceModel) aliases.add(m.sourceModel);
+      }
+      for (const m of cliTool.defaultModels || []) {
+        if (m.alias) aliases.add(m.alias);
+        if (m.id) aliases.add(m.id);
+      }
+      for (const a of cliTool.modelAliases || []) {
+        if (a) aliases.add(a);
       }
     }
+
+    const mitmDefaults = getMitmDefaultMappings(tid);
+    for (const m of mitmDefaults) {
+      if (m.sourceModel) aliases.add(m.sourceModel);
+    }
+
+    // 3. For each alias: if already exists, keep user's target; otherwise add with target = "" (empty for user to choose)
+    for (const alias of aliases) {
+      const lower = alias.toLowerCase();
+      if (!existingMap.has(lower)) {
+        db.run(
+          `INSERT INTO tool_mappings (tool_id, source_model, target_model) VALUES ('global', ?, '')
+           ON CONFLICT(tool_id, source_model) DO NOTHING`,
+          alias
+        );
+      }
+    }
+
     return this.getGlobalMappings();
   }
 
@@ -276,8 +299,12 @@ export class ToolMappingRepository {
       "SELECT target_model FROM tool_mappings WHERE tool_id = 'global' AND LOWER(source_model) = LOWER(?) LIMIT 1",
       raw
     );
-    if (globalRow && globalRow.target_model && globalRow.target_model.trim().length > 0) {
-      return globalRow.target_model.trim();
+    if (globalRow) {
+      if (globalRow.target_model && globalRow.target_model.trim().length > 0) {
+        return globalRow.target_model.trim();
+      }
+      // Explicitly unmapped in global mappings
+      return null;
     }
 
     // 3. Check any other tool mapping in database (universal fallback)
@@ -287,27 +314,6 @@ export class ToolMappingRepository {
     );
     if (anyRow && anyRow.target_model && anyRow.target_model.trim().length > 0) {
       return anyRow.target_model.trim();
-    }
-
-    // 4. Fallback to default mappings
-    if (tid && tid !== "global" && tid !== "unknown") {
-      const defaults = this.getDefaultMappings(tid);
-      const found = defaults.find((d) => d.sourceModel.toLowerCase() === raw.toLowerCase());
-      if (found && found.targetModel && found.targetModel.trim().length > 0) {
-        return found.targetModel.trim();
-      }
-    }
-
-    const claudeDefaults = this.getDefaultMappings("claude");
-    const claudeFound = claudeDefaults.find((d) => d.sourceModel.toLowerCase() === raw.toLowerCase());
-    if (claudeFound && claudeFound.targetModel && claudeFound.targetModel.trim().length > 0) {
-      return claudeFound.targetModel.trim();
-    }
-
-    const cursorDefaults = this.getDefaultMappings("cursor");
-    const cursorFound = cursorDefaults.find((d) => d.sourceModel.toLowerCase() === raw.toLowerCase());
-    if (cursorFound && cursorFound.targetModel && cursorFound.targetModel.trim().length > 0) {
-      return cursorFound.targetModel.trim();
     }
 
     return null;
