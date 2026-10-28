@@ -143,6 +143,10 @@ export async function interceptKiroModels(
       "content-length": String(newBuffer.length),
     };
     delete responseHeaders["content-encoding"];
+    delete responseHeaders["Content-Encoding"];
+    delete responseHeaders["transfer-encoding"];
+    delete responseHeaders["Transfer-Encoding"];
+    responseHeaders["content-length"] = String(newBuffer.length);
 
     res.writeHead(200, responseHeaders);
     res.end(newBuffer);

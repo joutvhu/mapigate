@@ -12,12 +12,18 @@ export const toolConfig: MitmToolConfig = {
   urlPatterns: [
     ":generateContent",
     ":streamGenerateContent",
+    ":fetchAvailableModels",
+    "/v1internal:fetchAvailableModels",
   ],
   defaultHost: "127.0.0.1 daily-cloudcode-pa.googleapis.com\n127.0.0.1 cloudcode-pa.googleapis.com",
   hostRewrite: {
     "cloudcode-pa.googleapis.com": "daily-cloudcode-pa.googleapis.com",
   },
   matchesHost: (h: string) => h.includes("cloudcode-pa.googleapis.com"),
+  isModelListRequest: (req) => {
+    const url = (req.url || "").toLowerCase();
+    return url.includes("fetchavailablemodels");
+  },
   modelSynonyms: {
     "gemini-default": "gemini-3.8-flash-medium",
     "gemini-3.5-flash-high": "gemini-3.8-flash-high",
@@ -60,6 +66,10 @@ export const toolConfig: MitmToolConfig = {
     "claude-sonnet-4.6": "claude-sonnet-4-6",
     "claude-opus-4.6": "claude-opus-4-6-thinking",
     "claude-opus-4.6-thinking": "claude-opus-4-6-thinking",
+    "gemini-4-argon": "gemini-4-argon-medium",
+    "gemini-4-argon-high": "gemini-4-argon-high",
+    "gemini-4-argon-medium": "gemini-4-argon-medium",
+    "gemini-4-argon-low": "gemini-4-argon-low",
   },
   modelPatterns: [
     { match: /flash.*extra.*low|extra.*low.*flash|flash.*low|low.*flash/i, alias: "gemini-3.8-flash-low" },
@@ -78,9 +88,16 @@ export const toolConfig: MitmToolConfig = {
     { match: /opus/i, alias: "claude-opus-4-6-thinking" },
     { match: /sonnet|claude/i, alias: "claude-sonnet-4-6" },
     { match: /gpt.*oss|oss/i, alias: "gpt-oss-120b-medium" },
+    { match: /argon.*high|gemini.*4.*high/i, alias: "gemini-4-argon-high" },
+    { match: /argon.*low|gemini.*4.*low/i, alias: "gemini-4-argon-low" },
+    { match: /argon|gemini.*4/i, alias: "gemini-4-argon-medium" },
   ],
   modelNoMap: [/^tab[_-]/i],
   defaultModels: [
+    "gemini-4-argon",
+    "gemini-4-argon-high",
+    "gemini-4-argon-medium",
+    "gemini-4-argon-low",
     "gemini-3.8-flash-high",
     "gemini-3.8-flash-medium",
     "gemini-3.8-flash-low",

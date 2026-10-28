@@ -176,6 +176,8 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     const agDefaults = getDefaultMappings("antigravity");
     assert.ok(agDefaults.length >= 20);
     assert.ok(agDefaults.some((m) => m.sourceModel === "gemini-3.8-flash-high"));
+    assert.ok(agDefaults.some((m) => m.sourceModel === "gemini-4-argon"));
+    assert.ok(agDefaults.some((m) => m.sourceModel === "gemini-4-argon-high"));
     assert.ok(agDefaults.some((m) => m.sourceModel === "claude-sonnet-5.5-thinking"));
 
     const kiroDefaults = getDefaultMappings("kiro");

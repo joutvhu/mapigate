@@ -10,8 +10,12 @@ import {
   augmentCopilotModelsPayload,
   guessCopilotVendor,
 } from "../src/mitm/handlers/copilot/modelInjector.js";
+import {
+  augmentAntigravityModelsPayload,
+} from "../src/mitm/handlers/antigravity/modelInjector.js";
 import { KiroMitmHandler } from "../src/mitm/handlers/kiro/handler.js";
 import { CopilotMitmHandler } from "../src/mitm/handlers/copilot/handler.js";
+import { AntigravityMitmHandler } from "../src/mitm/handlers/antigravity/handler.js";
 import { MitmRepository } from "../src/storage/repositories/mitmRepo.js";
 import { getDatabase } from "../src/storage/database.js";
 
@@ -76,6 +80,18 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       );
       assert.equal(
         isModelDiscoveryRequest("copilot", { url: "/chat/completions" }),
+        false
+      );
+      assert.equal(
+        isModelDiscoveryRequest("antigravity", { url: "/v1internal:fetchAvailableModels" }),
+        true
+      );
+      assert.equal(
+        isModelDiscoveryRequest("antigravity", { url: "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels" }),
+        true
+      );
+      assert.equal(
+        isModelDiscoveryRequest("antigravity", { url: "/v1internal:streamGenerateContent" }),
         false
       );
       assert.equal(
@@ -254,6 +270,30 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
 
       assert.equal(interceptedDiscovery, true, "Must have executed Copilot model discovery path");
     });
+
+    it("routes AntigravityMitmHandler to interceptAntigravityModels when isModelDiscovery is set", async () => {
+      const handler = new AntigravityMitmHandler();
+      let interceptedDiscovery = false;
+
+      const mockReq = { url: "/v1internal:fetchAvailableModels", headers: {} } as any;
+      const mockRes = {
+        writeHead: () => mockRes,
+        end: () => mockRes,
+      } as any;
+      const mockPassthrough = async () => {
+        interceptedDiscovery = true;
+      };
+
+      await handler.handle({
+        req: mockReq,
+        res: mockRes,
+        bodyBuffer: Buffer.from("{}"),
+        isModelDiscovery: true,
+        passthrough: mockPassthrough,
+      });
+
+      assert.equal(interceptedDiscovery, true, "Must have executed Antigravity model discovery path");
+    });
   });
 
   describe("Copilot Model Payload Augmentation", () => {
@@ -311,6 +351,64 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
     it("fails open on upstream error responses", () => {
       const errPayload = { error: { message: "Unauthorized", code: "401" } };
       const res = augmentCopilotModelsPayload(errPayload);
+      assert.deepEqual(res, errPayload);
+    });
+  });
+
+  describe("Antigravity Model Payload Augmentation", () => {
+    it("augments Antigravity models and agentModelSorts without duplicates", () => {
+      const genuineUpstream = {
+        models: {
+          "gemini-2.0-flash": {
+            preview: false,
+            thinkingLevel: "medium",
+          },
+        },
+        defaultAgentModelId: "gemini-2.0-flash",
+        agentModelSorts: [
+          {
+            displayName: "Recommended",
+            groups: [
+              {
+                displayName: "Gemini",
+                modelIds: ["gemini-2.0-flash"],
+              },
+            ],
+          },
+        ],
+      };
+
+      const augmented = augmentAntigravityModelsPayload(genuineUpstream);
+      assert.ok(typeof augmented.models === "object", "models must be an object");
+      assert.ok(Object.keys(augmented.models).length > 5, "models must have added catalog models");
+
+      // Verify original preserved
+      assert.ok(augmented.models["gemini-2.0-flash"]);
+
+      // Verify catalog injected into models map
+      assert.ok(augmented.models["claude-sonnet-5.5-thinking"]);
+      assert.ok(augmented.models["gemini-3.8-flash-high"]);
+
+      // Verify agentModelSorts updated with model IDs
+      const groups = augmented.agentModelSorts[0].groups;
+      assert.ok(groups.length >= 2, "Must have organized groups");
+
+      const allSortModelIds = groups.flatMap((g: any) => g.modelIds || []);
+      assert.ok(allSortModelIds.includes("gemini-2.0-flash"));
+      assert.ok(allSortModelIds.includes("claude-sonnet-5.5-thinking"));
+      assert.ok(allSortModelIds.includes("gemini-3.8-flash-high"));
+
+      // Verify no duplicate IDs in any group
+      for (const group of groups) {
+        const ids = (group.modelIds || []).map((id: string) => id.toLowerCase());
+        const unique = new Set(ids);
+        assert.equal(ids.length, unique.size, `Duplicate found in group ${group.displayName}`);
+      }
+    });
+
+    it("fails open on error responses", () => {
+      const errPayload = { error: { code: 403, message: "Permission Denied" } };
+      const res = augmentAntigravityModelsPayload(errPayload);
       assert.deepEqual(res, errPayload);
     });
   });

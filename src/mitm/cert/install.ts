@@ -81,10 +81,21 @@ export async function installCert(certPath: string = ROOT_CA_CERT_PATH): Promise
       } else {
         await runElevatedPowerShell(`certutil -addstore Root "${certPath}"`);
       }
+
+      // Set NODE_EXTRA_CA_CERTS for Node.js / Electron IDEs (Antigravity, Kiro, VS Code)
+      try {
+        await execAsync(`setx NODE_EXTRA_CA_CERTS "${certPath}"`, { windowsHide: true });
+      } catch {}
+
       return { success: true, message: "Installed Root CA to Windows LocalMachine Root store successfully" };
     } else if (platform === "darwin") {
       const cmd = `security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "${certPath}"`;
       await execAsync(cmd, { windowsHide: true });
+
+      try {
+        await execAsync(`launchctl setenv NODE_EXTRA_CA_CERTS "${certPath}"`, { windowsHide: true });
+      } catch {}
+
       return { success: true, message: "Installed Root CA to macOS keychain" };
     } else {
       await execAsync(`cp "${certPath}" /usr/local/share/ca-certificates/mapigate-rootCA.crt && update-ca-certificates`, { windowsHide: true });
@@ -131,10 +142,21 @@ export async function uninstallCert(
       if (!removed) {
         return { success: false, message: `Failed to remove certificate from Windows stores: ${lastErr}` };
       }
+
+      // Unset NODE_EXTRA_CA_CERTS
+      try {
+        await execAsync(`reg delete HKCU\\Environment /F /V NODE_EXTRA_CA_CERTS`, { windowsHide: true });
+      } catch {}
+
       return { success: true, message: "Uninstalled Root CA from Windows Root store successfully" };
     } else if (platform === "darwin") {
       const cmd = `security delete-certificate -Z ${fingerprint} /Library/Keychains/System.keychain`;
       await execWithPassword(cmd, sudoPassword);
+
+      try {
+        await execAsync(`launchctl unsetenv NODE_EXTRA_CA_CERTS`, { windowsHide: true });
+      } catch {}
+
       return { success: true, message: "Uninstalled Root CA from macOS keychain" };
     } else {
       const cmd = `rm -f /usr/local/share/ca-certificates/mapigate-rootCA.crt && update-ca-certificates --fresh`;
