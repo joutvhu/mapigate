@@ -1083,7 +1083,7 @@ export const MitmTab: React.FC = () => {
                               const sourceDisplayName = resolveModelDisplayName(m.sourceModel);
                               const isSourceDifferent = Boolean(
                                 sourceDisplayName &&
-                                sourceDisplayName.toLowerCase() !== m.sourceModel.toLowerCase()
+                                sourceDisplayName !== m.sourceModel
                               );
                               const targetDisplayName = m.targetModel
                                 ? resolveModelDisplayName(m.targetModel)
@@ -1091,7 +1091,7 @@ export const MitmTab: React.FC = () => {
                               const isTargetDifferent = Boolean(
                                 m.targetModel &&
                                 targetDisplayName &&
-                                targetDisplayName.toLowerCase() !== m.targetModel.toLowerCase()
+                                targetDisplayName !== m.targetModel
                               );
                               const isCombo = Boolean(
                                 m.targetModel &&
