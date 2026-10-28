@@ -50,8 +50,7 @@ export interface CliToolDefinition {
   baseUrlPath?: string;
   envVars?: Record<string, string>;
   modelAliases?: string[];
-  defaultModels?: CliToolModel[];
-  defaultMappings?: Array<{ sourceModel: string; targetModel: string }>;
+  defaultModels?: Array<string | CliToolModel>;
   guideSteps?: CliGuideStep[];
   codeBlock?: CliCodeBlock;
   notes?: CliNote[];

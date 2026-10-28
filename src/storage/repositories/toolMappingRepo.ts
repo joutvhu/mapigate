@@ -40,20 +40,15 @@ export class ToolMappingRepository {
     // 2. Check CLI / IDE tool definitions
     const cliTool = CLI_TOOLS[tid];
     if (cliTool) {
-      if (cliTool.defaultMappings && cliTool.defaultMappings.length > 0) {
-        return cliTool.defaultMappings.map((m) => ({
-          toolId: tid,
-          sourceModel: m.sourceModel,
-          targetModel: m.targetModel || "",
-        }));
-      }
-
       if (cliTool.defaultModels && cliTool.defaultModels.length > 0) {
-        return cliTool.defaultModels.map((m) => ({
-          toolId: tid,
-          sourceModel: m.alias || m.id,
-          targetModel: m.defaultValue || "",
-        }));
+        return cliTool.defaultModels.map((m) => {
+          const modelName = typeof m === "string" ? m : m.alias || m.id;
+          return {
+            toolId: tid,
+            sourceModel: modelName,
+            targetModel: "",
+          };
+        });
       }
     }
 
@@ -257,12 +252,9 @@ export class ToolMappingRepository {
     const aliases = new Set<string>();
     const cliTool = CLI_TOOLS[tid];
     if (cliTool) {
-      for (const m of cliTool.defaultMappings || []) {
-        if (m.sourceModel) aliases.add(m.sourceModel);
-      }
       for (const m of cliTool.defaultModels || []) {
-        if (m.alias) aliases.add(m.alias);
-        if (m.id) aliases.add(m.id);
+        const modelName = typeof m === "string" ? m : m.alias || m.id;
+        if (modelName) aliases.add(modelName);
       }
       for (const a of cliTool.modelAliases || []) {
         if (a) aliases.add(a);

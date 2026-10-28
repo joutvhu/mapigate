@@ -715,7 +715,6 @@ export const CliToolsTab: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 {Boolean(
-                  (selectedDef?.defaultMappings && selectedDef.defaultMappings.length > 0) ||
                   (selectedDef?.defaultModels && selectedDef.defaultModels.length > 0) ||
                   (selectedDef?.modelAliases && selectedDef.modelAliases.length > 0)
                 ) && (

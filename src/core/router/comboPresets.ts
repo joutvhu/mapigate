@@ -88,27 +88,32 @@ export function buildClaudePresetItems(): Array<{ name: string; models: string[]
   const seen = new Set<string>();
   const out: Array<{ name: string; models: string[] }> = [];
 
-  // 1. Default CLI tool models
+  // 1. Extra Claude aliases (defined targets like default -> claude/claude-sonnet-4-6)
   const claudeTool = CLI_TOOLS.claude || {};
+  for (const [alias, target] of Object.entries(CLAUDE_EXTRA_ALIAS_TARGETS)) {
+    const item = pushItem(alias, [target], seen);
+    if (item) out.push(item);
+  }
+
+  // 2. Default CLI tool models
   for (const entry of claudeTool.defaultModels || []) {
-    const name = entry.alias || entry.id;
-    const target = entry.defaultValue || entry.id;
-    if (!name || !target) continue;
+    const name = typeof entry === "string" ? entry : entry.alias || entry.id;
+    if (!name || seen.has(name)) continue;
+    const target = typeof entry === "string" ? entry : entry.defaultValue || entry.id;
     const prefixedTarget = target.includes("/") ? target : `${CLAUDE_ALIAS}/${target}`;
     const item = pushItem(name, [prefixedTarget], seen);
     if (item) out.push(item);
   }
 
-  // 2. Extra Claude aliases
+  // 3. Extra Claude model aliases from definition
   for (const alias of claudeTool.modelAliases || []) {
     if (seen.has(alias)) continue;
-    const target = CLAUDE_EXTRA_ALIAS_TARGETS[alias];
-    if (!target) continue;
+    const target = CLAUDE_EXTRA_ALIAS_TARGETS[alias] || `${CLAUDE_ALIAS}/${alias}`;
     const item = pushItem(alias, [target], seen);
     if (item) out.push(item);
   }
 
-  // 3. Provider models from DB or Registry
+  // 4. Provider models from DB or Registry
   try {
     const dbProvider = ProviderRepository.getProviderById("claude");
     if (dbProvider && Array.isArray(dbProvider.models) && dbProvider.models.length > 0) {
