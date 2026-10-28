@@ -4,6 +4,7 @@ import zlib from "node:zlib";
 import { isModelDiscoveryRequest } from "../src/mitm/toolsHelper.js";
 import {
   augmentKiroModelsPayload,
+  sortKiroModels,
   decompressBuffer,
 } from "../src/mitm/handlers/kiro/modelInjector.js";
 import {
@@ -180,6 +181,72 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       assert.ok(found, "Custom candidate must be present in augmented models");
       assert.equal(found.modelName, "Custom Special Model");
       assert.equal(found.status, "ACTIVE");
+    });
+
+    it("sorts all models alphabetically with auto/default placed at the top (including genuine models)", () => {
+      const genuineUpstream = {
+        models: [
+          { modelId: "qwen3-coder-next", modelName: "Qwen3 Coder Next", status: "ACTIVE" },
+          { modelId: "minimax-m2.5", modelName: "MiniMax M2.5", status: "ACTIVE" },
+          { modelId: "auto", modelName: "Auto", status: "ACTIVE" },
+          { modelId: "glm-5", modelName: "GLM 5", status: "ACTIVE" },
+          { modelId: "deepseek-3.2", modelName: "DeepSeek V3.2", status: "ACTIVE" },
+        ],
+      };
+
+      const augmented = augmentKiroModelsPayload(genuineUpstream);
+      assert.ok(Array.isArray(augmented.models), "Must return models array");
+
+      // Auto must be at the very top (index 0)
+      assert.equal(augmented.models[0].modelId, "auto");
+      assert.equal(augmented.models[0].modelName, "Auto");
+
+      // Verify defaultModel is auto
+      assert.equal(augmented.defaultModel?.modelId, "auto");
+
+      // The rest of the models must be in strict alphabetical order by display name
+      const remainingNames = augmented.models.slice(1).map((m: any) => m.modelName || m.modelId);
+      for (let i = 0; i < remainingNames.length - 1; i++) {
+        const comp = remainingNames[i].localeCompare(remainingNames[i + 1], undefined, {
+          sensitivity: "base",
+          numeric: true,
+        });
+        assert.ok(
+          comp <= 0,
+          `Expected '${remainingNames[i]}' <= '${remainingNames[i + 1]}' at index ${i}`
+        );
+      }
+
+      // Check specific ordering: Claude models appear before DeepSeek, DeepSeek before GLM, GLM before MiniMax, MiniMax before Qwen
+      const claudeIdx = augmented.models.findIndex((m: any) => m.modelName.includes("Claude"));
+      const deepseekIdx = augmented.models.findIndex((m: any) => m.modelId === "deepseek-3.2");
+      const glmIdx = augmented.models.findIndex((m: any) => m.modelId === "glm-5");
+      const minimaxIdx = augmented.models.findIndex((m: any) => m.modelId === "minimax-m2.5");
+      const qwenIdx = augmented.models.findIndex((m: any) => m.modelId === "qwen3-coder-next");
+
+      assert.ok(claudeIdx > 0 && claudeIdx < deepseekIdx, "Claude should precede DeepSeek");
+      assert.ok(deepseekIdx < glmIdx, "DeepSeek should precede GLM");
+      assert.ok(glmIdx < minimaxIdx, "GLM should precede MiniMax");
+      assert.ok(minimaxIdx < qwenIdx, "MiniMax should precede Qwen");
+    });
+
+    it("sortKiroModels handles auto variants and explicit default models", () => {
+      const list = [
+        { modelId: "zeta", modelName: "Zeta Model" },
+        { modelId: "beta", modelName: "Beta Model", isDefault: true },
+        { modelId: "alpha", modelName: "Alpha Model" },
+        { modelId: "auto", modelName: "Auto" },
+        { modelId: "auto-preview", modelName: "Auto (Preview)" },
+      ];
+
+      sortKiroModels(list);
+
+      // Rank order: Auto (0) -> Auto (Preview) (1) -> Beta (isDefault: 2) -> Alpha (3) -> Zeta (3)
+      assert.equal(list[0].modelId, "auto");
+      assert.equal(list[1].modelId, "auto-preview");
+      assert.equal(list[2].modelId, "beta");
+      assert.equal(list[3].modelId, "alpha");
+      assert.equal(list[4].modelId, "zeta");
     });
   });
 

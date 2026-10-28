@@ -7,6 +7,77 @@ import { MitmRepository } from "../../../storage/repositories/mitmRepo.js";
 
 export { decompressBuffer };
 
+function getAutoOrDefaultRank(item: any, defaultModelId?: string): number {
+  if (!item || typeof item !== "object") return 99;
+  const id = String(item.modelId || item.id || "").trim().toLowerCase();
+  const name = String(item.modelName || item.name || "").trim().toLowerCase();
+
+  // Tier 0: Pure Auto
+  if (id === "auto" || name === "auto") {
+    return 0;
+  }
+
+  // Tier 1: Auto aliases / variants
+  if (
+    id === "kiro-auto" ||
+    id.startsWith("auto-") ||
+    id.startsWith("auto ") ||
+    id.startsWith("auto(") ||
+    name.startsWith("auto ") ||
+    name.startsWith("auto-") ||
+    name.startsWith("auto(")
+  ) {
+    return 1;
+  }
+
+  // Tier 2: Explicit default model or isDefault
+  if (
+    item.isDefault === true ||
+    id === "default" ||
+    name === "default" ||
+    (defaultModelId && id && id === defaultModelId.toLowerCase())
+  ) {
+    return 2;
+  }
+
+  // Tier 3: Standard models
+  return 3;
+}
+
+function getModelSortKey(item: any): string {
+  if (!item || typeof item !== "object") return "";
+  const name = String(item.modelName || item.name || "").trim();
+  if (name) return name;
+  const id = String(item.modelId || item.id || "").trim();
+  return id;
+}
+
+export function sortKiroModels(targetArray: any[], defaultModelId?: string): void {
+  targetArray.sort((a, b) => {
+    if (!a && !b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+
+    const rankA = getAutoOrDefaultRank(a, defaultModelId);
+    const rankB = getAutoOrDefaultRank(b, defaultModelId);
+
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+
+    const keyA = getModelSortKey(a);
+    const keyB = getModelSortKey(b);
+    const comp = keyA.localeCompare(keyB, undefined, { sensitivity: "base", numeric: true });
+    if (comp !== 0) {
+      return comp;
+    }
+
+    const idA = String(a.modelId || a.id || "");
+    const idB = String(b.modelId || b.id || "");
+    return idA.localeCompare(idB, undefined, { sensitivity: "base", numeric: true });
+  });
+}
+
 export function augmentKiroModelsPayload(
   payload: any,
   additionalCandidates?: CandidateModelItem[]
@@ -106,8 +177,16 @@ export function augmentKiroModelsPayload(
     targetArray.push(injected);
   }
 
+  const defaultModelId = String(payload.defaultModel?.modelId || payload.defaultModel?.id || "");
+
+  // Sort models: Auto/default first, all other models alphabetically (including genuine models)
+  sortKiroModels(targetArray, defaultModelId);
+
   if (!payload.defaultModel && targetArray.length > 0) {
-    payload.defaultModel = { modelId: targetArray[0].modelId };
+    const firstId = targetArray[0].modelId || targetArray[0].id;
+    if (firstId) {
+      payload.defaultModel = { modelId: firstId };
+    }
   }
 
   return payload;
