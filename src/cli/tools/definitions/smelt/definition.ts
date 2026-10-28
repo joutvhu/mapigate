@@ -10,5 +10,14 @@ export const definition: CliToolDefinition = {
   binary: "smelt",
   configPath: "~/.smelt/config.json",
   baseUrlPath: "/v1",
+  defaultModels: [
+    "claude-3-7-sonnet",
+    "claude-3-5-sonnet",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "deepseek-chat",
+    "deepseek-coder",
+    "qwen-2.5-coder-32b",
+  ],
   configFileTemplate: `{\n  "provider": "openai",\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
 };

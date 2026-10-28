@@ -57,10 +57,6 @@ test("CLI tool definitions have iconBg properly set", () => {
 });
 
 test("MITM tool configurations have iconBg properly set", () => {
-  const cursorMitm = MITM_TOOLS.find((t) => t.id === "cursor");
-  assert.ok(cursorMitm, "Cursor MITM config must exist");
-  assert.equal(cursorMitm.iconBg, "#FFFFFF");
-
   const kiroMitm = MITM_TOOLS.find((t) => t.id === "kiro");
   assert.ok(kiroMitm, "Kiro MITM config must exist");
   assert.equal(kiroMitm.iconBg, "#9046ff");
@@ -68,6 +64,9 @@ test("MITM tool configurations have iconBg properly set", () => {
   const copilotMitm = MITM_TOOLS.find((t) => t.id === "copilot");
   assert.ok(copilotMitm, "Copilot MITM config must exist");
   assert.equal(copilotMitm.iconBg, undefined);
+
+  const antigravityMitm = MITM_TOOLS.find((t) => t.id === "antigravity");
+  assert.ok(antigravityMitm, "Antigravity MITM config must exist");
 });
 
 test("Web providersData propagates iconBg for providers and CLI tools", () => {

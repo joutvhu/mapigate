@@ -11,6 +11,11 @@ export const definition: CliToolDefinition = {
   binary: "deepseek",
   configPath: "~/.deepseek/config.toml",
   baseUrlPath: "/v1",
+  defaultModels: [
+    "deepseek-chat",
+    "deepseek-reasoner",
+    "deepseek-coder",
+  ],
   powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\ndeepseek`,
   bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\ndeepseek`,
   configFileTemplate: `[provider]\nname = "openai"\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"\nmodel = "claude-sonnet-4-6"`,

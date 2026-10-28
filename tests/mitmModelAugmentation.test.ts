@@ -353,17 +353,17 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       assert.ok(gpt4o);
       assert.equal(gpt4o.vendor, "openai");
 
-      // Verify claude and deepseek injected
-      const claudeSonnet = augmented.data.find((m: any) => m.id === "claude-3.7-sonnet");
-      assert.ok(claudeSonnet, "claude-3.7-sonnet must be present");
+      // Verify claude and gemini injected
+      const claudeSonnet = augmented.data.find((m: any) => m.id === "claude-sonnet-4.6");
+      assert.ok(claudeSonnet, "claude-sonnet-4.6 must be present");
       assert.equal(claudeSonnet.vendor, "anthropic");
       assert.equal(claudeSonnet.model_picker_enabled, true);
       assert.equal(claudeSonnet.billing?.is_premium, false);
       assert.equal(claudeSonnet.policy?.state, "enabled");
 
-      const deepseek = augmented.data.find((m: any) => m.id === "deepseek-chat");
-      assert.ok(deepseek, "deepseek-chat must be present");
-      assert.equal(deepseek.vendor, "deepseek");
+      const gemini = augmented.data.find((m: any) => m.id === "gemini-3.7-flash");
+      assert.ok(gemini, "gemini-3.7-flash must be present");
+      assert.equal(gemini.vendor, "google");
 
       // No duplicate ids
       const ids = augmented.data.map((m: any) => m.id.toLowerCase());

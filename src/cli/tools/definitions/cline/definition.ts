@@ -9,6 +9,18 @@ export const definition: CliToolDefinition = {
   configType: "file",
   configPath: "~/.cline/config.json",
   baseUrlPath: "/v1",
+  defaultModels: [
+    "claude-3-7-sonnet-20250219",
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022",
+    "claude-sonnet-4-6",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "o3-mini",
+    "o1",
+    "deepseek-chat",
+    "deepseek-reasoner",
+  ],
   guideSteps: [
     { step: 1, title: "Open Cline Settings", desc: "Click the gear icon in the Cline panel" },
     { step: 2, title: "Select Provider", desc: "Choose 'OpenAI Compatible'" },

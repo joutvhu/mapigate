@@ -10,6 +10,16 @@ export const definition: CliToolDefinition = {
   configType: "file",
   configPath: "~/.roo/config.json",
   baseUrlPath: "/v1",
+  defaultModels: [
+    "claude-3-7-sonnet",
+    "claude-3-5-sonnet",
+    "claude-sonnet-4-5",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "deepseek-chat",
+    "deepseek-reasoner",
+    "qwen-2.5-coder-32b",
+  ],
   guideSteps: [
     { step: 1, title: "Open Roo Settings", desc: "Open the Roo Settings panel in VS Code" },
     { step: 2, title: "Select Provider", desc: "Choose API Provider → OpenAI Compatible" },

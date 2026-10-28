@@ -12,6 +12,7 @@ export const definition: CliToolDefinition = {
   docsUrl: "https://cursor.com",
   defaultModels: [
     "claude-3-7-sonnet",
+    "claude-3-7-sonnet-thinking",
     "claude-3-5-sonnet",
     "claude-sonnet-4-6",
     "gpt-4o",

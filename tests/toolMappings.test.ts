@@ -6,8 +6,14 @@ import http from "node:http";
 import app from "../src/server/index.js";
 import { ToolMappingRepository } from "../src/storage/repositories/toolMappingRepo.js";
 import { MitmRepository } from "../src/storage/repositories/mitmRepo.js";
+import { getDatabase } from "../src/storage/database.js";
 
 test("Unit - ToolMappingRepository defaults, CRUD, and resolveModelMapping", () => {
+  // Clean test database for fresh run
+  const db = getDatabase();
+  db.run("DELETE FROM tool_mappings");
+  db.run("DELETE FROM mitm_mappings");
+
   // 1. Check default mappings for claude
   const claudeDefaults = ToolMappingRepository.getDefaultMappings("claude");
   assert.ok(claudeDefaults.length > 0);
@@ -15,6 +21,8 @@ test("Unit - ToolMappingRepository defaults, CRUD, and resolveModelMapping", () 
   assert.ok(claudeSources.includes("sonnet"));
   assert.ok(claudeSources.includes("opus"));
   assert.ok(claudeSources.includes("default"));
+  // Target is empty by default so user can configure their preferred provider
+  assert.equal(claudeDefaults.find((m) => m.sourceModel === "sonnet")?.targetModel, "");
 
   // 2. Check default mappings for cursor
   const cursorDefaults = ToolMappingRepository.getDefaultMappings("cursor");
@@ -22,10 +30,17 @@ test("Unit - ToolMappingRepository defaults, CRUD, and resolveModelMapping", () 
   const cursorSources = cursorDefaults.map((m) => m.sourceModel);
   assert.ok(cursorSources.includes("claude-3-7-sonnet"));
   assert.ok(cursorSources.includes("gpt-4o"));
+  assert.equal(cursorDefaults.find((m) => m.sourceModel === "claude-3-7-sonnet")?.targetModel, "");
 
-  // 3. Resolve model mapping fallback
+  // 3. Resolve model mapping fallback (unconfigured returns null because targetModel is empty by default)
+  const unmappedSonnet = ToolMappingRepository.resolveModelMapping("claude", "sonnet");
+  assert.equal(unmappedSonnet, null);
+
+  // When configured, resolveModelMapping returns the mapped targetModel
+  ToolMappingRepository.saveMapping("claude", "sonnet", "claude/claude-sonnet-4-6");
   const resolvedSonnet = ToolMappingRepository.resolveModelMapping("claude", "sonnet");
   assert.equal(resolvedSonnet, "claude/claude-sonnet-4-6");
+  ToolMappingRepository.deleteMapping("claude", "sonnet");
 
   // 4. Save custom mapping
   ToolMappingRepository.saveMapping("cursor", "custom-model-x", "combo/smart-code");
@@ -182,6 +197,7 @@ test("Unit & API - Universal Global Model Mappings and 1-Click Import", async ()
     const afterDel = ToolMappingRepository.resolveModelMapping("unknown", "universal-custom");
     assert.equal(afterDel, null);
   } finally {
+    ToolMappingRepository.resetGlobalMappings();
     server.close();
   }
 });

@@ -11,9 +11,8 @@ describe("ProxyDispatcher - DNS Bypass for Intercepted Hosts", () => {
     assert.equal(isMitmHost("daily-cloudcode-pa.googleapis.com"), true);
     assert.equal(isMitmHost("cloudcode-pa.googleapis.com"), true);
     assert.equal(isMitmHost("api.individual.githubcopilot.com"), true);
-    assert.equal(isMitmHost("api2.cursor.sh"), true);
-
     // Non-intercepted hosts
+    assert.equal(isMitmHost("api2.cursor.sh"), false);
     assert.equal(isMitmHost("api.openai.com"), false);
     assert.equal(isMitmHost("api.anthropic.com"), false);
   });

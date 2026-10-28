@@ -5,6 +5,7 @@ import {
   MitmRepository,
   getDefaultMappings,
 } from "../src/storage/repositories/mitmRepo.js";
+import { ToolMappingRepository } from "../src/storage/repositories/toolMappingRepo.js";
 import { normalizeModelSlug } from "../src/mitm/toolsHelper.js";
 import { resolveModelMapping } from "../src/mitm/server.js";
 import { getDatabase } from "../src/storage/database.js";
@@ -13,20 +14,31 @@ describe("Kiro Model Mapping & Slug Normalization", () => {
   beforeEach(() => {
     const db = getDatabase();
     db.run("DELETE FROM mitm_mappings WHERE ide = 'kiro'");
+    db.run("DELETE FROM tool_mappings WHERE tool_id = 'kiro'");
   });
 
   it("defines standard kebab-case wire format models for Kiro defaults", () => {
     const kiroDefaults = getDefaultMappings("kiro");
     const expectedModels = [
+      "auto",
+      "claude-opus-5.5",
+      "claude-opus-5",
+      "claude-opus-4.8",
+      "claude-opus-4.7",
+      "claude-opus-4.6",
+      "claude-opus-4.5",
+      "claude-sonnet-5.5",
+      "claude-sonnet-5",
+      "claude-sonnet-4.6",
       "claude-sonnet-4.5",
       "claude-sonnet-4",
+      "claude-haiku-5.5",
       "claude-haiku-4.5",
-      "claude-sonnet-5",
       "deepseek-3.2",
       "minimax-m2.5",
       "minimax-m2.1",
+      "kimi-k3",
       "glm-5",
-      "auto",
       "simple-task",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
@@ -96,21 +108,11 @@ describe("Kiro Model Mapping & Slug Normalization", () => {
   });
 
   it("stores and retrieves kebab-case mappings while preserving target_model", () => {
-    const db = getDatabase();
-
-    // Insert standard kebab-case rows into mitm_mappings
-    db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'claude-sonnet-4.5', 'anthropic/claude-3-7-sonnet')"
-    );
-    db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'auto', 'combo/default-combo')"
-    );
-    db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'gpt-5.6-sol', 'openai/gpt-5-sol')"
-    );
-    db.run(
-      "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES ('kiro', 'custom-special-model', 'custom/my-target')"
-    );
+    // Insert standard kebab-case rows
+    ToolMappingRepository.saveMapping("kiro", "claude-sonnet-4.5", "anthropic/claude-3-7-sonnet");
+    ToolMappingRepository.saveMapping("kiro", "auto", "combo/default-combo");
+    ToolMappingRepository.saveMapping("kiro", "gpt-5.6-sol", "openai/gpt-5-sol");
+    ToolMappingRepository.saveMapping("kiro", "custom-special-model", "custom/my-target");
 
     const mappings = MitmRepository.getMappings("kiro");
 
