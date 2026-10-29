@@ -269,11 +269,12 @@ export class MitmServer {
         reject(err);
       });
 
-      srv.listen(preferredPort, "0.0.0.0", () => {
+      const mitmHost = process.env.MAPIGATE_MITM_HOST || "127.0.0.1";
+      srv.listen(preferredPort, mitmHost, () => {
         this.server = srv;
         this.port = preferredPort;
         this.running = true;
-        console.log(`[MITM] HTTPS Proxy server running on port ${preferredPort}`);
+        console.log(`[MITM] HTTPS Proxy server running on ${mitmHost}:${preferredPort}`);
         resolve(preferredPort);
       });
     });
