@@ -86,12 +86,34 @@ export class ProviderRepository {
 
     // Dynamic Header Resolution:
     // reg.defaultHeaders provides the authoritative, up-to-date baseline from metadata.ts (automatically applied on new releases)
-    // userCustomHeaders provides user-defined customizations/overrides
+    // userCustomHeaders provides user-defined customizations/overrides/disables
     const userCustomHeaders = base.customHeaders || {};
     const effectiveHeaders: Record<string, string> = {
       ...(reg?.defaultHeaders || {}),
-      ...userCustomHeaders,
     };
+
+    // Apply user customizations:
+    // - If value is empty string (""), the header is explicitly deleted/omitted from outgoing requests
+    // - If value is non-empty, it overrides the default header or adds a new header
+    for (const [k, v] of Object.entries(userCustomHeaders)) {
+      if (v === "" || v === null || v === undefined) {
+        const matchKey = Object.keys(effectiveHeaders).find(
+          (mk) => mk.toLowerCase() === k.toLowerCase()
+        );
+        if (matchKey) {
+          delete effectiveHeaders[matchKey];
+        }
+        delete effectiveHeaders[k];
+      } else {
+        const matchKey = Object.keys(effectiveHeaders).find(
+          (mk) => mk.toLowerCase() === k.toLowerCase()
+        );
+        if (matchKey && matchKey !== k) {
+          delete effectiveHeaders[matchKey];
+        }
+        effectiveHeaders[k] = v;
+      }
+    }
 
     const models =
       base.models && base.models.length > 0
@@ -260,11 +282,11 @@ export class ProviderRepository {
         const regKeys = Object.keys(regHeaders);
         const customKeys = Object.keys(prov.customHeaders);
 
-        // If DB has the exact full set of legacy seeded default keys
+        // If DB has the exact full set of legacy seeded default keys (and none was explicitly disabled)
         const isLegacyFullSnapshot =
           regKeys.length > 0 &&
           customKeys.length === regKeys.length &&
-          customKeys.every((k) => k in regHeaders);
+          customKeys.every((k) => k in regHeaders && prov.customHeaders![k] !== "");
 
         if (isLegacyFullSnapshot) {
           prov.customHeaders = {};
@@ -273,11 +295,11 @@ export class ProviderRepository {
           const cleanedCustom: Record<string, string> = {};
           let strippedAny = false;
           for (const [k, v] of Object.entries(prov.customHeaders)) {
-            if (regHeaders[k] !== undefined && regHeaders[k] === v) {
+            if (v !== "" && regHeaders[k] !== undefined && regHeaders[k] === v) {
               // Value is identical to current official default, no need to store override
               strippedAny = true;
             } else {
-              // User override (v !== regHeaders[k]) or extra custom header: PRESERVE!
+              // User disabled header (v === ""), user override (v !== regHeaders[k]), or extra custom header: PRESERVE!
               cleanedCustom[k] = v;
             }
           }

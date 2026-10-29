@@ -111,6 +111,13 @@ export abstract class BaseProvider implements IProvider {
       ...(context.provider?.customHeaders || {}),
     };
 
+    // Strip any explicitly disabled/omitted headers (empty string or null)
+    for (const [k, v] of Object.entries(outgoingHeaders)) {
+      if (v === "" || v == null) {
+        delete outgoingHeaders[k];
+      }
+    }
+
     if (psd.chatgptAccountId) {
       outgoingHeaders["chatgpt-account-id"] = psd.chatgptAccountId;
     }

@@ -224,3 +224,65 @@ test("Unit - user can adjust default header ahead of official release and overri
     "Must revert cleanly to system default when override is removed"
   );
 });
+
+test("Unit - user can explicitly disable/omit a default header and it is not sent in outgoing requests", () => {
+  const providerId = "commandcode";
+  const reg = getRegistryProvider(providerId)!;
+  assert.ok(reg.defaultHeaders["x-taste-learning"], "CommandCode must define x-taste-learning by default");
+
+  // User explicitly disables x-taste-learning (e.g. upstream deprecated it)
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: "Command Code Disabled Header",
+    baseUrl: reg.baseUrl,
+    format: reg.format as any,
+    isActive: true,
+    priority: 10,
+    models: reg.models.map((m) => m.id),
+    customHeaders: {
+      "x-taste-learning": "", // Empty string means omitted/disabled
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  // Server reboot occurs and triggers syncRegistryDefaults
+  ProviderRepository.syncRegistryDefaults();
+
+  // The disabled marker must be preserved in DB across syncs
+  const inDb = ProviderRepository.getProviderById(providerId);
+  assert.ok(inDb);
+  assert.equal(inDb.customHeaders?.["x-taste-learning"], "");
+
+  // In effective headers, x-taste-learning must be COMPLETELY OMITTED!
+  const withDefaults = ProviderRepository.getProviderWithDefaults(providerId);
+  assert.ok(withDefaults);
+  assert.equal(
+    withDefaults.customHeaders["x-taste-learning"],
+    undefined,
+    "x-taste-learning must be deleted from effective outgoing headers"
+  );
+  assert.equal(
+    withDefaults.customHeaders["User-Agent"],
+    reg.defaultHeaders["User-Agent"],
+    "Other default headers must remain intact"
+  );
+  assert.equal(
+    withDefaults.customHeaders["x-command-code-version"],
+    reg.defaultHeaders["x-command-code-version"],
+    "Other default headers must remain intact"
+  );
+
+  // When user re-enables it (removes the disable override)
+  ProviderRepository.saveProvider({
+    ...inDb,
+    customHeaders: {},
+  });
+  const reenabled = ProviderRepository.getProviderWithDefaults(providerId);
+  assert.ok(reenabled);
+  assert.equal(
+    reenabled.customHeaders["x-taste-learning"],
+    reg.defaultHeaders["x-taste-learning"],
+    "Default header should be restored when disable override is cleared"
+  );
+});

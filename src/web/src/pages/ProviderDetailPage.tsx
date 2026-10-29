@@ -351,6 +351,21 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     );
   };
 
+  const handleDisableDefaultHeader = (key: string) => {
+    // Setting value to "" marks it as explicitly disabled/omitted from requests
+    const filtered = customHeaders.filter(
+      (h) => h.key.trim().toLowerCase() !== key.toLowerCase()
+    );
+    setCustomHeaders([...filtered, { key, value: "" }]);
+  };
+
+  const handleEnableDefaultHeader = (key: string) => {
+    // Removing the "" override restores the default header value
+    setCustomHeaders(
+      customHeaders.filter((h) => h.key.trim().toLowerCase() !== key.toLowerCase())
+    );
+  };
+
   const handleAddCustomModel = () => {
     if (!newModelInput.trim()) return;
     const m = newModelInput.trim();
@@ -909,20 +924,45 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             </p>
             <div className="space-y-1.5 pt-1">
               {Object.entries(registryItem.defaultHeaders).map(([k, v]) => {
-                const isOverridden = customHeaders.some((h) => h.key.trim().toLowerCase() === k.toLowerCase());
+                const customEntry = customHeaders.find((h) => h.key.trim().toLowerCase() === k.toLowerCase());
+                const isDisabled = customEntry !== undefined && customEntry.value === "";
+                const isOverridden = customEntry !== undefined && customEntry.value !== "";
+
                 return (
                   <div key={k} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0F141C] border border-[#1E293B]/60 text-xs font-mono">
                     <div className="flex items-center gap-2 truncate pr-2">
-                      <span className="text-blue-400 font-semibold">{k}</span>
+                      <span className={isDisabled ? "text-slate-600 line-through" : "text-blue-400 font-semibold"}>
+                        {k}
+                      </span>
                       <span className="text-slate-600">:</span>
-                      <span className={isOverridden ? "text-slate-500 line-through truncate" : "text-slate-300 truncate"}>
+                      <span className={isDisabled || isOverridden ? "text-slate-500 line-through truncate" : "text-slate-300 truncate"}>
                         {v}
                       </span>
+                      {isOverridden && (
+                        <span className="text-amber-300 font-semibold truncate">
+                          → {customEntry?.value}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {isOverridden ? (
+                      {isDisabled ? (
                         <>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-sans font-semibold">
+                            Disabled / Omitted
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleEnableDefaultHeader(k)}
+                            className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors cursor-pointer"
+                            title="Re-enable this default header"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                            Enable
+                          </button>
+                        </>
+                      ) : isOverridden ? (
+                        <>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-sans font-semibold">
                             Overridden
                           </span>
                           <button
@@ -936,15 +976,26 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                           </button>
                         </>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleCustomizeDefaultHeader(k, v)}
-                          className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-colors cursor-pointer"
-                          title="Override or adjust this default header"
-                        >
-                          <span className="material-symbols-outlined text-[13px]">edit</span>
-                          Customize
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleCustomizeDefaultHeader(k, v)}
+                            className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-colors cursor-pointer"
+                            title="Override or adjust this default header value"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">edit</span>
+                            Customize
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDisableDefaultHeader(k)}
+                            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-rose-400 px-2 py-1 rounded hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Disable/remove this default header from outgoing requests"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">block</span>
+                            Disable
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -961,7 +1012,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             <span>Custom Header Overrides & Additions</span>
           </div>
           <p className="text-[11px] text-slate-400">
-            Add custom headers or override default headers. These values take precedence over system defaults.
+            Add custom headers or override/disable default headers. These values take precedence over system defaults.
           </p>
         </div>
 
@@ -978,6 +1029,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                   registryItem?.defaultHeaders &&
                   Object.keys(registryItem.defaultHeaders).some((k) => k.toLowerCase() === h.key.trim().toLowerCase())
                 );
+                const isDisabledOverride = h.value === "";
                 return (
                   <div key={i} className="flex items-center gap-2">
                     <div className="w-1/3 relative">
@@ -985,28 +1037,47 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                         type="text"
                         value={h.key}
                         onChange={(e) => handleUpdateHeader(i, e.target.value, h.value)}
-                        className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-blue-400 font-mono focus:outline-none focus:border-blue-500"
+                        className={`w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-blue-500 ${
+                          isDisabledOverride ? "text-slate-500 line-through" : "text-blue-400"
+                        }`}
                         placeholder="Header Key"
                       />
                       {isDefaultKey && (
-                        <span className="absolute right-2 top-2 text-[10px] text-amber-400 font-sans pointer-events-none font-semibold">
-                          Override
+                        <span className={`absolute right-2 top-2 text-[10px] font-sans pointer-events-none font-semibold ${
+                          isDisabledOverride ? "text-rose-400" : "text-amber-400"
+                        }`}>
+                          {isDisabledOverride ? "Disabled" : "Override"}
                         </span>
                       )}
                     </div>
-                    <input
-                      type="text"
-                      value={h.value}
-                      onChange={(e) => handleUpdateHeader(i, h.key, e.target.value)}
-                      className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500"
-                      placeholder="Header Value"
-                    />
+                    {isDisabledOverride ? (
+                      <div className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-rose-400/80 italic font-mono flex items-center justify-between">
+                        <span>(Disabled — this header will be omitted from outgoing requests)</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveHeader(i)}
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 font-sans not-italic hover:underline cursor-pointer"
+                        >
+                          Re-enable
+                        </button>
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={h.value}
+                        onChange={(e) => handleUpdateHeader(i, h.key, e.target.value)}
+                        className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500"
+                        placeholder="Header Value"
+                      />
+                    )}
                     <button
                       onClick={() => handleRemoveHeader(i)}
                       className="p-2 text-slate-500 hover:text-red-400 transition-colors cursor-pointer rounded-lg hover:bg-red-500/10"
-                      title={isDefaultKey ? "Remove override (reverts to default)" : "Delete header"}
+                      title={isDisabledOverride ? "Re-enable header" : isDefaultKey ? "Remove override (reverts to default)" : "Delete header"}
                     >
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                      <span className="material-symbols-outlined text-[18px]">
+                        {isDisabledOverride ? "undo" : isDefaultKey ? "undo" : "delete"}
+                      </span>
                     </button>
                   </div>
                 );
