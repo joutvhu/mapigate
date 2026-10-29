@@ -335,6 +335,22 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     setTimeout(() => setHeadersSavedMsg(null), 3000);
   };
 
+  const handleCustomizeDefaultHeader = (key: string, defaultValue: string) => {
+    const existingIndex = customHeaders.findIndex(
+      (h) => h.key.trim().toLowerCase() === key.toLowerCase()
+    );
+    if (existingIndex >= 0) {
+      return;
+    }
+    setCustomHeaders([...customHeaders, { key, value: defaultValue }]);
+  };
+
+  const handleRevertDefaultHeader = (key: string) => {
+    setCustomHeaders(
+      customHeaders.filter((h) => h.key.trim().toLowerCase() !== key.toLowerCase())
+    );
+  };
+
   const handleAddCustomModel = () => {
     if (!newModelInput.trim()) return;
     const m = newModelInput.trim();
@@ -889,22 +905,46 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               <span className="text-[11px] text-slate-500 font-mono">Managed by Mapigate</span>
             </div>
             <p className="text-[11px] text-slate-400">
-              These headers automatically update with new Mapigate releases to ensure upstream compatibility and bug fixes.
+              These headers automatically update with new Mapigate releases. If upstream changes before an official update, click Customize to edit and override it immediately.
             </p>
             <div className="space-y-1.5 pt-1">
               {Object.entries(registryItem.defaultHeaders).map(([k, v]) => {
                 const isOverridden = customHeaders.some((h) => h.key.trim().toLowerCase() === k.toLowerCase());
                 return (
-                  <div key={k} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#0F141C] border border-[#1E293B]/60 text-xs font-mono">
-                    <span className="text-blue-400">{k}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={isOverridden ? "text-slate-500 line-through" : "text-slate-300"}>
+                  <div key={k} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#0F141C] border border-[#1E293B]/60 text-xs font-mono">
+                    <div className="flex items-center gap-2 truncate pr-2">
+                      <span className="text-blue-400 font-semibold">{k}</span>
+                      <span className="text-slate-600">:</span>
+                      <span className={isOverridden ? "text-slate-500 line-through truncate" : "text-slate-300 truncate"}>
                         {v}
                       </span>
-                      {isOverridden && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                          Overridden
-                        </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isOverridden ? (
+                        <>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            Overridden
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRevertDefaultHeader(k)}
+                            className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-white px-2 py-1 rounded bg-[#1E293B] hover:bg-[#2A374A] transition-colors cursor-pointer"
+                            title="Revert to system default value"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">undo</span>
+                            Revert
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleCustomizeDefaultHeader(k, v)}
+                          className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-colors cursor-pointer"
+                          title="Override or adjust this default header"
+                        >
+                          <span className="material-symbols-outlined text-[13px]">edit</span>
+                          Customize
+                        </button>
                       )}
                     </div>
                   </div>
@@ -929,35 +969,48 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         <div className="space-y-2">
           {customHeaders.length === 0 ? (
             <div className="text-xs text-slate-500 italic p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B]">
-              No custom header overrides configured. Outgoing requests will use the system default headers above.
+              No custom header overrides configured. Outgoing requests will use the system default headers above. Click &quot;Customize&quot; on any default header or add a new header below.
             </div>
           ) : (
             <div className="space-y-2">
-              {customHeaders.map((h, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={h.key}
-                    onChange={(e) => handleUpdateHeader(i, e.target.value, h.value)}
-                    className="w-1/3 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-blue-400 font-mono focus:outline-none focus:border-blue-500"
-                    placeholder="Header Key"
-                  />
-                  <input
-                    type="text"
-                    value={h.value}
-                    onChange={(e) => handleUpdateHeader(i, h.key, e.target.value)}
-                    className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500"
-                    placeholder="Header Value"
-                  />
-                  <button
-                    onClick={() => handleRemoveHeader(i)}
-                    className="p-2 text-slate-500 hover:text-red-400 transition-colors cursor-pointer rounded-lg hover:bg-red-500/10"
-                    title="Delete header"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
-                </div>
-              ))}
+              {customHeaders.map((h, i) => {
+                const isDefaultKey = Boolean(
+                  registryItem?.defaultHeaders &&
+                  Object.keys(registryItem.defaultHeaders).some((k) => k.toLowerCase() === h.key.trim().toLowerCase())
+                );
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-1/3 relative">
+                      <input
+                        type="text"
+                        value={h.key}
+                        onChange={(e) => handleUpdateHeader(i, e.target.value, h.value)}
+                        className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-blue-400 font-mono focus:outline-none focus:border-blue-500"
+                        placeholder="Header Key"
+                      />
+                      {isDefaultKey && (
+                        <span className="absolute right-2 top-2 text-[10px] text-amber-400 font-sans pointer-events-none font-semibold">
+                          Override
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      value={h.value}
+                      onChange={(e) => handleUpdateHeader(i, h.key, e.target.value)}
+                      className="flex-1 bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500"
+                      placeholder="Header Value"
+                    />
+                    <button
+                      onClick={() => handleRemoveHeader(i)}
+                      className="p-2 text-slate-500 hover:text-red-400 transition-colors cursor-pointer rounded-lg hover:bg-red-500/10"
+                      title={isDefaultKey ? "Remove override (reverts to default)" : "Delete header"}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
 

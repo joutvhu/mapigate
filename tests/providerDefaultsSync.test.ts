@@ -164,3 +164,63 @@ test("Unit - user custom header overrides default header if explicitly specified
     "Other default headers must still be present"
   );
 });
+
+test("Unit - user can adjust default header ahead of official release and override persists across syncs", () => {
+  const providerId = "commandcode";
+  const reg = getRegistryProvider(providerId)!;
+
+  // Upstream changed version to 1.95.0, user manually adjusts x-command-code-version
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: "Command Code Pre-Release Fix",
+    baseUrl: reg.baseUrl,
+    format: reg.format as any,
+    isActive: true,
+    priority: 10,
+    models: reg.models.map((m) => m.id),
+    customHeaders: {
+      "x-command-code-version": "1.95.0-hotfix-by-user",
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  // Server reboot occurs and triggers syncRegistryDefaults
+  ProviderRepository.syncRegistryDefaults();
+
+  // User's hotfix must persist in DB and NOT be wiped
+  const inDb = ProviderRepository.getProviderById(providerId);
+  assert.ok(inDb);
+  assert.equal(
+    inDb.customHeaders?.["x-command-code-version"],
+    "1.95.0-hotfix-by-user",
+    "User manual hotfix on default header must persist across syncs"
+  );
+
+  // Runtime requests must send the user's hotfix value
+  const withDefaults = ProviderRepository.getProviderWithDefaults(providerId);
+  assert.ok(withDefaults);
+  assert.equal(
+    withDefaults.customHeaders["x-command-code-version"],
+    "1.95.0-hotfix-by-user",
+    "Effective headers must send user hotfix"
+  );
+  assert.equal(
+    withDefaults.customHeaders["User-Agent"],
+    reg.defaultHeaders["User-Agent"],
+    "Unmodified default headers must still be active from system defaults"
+  );
+
+  // When user later removes/reverts the override, it cleanly falls back to system default
+  ProviderRepository.saveProvider({
+    ...inDb,
+    customHeaders: {},
+  });
+  const reverted = ProviderRepository.getProviderWithDefaults(providerId);
+  assert.ok(reverted);
+  assert.equal(
+    reverted.customHeaders["x-command-code-version"],
+    reg.defaultHeaders["x-command-code-version"],
+    "Must revert cleanly to system default when override is removed"
+  );
+});

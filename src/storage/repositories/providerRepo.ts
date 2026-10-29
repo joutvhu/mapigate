@@ -252,23 +252,32 @@ export class ProviderRepository {
       }
 
       // Clean legacy seeded defaultHeaders from DB custom_headers
-      // If all keys in prov.customHeaders match reg.defaultHeaders keys, they were seeded defaults, not user overrides!
+      // - If customHeaders matches the complete set of registry default header keys, it was a legacy auto-seeded snapshot!
+      // - Otherwise, preserve user overrides (where value differs from current default) and user-added headers,
+      //   while stripping only keys that are identical to current default headers.
       if (prov.customHeaders && Object.keys(prov.customHeaders).length > 0) {
         const regHeaders = reg.defaultHeaders || {};
+        const regKeys = Object.keys(regHeaders);
         const customKeys = Object.keys(prov.customHeaders);
 
-        const allKeysWereDefaults = customKeys.length > 0 && customKeys.every((k) => k in regHeaders);
-        if (allKeysWereDefaults) {
+        // If DB has the exact full set of legacy seeded default keys
+        const isLegacyFullSnapshot =
+          regKeys.length > 0 &&
+          customKeys.length === regKeys.length &&
+          customKeys.every((k) => k in regHeaders);
+
+        if (isLegacyFullSnapshot) {
           prov.customHeaders = {};
           changed = true;
         } else {
-          // If user added some custom keys, strip out keys that were identical to default headers
           const cleanedCustom: Record<string, string> = {};
           let strippedAny = false;
           for (const [k, v] of Object.entries(prov.customHeaders)) {
             if (regHeaders[k] !== undefined && regHeaders[k] === v) {
+              // Value is identical to current official default, no need to store override
               strippedAny = true;
             } else {
+              // User override (v !== regHeaders[k]) or extra custom header: PRESERVE!
               cleanedCustom[k] = v;
             }
           }
