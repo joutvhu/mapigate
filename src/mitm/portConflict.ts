@@ -50,6 +50,9 @@ const SYSTEM_PROCESS_NAMES = new Set([
 const SYSTEM_REMEDIATION_HINT =
   "Run 'iisreset /stop' or 'net stop w3svc' in an Administrator terminal to release port 443.";
 
+export const TIME_WAIT_REMEDIATION_HINT =
+  "Port 443 is in a transient TIME_WAIT socket release state from a recent connection. It will release automatically in a moment. Click Retry to connect.";
+
 /**
  * Check if a process by PID or process name is a protected system service.
  */
@@ -152,7 +155,7 @@ export async function inspectPortOwner(port: number): Promise<PortOwnerInfo> {
   if (isWin) {
     try {
       const psScript = `
-$c = Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+$c = Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($c) {
   $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
   @{
@@ -181,8 +184,16 @@ if ($c) {
           const parsed = JSON.parse(psOutput);
           if (parsed.InUse) {
             const pid: number = parsed.Pid;
-            let processName: string = parsed.ProcessName || (pid <= 4 ? "System" : "unknown");
-            const isSystemProcess = isProtectedSystemProcess(pid, processName);
+            const isTimeWait = pid === 0;
+            let processName: string = isTimeWait
+              ? "Idle (TIME_WAIT)"
+              : parsed.ProcessName || (pid <= 4 ? "System" : "unknown");
+            const isSystemProcess = !isTimeWait && isProtectedSystemProcess(pid, processName);
+            const hint = isTimeWait
+              ? TIME_WAIT_REMEDIATION_HINT
+              : isSystemProcess
+              ? SYSTEM_REMEDIATION_HINT
+              : undefined;
 
             return {
               port,
@@ -190,7 +201,7 @@ if ($c) {
               pid,
               processName,
               isSystemProcess,
-              remediationHint: isSystemProcess ? SYSTEM_REMEDIATION_HINT : undefined,
+              remediationHint: hint,
             };
           }
         } catch {
@@ -205,8 +216,16 @@ if ($c) {
     const netstatOwner = await inspectPortOwnerNetstat(port);
     if (netstatOwner && netstatOwner.pid !== undefined) {
       const pid = netstatOwner.pid;
-      const processName = netstatOwner.processName || (pid <= 4 ? "System" : "unknown");
-      const isSystemProcess = isProtectedSystemProcess(pid, processName);
+      const isTimeWait = pid === 0;
+      const processName = isTimeWait
+        ? "Idle (TIME_WAIT)"
+        : netstatOwner.processName || (pid <= 4 ? "System" : "unknown");
+      const isSystemProcess = !isTimeWait && isProtectedSystemProcess(pid, processName);
+      const hint = isTimeWait
+        ? TIME_WAIT_REMEDIATION_HINT
+        : isSystemProcess
+        ? SYSTEM_REMEDIATION_HINT
+        : undefined;
 
       return {
         port,
@@ -214,7 +233,7 @@ if ($c) {
         pid,
         processName,
         isSystemProcess,
-        remediationHint: isSystemProcess ? SYSTEM_REMEDIATION_HINT : undefined,
+        remediationHint: hint,
       };
     }
 

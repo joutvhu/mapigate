@@ -46,14 +46,14 @@ export class CryptoVault {
         } catch (err: any) {
           if (!this.warnedFallback && process.env.NODE_ENV !== "test") {
             console.warn(
-              `[CryptoVault] Warning: machineIdSync() unavailable (${err?.message || err}). Using fallback salt. Credentials may be invalid if environment changes.`
+              `[CryptoVault] Warning: machineIdSync() unavailable (${err?.message || err}). Generating unique local vault key.`
             );
             this.warnedFallback = true;
           }
-          hwId = "fallback-hw-key-mapigate";
+          hwId = crypto.randomBytes(32).toString("hex");
         }
         if (!hwId || typeof hwId !== "string" || !hwId.trim()) {
-          hwId = "fallback-hw-key-mapigate";
+          hwId = crypto.randomBytes(32).toString("hex");
         }
 
         try {

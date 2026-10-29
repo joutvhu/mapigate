@@ -294,7 +294,7 @@ export class WindsurfProvider extends OpenAiCompatibleProvider {
       });
     }
 
-    return { ok: true, status: 200, json, modelUsed: targetModel };
+    return { ok: true, status: 200, json, logged: !isPanel, modelUsed: targetModel };
   }
 }
 

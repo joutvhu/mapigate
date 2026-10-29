@@ -31,6 +31,8 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   const [isCommunityCatalogOpen, setIsCommunityCatalogOpen] = useState(false);
   const [providerToDelete, setProviderToDelete] = useState<ProviderItem | null>(null);
   const [isDeletingProvider, setIsDeletingProvider] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const loadBackendProviders = async () => {
     try {
@@ -102,27 +104,41 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
 
   const handleSaveConnection = async () => {
     if (!selectedProvider) return;
+    setIsSaving(true);
+    setSaveError(null);
 
     try {
-      // 1. Ensure provider exists in backend
+      // 1. Ensure provider exists in backend or update its baseUrl if customBaseUrl is provided
       let existing = backendProviders.find((p) => p.id === selectedProvider.id);
-      if (!existing) {
+      if (!existing || (customBaseUrl.trim() && customBaseUrl.trim() !== existing.baseUrl)) {
+        const payload: Record<string, any> = {
+          id: selectedProvider.id,
+          name: existing?.name || selectedProvider.name,
+          baseUrl: customBaseUrl.trim() || selectedProvider.baseUrl || existing?.baseUrl || "https://api.openai.com",
+          format: existing?.format || selectedProvider.format || "openai",
+        };
+        if (existing) {
+          payload.models = existing.models;
+          payload.customHeaders = existing.customHeaders;
+          payload.proxyUrl = existing.proxyUrl;
+          payload.thinkingMode = existing.thinkingMode;
+          payload.strategy = existing.strategy;
+          payload.stickyLimit = existing.stickyLimit;
+        }
         const createRes = await fetch("/api/providers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: selectedProvider.id,
-            name: selectedProvider.name,
-            baseUrl: customBaseUrl || selectedProvider.baseUrl || "https://api.openai.com",
-            format: selectedProvider.format || "openai",
-          }),
+          body: JSON.stringify(payload),
         });
-        existing = await createRes.json();
+        if (!createRes.ok) {
+          const errData = await createRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Failed to save provider (${createRes.status})`);
+        }
       }
 
       // 2. Add encrypted account if apiKeyInput provided or if noAuth
       if (apiKeyInput.trim() || isFreeNoAuth(selectedProvider)) {
-        await fetch(`/api/providers/${selectedProvider.id}/accounts`, {
+        const accRes = await fetch(`/api/providers/${selectedProvider.id}/accounts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -130,17 +146,24 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             apiKey: apiKeyInput.trim() || (selectedProvider.id === "opencode" || selectedProvider.id === "oc" ? "public" : ""),
           }),
         });
+        if (!accRes.ok) {
+          const accErrData = await accRes.json().catch(() => ({}));
+          throw new Error(accErrData.error || `Failed to add account (${accRes.status})`);
+        }
       }
 
       await loadBackendProviders();
       invalidateAvailableModelsCache();
-    } catch (err) {
-      console.error(err);
-    } finally {
       setApiKeyInput("");
       setAccountName("Default Account");
       setCustomBaseUrl("");
+      setSaveError(null);
       setSelectedProvider(null);
+    } catch (err: any) {
+      console.error(err);
+      setSaveError(err.message || "Failed to save connection.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -571,6 +594,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           setApiKeyInput("");
           setAccountName("Default Account");
           setCustomBaseUrl("");
+          setSaveError(null);
         }}
         maxWidthClass="max-w-md"
       >
@@ -600,6 +624,13 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
               </button>
             </div>
 
+            {saveError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 flex items-start gap-2">
+                <span className="material-symbols-outlined text-[16px] text-red-400 shrink-0 mt-0.5">error</span>
+                <span>{saveError}</span>
+              </div>
+            )}
+
             <div className="space-y-3 pt-1">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
@@ -622,7 +653,11 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                   type="text"
                   value={customBaseUrl}
                   onChange={(e) => setCustomBaseUrl(e.target.value)}
-                  placeholder="https://api.openai.com"
+                  placeholder={
+                    selectedProvider.format === "anthropic"
+                      ? "https://api.anthropic.com"
+                      : (selectedProvider.baseUrl || "https://api.openai.com")
+                  }
                   className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
                 />
               </div>
@@ -653,15 +688,17 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#1E293B]">
               <button
                 onClick={() => setSelectedProvider(null)}
-                className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveConnection}
-                className="rt-btn rt-btn--primary"
+                disabled={isSaving}
+                className="rt-btn rt-btn--primary disabled:opacity-50"
               >
-                Save & Connect
+                {isSaving ? "Saving..." : "Save & Connect"}
               </button>
             </div>
           </div>

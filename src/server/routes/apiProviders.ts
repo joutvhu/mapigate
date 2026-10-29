@@ -544,7 +544,7 @@ providerRouter.get("/", (_req, res) => {
         rateLimitHits: a.rateLimitHits,
         lastUsedAt: a.lastUsedAt,
         sortOrder: a.sortOrder,
-        providerSpecificData: a.providerSpecificData,
+        providerSpecificData: maskSensitivePsd(a.providerSpecificData),
       })),
     };
   });

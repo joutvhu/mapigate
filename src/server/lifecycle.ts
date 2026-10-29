@@ -141,7 +141,7 @@ export class ServerLifecycle {
 
     try {
       const { mitmManager } = await import("../mitm/manager.js");
-      await mitmManager.stopServer({ keepDns: true });
+      await mitmManager.stopServer({ keepDns: true, keepPersistedState: true });
     } catch {
       // Best-effort
     }
@@ -171,6 +171,13 @@ export class ServerLifecycle {
         }
       });
       this.server = null;
+    }
+
+    try {
+      const { closeDatabase } = await import("../storage/database.js");
+      closeDatabase();
+    } catch {
+      // Best-effort
     }
 
     // Brief grace period for socket port release

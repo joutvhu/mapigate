@@ -1291,19 +1291,22 @@ export const MitmTab: React.FC = () => {
         onClose={() => setPortConflict(null)}
         maxWidthClass="max-w-md"
       >
-        {portConflict && (
+        {portConflict && (() => {
+          const isTimeWait = portConflict.pid === 0 || Boolean(portConflict.processName?.toLowerCase().includes("idle"));
+
+          return (
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
               <div className="flex items-center gap-2">
                 <span
                   className={`material-symbols-outlined text-[20px] ${
-                    portConflict.isSystemProcess ? "text-rose-400" : "text-amber-400"
+                    isTimeWait ? "text-blue-400" : portConflict.isSystemProcess ? "text-rose-400" : "text-amber-400"
                   }`}
                 >
-                  {portConflict.isSystemProcess ? "gpp_bad" : "warning"}
+                  {isTimeWait ? "hourglass_top" : portConflict.isSystemProcess ? "gpp_bad" : "warning"}
                 </span>
                 <h4 className="text-sm font-bold text-white">
-                  Port {portConflict.port} {portConflict.isSystemProcess ? "System Conflict" : "Already In Use"}
+                  Port {portConflict.port} {isTimeWait ? "Socket Releasing" : portConflict.isSystemProcess ? "System Conflict" : "Already In Use"}
                 </h4>
               </div>
               <button
@@ -1314,7 +1317,38 @@ export const MitmTab: React.FC = () => {
               </button>
             </div>
 
-            {portConflict.isSystemProcess ? (
+            {isTimeWait ? (
+              /* Transient TIME_WAIT Socket from Restart */
+              <div className="space-y-3 text-xs">
+                <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-blue-300 font-semibold">
+                    <span className="material-symbols-outlined text-[16px]">hourglass_top</span>
+                    <span>Socket Releasing (TIME_WAIT)</span>
+                  </div>
+                  <p className="text-slate-300 text-[11.5px] leading-relaxed">
+                    Port {portConflict.port} is currently releasing from a recent restart (<strong className="text-white">TCP TIME_WAIT</strong>). The operating system will free this socket in a few seconds. Click <strong>Retry</strong> to start the MITM server.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#1E293B]">
+                  <button
+                    type="button"
+                    onClick={() => setPortConflict(null)}
+                    className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleServer(false, portConflict.port)}
+                    className="rt-btn rt-btn--primary text-xs py-1.5 px-3.5 flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">refresh</span>
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : portConflict.isSystemProcess ? (
               /* Windows System Process Conflict (PID <= 4 / HTTP.sys / IIS) */
               <div className="space-y-3 text-xs">
                 <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl space-y-2">
@@ -1424,7 +1458,8 @@ export const MitmTab: React.FC = () => {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
       </PortalModal>
     </div>
   );

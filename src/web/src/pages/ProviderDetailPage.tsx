@@ -10,7 +10,6 @@ import { PortalModal } from "../components/PortalModal";
 import { Select } from "../components/Select";
 import { ScanModelsModal } from "../components/ScanModelsModal";
 import { ToolIcon } from "../components/ui/ToolIcon";
-import { Checkbox } from "../components/ui/Checkbox";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 import { EditAccountModal, type EditAccountData } from "../components/EditAccountModal.js";
@@ -55,6 +54,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [testingAccountId, setTestingAccountId] = useState<string | null>(null);
   const [accountTestResults, setAccountTestResults] = useState<Record<string, { success: boolean; message: string; latencyMs?: number }>>({});
   const [isTestingProvider, setIsTestingProvider] = useState<boolean>(false);
+  const [isTestingOneByOne, setIsTestingOneByOne] = useState<boolean>(false);
   const [providerTestResult, setProviderTestResult] = useState<{ success: boolean; message: string; latencyMs?: number } | null>(null);
   const [newHeaderKey, setNewHeaderKey] = useState("");
   const [newHeaderVal, setNewHeaderVal] = useState("");
@@ -281,11 +281,17 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   };
 
   const testOneByOne = async () => {
-    for (let i = 0; i < connections.length; i++) {
-      const conn = connections[i];
-      await testAccount(conn, i);
+    if (isTestingOneByOne || connections.length === 0) return;
+    setIsTestingOneByOne(true);
+    try {
+      for (let i = 0; i < connections.length; i++) {
+        const conn = connections[i];
+        await testAccount(conn, i);
+      }
+    } finally {
+      setTestingIdx(null);
+      setIsTestingOneByOne(false);
     }
-    setTestingIdx(null);
   };
 
   const handleTestProvider = async () => {
@@ -649,12 +655,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <button
               onClick={testOneByOne}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:text-white transition-colors cursor-pointer"
+              disabled={isTestingOneByOne || testingIdx !== null || connections.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1E293B] bg-[#0A0D14] text-slate-300 hover:text-white transition-colors cursor-pointer disabled:opacity-40"
             >
-              <span className={`material-symbols-outlined text-[15px] ${testingIdx !== null ? "animate-spin" : ""}`}>
+              <span className={`material-symbols-outlined text-[15px] ${isTestingOneByOne || testingIdx !== null ? "animate-spin text-blue-400" : ""}`}>
                 sync
               </span>
-              Test Connection One-by-One
+              {isTestingOneByOne ? "Testing..." : "Test Connection One-by-One"}
             </button>
 
             {/* Routing Strategy selector (matches 9router) */}
@@ -730,7 +737,6 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Checkbox size="sm" />
                       <div className="flex flex-col text-slate-500">
                         <button
                           onClick={() => moveConnection(idx, "up")}
@@ -1109,6 +1115,32 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               + add header
             </button>
           </div>
+        </div>
+
+        {/* Provider Base URL Override */}
+        <div className="pt-3 border-t border-[#1E293B]">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-slate-400 font-semibold text-xs">
+              Provider Base URL
+            </label>
+            {registryItem?.baseUrl && registryItem.baseUrl !== baseUrlOverride && (
+              <button
+                type="button"
+                onClick={() => setBaseUrlOverride(registryItem.baseUrl || "")}
+                className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                title="Reset to default Base URL"
+              >
+                Reset to default ({registryItem.baseUrl})
+              </button>
+            )}
+          </div>
+          <input
+            type="text"
+            placeholder={registryItem?.baseUrl || provider.baseUrl || "https://api.openai.com"}
+            value={baseUrlOverride}
+            onChange={(e) => setBaseUrlOverride(e.target.value)}
+            className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+          />
         </div>
 
         {/* Outbound Proxy */}

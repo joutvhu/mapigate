@@ -82,10 +82,12 @@ export class MitmManager {
       // Pre-flight check: is port already occupied?
       const portOwner = await inspectPortOwner(targetPort);
       if (portOwner.inUse) {
-        if (portOwner.pid === process.pid) {
-          // Port is held by this Mapigate process (e.g. previous instance closing). Wait for release without killing ourselves.
+        const isTimeWait = portOwner.pid === 0 || Boolean(portOwner.processName?.toLowerCase().includes("idle"));
+        if (portOwner.pid === process.pid || isTimeWait) {
+          // Port is held by this Mapigate process or in transient TCP TIME_WAIT from a recent restart.
+          // Polling to let socket release cleanly.
           let released = false;
-          for (let i = 0; i < 15; i++) {
+          for (let i = 0; i < 20; i++) {
             if (await checkPortFree(targetPort)) {
               released = true;
               break;
@@ -97,9 +99,11 @@ export class MitmManager {
               return targetPort;
             }
             throw new PortConflictError(
-              `Port ${targetPort} is held by this Mapigate process and is still releasing. Please wait a moment.`,
+              isTimeWait
+                ? `Port ${targetPort} is currently in a transient socket release state (TIME_WAIT). Please wait a moment and click Retry.`
+                : `Port ${targetPort} is held by this Mapigate process and is still releasing. Please wait a moment.`,
               "PORT_443_BUSY",
-              portOwner
+              { ...portOwner, isSystemProcess: false }
             );
           }
         } else if (opts.forceKill && !portOwner.isSystemProcess && portOwner.pid && portOwner.pid > 4) {
@@ -219,7 +223,7 @@ export class MitmManager {
     await removeAllDNSEntries(sudoPassword);
   }
 
-  public async stopServer(options: { keepDns?: boolean; sudoPassword?: string } = {}) {
+  public async stopServer(options: { keepDns?: boolean; sudoPassword?: string; keepPersistedState?: boolean } = {}) {
     this.lastDnsWarning = null;
     if (!options.keepDns) {
       try {
@@ -229,7 +233,9 @@ export class MitmManager {
         this.cleanupDnsSync();
       }
     }
-    MitmRepository.setMitmServerRunning(false);
+    if (!options.keepPersistedState) {
+      MitmRepository.setMitmServerRunning(false);
+    }
     await mitmServerInstance.stop(options);
   }
 

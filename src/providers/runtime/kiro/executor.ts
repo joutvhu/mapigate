@@ -6,6 +6,7 @@ import {
   createResponsesStreamState,
   openAiChunkToResponsesEvents,
   finalizeResponsesStream,
+  convertOpenAiResponseToResponsesApi,
 } from "../../../core/adapters/responsesAdapter.js";
 import { decodeEventStreamChunk } from "../bedrock/eventStream.js";
 import { extractTokenFromAccount } from "../../core/base/tokenExtractor.js";
@@ -407,6 +408,10 @@ export async function executeKiro(
       }
       res.end();
       return { ok: false, status: 502, error: streamErr.message };
+    } finally {
+      if (typeof res?.removeListener === "function") {
+        res.removeListener("close", onClose);
+      }
     }
   }
 
@@ -530,6 +535,13 @@ export async function executeKiro(
   });
   logger.line(reqTag, LogSymbol.SUCCESS, `kiro/${targetModel} · ${doneMsg}`);
 
-  res.status(200).json(responseJson);
-  return { ok: true, status: 200, json: responseJson, modelUsed: targetModel };
+  let clientResponseBody: any = responseJson;
+  if (clientFormat === "responses") {
+    clientResponseBody = convertOpenAiResponseToResponsesApi(responseJson);
+  } else if (clientFormat === "anthropic") {
+    clientResponseBody = AnthropicAdapter.openAiResponseToAnthropic(responseJson, requestId);
+  }
+
+  res.status(200).json(clientResponseBody);
+  return { ok: true, status: 200, json: clientResponseBody, logged: true, modelUsed: targetModel };
 }

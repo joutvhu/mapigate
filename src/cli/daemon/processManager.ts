@@ -184,13 +184,24 @@ export class ProcessManager {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 1200);
         const host = DEFAULT_HOST === "0.0.0.0" ? "127.0.0.1" : DEFAULT_HOST;
+
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        try {
+          const { MasterAuth } = await import("../../server/auth/masterAuth.js");
+          if (MasterAuth.isPasswordSet()) {
+            const token = MasterAuth.createSessionToken(60_000);
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+        } catch {}
+
         await fetch(`http://${host}:${port}/api/server/shutdown`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           signal: controller.signal,
         }).catch(() => {
           return fetch(`http://${host}:${port}/api/shutdown`, {
             method: "POST",
+            headers,
             signal: controller.signal,
           });
         });
