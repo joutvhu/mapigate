@@ -541,7 +541,7 @@ export const MitmTab: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
           <div className="flex items-center gap-3">
             <div className="size-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">security</span>
+              <span className="material-symbols-outlined text-[20px]">alt_route</span>
             </div>
             <div>
               <div className="flex items-center gap-2">

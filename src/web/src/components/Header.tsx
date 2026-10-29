@@ -69,7 +69,7 @@ const PAGE_META: Record<NavTab, { title: string; subtitle: string; icon: string 
   mitm: {
     title: "MITM Proxy",
     subtitle: "Intercept CLI & IDE tool traffic (Antigravity, Kiro, Copilot) via local Root CA",
-    icon: "security",
+    icon: "alt_route",
   },
   consolelog: {
     title: "Console Log",
@@ -119,14 +119,14 @@ export const Header: React.FC<HeaderProps> = ({
   const orphanedDns = Boolean(mitmStatus?.orphanedDns);
 
   let mitmTooltip = "MITM Proxy: Stopped • Click to open settings";
-  let mitmIcon = "shield";
+  let mitmIcon = "alt_route";
   let mitmButtonClass =
     "p-2 rounded-lg hover:bg-white/5 hover:text-slate-300 text-slate-500 transition-colors cursor-pointer";
   let mitmBadge: React.ReactNode = null;
 
   if (orphanedDns) {
     mitmTooltip = `⚠️ MITM Warning: Server stopped but ${activeDnsCount} DNS redirect(s) still active (${formatToolList(activeDnsTools)})! Tools cannot connect. Click to fix.`;
-    mitmIcon = "gpp_maybe";
+    mitmIcon = "alt_route";
     mitmButtonClass =
       "p-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-xs";
     mitmBadge = (
@@ -138,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
   } else if (isMitmRunning) {
     if (activeDnsCount > 0) {
       mitmTooltip = `MITM Proxy: Active on port ${mitmPort} • ${activeDnsCount} tool DNS active (${formatToolList(activeDnsTools)}) • Click to manage`;
-      mitmIcon = "security";
+      mitmIcon = "alt_route";
       mitmButtonClass =
         "p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 transition-all cursor-pointer shadow-xs";
       mitmBadge = (
@@ -148,7 +148,7 @@ export const Header: React.FC<HeaderProps> = ({
       );
     } else {
       mitmTooltip = `MITM Proxy: Running on port ${mitmPort} (Idle, 0 tool DNS active) • Click to configure`;
-      mitmIcon = "security";
+      mitmIcon = "alt_route";
       mitmButtonClass =
         "p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/25 transition-all cursor-pointer shadow-xs";
       mitmBadge = (
@@ -157,7 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
     }
   } else {
     mitmTooltip = "MITM Proxy: Stopped • Click to open settings";
-    mitmIcon = "shield";
+    mitmIcon = "alt_route";
     mitmButtonClass =
       "p-2 rounded-lg hover:bg-white/5 hover:text-slate-300 text-slate-500 transition-colors cursor-pointer";
     mitmBadge = (

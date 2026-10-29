@@ -41,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     { id: "quota" as NavTab, label: "Quota Tracker", icon: "data_usage" },
     { id: "tokensaver" as NavTab, label: "Token Saver", icon: "savings" },
     { id: "clitools" as NavTab, label: "Tools & Mappings", icon: "widgets" },
-    { id: "mitm" as NavTab, label: "MITM Proxy", icon: "security" },
+    { id: "mitm" as NavTab, label: "MITM Proxy", icon: "alt_route" },
   ];
 
   return (
