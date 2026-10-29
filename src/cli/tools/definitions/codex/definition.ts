@@ -13,6 +13,7 @@ export const definition: CliToolDefinition = {
   modelAliases: ["default"],
   defaultModels: [
     "default",
+    "gpt-6.1-terra",
     "gpt-6-luna",
     "gpt-5.6-terra",
     "gpt-5.6-luna",

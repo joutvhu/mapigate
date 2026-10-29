@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
@@ -39,6 +40,16 @@ export class CodebuddyProvider extends OpenAiCompatibleProvider {
     const isCn = psd.region === "cn";
     const host = isCn ? "https://copilot.tencent.com" : "https://www.codebuddy.ai";
     return `${host}/v2/chat/completions`;
+  }
+
+  public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
+    const headers = await super.buildHeaders(context);
+    const requestId = crypto.randomUUID();
+    headers["X-Request-ID"] = requestId;
+    headers["X-Conversation-ID"] = crypto.randomUUID();
+    headers["X-Conversation-Request-ID"] = requestId;
+    headers["X-Conversation-Message-ID"] = requestId;
+    return headers;
   }
 
   public override transformRequestBody(context: ProviderRequestContext): any {

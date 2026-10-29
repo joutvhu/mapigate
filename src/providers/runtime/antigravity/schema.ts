@@ -232,6 +232,7 @@ export function convertPrefixItems(obj: any): void {
   if (!obj || typeof obj !== "object") return;
 
   if (Array.isArray(obj.prefixItems) && obj.prefixItems.length > 0) {
+    if (!obj.type) obj.type = "array";
     const variants = obj.prefixItems.filter((s: any) => s && s.type !== "null");
     if (!obj.items && variants.length === 1) {
       obj.items = variants[0];
@@ -254,7 +255,34 @@ export function flattenTypeArrays(obj: any): void {
   if (obj.type && Array.isArray(obj.type)) {
     const hasNull = obj.type.includes("null");
     const nonNullTypes = obj.type.filter((t: any) => t !== "null");
-    obj.type = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    if (nonNullTypes.length === 0) {
+      obj.type = "string";
+    } else if (nonNullTypes.length === 1) {
+      obj.type = nonNullTypes[0];
+    } else {
+      // Multiple types: choose best fitting type (prefer structural clues then string over boolean/number)
+      if (obj.properties && nonNullTypes.includes("object")) {
+        obj.type = "object";
+      } else if (
+        obj.items &&
+        typeof obj.items === "object" &&
+        Object.keys(obj.items).length > 0 &&
+        obj.items.type &&
+        nonNullTypes.includes("array")
+      ) {
+        obj.type = "array";
+      } else if (nonNullTypes.includes("string")) {
+        obj.type = "string";
+      } else if (nonNullTypes.includes("number")) {
+        obj.type = "number";
+      } else if (nonNullTypes.includes("integer")) {
+        obj.type = "integer";
+      } else if (nonNullTypes.includes("boolean")) {
+        obj.type = "boolean";
+      } else {
+        obj.type = nonNullTypes[0];
+      }
+    }
     if (hasNull) {
       obj.nullable = true;
     }
@@ -360,11 +388,61 @@ function ensureObjectType(obj: any): void {
 
 function ensureArrayItems(obj: any): void {
   if (!obj || typeof obj !== "object") return;
-  if (obj.type === "array" && !obj.items) {
-    obj.items = { type: "string" };
+  if (!obj.type && obj.items) {
+    obj.type = "array";
+  }
+  if (obj.type === "array") {
+    if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
+      obj.items = { type: "string" };
+    } else if (!obj.items.type) {
+      if (obj.items.properties) {
+        obj.items.type = "object";
+      } else if (obj.items.items) {
+        obj.items.type = "array";
+      } else {
+        obj.items.type = "string";
+      }
+    }
   }
   for (const v of Object.values(obj)) {
     if (v && typeof v === "object") ensureArrayItems(v);
+  }
+}
+
+// Gemini Schema proto validation rules:
+// 1. Schema.items predicate: $type == Type.ARRAY. If type is not "array", items field MUST NOT exist.
+// 2. Schema.properties / required predicate: $type == Type.OBJECT. If type is not "object", properties and required MUST NOT exist.
+export function enforceTypeConstraints(obj: any): void {
+  if (!obj || typeof obj !== "object") return;
+
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      enforceTypeConstraints(value);
+    }
+  }
+
+  if (obj.type === "array") {
+    delete obj.properties;
+    delete obj.required;
+    if (!obj.items || typeof obj.items !== "object" || Object.keys(obj.items).length === 0) {
+      obj.items = { type: "string" };
+    } else if (!obj.items.type) {
+      if (obj.items.properties) {
+        obj.items.type = "object";
+      } else if (obj.items.items) {
+        obj.items.type = "array";
+      } else {
+        obj.items.type = "string";
+      }
+    }
+  } else {
+    // Non-array schemas MUST NOT carry items
+    delete obj.items;
+  }
+
+  if (obj.type !== "object") {
+    delete obj.properties;
+    delete obj.required;
   }
 }
 
@@ -470,6 +548,9 @@ export function cleanJSONSchemaForAntigravity(schema: any): any {
 
   // Phase 5: Add placeholders for empty objects
   addPlaceholdersForEmptyObjects(cleaned);
+
+  // Phase 6: Enforce Gemini protobuf type predicates (items only on array, properties/required only on object)
+  enforceTypeConstraints(cleaned);
 
   return cleaned;
 }

@@ -283,6 +283,40 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       assert.equal(schema.properties.items[0]["x-inner"], undefined);
     });
 
+    it("cleanJSONSchemaForAntigravity enforces Gemini protobuf type predicates (items only on array, properties on object)", () => {
+      const schemaWithInvalidItems = {
+        type: "object",
+        properties: {
+          source_paths: {
+            type: "array",
+            items: {
+              type: ["null", "boolean", "object", "array", "number", "string"],
+              items: {},
+            },
+            description: "File paths",
+          },
+          scalar: {
+            type: "string",
+            items: { type: "string" },
+          },
+          list: {
+            type: "array",
+            items: { type: "string" },
+            properties: { foo: { type: "string" } },
+            required: ["foo"],
+          },
+        },
+      };
+
+      const cleaned = cleanJSONSchemaForAntigravity(schemaWithInvalidItems);
+      const items = cleaned.properties.source_paths.items;
+      assert.equal(items.type, "string");
+      assert.equal(items.items, undefined);
+      assert.equal(cleaned.properties.scalar.items, undefined);
+      assert.equal(cleaned.properties.list.properties, undefined);
+      assert.equal(cleaned.properties.list.required, undefined);
+    });
+
     it("cleanJSONSchemaForAntigravity end-to-end handles full 5-phase normalization", () => {
       const complexSchema = {
         type: "object",

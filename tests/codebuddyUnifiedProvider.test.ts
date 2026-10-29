@@ -31,3 +31,20 @@ test("CodeBuddy Unified Provider - Regions and Aliases Resolution", () => {
     assert.equal(meta?.id, "codebuddy");
   }
 });
+
+test("CodeBuddy Unified Provider - Channel Verification Headers", async () => {
+  const cb = ProviderRegistry.get("codebuddy") as any;
+  assert.ok(cb, "ProviderRegistry must resolve codebuddy");
+
+  const mockContext: any = {
+    account: { rawApiKey: "test_token" },
+    req: { headers: {} },
+  };
+
+  const headers = await cb.buildHeaders(mockContext);
+  assert.ok(typeof headers["X-Request-ID"] === "string" && headers["X-Request-ID"].length > 0);
+  assert.ok(typeof headers["X-Conversation-ID"] === "string" && headers["X-Conversation-ID"].length > 0);
+  assert.equal(headers["X-Request-ID"], headers["X-Conversation-Request-ID"]);
+  assert.equal(headers["X-Request-ID"], headers["X-Conversation-Message-ID"]);
+  assert.notEqual(headers["X-Request-ID"], headers["X-Conversation-ID"]);
+});

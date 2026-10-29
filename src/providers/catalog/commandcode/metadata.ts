@@ -25,8 +25,11 @@ export const metadata: ProviderRegistryItem = {
   "validateUrl": "",
   "format": "commandcode",
   "defaultHeaders": {
-    "x-command-code-version": "0.25.7",
-    "x-cli-environment": "cli"
+    "User-Agent": "cli",
+    "x-command-code-version": "1.88.0",
+    "x-cli-environment": "production",
+    "x-cli-surface": "cli",
+    "x-taste-learning": "false"
   },
   "thinkingMode": "auto"
 ,

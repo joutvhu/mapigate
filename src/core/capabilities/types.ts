@@ -14,6 +14,8 @@ export interface ModelCapabilities {
   reasoning: boolean;
   thinkingFormat: string | null;
   thinkingCanDisable: boolean;
+  thinkingOffType?: string;
+  forcedToolChoice?: boolean;
   thinkingRange: { min: number; max: number } | null;
   thinkingEffortSupported: boolean;
   contextWindow: number;

@@ -10,6 +10,13 @@ function parseLine(line: string, opts: { isCloudflareAi?: boolean } = {}): {
   providerSpecificData?: Record<string, any>;
 } | null {
   const { isCloudflareAi = false } = opts;
+  const trimmed = line.trim();
+
+  // Muse / LLM keys start with LLM|id|secret - treat as single opaque apiKey
+  if (!isCloudflareAi && /^LLM\|/i.test(trimmed)) {
+    return { baseName: "LLM", apiKey: trimmed };
+  }
+
   const parts = line.split("|");
 
   if (isCloudflareAi && parts.length >= 3) {

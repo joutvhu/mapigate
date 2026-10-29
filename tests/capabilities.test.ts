@@ -88,6 +88,26 @@ test("Capabilities - getCapabilitiesForModel accurately classifies models", () =
   const dsFree = getCapabilitiesForModel("opencode", "deepseek-v4.1-flash-free");
   assert.equal(dsFree.contextWindow, 330000);
   assert.equal(dsFree.maxOutput, 128000);
+
+  // Codex gpt-6.1-terra
+  const terra = getCapabilitiesForModel("codex", "gpt-6.1-terra");
+  assert.equal(terra.contextWindow, 500000);
+  assert.equal(terra.maxOutput, 128000);
+  assert.equal(terra.reasoning, true);
+
+  // Claude 5.5 dotted IDs parity
+  const opusDotted = getCapabilitiesForModel("github", "claude-opus-5.5");
+  assert.equal(opusDotted.thinkingFormat, "claude-adaptive");
+  assert.equal(opusDotted.thinkingCanDisable, false);
+  assert.equal(opusDotted.forcedToolChoice, false);
+
+  const sonnetDotted = getCapabilitiesForModel("github", "claude-sonnet-5.5");
+  assert.equal(sonnetDotted.thinkingFormat, "claude-adaptive");
+  assert.equal(sonnetDotted.thinkingOffType, "between_tools");
+  assert.equal(sonnetDotted.forcedToolChoice, false);
+
+  const haikuDotted = getCapabilitiesForModel("github", "claude-haiku-5.5");
+  assert.equal(haikuDotted.thinkingFormat, "claude-adaptive");
 });
 
 test("Capabilities - resolves model capabilities from provider metadata SSOT", () => {

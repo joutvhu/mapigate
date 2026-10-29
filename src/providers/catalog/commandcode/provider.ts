@@ -48,8 +48,12 @@ export class CommandcodeProvider extends OpenAiCompatibleProvider {
         headers: {
           "Content-Type": "application/json",
           Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
+          "User-Agent": "cli",
           "x-session-id": crypto.randomUUID(),
-          "x-command-code-version": "0.25.7",
+          "x-command-code-version": "1.88.0",
+          "x-cli-environment": "production",
+          "x-cli-surface": "cli",
+          "x-taste-learning": "false",
           Accept: "text/event-stream",
           ...(context.customHeaders || {}),
         },
