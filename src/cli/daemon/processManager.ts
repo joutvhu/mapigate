@@ -5,6 +5,7 @@ import { PidFileManager } from "./pidFile.js";
 import { PortHelper } from "./portHelper.js";
 import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, getDefaultDataDir, MAPIGATE_LOG_FILE, isTestEnvironment } from "../../shared/constants/index.js";
 import { removeAllDNSEntriesSync } from "../../mitm/dns/dnsConfig.js";
+import { closeDatabase } from "../../storage/database.js";
 
 import { fileURLToPath } from "node:url";
 
@@ -155,6 +156,11 @@ export class ProcessManager {
       if (isTest) return;
       try {
         removeAllDNSEntriesSync();
+      } catch {
+        // Best-effort
+      }
+      try {
+        closeDatabase();
       } catch {
         // Best-effort
       }

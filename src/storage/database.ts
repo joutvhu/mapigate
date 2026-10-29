@@ -25,6 +25,7 @@ function cleanParams(params: any[]): any[] {
 
 class NodeSqliteDriver implements DatabaseDriver {
   private db: any;
+  private stmtCache: Map<string, any> = new Map();
 
   constructor(filePath: string, DatabaseSyncCtor: any) {
     this.db = new DatabaseSyncCtor(filePath);
@@ -40,12 +41,21 @@ class NodeSqliteDriver implements DatabaseDriver {
     this.db.exec("PRAGMA temp_store = MEMORY;");
   }
 
+  private getStatement(sql: string): any {
+    let stmt = this.stmtCache.get(sql);
+    if (!stmt) {
+      stmt = this.db.prepare(sql);
+      this.stmtCache.set(sql, stmt);
+    }
+    return stmt;
+  }
+
   public exec(sql: string): void {
     this.db.exec(sql);
   }
 
   public run(sql: string, ...params: any[]): { changes: number; lastInsertRowid: number | bigint } {
-    const stmt = this.db.prepare(sql);
+    const stmt = this.getStatement(sql);
     const result = stmt.run(...cleanParams(params));
     return {
       changes: Number(result.changes),
@@ -54,16 +64,17 @@ class NodeSqliteDriver implements DatabaseDriver {
   }
 
   public get<T = any>(sql: string, ...params: any[]): T | undefined {
-    const stmt = this.db.prepare(sql);
+    const stmt = this.getStatement(sql);
     return stmt.get(...cleanParams(params)) as T | undefined;
   }
 
   public all<T = any>(sql: string, ...params: any[]): T[] {
-    const stmt = this.db.prepare(sql);
+    const stmt = this.getStatement(sql);
     return stmt.all(...cleanParams(params)) as T[];
   }
 
   public close(): void {
+    this.stmtCache.clear();
     try {
       this.db.exec("PRAGMA wal_checkpoint(TRUNCATE);");
     } catch {}
@@ -77,6 +88,7 @@ class NodeSqliteDriver implements DatabaseDriver {
 
 class BetterSqliteDriver implements DatabaseDriver {
   private db: any;
+  private stmtCache: Map<string, any> = new Map();
 
   constructor(filePath: string, BetterSqliteCtor: any) {
     this.db = new BetterSqliteCtor(filePath);
@@ -92,12 +104,21 @@ class BetterSqliteDriver implements DatabaseDriver {
     this.db.pragma("temp_store = MEMORY");
   }
 
+  private getStatement(sql: string): any {
+    let stmt = this.stmtCache.get(sql);
+    if (!stmt) {
+      stmt = this.db.prepare(sql);
+      this.stmtCache.set(sql, stmt);
+    }
+    return stmt;
+  }
+
   public exec(sql: string): void {
     this.db.exec(sql);
   }
 
   public run(sql: string, ...params: any[]): { changes: number; lastInsertRowid: number | bigint } {
-    const stmt = this.db.prepare(sql);
+    const stmt = this.getStatement(sql);
     const result = stmt.run(...cleanParams(params));
     return {
       changes: Number(result.changes),
@@ -106,16 +127,17 @@ class BetterSqliteDriver implements DatabaseDriver {
   }
 
   public get<T = any>(sql: string, ...params: any[]): T | undefined {
-    const stmt = this.db.prepare(sql);
+    const stmt = this.getStatement(sql);
     return stmt.get(...cleanParams(params)) as T | undefined;
   }
 
   public all<T = any>(sql: string, ...params: any[]): T[] {
-    const stmt = this.db.prepare(sql);
+    const stmt = this.getStatement(sql);
     return stmt.all(...cleanParams(params)) as T[];
   }
 
   public close(): void {
+    this.stmtCache.clear();
     try {
       this.db.pragma("wal_checkpoint(TRUNCATE)");
     } catch {}
@@ -128,19 +150,19 @@ class BetterSqliteDriver implements DatabaseDriver {
 }
 
 function createDriver(dbPath: string): DatabaseDriver {
-  // 1. Try better-sqlite3 first if installed
-  try {
-    const betterSqlite = nodeRequire("better-sqlite3");
-    if (betterSqlite) {
-      return new BetterSqliteDriver(dbPath, betterSqlite);
-    }
-  } catch {}
-
-  // 2. Try node:sqlite (Node 22.5.0+)
+  // 1. Try native node:sqlite (Node 22.5.0+) first as primary zero-dependency driver
   try {
     const { DatabaseSync } = nodeRequire("node:sqlite");
     if (DatabaseSync) {
       return new NodeSqliteDriver(dbPath, DatabaseSync);
+    }
+  } catch {}
+
+  // 2. Fallback to better-sqlite3 if node:sqlite is unavailable
+  try {
+    const betterSqlite = nodeRequire("better-sqlite3");
+    if (betterSqlite) {
+      return new BetterSqliteDriver(dbPath, betterSqlite);
     }
   } catch {}
 

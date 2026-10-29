@@ -103,6 +103,13 @@ export class ServerLifecycle {
       this.server = null;
     }
 
+    try {
+      const { closeDatabase } = await import("../storage/database.js");
+      closeDatabase();
+    } catch {
+      // Best-effort
+    }
+
     if (exitProcess) {
       process.exit(0);
     }
@@ -213,6 +220,13 @@ export class ServerLifecycle {
       }
     } catch (err) {
       console.error("[Lifecycle] Failed to spawn new server instance on restart:", err);
+    }
+
+    try {
+      const { closeDatabase } = await import("../storage/database.js");
+      closeDatabase();
+    } catch {
+      // Best-effort
     }
 
     if (exitProcess) {

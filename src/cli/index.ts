@@ -18,6 +18,7 @@ import { runDoctor } from "./commands/doctor.js";
 import { runProviders } from "./commands/providers.js";
 import { runModels } from "./commands/models.js";
 import { runStartup } from "./commands/startup.js";
+import { closeDatabase } from "../storage/database.js";
 
 async function showInterfaceMenu(port: number, pid: number | null): Promise<string> {
   clearScreen();
@@ -98,6 +99,7 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
       console.log(chalk.gray(`   API Endpoint:  ${webUrl}/v1\n`));
       console.log(chalk.green(`💡 Mapigate is running in system tray. You can close this terminal.`));
       console.log(chalk.gray(`   Right-click tray icon or run 'mpg stop' to quit.\n`));
+      closeDatabase();
       process.exit(0);
     } else if (choice === "exit") {
       clearScreen();
@@ -108,6 +110,7 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
       } else {
         console.log(chalk.yellow(`[!] ${res.message}\n`));
       }
+      closeDatabase();
       process.exit(0);
     }
   }

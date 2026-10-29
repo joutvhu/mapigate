@@ -3,6 +3,7 @@ import ora from "ora";
 import { DEFAULT_PORT, APP_NAME } from "../../shared/constants/index.js";
 import { ProcessManager } from "../daemon/processManager.js";
 import { PidFileManager } from "../daemon/pidFile.js";
+import { closeDatabase } from "../../storage/database.js";
 
 export interface StopOptions {
   port?: string | number;
@@ -18,4 +19,5 @@ export async function runStop(options: StopOptions = {}): Promise<void> {
   } else {
     spinner.warn(chalk.yellow(res.message));
   }
+  closeDatabase();
 }

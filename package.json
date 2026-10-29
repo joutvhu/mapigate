@@ -1,6 +1,6 @@
 {
   "name": "mapigate",
-  "version": "0.5.17",
+  "version": "0.5.18",
   "description": "AI Model API Gateway & Token Optimizer for coding tools",
   "author": "Giao Ho",
   "main": "dist/server/index.js",
@@ -57,7 +57,7 @@
     "undici": "^8.11.2"
   },
   "optionalDependencies": {
-    "better-sqlite3": "^11.8.1"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
