@@ -72,6 +72,22 @@ export class UsageRepository {
     scheduleStatsEvent("pending");
   }
 
+  public static updatePendingRequest(info: {
+    id: string;
+    model?: string;
+    provider?: string;
+    account?: string;
+  }): void {
+    purgeStalePending();
+    const existing = pendingMap.get(info.id);
+    if (existing) {
+      if (info.model) existing.model = info.model;
+      if (info.provider) existing.provider = info.provider;
+      if (info.account !== undefined) existing.account = info.account;
+      scheduleStatsEvent("pending");
+    }
+  }
+
   public static endPendingRequest(id: string, isError: boolean = false, errorProvider?: string): void {
     pendingMap.delete(id);
     if (isError && errorProvider) {
@@ -352,6 +368,7 @@ export class UsageRepository {
       id: r.id,
       timestamp: r.timestamp,
       model: r.actual_model || r.requested_model,
+      requestedModel: r.requested_model,
       provider: r.provider_id,
       promptTokens: r.prompt_tokens || 0,
       completionTokens: r.completion_tokens || 0,

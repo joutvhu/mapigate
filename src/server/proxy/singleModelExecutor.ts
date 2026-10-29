@@ -7,6 +7,7 @@ import {
   recordResilienceFailure,
 } from "../../core/resilience/index.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { ProviderRegistry } from "../../providers/core/registry.js";
 import { getRegistryProvider } from "../../providers/core/metadataRegistry.js";
@@ -150,6 +151,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       provider.requiresApiKey === false ||
       provider.isLocal === true;
 
+    if (account && (account as any).apiKeyEncrypted && !account.rawApiKey) {
+      logger.errorLine(
+        reqTag,
+        LogSymbol.ERROR,
+        `Account '${account.name || account.id}' has an encrypted API key that failed to decrypt. Re-enter the API key in Settings/Providers.`
+      );
+    }
+
     if ((!account || !account.rawApiKey) && !hasCustomHeaders && requiresAccount && !isNoAuthOrProfile) {
       cb.releaseProbe();
       if (triedAccountIds.size > 0 && lastFailureResult) return lastFailureResult;
@@ -158,6 +167,15 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     }
 
     if (account) triedAccountIds.add(account.id);
+
+    if (!isPanel) {
+      UsageRepository.updatePendingRequest({
+        id: requestId,
+        model: targetModel,
+        provider: targetProviderId,
+        account: account?.name || account?.id,
+      });
+    }
 
     const context: ProviderRequestContext = {
       req, res, targetModel, clientFormat, targetFormat,

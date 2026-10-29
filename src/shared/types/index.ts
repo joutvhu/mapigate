@@ -119,6 +119,7 @@ export interface RecentRequestItem {
   id?: string;
   timestamp: number | string;
   model: string;
+  requestedModel?: string;
   provider: string;
   promptTokens: number;
   completionTokens: number;

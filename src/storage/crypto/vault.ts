@@ -18,6 +18,7 @@ export class CryptoVault {
   private static readonly SALT = "mapigate-vault-salt-v1";
 
   private static warnedFallback = false;
+  private static warnedDecryptFailure = false;
 
   private static getMasterKey(): Buffer {
     if (!this.masterKey) {
@@ -99,6 +100,12 @@ export class CryptoVault {
       decrypted += decipher.final("utf8");
       return decrypted;
     } catch {
+      if (!this.warnedDecryptFailure && process.env.NODE_ENV !== "test") {
+        this.warnedDecryptFailure = true;
+        console.warn(
+          "[CryptoVault] Warning: Failed to decrypt credential with current machine key. Hardware ID may have changed or credentials were encrypted on a different machine. Re-enter your API key in Settings/Providers or configure MAPIGATE_VAULT_KEY."
+        );
+      }
       return "";
     }
   }

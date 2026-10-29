@@ -448,7 +448,11 @@ export function removeAllDNSEntriesSync(): void {
         // ignore
       }
     }
-  } catch {
-    // Best effort during shutdown
+  } catch (err: any) {
+    if (process.env.NODE_ENV !== "test") {
+      console.warn(
+        `[MITM DNS] Warning: Could not clean up hosts file synchronously on exit (${err?.message || err}). Administrator privileges may be required to modify ${HOSTS_FILE}.`
+      );
+    }
   }
 }

@@ -115,9 +115,11 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
   let lastStatus = 503;
   let lastError = "All combo models failed";
   let firstRequestScopedResult: ModelCallResult | null = null;
+  let lastAttemptedModel = candidateModels[0] || "";
 
   for (let i = 0; i < candidateModels.length; i++) {
     const modelStr = candidateModels[i];
+    lastAttemptedModel = modelStr;
     log.info(`[COMBO:Fallback] Trying model ${i + 1}/${candidateModels.length}: ${modelStr}`);
 
     const startTime = Date.now();
@@ -174,5 +176,6 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
     ok: false,
     status: lastStatus,
     error: lastError,
+    modelUsed: lastAttemptedModel,
   };
 }

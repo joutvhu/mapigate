@@ -9,6 +9,7 @@ import {
   openAiChunkToResponsesEvents,
   finalizeResponsesStream,
 } from "../../../core/adapters/responsesAdapter.js";
+import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
 
 const llmTokenCache = new Map<string, { token: string; expiresAt: number }>();
 
@@ -246,6 +247,37 @@ export class ZedProvider extends OpenAiCompatibleProvider {
       }
       res.end();
 
+      const durationMs = Date.now() - context.startTime;
+      const completionTokens = Math.ceil(accumulatedContent.length / 4);
+      const promptTokens = context.rtkStats?.compressedTokens || 0;
+      ResponseLogger.logSuccess({
+        requestId: context.requestId,
+        startTime: context.startTime,
+        durationMs,
+        clientTool: context.clientTool || "generic",
+        rawModel: context.rawModel || targetModel,
+        targetModel,
+        providerId: "zed",
+        accountId: context.account?.id,
+        accountName: context.account?.name,
+        apiKeyId: context.apiKeyId,
+        apiKeyName: context.apiKeyName,
+        promptTokens,
+        completionTokens,
+        cachedTokens: 0,
+        cacheCreationTokens: 0,
+        reasoningTokens: 0,
+        tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
+        is1mContext: context.is1mContext,
+        requestHeaders: (context.req?.headers as Record<string, string>) || {},
+        requestBody: context.req?.body || body,
+        clientResponse: {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          body: { text: "Stream completed" },
+        },
+      });
+
       return { ok: true, status: 200, modelUsed: targetModel };
     }
 
@@ -287,6 +319,39 @@ export class ZedProvider extends OpenAiCompatibleProvider {
       model: targetModel,
       choices: [{ index: 0, message: { role: "assistant", content: accumulatedContent }, finish_reason: "stop" }],
     };
+
+    const durationMs = Date.now() - context.startTime;
+    const completionTokens = Math.ceil(accumulatedContent.length / 4);
+    const promptTokens = context.rtkStats?.compressedTokens || 0;
+    if (!isPanel) {
+      ResponseLogger.logSuccess({
+        requestId: context.requestId,
+        startTime: context.startTime,
+        durationMs,
+        clientTool: context.clientTool || "generic",
+        rawModel: context.rawModel || targetModel,
+        targetModel,
+        providerId: "zed",
+        accountId: context.account?.id,
+        accountName: context.account?.name,
+        apiKeyId: context.apiKeyId,
+        apiKeyName: context.apiKeyName,
+        promptTokens,
+        completionTokens,
+        cachedTokens: 0,
+        cacheCreationTokens: 0,
+        reasoningTokens: 0,
+        tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
+        is1mContext: context.is1mContext,
+        requestHeaders: (context.req?.headers as Record<string, string>) || {},
+        requestBody: context.req?.body || body,
+        clientResponse: {
+          status: 200,
+          headers: { "content-type": "application/json" },
+          body: json,
+        },
+      });
+    }
 
     return { ok: true, status: 200, json, modelUsed: targetModel };
   }

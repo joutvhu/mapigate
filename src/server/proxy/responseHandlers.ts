@@ -199,7 +199,7 @@ export async function handleNonStreamingResponse(
     rawText: doneSummary,
   });
 
-  return { ok: true, status: 200, json: isJson ? responseBody : undefined, text: isJson ? undefined : responseBody, modelUsed: targetModel };
+  return { ok: true, status: 200, json: isJson ? responseBody : undefined, text: isJson ? undefined : responseBody, modelUsed: targetModel, logged: true };
 }
 
 export async function handleStreamingResponse(
@@ -316,5 +316,5 @@ export async function handleStreamingResponse(
     rawText: doneSummary,
   });
 
-  return { ok: true, status: 200, modelUsed: targetModel };
+  return { ok: true, status: 200, modelUsed: targetModel, logged: true };
 }

@@ -5,7 +5,7 @@ export class LogRepository {
   public static saveLog(log: RequestUsageLog): void {
     const db = getDatabase();
     db.run(
-      `INSERT INTO request_logs (
+      `INSERT OR REPLACE INTO request_logs (
         id, timestamp, client_tool, requested_model, actual_model,
         provider_id, prompt_tokens, completion_tokens, tokens_saved_by_rtk,
         cached_tokens, cache_creation_tokens, cost, account_id, account_name,

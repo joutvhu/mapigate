@@ -46,6 +46,7 @@ export class MitmManager {
     const uninstallCommands = getUninstallCommand(ROOT_CA_CERT_PATH);
 
     const liveDns = this.checkLiveDns();
+    const orphanedDns = !serverStatus.running && Object.values(liveDns).some(Boolean);
 
     return {
       running: serverStatus.running,
@@ -57,6 +58,7 @@ export class MitmManager {
       installCommands,
       uninstallCommands,
       dnsStatus: liveDns,
+      orphanedDns,
       routerBaseUrl: getMapigateBaseUrl(),
     };
   }

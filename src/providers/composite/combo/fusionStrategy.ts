@@ -125,7 +125,7 @@ export async function handleFusionChat(options: FusionChatOptions): Promise<Mode
 
   if (answers.length === 0) {
     log.warn("[COMBO:Fusion] All panel models failed");
-    return { ok: false, status: 503, error: "All fusion panel models failed" };
+    return { ok: false, status: 503, error: "All fusion panel models failed", modelUsed: judge };
   }
 
   if (answers.length === 1) {

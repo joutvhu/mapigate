@@ -108,7 +108,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     const copilotHosts = formatToolDefaultHosts("copilot");
     assert.equal(
       copilotHosts,
-      "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com"
+      "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com\n127.0.0.1 api.business.githubcopilot.com\n127.0.0.1 api.enterprise.githubcopilot.com"
     );
   });
 

@@ -18,6 +18,7 @@ import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
+import { resolveTargetModelAndProvider } from "./executorHelpers.js";
 import crypto from "node:crypto";
 
 export function formatProxyErrorResponse(
@@ -218,10 +219,14 @@ export async function runProxyPipeline(
     );
   }
 
+  const initialCandidate = candidateModels[0] || resolvedModel;
+  const initialResolved = resolveTargetModelAndProvider(initialCandidate);
+  const initialProvider = initialResolved.providerId || (candidateModels[0]?.split("/")[0] || "unknown");
+
   UsageRepository.startPendingRequest({
     id: requestId,
-    model: rawModel,
-    provider: comboName ? "combo" : (candidateModels[0]?.split("/")[0] || "unknown"),
+    model: initialResolved.targetModel || rawModel,
+    provider: initialProvider,
   });
 
   if (typeof res?.on === "function") {
@@ -283,7 +288,7 @@ export async function runProxyPipeline(
       result = await handleSingleModel(body, resolvedModel, false);
     }
 
-    if (result.ok && !res.headersSent) {
+    if (result.ok && !res.headersSent && !result.logged) {
       let respData = result.json || result.text;
       if (respData !== undefined) {
         if (typeof respData === "string") {
@@ -301,6 +306,47 @@ export async function runProxyPipeline(
         } else {
           res.status(result.status || 200).send(respData);
         }
+
+        const durationMs = Date.now() - startTime;
+        const successModelStr = result.modelUsed || candidateModels[0] || resolvedModel;
+        const successResolved = resolveTargetModelAndProvider(successModelStr);
+        const actualProviderId = successResolved.providerId || "unknown";
+        const actualTargetModel = successResolved.targetModel || successModelStr;
+
+        let promptTokens = 0;
+        let completionTokens = 0;
+        let cachedTokens = 0;
+        if (typeof respData === "object" && respData !== null && respData.usage) {
+          promptTokens = respData.usage.prompt_tokens ?? respData.usage.input_tokens ?? 0;
+          completionTokens = respData.usage.completion_tokens ?? respData.usage.output_tokens ?? 0;
+          cachedTokens = respData.usage.prompt_tokens_details?.cached_tokens ?? 0;
+        }
+
+        ResponseLogger.logSuccess({
+          requestId,
+          startTime,
+          durationMs,
+          clientTool,
+          rawModel,
+          targetModel: actualTargetModel,
+          providerId: actualProviderId,
+          apiKeyId,
+          apiKeyName,
+          promptTokens,
+          completionTokens,
+          cachedTokens,
+          cacheCreationTokens: 0,
+          reasoningTokens: 0,
+          tokensSavedByRtk: rtkStats.tokensSaved,
+          is1mContext,
+          requestHeaders: req.headers as Record<string, string>,
+          requestBody: body,
+          clientResponse: {
+            status: result.status || 200,
+            headers: { "content-type": "application/json" },
+            body: respData,
+          },
+        });
       }
     }
 
@@ -310,20 +356,25 @@ export async function runProxyPipeline(
       const rawErrMsg = result.error || "All combo models failed";
       const errMsg = sanitizeErrorMessage(rawErrMsg);
 
+      const failedCandidate = result.modelUsed || candidateModels[candidateModels.length - 1] || candidateModels[0] || rawModel;
+      const failedResolved = resolveTargetModelAndProvider(failedCandidate);
+      const actualProviderId = failedResolved.providerId || (candidateModels[0]?.split("/")[0] || "unknown");
+      const actualTargetModel = failedResolved.targetModel || rawModel;
+
       logger.errorLine(
         reqTag,
         LogSymbol.ERROR,
-        `REQUEST FAILED ${status} · ${comboName || candidateModels[0] || rawModel} · ${durationMs}ms [req: ${requestId}]\n    ${errMsg}`
+        `REQUEST FAILED ${status} · ${actualProviderId}/${actualTargetModel}${comboName ? ` (via combo '${comboName}')` : ""} · ${durationMs}ms [req: ${requestId}]\n    ${errMsg}`
       );
 
-      UsageRepository.endPendingRequest(requestId, true);
+      UsageRepository.endPendingRequest(requestId, true, actualProviderId);
 
       appendStructuredLog({
         id: requestId,
         timestamp: Date.now(),
         level: status === 429 ? "warn" : "error",
         category: "proxy",
-        message: `Request failed ${status} (${comboName || candidateModels[0] || rawModel}): ${errMsg.slice(0, 150)}`,
+        message: `Request failed ${status} (${actualProviderId}/${actualTargetModel}): ${errMsg.slice(0, 150)}`,
         requestId,
         reqTag,
         gateway: {
@@ -331,8 +382,8 @@ export async function runProxyPipeline(
           route: req.path,
           method: req.method,
           requestedModel: rawModel,
-          actualModel: candidateModels[0] || rawModel,
-          providerId: comboName ? "combo" : "unknown",
+          actualModel: actualTargetModel,
+          providerId: actualProviderId,
           statusCode: status,
           durationMs,
         },
@@ -340,7 +391,7 @@ export async function runProxyPipeline(
           status,
           message: errMsg,
         },
-        rawText: `[${reqTag}] ❌ REQUEST FAILED ${status} · ${comboName || candidateModels[0] || rawModel} · ${durationMs}ms\n    ${errMsg}`,
+        rawText: `[${reqTag}] ❌ REQUEST FAILED ${status} · ${actualProviderId}/${actualTargetModel} · ${durationMs}ms\n    ${errMsg}`,
       });
 
       ResponseLogger.logFailure({
@@ -349,8 +400,8 @@ export async function runProxyPipeline(
         durationMs,
         clientTool,
         rawModel,
-        actualModel: candidateModels[0] || rawModel,
-        providerId: comboName ? "combo" : "unknown",
+        actualModel: actualTargetModel,
+        providerId: actualProviderId,
         status,
         errorMessage: errMsg,
         tokensSavedByRtk: rtkStats.tokensSaved,
@@ -376,19 +427,24 @@ export async function runProxyPipeline(
     const sanitizedMsg = sanitizeErrorMessage(err.message || "Internal server error");
     const sanitizedStack = sanitizeErrorMessage(err.stack || err.message || "Internal server error");
 
+    const excCandidate = candidateModels[0] || rawModel;
+    const excResolved = resolveTargetModelAndProvider(excCandidate);
+    const excProviderId = excResolved.providerId || (candidateModels[0]?.split("/")[0] || "unknown");
+    const excTargetModel = excResolved.targetModel || rawModel;
+
     logger.errorLine(
       reqTag,
       LogSymbol.ERROR,
-      `REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms [req: ${requestId}]\n    ${sanitizedStack}`
+      `REQUEST EXCEPTION · ${excProviderId}/${excTargetModel} · ${totalDuration}ms [req: ${requestId}]\n    ${sanitizedStack}`
     );
-    UsageRepository.endPendingRequest(requestId, true);
+    UsageRepository.endPendingRequest(requestId, true, excProviderId);
 
     appendStructuredLog({
       id: requestId,
       timestamp: Date.now(),
       level: "error",
       category: "proxy",
-      message: `Request exception (${rawModel}): ${sanitizedMsg}`,
+      message: `Request exception (${excProviderId}/${excTargetModel}): ${sanitizedMsg}`,
       requestId,
       reqTag,
       gateway: {
@@ -396,6 +452,8 @@ export async function runProxyPipeline(
         route: req.path,
         method: req.method,
         requestedModel: rawModel,
+        actualModel: excTargetModel,
+        providerId: excProviderId,
         statusCode: 500,
         durationMs: totalDuration,
       },
@@ -404,7 +462,7 @@ export async function runProxyPipeline(
         message: sanitizedMsg,
         stack: sanitizedStack,
       },
-      rawText: `[${reqTag}] ❌ REQUEST EXCEPTION · ${rawModel} · ${totalDuration}ms\n    ${sanitizedStack}`,
+      rawText: `[${reqTag}] ❌ REQUEST EXCEPTION · ${excProviderId}/${excTargetModel} · ${totalDuration}ms\n    ${sanitizedStack}`,
     });
 
     if (!res.headersSent) {
@@ -413,22 +471,26 @@ export async function runProxyPipeline(
       res.end();
     }
 
-    ResponseLogger.logFailure({
-      requestId,
-      startTime,
-      durationMs: totalDuration,
-      clientTool,
-      rawModel,
-      actualModel: rawModel,
-      providerId: comboName || "unknown",
-      status: 500,
-      errorMessage: sanitizedMsg,
-      tokensSavedByRtk: rtkStats.tokensSaved,
-      is1mContext,
-      apiKeyId,
-      apiKeyName,
-      requestHeaders: req.headers as Record<string, string>,
-      requestBody: body,
-    });
+    try {
+      ResponseLogger.logFailure({
+        requestId,
+        startTime,
+        durationMs: totalDuration,
+        clientTool,
+        rawModel,
+        actualModel: excTargetModel,
+        providerId: excProviderId,
+        status: 500,
+        errorMessage: sanitizedMsg,
+        tokensSavedByRtk: rtkStats.tokensSaved,
+        is1mContext,
+        apiKeyId,
+        apiKeyName,
+        requestHeaders: req.headers as Record<string, string>,
+        requestBody: body,
+      });
+    } catch {
+      // Best-effort error logging
+    }
   }
 }

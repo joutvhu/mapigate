@@ -239,7 +239,7 @@ export const UsageTab: React.FC = () => {
                   <table className="w-full text-left text-xs font-mono border-collapse">
                     <thead>
                       <tr className="text-slate-500 text-[10px] uppercase border-b border-[#1E293B]">
-                        <th className="pb-2 font-semibold">Model</th>
+                        <th className="pb-2 font-semibold">Model / Provider</th>
                         <th className="pb-2 font-semibold text-right">In / Out</th>
                         <th className="pb-2 font-semibold text-right">When</th>
                       </tr>
@@ -247,17 +247,25 @@ export const UsageTab: React.FC = () => {
                     <tbody className="divide-y divide-[#1E293B]/50">
                       {recentRequests.slice(0, 15).map((r, i) => {
                         const isOk = r.status === "success" || r.status === "ok";
+                        const tooltip = r.requestedModel && r.requestedModel !== r.model
+                          ? `${r.model} (via ${r.requestedModel}) · ${r.provider || "unknown"}`
+                          : `${r.model} · ${r.provider || "unknown"}`;
                         return (
                           <tr key={r.id || i} className="hover:bg-slate-800/30 transition-colors">
-                            <td className="py-2 flex items-center gap-1.5 truncate max-w-[140px]">
+                            <td className="py-2 flex items-center gap-1.5 truncate max-w-[170px]" title={tooltip}>
                               <span
                                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                   isOk ? "bg-emerald-400" : "bg-red-400"
                                 }`}
                               />
-                              <span className="text-slate-200 text-xs truncate font-medium" title={r.model}>
+                              <span className="text-slate-200 text-xs truncate font-medium">
                                 {r.model}
                               </span>
+                              {r.provider && (
+                                <span className="text-[9px] text-slate-400 font-mono uppercase px-1 py-0.2 rounded bg-slate-800 border border-slate-700/50 shrink-0">
+                                  {r.provider}
+                                </span>
+                              )}
                             </td>
                             <td className="py-2 text-right whitespace-nowrap text-[11px]">
                               <span className="text-blue-400">{r.promptTokens.toLocaleString()}↑</span>{" "}

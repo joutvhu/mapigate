@@ -188,7 +188,7 @@ export class ResponseLogger {
       id: requestId,
       timestamp: new Date(startTime).toISOString(),
       provider: providerId,
-      model: rawModel,
+      model: actualModel || rawModel,
       clientTool,
       status,
       is1mContext,

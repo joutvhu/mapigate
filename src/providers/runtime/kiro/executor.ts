@@ -12,6 +12,7 @@ import { extractTokenFromAccount } from "../../core/base/tokenExtractor.js";
 import { buildKiroPayload } from "./converter.js";
 import { normalizeKiroUpstreamModelId } from "./models.js";
 import { refreshKiroToken } from "./auth.js";
+import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
 
 interface BufferedToolCall {
@@ -53,6 +54,7 @@ export async function executeKiro(
   }
 
   const rawModel = context.targetModel || "claude-sonnet-5.5";
+  const targetModel = context.targetModel || rawModel;
   const upstreamModel = normalizeKiroUpstreamModelId(rawModel);
   const body = context.body || req?.body || {};
   const isStreaming = body.stream !== false && !isPanel;
@@ -355,18 +357,50 @@ export async function executeKiro(
 
       const durationMs = Date.now() - startTime;
       const charCount = fullText.length;
+      const completionTokens = Math.ceil(charCount / 4);
+      const promptTokens = context.rtkStats?.compressedTokens || 0;
+      const calculatedCost = ResponseLogger.logSuccess({
+        requestId,
+        startTime,
+        durationMs,
+        clientTool: context.clientTool || "generic",
+        rawModel: context.rawModel || targetModel,
+        targetModel,
+        providerId: "kiro",
+        accountId: context.account?.id,
+        accountName: context.account?.name,
+        apiKeyId: context.apiKeyId,
+        apiKeyName: context.apiKeyName,
+        promptTokens,
+        completionTokens,
+        cachedTokens: 0,
+        cacheCreationTokens: 0,
+        reasoningTokens: 0,
+        tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
+        is1mContext: context.is1mContext,
+        requestHeaders: req.headers as Record<string, string>,
+        requestBody: req.body,
+        clientResponse: {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          body: { text: "Stream completed" },
+        },
+      });
+
       const doneMsg = formatDoneLine({
         durationMs,
-        promptTokens: 0,
-        completionTokens: Math.ceil(charCount / 4),
+        promptTokens,
+        completionTokens,
+        tokensSaved: context.rtkStats?.tokensSaved || 0,
+        cost: calculatedCost,
       });
       logger.line(
         reqTag,
         LogSymbol.SUCCESS,
-        doneMsg
+        `kiro/${targetModel} · ${doneMsg}`
       );
 
-      return { ok: true, status: 200 };
+      return { ok: true, status: 200, modelUsed: targetModel };
     } catch (streamErr: any) {
       if (!res.headersSent) {
         return { ok: false, status: 502, error: streamErr.message };
@@ -456,6 +490,46 @@ export async function executeKiro(
     ],
   };
 
+  const durationMs = Date.now() - startTime;
+  const completionTokens = Math.ceil((fullContent || "").length / 4);
+  const promptTokens = context.rtkStats?.compressedTokens || 0;
+  const calculatedCost = ResponseLogger.logSuccess({
+    requestId,
+    startTime,
+    durationMs,
+    clientTool: context.clientTool || "generic",
+    rawModel: context.rawModel || targetModel,
+    targetModel,
+    providerId: "kiro",
+    accountId: context.account?.id,
+    accountName: context.account?.name,
+    apiKeyId: context.apiKeyId,
+    apiKeyName: context.apiKeyName,
+    promptTokens,
+    completionTokens,
+    cachedTokens: 0,
+    cacheCreationTokens: 0,
+    reasoningTokens: 0,
+    tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
+    is1mContext: context.is1mContext,
+    requestHeaders: req.headers as Record<string, string>,
+    requestBody: req.body,
+    clientResponse: {
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: responseJson,
+    },
+  });
+
+  const doneMsg = formatDoneLine({
+    durationMs,
+    promptTokens,
+    completionTokens,
+    tokensSaved: context.rtkStats?.tokensSaved || 0,
+    cost: calculatedCost,
+  });
+  logger.line(reqTag, LogSymbol.SUCCESS, `kiro/${targetModel} · ${doneMsg}`);
+
   res.status(200).json(responseJson);
-  return { ok: true, status: 200 };
+  return { ok: true, status: 200, json: responseJson, modelUsed: targetModel };
 }

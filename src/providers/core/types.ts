@@ -105,6 +105,7 @@ export interface ModelCallResult {
   stream?: any;
   error?: string;
   modelUsed?: string;
+  logged?: boolean;
 }
 
 export interface StreamExecutionResult {
