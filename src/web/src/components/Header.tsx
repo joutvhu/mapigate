@@ -119,50 +119,22 @@ export const Header: React.FC<HeaderProps> = ({
   const orphanedDns = Boolean(mitmStatus?.orphanedDns);
 
   let mitmTooltip = "MITM Proxy: Stopped • Click to open settings";
-  let mitmIcon = "alt_route";
-  let mitmButtonClass =
-    "p-2 rounded-lg hover:bg-white/5 hover:text-slate-300 text-slate-500 transition-colors cursor-pointer";
-  let mitmBadge: React.ReactNode = null;
+  let mitmColorClass = "text-slate-500 hover:text-slate-300";
 
   if (orphanedDns) {
     mitmTooltip = `⚠️ MITM Warning: Server stopped but ${activeDnsCount} DNS redirect(s) still active (${formatToolList(activeDnsTools)})! Tools cannot connect. Click to fix.`;
-    mitmIcon = "alt_route";
-    mitmButtonClass =
-      "p-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-xs";
-    mitmBadge = (
-      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-      </span>
-    );
+    mitmColorClass = "text-amber-400 hover:text-amber-300 animate-pulse";
   } else if (isMitmRunning) {
     if (activeDnsCount > 0) {
       mitmTooltip = `MITM Proxy: Active on port ${mitmPort} • ${activeDnsCount} tool DNS active (${formatToolList(activeDnsTools)}) • Click to manage`;
-      mitmIcon = "alt_route";
-      mitmButtonClass =
-        "p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 transition-all cursor-pointer shadow-xs";
-      mitmBadge = (
-        <span className="absolute -top-1 -right-1 flex h-3.5 min-w-[14px] px-1 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-slate-950 ring-2 ring-[#0B0F19] leading-none">
-          {activeDnsCount}
-        </span>
-      );
+      mitmColorClass = "text-emerald-400 hover:text-emerald-300";
     } else {
       mitmTooltip = `MITM Proxy: Running on port ${mitmPort} (Idle, 0 tool DNS active) • Click to configure`;
-      mitmIcon = "alt_route";
-      mitmButtonClass =
-        "p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/25 transition-all cursor-pointer shadow-xs";
-      mitmBadge = (
-        <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.8)]" />
-      );
+      mitmColorClass = "text-blue-400 hover:text-blue-300";
     }
   } else {
     mitmTooltip = "MITM Proxy: Stopped • Click to open settings";
-    mitmIcon = "alt_route";
-    mitmButtonClass =
-      "p-2 rounded-lg hover:bg-white/5 hover:text-slate-300 text-slate-500 transition-colors cursor-pointer";
-    mitmBadge = (
-      <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-slate-600" />
-    );
+    mitmColorClass = "text-slate-500 hover:text-slate-300";
   }
 
   return (
@@ -284,10 +256,9 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => onSelectTab?.("mitm")}
             title={mitmTooltip}
-            className={`relative ${mitmButtonClass} ${currentTab === "mitm" ? "ring-1 ring-blue-500/50" : ""}`}
+            className={`p-2 rounded-lg hover:bg-white/5 ${mitmColorClass} transition-colors cursor-pointer`}
           >
-            <span className="material-symbols-outlined text-[18px]">{mitmIcon}</span>
-            {mitmBadge}
+            <span className="material-symbols-outlined text-[18px]">alt_route</span>
           </button>
         </div>
       </div>
