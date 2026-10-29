@@ -50,6 +50,7 @@ export class ProviderRepository {
 
   public static getProviderWithDefaults(id: string): (ProviderConfig & {
     defaultHeaders: Record<string, string>;
+    userCustomHeaders: Record<string, string>;
     catalogModels: RegistryModel[];
     thinkingOptions: string[];
     noAuth?: boolean;
@@ -70,7 +71,7 @@ export class ProviderRepository {
       isActive: true,
       priority: 10,
       models: reg!.models.map((m) => m.id),
-      customHeaders: { ...reg!.defaultHeaders },
+      customHeaders: {},
       proxyUrl: undefined,
       thinkingMode: reg!.thinkingMode || "auto",
       strategy: null,
@@ -80,10 +81,17 @@ export class ProviderRepository {
       updatedAt: Date.now(),
     };
 
-    const customHeaders =
-      base.customHeaders && Object.keys(base.customHeaders).length > 0
-        ? base.customHeaders
-        : { ...(reg?.defaultHeaders || {}) };
+    // If registry provider format is defined and DB config format is different/stale, prefer registry format
+    const format = reg?.format || base.format || "openai";
+
+    // Dynamic Header Resolution:
+    // reg.defaultHeaders provides the authoritative, up-to-date baseline from metadata.ts (automatically applied on new releases)
+    // userCustomHeaders provides user-defined customizations/overrides
+    const userCustomHeaders = base.customHeaders || {};
+    const effectiveHeaders: Record<string, string> = {
+      ...(reg?.defaultHeaders || {}),
+      ...userCustomHeaders,
+    };
 
     const models =
       base.models && base.models.length > 0
@@ -92,9 +100,11 @@ export class ProviderRepository {
 
     return {
       ...base,
+      format: format as any,
       category: reg?.category,
       noAuth: base.noAuth !== undefined ? base.noAuth : Boolean(reg?.noAuth),
-      customHeaders,
+      customHeaders: effectiveHeaders,
+      userCustomHeaders,
       models,
       defaultHeaders: reg?.defaultHeaders || {},
       catalogModels: reg?.models || [],
@@ -173,9 +183,9 @@ export class ProviderRepository {
         models: defaults?.models && defaults.models.length > 0
           ? defaults.models
           : (reg.models?.map((m) => m.id) || []),
-        customHeaders: defaults?.customHeaders && Object.keys(defaults.customHeaders).length > 0
-          ? defaults.customHeaders
-          : { ...(reg.defaultHeaders || {}) },
+        customHeaders: defaults?.userCustomHeaders && Object.keys(defaults.userCustomHeaders).length > 0
+          ? defaults.userCustomHeaders
+          : {},
         proxyUrl: defaults?.proxyUrl || undefined,
         thinkingMode: defaults?.thinkingMode || reg.thinkingMode || "auto",
         strategy: defaults?.strategy || null,
@@ -211,6 +221,71 @@ export class ProviderRepository {
     return fallbackConfig;
   }
 
+  public static syncRegistryDefaults(): void {
+    const allInDb = this.getAllProviders();
+    for (const prov of allInDb) {
+      const reg = getRegistryProvider(prov.id);
+      if (!reg) continue;
+
+      let changed = false;
+
+      // Sync protocol format if registry has updated format in metadata.ts
+      if (reg.format && prov.format !== reg.format) {
+        prov.format = reg.format as any;
+        changed = true;
+      }
+
+      // Sync new models from catalog
+      if (Array.isArray(reg.models) && reg.models.length > 0) {
+        const existingSet = new Set(Array.isArray(prov.models) ? prov.models : []);
+        let addedModel = false;
+        for (const m of reg.models) {
+          if (!existingSet.has(m.id)) {
+            existingSet.add(m.id);
+            addedModel = true;
+          }
+        }
+        if (addedModel) {
+          prov.models = Array.from(existingSet);
+          changed = true;
+        }
+      }
+
+      // Clean legacy seeded defaultHeaders from DB custom_headers
+      // If all keys in prov.customHeaders match reg.defaultHeaders keys, they were seeded defaults, not user overrides!
+      if (prov.customHeaders && Object.keys(prov.customHeaders).length > 0) {
+        const regHeaders = reg.defaultHeaders || {};
+        const customKeys = Object.keys(prov.customHeaders);
+
+        const allKeysWereDefaults = customKeys.length > 0 && customKeys.every((k) => k in regHeaders);
+        if (allKeysWereDefaults) {
+          prov.customHeaders = {};
+          changed = true;
+        } else {
+          // If user added some custom keys, strip out keys that were identical to default headers
+          const cleanedCustom: Record<string, string> = {};
+          let strippedAny = false;
+          for (const [k, v] of Object.entries(prov.customHeaders)) {
+            if (regHeaders[k] !== undefined && regHeaders[k] === v) {
+              strippedAny = true;
+            } else {
+              cleanedCustom[k] = v;
+            }
+          }
+          if (strippedAny) {
+            prov.customHeaders = cleanedCustom;
+            changed = true;
+          }
+        }
+      }
+
+      if (changed) {
+        prov.updatedAt = Date.now();
+        this.saveProvider(prov);
+      }
+    }
+  }
+
   public static seedDefaultProviders(): void {
     const coreProviders = [
       "claude",
@@ -229,6 +304,11 @@ export class ProviderRepository {
       } catch {
         // Fail-open
       }
+    }
+    try {
+      this.syncRegistryDefaults();
+    } catch {
+      // Fail-open
     }
   }
 

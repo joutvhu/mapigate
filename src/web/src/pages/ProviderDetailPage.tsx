@@ -116,12 +116,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         }
 
         // Custom Headers
-        if (data.customHeaders && Object.keys(data.customHeaders).length > 0) {
+        const customObj = data.userCustomHeaders !== undefined ? data.userCustomHeaders : (data.customHeaders || {});
+        if (customObj && Object.keys(customObj).length > 0) {
           setCustomHeaders(
-            Object.entries(data.customHeaders).map(([k, v]) => ({ key: k, value: String(v) }))
+            Object.entries(customObj).map(([k, v]) => ({ key: k, value: String(v) }))
           );
         } else {
-          setCustomHeaders(defaultHeadersArray);
+          setCustomHeaders([]);
         }
 
         // Catalog Models & Available Models
@@ -329,13 +330,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   };
 
   const handleResetHeaders = () => {
-    const regHeaders = registryItem?.defaultHeaders || {};
-    const defaultHeadersArray = Object.entries(regHeaders).map(([k, v]) => ({
-      key: k,
-      value: String(v),
-    }));
-    setCustomHeaders(defaultHeadersArray);
-    setHeadersSavedMsg("Reset to provider default headers.");
+    setCustomHeaders([]);
+    setHeadersSavedMsg("Reset custom headers. Using system defaults.");
     setTimeout(() => setHeadersSavedMsg(null), 3000);
   };
 
@@ -845,9 +841,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-blue-400 text-[20px]">tune</span>
             <div>
-              <h3 className="text-sm font-bold text-white">Custom Upstream Request Headers</h3>
+              <h3 className="text-sm font-bold text-white">Upstream Request Headers</h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Headers forwarded to {provider.name}. Initialized with exact 9router defaults.
+                Headers forwarded to {provider.name}. System defaults are managed automatically and combined with your custom overrides.
               </p>
             </div>
           </div>
@@ -856,7 +852,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             <button
               onClick={handleResetHeaders}
               className="rt-btn rt-btn--secondary text-xs"
-              title="Reset headers to provider default registry settings"
+              title="Reset custom headers and use system defaults"
             >
               <span className="material-symbols-outlined text-[15px]">restart_alt</span>
               Reset
@@ -879,11 +875,61 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           </div>
         )}
 
+        {/* System Default Headers Display */}
+        {registryItem?.defaultHeaders && Object.keys(registryItem.defaultHeaders).length > 0 && (
+          <div className="p-3.5 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300">
+                <span className="material-symbols-outlined text-[16px] text-emerald-400">verified</span>
+                <span>System Default Headers</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Auto-updated on release
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-mono">Managed by Mapigate</span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              These headers automatically update with new Mapigate releases to ensure upstream compatibility and bug fixes.
+            </p>
+            <div className="space-y-1.5 pt-1">
+              {Object.entries(registryItem.defaultHeaders).map(([k, v]) => {
+                const isOverridden = customHeaders.some((h) => h.key.trim().toLowerCase() === k.toLowerCase());
+                return (
+                  <div key={k} className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-[#0F141C] border border-[#1E293B]/60 text-xs font-mono">
+                    <span className="text-blue-400">{k}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={isOverridden ? "text-slate-500 line-through" : "text-slate-300"}>
+                        {v}
+                      </span>
+                      {isOverridden && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                          Overridden
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Custom Header Overrides Title */}
+        <div className="pt-1">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-1">
+            <span className="material-symbols-outlined text-[16px] text-blue-400">tune</span>
+            <span>Custom Header Overrides & Additions</span>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Add custom headers or override default headers. These values take precedence over system defaults.
+          </p>
+        </div>
+
         {/* Existing Custom Headers Table/List */}
         <div className="space-y-2">
           {customHeaders.length === 0 ? (
             <div className="text-xs text-slate-500 italic p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B]">
-              No custom headers configured for this provider. Add one below or click Reset to restore defaults.
+              No custom header overrides configured. Outgoing requests will use the system default headers above.
             </div>
           ) : (
             <div className="space-y-2">

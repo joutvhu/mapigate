@@ -295,11 +295,6 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
                 {p.name}
               </h4>
               <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                {p.isLocal && (
-                  <span className="rt-badge rt-badge--primary text-[10px]">
-                    Local
-                  </span>
-                )}
                 {isStdioBridge(p) ? (
                   <span className="rt-badge rt-badge--muted text-[10px]">
                     CLI Bridge

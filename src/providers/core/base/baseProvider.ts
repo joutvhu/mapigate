@@ -101,9 +101,13 @@ export abstract class BaseProvider implements IProvider {
       prov?.authType === "none" ||
       this.requiresApiKey === false;
 
+    const regProv = getRegistryProvider(prov?.id || this.id);
+    const regDefaultHeaders = regProv?.defaultHeaders || (this as any).defaultHeaders || {};
+
     const outgoingHeaders: Record<string, string> = {
       "Content-Type": "application/json",
       ...(bearerToken ? { Authorization: `Bearer ${bearerToken}` } : {}),
+      ...regDefaultHeaders,
       ...(context.provider?.customHeaders || {}),
     };
 
