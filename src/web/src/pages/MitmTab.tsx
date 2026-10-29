@@ -41,6 +41,7 @@ import { MITM_TOOLS } from "../../../mitm/handlers/generated/toolsConfig.js";
 import type { MitmToolConfig, MitmToolId } from "../../../mitm/types.js";
 import { ToolIcon } from "../components/ui/ToolIcon";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
+import { useMitmStatus } from "../hooks/useMitmStatus.js";
 
 interface MitmStatusData {
   running: boolean;
@@ -187,6 +188,7 @@ export const MitmTab: React.FC = () => {
             ...d.augmentModels,
           }));
         }
+        useMitmStatus.getState().fetchStatus();
       })
       .catch(() => {});
   };

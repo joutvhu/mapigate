@@ -77,6 +77,7 @@ export default function App() {
           detailProvider={detailProvider}
           onBackToProviders={() => setDetailProvider(null)}
           onRestartClick={() => setIsRestartModalOpen(true)}
+          onSelectTab={handleSelectTab}
         />
 
         {/* Tab Pages Scrollable Container */}
