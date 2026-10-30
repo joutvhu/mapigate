@@ -2,11 +2,11 @@ import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
   id: "kilo",
-  name: "Kiro Code",
+  name: "Kilo Code",
   image: "/assets/providers/kilocode/icon.png",
   color: "#FF6B6B",
   iconBg: "#000000",
-  description: "Kiro Code / Kilo Code AI Assistant",
+  description: "Kilo Code AI Assistant",
   configType: "custom",
   binary: "kilo",
   configPath: "~/.kilo/config.json",
