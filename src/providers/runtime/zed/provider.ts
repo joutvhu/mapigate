@@ -1,5 +1,11 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
-import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../core/types.js";
+import type {
+  ProviderRequestContext,
+  SingleModelHandler,
+  ModelCallResult,
+  ProviderProbeContext,
+  ProviderProbeResult,
+} from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { metadata } from "./metadata.js";
 import { getZedUsage } from "./quota.js";
@@ -66,6 +72,83 @@ export class ZedProvider extends OpenAiCompatibleProvider {
 
   public async fetchQuota(context: ProviderUsageContext): Promise<RawProviderQuotaResult> {
     return await getZedUsage(context.account.rawApiKey, context.account.providerSpecificData);
+  }
+
+  public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
+    const token = (context.apiKey || context.account?.rawApiKey || "").trim();
+    if (!token) {
+      return {
+        success: false,
+        error: "Zed access token is required (sign in via OAuth).",
+      };
+    }
+
+    const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
+    const userId = psd.userId || psd.user_id || "";
+    const systemId = psd.systemId || psd.system_id || "";
+    const timeoutMs = context.timeoutMs || 8000;
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+      Authorization: userId ? `${userId} ${token}` : `Bearer ${token}`,
+      ...(context.customHeaders || {}),
+    };
+    if (systemId) headers["x-zed-system-id"] = systemId;
+
+    try {
+      const res = await fetch("https://cloud.zed.dev/client/users/me", {
+        headers,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+
+      if (res.ok || res.status === 200) {
+        let discoveredModels = metadata.models;
+        try {
+          const mRes = await fetch("https://cloud.zed.dev/models", {
+            headers,
+            signal: AbortSignal.timeout(Math.min(timeoutMs, 4000)),
+          });
+          if (mRes.ok) {
+            const data: any = await mRes.json();
+            const list = Array.isArray(data) ? data : data.models || data.data;
+            if (Array.isArray(list) && list.length > 0) {
+              discoveredModels = list.map((m: any) => ({
+                id: m.id || m.name,
+                name: m.name || m.display_name || m.id,
+                contextLength: m.max_tokens || m.context_length || 128000,
+              }));
+            }
+          }
+        } catch {}
+
+        return {
+          success: true,
+          endpointUrl: "https://cloud.zed.dev",
+          models: discoveredModels.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+          count: discoveredModels.length,
+        };
+      }
+
+      if (res.status === 401 || res.status === 403) {
+        return {
+          success: false,
+          error: `Authentication failed (HTTP ${res.status}): Invalid or expired Zed token`,
+          authError: "Invalid or expired Zed token",
+        };
+      }
+
+      const errText = await res.text().catch(() => "");
+      return {
+        success: false,
+        error: `Endpoint returned HTTP ${res.status}: ${errText.slice(0, 100)}`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        error: `Failed to connect to Zed: ${msg}`,
+      };
+    }
   }
 
   public async execute(

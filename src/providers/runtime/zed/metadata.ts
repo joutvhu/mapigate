@@ -16,7 +16,7 @@ export const metadata: ProviderRegistryItem = {
   authType: "oauth",
   baseUrl: "https://cloud.zed.dev/completions",
   baseUrls: ["https://cloud.zed.dev/completions"],
-  validateUrl: "",
+  validateUrl: "https://cloud.zed.dev/client/users/me",
   format: "openai",
   defaultHeaders: {
     "content-type": "application/json",

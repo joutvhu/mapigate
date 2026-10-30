@@ -99,3 +99,44 @@ test("Zed OAuth Handler - exchange decrypts and adds account", async () => {
     globalThis.fetch = origFetch;
   }
 });
+
+test("ZedProvider - probeModels verifies credentials via /client/users/me", async () => {
+  const { ZedProvider } = await import("../src/providers/runtime/zed/provider.js");
+  const provider = new ZedProvider();
+
+  // 1. Missing token
+  const noToken = await provider.probeModels({} as any);
+  assert.equal(noToken?.success, false);
+  assert.ok(noToken?.error?.includes("required"));
+
+  // 2. Valid token mock
+  const origFetch = globalThis.fetch;
+  let sentAuthHeader = "";
+  try {
+    globalThis.fetch = async (input: any, init?: any) => {
+      const url = String(input);
+      sentAuthHeader = init?.headers?.Authorization || "";
+      if (url.includes("/client/users/me")) {
+        return new Response(
+          JSON.stringify({ name: "Active Zed User", email: "user@zed.dev" }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await provider.probeModels({
+      apiKey: "decrypted_token_xyz",
+      providerSpecificData: {
+        userId: "user_789",
+        systemId: "sys_123",
+      },
+    } as any);
+
+    assert.equal(res?.success, true);
+    assert.equal(sentAuthHeader, "user_789 decrypted_token_xyz");
+    assert.ok((res?.count || 0) > 0);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
