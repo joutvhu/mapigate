@@ -9,7 +9,6 @@ import { registerRoutes as reg_codex } from "../runtime/codex/routes.js";
 import { registerRoutes as reg_cursor } from "../runtime/cursor/routes.js";
 import { registerRoutes as reg_gemini_cli } from "../runtime/gemini-cli/routes.js";
 import { registerRoutes as reg_github } from "../runtime/github/routes.js";
-import { registerRoutes as reg_gitlab } from "../catalog/gitlab/routes.js";
 import { registerRoutes as reg_glm } from "../runtime/glm/routes.js";
 import { registerRoutes as reg_grok } from "../runtime/grok/routes.js";
 import { registerRoutes as reg_iflow } from "../catalog/iflow/routes.js";
@@ -32,7 +31,6 @@ export function registerAllProviderRoutes(router: Router): void {
   reg_cursor(router);
   reg_gemini_cli(router);
   reg_github(router);
-  reg_gitlab(router);
   reg_glm(router);
   reg_grok(router);
   reg_iflow(router);

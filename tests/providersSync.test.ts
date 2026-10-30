@@ -65,7 +65,6 @@ test("providersSync - OAuth handlers are registered for all new/updated routes",
     "kimchi",
     "clinepass",
     "kilocode",
-    "gitlab",
   ];
 
   for (const id of handlers) {

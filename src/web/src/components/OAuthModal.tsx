@@ -518,7 +518,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             </div>
             <button
               type="button"
-              onClick={loadOAuth}
+              onClick={() => loadOAuth()}
               className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-200 border border-[#1E293B] cursor-pointer transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">refresh</span>
