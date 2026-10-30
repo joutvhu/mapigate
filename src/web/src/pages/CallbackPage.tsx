@@ -14,16 +14,19 @@ export function CallbackPage() {
     const code = params.get("code");
     const token = params.get("token") || params.get("access_token") || params.get("accessToken");
     const userId = params.get("user_id") || params.get("userId");
-    const state = params.get("state");
+    const refreshToken = params.get("refreshToken") || params.get("data") || params.get("RefreshToken");
+    const userJwt = params.get("userJwt");
+    const state = params.get("state") || params.get("loginTraceID");
     const error = params.get("error");
     const errorDescription = params.get("error_description");
 
-    const effectiveCode = code || (userId && token ? window.location.href : token);
+    const effectiveCode = code || (userId && token ? window.location.href : (refreshToken || userJwt ? window.location.href : token));
 
     const callbackData = {
       code: effectiveCode,
       token,
       userId,
+      refreshToken,
       state,
       error,
       errorDescription,

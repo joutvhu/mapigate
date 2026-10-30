@@ -31,6 +31,7 @@ export default function App() {
     typeof window !== "undefined" &&
     (window.location.pathname === "/callback" ||
       window.location.pathname === "/auth/callback" ||
+      window.location.pathname === "/authorize" ||
       window.location.pathname.startsWith("/callback") ||
       hasCallbackParams);
 

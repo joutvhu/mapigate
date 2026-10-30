@@ -18,7 +18,7 @@ export const metadata: ProviderRegistryItem = {
   authModes: ["oauth"],
   baseUrl: "https://core-normal.trae.ai/api/remote/v1",
   baseUrls: ["https://core-normal.trae.ai/api/remote/v1"],
-  validateUrl: "",
+  validateUrl: "https://api.marscode.com/cloudide/api/v3/trae/GetUserInfo",
   format: "openai",
   defaultHeaders: {
     "X-Trae-Client-Type": "web",

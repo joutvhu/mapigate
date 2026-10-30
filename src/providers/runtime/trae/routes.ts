@@ -102,11 +102,30 @@ function parseTraeCallback(raw: string): { refreshToken: string; loginHost: stri
     const desc = pick(["error_description", "error_desc", "message"]);
     throw new Error(desc ? `Trae auth failed: ${err} (${desc})` : `Trae auth failed: ${err}`);
   }
-  const refreshToken = pick(["refreshToken", "refresh_token", "RefreshToken"]);
-  if (!refreshToken) throw new Error("Trae callback missing refreshToken");
+
+  let userJwt: any = null;
+  const rawJwt = pick(["userJwt", "user_jwt"]);
+  if (rawJwt) {
+    try { userJwt = JSON.parse(rawJwt); } catch {}
+  }
+
+  const cloudideToken =
+    userJwt?.Token ||
+    userJwt?.token ||
+    pick(["x-cloudide-token", "xCloudideToken", "accessToken", "access_token", "token"]) ||
+    undefined;
+
+  const refreshToken =
+    userJwt?.RefreshToken ||
+    userJwt?.refreshToken ||
+    pick(["refreshToken", "refresh_token", "RefreshToken", "data"]);
+
+  if (!cloudideToken && !refreshToken) {
+    throw new Error("Trae callback missing refreshToken");
+  }
+
   const loginHost = pick(["loginHost", "login_host", "LoginHost", "host", "consoleHost"]) || "api.marscode.com";
-  const cloudideToken = pick(["x-cloudide-token", "xCloudideToken", "accessToken", "access_token", "token"]) || undefined;
-  return { refreshToken, loginHost, cloudideToken };
+  return { refreshToken: refreshToken || "", loginHost, cloudideToken };
 }
 
 export const traeOAuthHandler: ProviderOAuthHandler = {
@@ -116,46 +135,65 @@ export const traeOAuthHandler: ProviderOAuthHandler = {
     const loginTraceId = crypto.randomUUID();
     const machineId = crypto.randomUUID();
     const loginHost = await fetchTraeLoginGuidance(loginTraceId);
-    const authUrl = buildTraeVerificationUrl(loginHost, loginTraceId, params.redirectUri, machineId);
+
+    const appPort = Number(params.appPort) || Number(process.env.PORT) || 20127;
+    const callbackUrl = `http://127.0.0.1:${appPort}/authorize`;
+    const authUrl = buildTraeVerificationUrl(loginHost, loginTraceId, callbackUrl, machineId);
     return {
       authUrl,
       flowType: "authorization_code",
-      redirectUri: params.redirectUri,
-      state: params.state,
+      redirectUri: callbackUrl,
+      state: params.state || loginTraceId,
       codeVerifier: machineId,
     };
   },
 
   async exchange(params: OAuthExchangeParams): Promise<OAuthExchangeResult> {
-    const parsed = parseTraeCallback(params.code);
-    const exchangeRes = await fetch(TRAE_EXCHANGE_URL, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Trae/1.0.0 Mapigate",
-      },
-      body: JSON.stringify({
-        ClientID: TRAE_CLIENT_ID,
-        RefreshToken: parsed.refreshToken,
-        ClientSecret: TRAE_CLIENT_SECRET,
-        UserID: "",
-      }),
-    });
+    const raw = String(params.code || "").trim();
+    let accessToken = "";
+    let refreshToken = "";
+    let loginHost = "api.marscode.com";
+    let expiresAt: any = null;
 
-    if (!exchangeRes.ok) {
-      const errText = await exchangeRes.text();
-      throw new Error(`Trae token exchange failed (${exchangeRes.status}): ${errText}`);
+    if (raw.startsWith("eyJ") && raw.includes(".")) {
+      accessToken = raw;
+    } else {
+      const parsed = parseTraeCallback(raw);
+      refreshToken = parsed.refreshToken;
+      loginHost = parsed.loginHost;
+      if (parsed.cloudideToken) {
+        accessToken = parsed.cloudideToken;
+      } else if (refreshToken) {
+        const exchangeRes = await fetch(TRAE_EXCHANGE_URL, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "Trae/1.0.0 Mapigate",
+          },
+          body: JSON.stringify({
+            ClientID: TRAE_CLIENT_ID,
+            RefreshToken: refreshToken,
+            ClientSecret: TRAE_CLIENT_SECRET,
+            UserID: "",
+          }),
+        });
+
+        if (!exchangeRes.ok) {
+          const errText = await exchangeRes.text();
+          throw new Error(`Trae token exchange failed (${exchangeRes.status}): ${errText}`);
+        }
+
+        const exchangeData: any = await exchangeRes.json();
+        const result = exchangeData?.Result || exchangeData?.result || exchangeData?.data || exchangeData;
+        accessToken = result?.AccessToken || result?.accessToken;
+        refreshToken = result?.RefreshToken || result?.refreshToken || refreshToken;
+        expiresAt = result?.ExpiresAt || result?.expiresAt;
+      }
     }
 
-    const exchangeData: any = await exchangeRes.json();
-    const result = exchangeData?.Result || exchangeData?.result || exchangeData?.data || exchangeData;
-    const accessToken = result?.AccessToken || result?.accessToken || parsed.cloudideToken;
-    const newRefreshToken = result?.RefreshToken || result?.refreshToken || parsed.refreshToken;
-    const expiresAt = result?.ExpiresAt || result?.expiresAt;
-
     if (!accessToken) {
-      throw new Error(`Trae exchange did not return access token: ${JSON.stringify(exchangeData)}`);
+      throw new Error("Trae exchange did not return access token");
     }
 
     let accountName = "Trae User";
@@ -186,8 +224,8 @@ export const traeOAuthHandler: ProviderOAuthHandler = {
       providerSpecificData: {
         authMethod: "oauth",
         email,
-        loginHost: parsed.loginHost,
-        refreshToken: newRefreshToken,
+        loginHost,
+        refreshToken,
         tokenExpiresAt: expiresAt ? Number(expiresAt) * 1000 : Date.now() + 14 * 86400 * 1000,
       },
     });

@@ -1,5 +1,11 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
-import type { ProviderRequestContext, SingleModelHandler, ModelCallResult } from "../../core/types.js";
+import type {
+  ProviderRequestContext,
+  SingleModelHandler,
+  ModelCallResult,
+  ProviderProbeContext,
+  ProviderProbeResult,
+} from "../../core/types.js";
 import { metadata } from "./metadata.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import {
@@ -37,6 +43,58 @@ export class TraeProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
+
+  public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
+    const token = (context.account?.rawApiKey || context.apiKey || "").trim();
+    if (!token) {
+      return {
+        success: false,
+        error: "Trae Cloud-IDE token is required (sign in via OAuth).",
+      };
+    }
+
+    const timeoutMs = context.timeoutMs || 8000;
+    try {
+      const userRes = await fetch("https://api.marscode.com/cloudide/api/v3/trae/GetUserInfo", {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Cloud-IDE-JWT ${token}`,
+          "x-cloudide-token": token,
+          ...(context.customHeaders || {}),
+        },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+
+      if (userRes.ok || userRes.status === 200) {
+        return {
+          success: true,
+          endpointUrl: "https://api.marscode.com/cloudide/api/v3/trae",
+          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+          count: metadata.models.length,
+        };
+      }
+
+      if (userRes.status === 401 || userRes.status === 403) {
+        return {
+          success: false,
+          error: `Authentication failed (HTTP ${userRes.status}): Invalid or expired Trae token`,
+          authError: "Invalid or expired Trae token",
+        };
+      }
+
+      const errText = await userRes.text().catch(() => "");
+      return {
+        success: false,
+        error: `Endpoint returned HTTP ${userRes.status}: ${errText.slice(0, 100)}`,
+      };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        error: `Failed to connect to Trae: ${msg}`,
+      };
+    }
+  }
 
   private base(context: ProviderRequestContext): string {
     return (context.provider?.baseUrl || metadata.baseUrl || "https://core-normal.trae.ai/api/remote/v1").replace(/\/$/, "");
