@@ -9,12 +9,12 @@
 | Tool ID | Name | Type | One-Click Auto-Apply | Protocol Used |
 | :--- | :--- | :--- | :---: | :--- |
 | `claude` | Claude Code (CLI) | CLI Agent | ✅ Yes | Anthropic (`/v1/messages`) |
-| `cursor` | Cursor IDE | Editor | 📖 Guide / MITM | OpenAI (`/v1/chat/completions`) |
+| `cursor` | Cursor IDE | Editor | 📖 Guide | OpenAI (`/v1/chat/completions`) |
 | `cline` | Cline (VS Code Extension) | Extension | ✅ Yes | OpenAI / Anthropic |
 | `opencode` | OpenCode | CLI Agent | ✅ Yes | OpenAI Compatible |
 | `codex` | Codex CLI | CLI Agent | ✅ Yes | OpenAI / Responses |
 | `copilot` | GitHub Copilot | Extension/CLI | 🛡️ MITM / Guide | OpenAI (`/v1/chat/completions`) |
-| `kiro` | Kiro IDE | Editor | 🛡️ MITM / Guide | AWS Bedrock / Antigravity |
+| `kiro` | Kiro IDE (MITM only, not a `mpg connect` target) | Editor | 🛡️ MITM | Kiro / CodeWhisperer event stream |
 | `roo` | Roo Code (VS Code) | Extension | ✅ Yes | OpenAI Compatible |
 | `continue` | Continue.dev | Extension | ✅ Yes | OpenAI Compatible |
 | `devin` | Cognition Devin | CLI Agent | ✅ Yes | OpenAI Compatible |
@@ -84,12 +84,8 @@ Cursor can connect either via OpenAI Base URL Override or via the Mapigate MITM 
 5. Set API Key: `mapigate-local` (or any string).
 6. Under **Model Names**, add the model alias configured in Mapigate (e.g. `claude-sonnet-4-6` or `cursor-fast`).
 
-### Option 2: MITM HTTPS Interception (Legacy or Hardcoded Cursor)
-If your Cursor version blocks custom base URLs:
-1. Open the Mapigate Dashboard at `http://127.0.0.1:20127`.
-2. Go to the **MITM** tab.
-3. Click **Install Root CA**.
-4. Enable interception for `api.cursor.sh`. Mapigate intercepts Cursor's background requests and applies model mapping and RTK token savings automatically.
+### Option 2: Use Cursor as an upstream provider
+Mapigate has no MITM handler for Cursor. If you have a Cursor subscription, you can instead add it as a provider (`cursor` / `cursor-api` runtime providers) on the **Providers** tab and route other tools to Cursor models.
 
 ---
 
@@ -160,7 +156,7 @@ GitHub Copilot hardcodes its endpoints to `api.githubcopilot.com`. Mapigate inte
 1. In Mapigate Web Dashboard, navigate to **MITM** tab.
 2. Click **Install Root Certificate Authority (CA)**.
 3. Click **Enable Copilot Interception**.
-4. Mapigate redirects `api.githubcopilot.com` to `127.0.0.1:8443` (or `443`), translating Copilot's chat completions into upstream providers while compressing diffs and terminal results with RTK.
+4. Mapigate redirects `api.githubcopilot.com` (and the individual/business/enterprise hosts) to `127.0.0.1:443`, translating Copilot's chat completions into upstream providers while compressing diffs and terminal results with RTK.
 5. In **Model Mappings**, map `gpt-4o` or `claude-3.5-sonnet` to any upstream provider configured in Mapigate.
 
 ---
@@ -234,18 +230,20 @@ In the Mapigate Web Dashboard, the **Tools & Mappings** tab provides unified con
 - **Tool Catalog View:** Displays interactive cards for all 26 supported assistants. Each card shows live connection status (`Connected`, `Setup Guide`, `Not configured`, `Not installed`), configuration file locations, quick PowerShell/Bash environment copy buttons, and a **Sync Aliases to Global Mappings** button.
 - **Global Model Mappings View:** A centralized table for managing how model identifiers requested by coding tools translate to upstream targets or combos.
 
-### 11.2. Global Model Mapping (`/api/model-mappings/global-mappings`)
+### 11.2. Global Model Mapping (`/api/cli-tools/global-mappings`)
 Many coding assistants have hardcoded model names (e.g. `claude-3-5-sonnet-20241022`, `gpt-4o`, `o1`). The Model Mapping subsystem intercepts these identifiers and routes them to your designated target model or multi-model combo:
 - **Source Model:** The model string requested by the client tool.
 - **Target Model:** The actual provider model or combo to invoke (e.g. `deepseek-chat`, `claude-sonnet-4-6`, or `combo:coding-combo`).
 - **Normalized `combo:` Prefix:** You can specify `combo:coding-combo` or simply `coding-combo`. Mapigate automatically normalizes the prefix across APIs and UI badges.
 
-### 11.3. Per-Tool Model Mapping Overrides (`/api/model-mappings/tool-mappings`)
+### 11.3. Per-Tool Model Mapping Overrides (`/api/cli-tools/:tool/mappings`)
 When different coding tools require distinct model behaviors for the same model name:
 - Define per-tool overrides in the tool detail modal.
-- Mapigate checks tool-specific mappings first before falling back to global mappings, ensuring complete flexibility.
+- Mapigate checks tool-specific mappings first before falling back to global mappings.
 
-### 11.4. Preset Import & Export
-- **Export Presets:** Save your entire mapping setup as a shareable JSON file.
-- **Import Presets:** Load pre-configured mapping recipes (e.g. "Cost-Optimized Stack", "Maximum Reasoning Stack", or "Local Ollama Fallback") with a single click.
+### 11.4. Syncing Tool Aliases
+- **Sync Aliases** (`POST /api/cli-tools/global-mappings/import/:tool`) copies a tool's default model aliases into the global mapping table in one click.
+- **Reset** (`POST /api/cli-tools/global-mappings/reset`) restores the default global mappings.
+
+> The router is also mounted at `/api/tools` and `/api/model-mappings`, so the same routes resolve under any of the three prefixes.
 

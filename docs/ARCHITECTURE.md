@@ -20,7 +20,7 @@ graph TD
 
     subgraph INGEST["2. Ingestion & Transport Layer"]
         GATEWAY["Direct Gateway (Port 20127)<br/>• /v1/chat/completions (OpenAI)<br/>• /v1/messages (Anthropic)<br/>• /v1/responses (OpenAI Responses)<br/>• /v1/models & Static Web Assets"]
-        MITM["Decoupled MITM Proxy (Port 8443 / 443)<br/>• Dynamic Root CA & SNI TLS<br/>• Intercepts Copilot & Kiro IDE"]
+        MITM["Decoupled MITM Proxy (Port 443, bound to 127.0.0.1)<br/>• Dynamic Root CA & SNI TLS<br/>• Intercepts Copilot, Kiro IDE & Antigravity"]
     end
 
     subgraph ENGINE["3. Core Engine"]
@@ -40,7 +40,7 @@ graph TD
 
     subgraph UPSTREAM["5. Upstream Providers (194+)"]
         PROV_RUN["Runtime Providers<br/>Claude, OpenAI, Bedrock, DeepSeek, Gemini, Antigravity"]
-        PROV_CAT["Catalog Providers (100+)<br/>Groq, Cerebras, Mistral, Together, OpenRouter..."]
+        PROV_CAT["Catalog Providers (161)<br/>Groq, Cerebras, Mistral, Together, OpenRouter..."]
     end
 
     TOOLS -->|HTTP / SSE| GATEWAY
@@ -200,12 +200,34 @@ mapigate/
 │   ├── providers/               # Hierarchical Provider Modules (194+ providers)
 │   │   ├── runtime/             # Custom providers (claude, openai, bedrock, copilot, antigravity...)
 │   │   ├── composite/           # Multi-model composite providers (combo engine)
-│   │   └── catalog/             # Lightweight standard providers (100+ API-key providers)
-│   ├── mitm/                    # Decoupled HTTPS Interceptor (ports 8443 / 443)
+│   │   └── catalog/             # Lightweight standard providers (161 API-key providers)
+│   ├── mitm/                    # Decoupled HTTPS Interceptor (port 443, MAPIGATE_MITM_PORT)
 │   ├── server/                  # HTTP & SSE Express Gateway (Port 20127)
 │   ├── storage/                 # SQLite (WAL mode) & AES-256-GCM hardware crypto vault
 │   ├── web/                     # Web Dashboard SPA (React 19 + Vite + Tailwind CSS)
 │   └── shared/                  # Common TypeScript interfaces, enums, constants
 ├── docs/                        # Complete technical documentation suite
-└── tests/                       # Automated test suite (102+ test suites)
+└── tests/                       # Automated test suite (102 test files)
 ```
+
+---
+
+## Management API
+
+The dashboard and CLI talk to the gateway through a REST API under `/api/*`. When a Master Password is set, every `/api/*` route except `/api/auth` requires a session token. Routes below come from `src/server/routes/`.
+
+| Prefix | Purpose | Key routes |
+| :--- | :--- | :--- |
+| `/api/auth` | Master Password | `GET /status`, `POST /setup`, `POST /login`, `POST /logout`, `PUT /change-password`, `DELETE /remove-password` |
+| `/api/providers` | Providers & accounts | `GET /`, `POST /`, `GET /:id`, `DELETE /:id`, `GET /registry`, `POST /:id/accounts`, `POST /:id/accounts/bulk`, `PUT /:id/accounts/reorder`, `PUT /:id/strategy`, `POST /:id/test`, `POST /test-bulk`, `POST /:id/scan-models`, `GET /community-catalog`, `POST /community-catalog/import` |
+| `/api/oauth` | OAuth flows (generic + provider `routes.ts`) | `GET /:provider/authorize`, `GET /:provider/device-code`, `POST /:provider/poll`, `POST /:provider/exchange` |
+| `/api/models` | Model list & alias rules | `GET /`, `GET /available`, `POST /rules`, `DELETE /rules/:id` |
+| `/api/combos` | Combo engine | `GET /`, `POST /`, `GET /:id`, `PUT /:id`, `POST /:id/toggle`, `DELETE /:id`, `GET /presets`, `POST /presets` |
+| `/api/cli-tools` (also `/api/tools`, `/api/model-mappings`) | Tool status, apply/reset, model mappings | `GET /status`, `POST /:tool/apply`, `POST /:tool/reset`, `GET\|POST /global-mappings`, `POST /global-mappings/import/:tool`, `GET\|POST /:tool/mappings` |
+| `/api/mitm` | MITM proxy | `GET /status`, `POST /toggle-server`, `POST /toggle-dns`, `GET /cert`, `POST /install-cert`, `POST /uninstall-cert`, `GET /port-status`, `GET\|POST /hosts/:tool`, `GET\|POST /mappings/:ide` |
+| `/api/quota` | Per-account quota | `GET /`, `GET /:accountId`, `POST /batch-refresh`, `PUT /accounts/:accountId` |
+| `/api/usage` | Usage analytics | `GET /stats`, `GET /chart`, `GET /providers`, `GET /request-details`, `GET /request-details/:id`, `GET /stream` (SSE) |
+| `/api/stats` | Summary stats | `GET /`, `GET /logs` |
+| `/api/console-logs` | Server log viewer | `GET /`, `DELETE /`, `GET /stream` (SSE), `GET\|PUT /level` |
+| `/api/settings` | Settings | `GET\|PUT /`, `GET\|PUT /endpoint`, `GET\|POST /endpoint/keys`, `GET\|PUT /token-saver`, `GET\|PUT /capacity-adapter`, `GET\|PUT /logging`, `GET\|POST /autostart`, `GET /system-info` |
+| `/api/server` | Lifecycle | `POST /shutdown`, `POST /restart` |

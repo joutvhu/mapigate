@@ -36,7 +36,7 @@ npm run dev
 | `npm run codegen` | Scans module directories and regenerates typed registries (`scripts/generate-registries.mjs`) |
 | `npm run build` | Cleans `dist/`, compiles server TypeScript to `dist/server`, and builds Vite SPA to `dist/web` |
 | `npm run typecheck`| Validates TypeScript type safety across the entire codebase (`tsc --noEmit`) |
-| `npm test` | Runs the automated test suite (102+ test suites covering 300+ tests using the Node.js native test runner) |
+| `npm test` | Runs the automated test suite (102 test files, ~760 tests, Node.js native test runner via `tsx`) |
 | `npm run clean` | Removes the compiled `dist/` directory |
 | `npm run cli` | Runs the CLI directly via `tsx src/cli/index.ts` without needing a compilation step |
 | `npm run build:icons` | Regenerates icon assets and favicon variants (`scripts/generate-icons.mjs`) |
@@ -195,8 +195,8 @@ Runs automatically on every push and pull request to the `main` branch across bo
 - Executes the full automated test suite (`npm test`).
 
 ### 6.2. Automated npm Release (`.github/workflows/release.yml`)
-Triggered automatically whenever a new GitHub Release is published:
+Triggered when a GitHub Release is published:
 - Sets up Node.js 22 with the npm registry endpoint.
-- Verifies package integrity and executes full build verification.
-- Publishes the bundle directly to npm with public access using `NPM_TOKEN`.
+- Runs `npm ci`, `npm run check`, and `npm run build`.
+- Publishes to npm with public access using the `NPM_TOKEN` secret.
 

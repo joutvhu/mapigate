@@ -1,6 +1,6 @@
 # MITM HTTPS Interceptor Guide — Mapigate
 
-> **Why MITM?** Most modern coding assistants support custom Base URLs (`ANTHROPIC_BASE_URL` or OpenAI Base URL override). However, certain tools—such as **GitHub Copilot**, **legacy Cursor binaries**, or **Kiro IDE**—hardcode upstream endpoints.  
+> **Why MITM?** Most modern coding assistants support custom Base URLs (`ANTHROPIC_BASE_URL` or OpenAI Base URL override). However, certain tools, such as **GitHub Copilot**, **Kiro IDE**, and **Antigravity**, hardcode upstream endpoints.  
 > Mapigate's decoupled **MITM Interceptor** solves this by running a local HTTPS proxy that intercepts these requests, applies model mappings, and routes them to your desired AI providers with full RTK compression.
 
 ---
@@ -10,26 +10,27 @@
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Tool as Closed Tool (GitHub Copilot / Kiro IDE / Cursor)
+    actor Tool as Closed Tool (GitHub Copilot / Kiro IDE / Antigravity)
     participant DNS as Local Hosts / DNS Redirect
-    participant MITM as Mapigate MITM Server (:443 or :8443)
+    participant MITM as Mapigate MITM Server (:443)
     participant TLS as Dynamic TLS Engine (Root CA)
     participant Handler as Tool Dispatcher
     participant Upstream as Upstream AI Provider (Claude/DeepSeek/Google)
 
     Tool->>DNS: Request to https://api.githubcopilot.com
-    DNS->>MITM: Redirect to 127.0.0.1:443 (or 8443)
+    DNS->>MITM: Redirect to 127.0.0.1:443
     MITM->>TLS: SNI Callback for hostname
     TLS-->>MITM: Serve dynamically signed certificate
     MITM->>Handler: Identify tool via Host header & URL pattern
-    Handler->>Handler: Strip vendor telemetry & apply model mapping
+    Handler->>Handler: Route chat/model requests (other traffic passes through) & apply model mapping
     Handler->>Handler: Apply RTK Token Saver compression
     Handler->>Upstream: Forward transformed payload
     Upstream-->>Handler: Upstream response stream
     Handler-->>Tool: Return stream in tool-expected binary/SSE format
 ```
 
-- **Default Primary Port:** `443` (requires Administrator on Windows or root on Linux if binding to standard HTTPS port) or `8443` for user-space proxying.
+- **Port:** `443` by default (requires Administrator on Windows or root on Linux). Override with the `MAPIGATE_MITM_PORT` environment variable.
+- **Bind address:** `127.0.0.1` by default. Override with `MAPIGATE_MITM_HOST`.
 - **TLS Engine:** Uses `node-forge` to generate a self-signed Root CA and issues on-the-fly leaf certificates for intercepted hostnames using TLS SNI callbacks.
 
 ---
@@ -45,10 +46,15 @@ Click **Install Root CA**:
 - **macOS / Linux:** Mapigate adds the certificate to the system keychain or trust store.
 
 ### Step 3: Enable Interception for Your Tool
-Select the tool you wish to intercept:
-- **GitHub Copilot:** Redirects `api.githubcopilot.com` to Mapigate.
-- **Cursor IDE:** Redirects `api.cursor.sh` to Mapigate.
-- **Kiro IDE:** Intercepts Kiro's internal streaming protocol.
+Three handlers ship in `src/mitm/handlers/`:
+
+| Handler | Intercepted hosts |
+| :--- | :--- |
+| **GitHub Copilot** (`copilot`) | `api.githubcopilot.com`, `api.individual.githubcopilot.com`, `api.business.githubcopilot.com`, `api.enterprise.githubcopilot.com`, `copilot-proxy.githubusercontent.com` |
+| **Kiro IDE** (`kiro`) | `management.us-east-1.kiro.dev`, `runtime.us-east-1.kiro.dev`, `q.us-east-1.amazonaws.com`, `codewhisperer.us-east-1.amazonaws.com` |
+| **Antigravity** (`antigravity`) | `cloudcode-pa.googleapis.com`, `daily-cloudcode-pa.googleapis.com` |
+
+Hosts per tool can be edited or reset from the MITM tab (`/api/mitm/hosts/:tool`).
 
 Mapigate automatically adds the required entries to your system `hosts` file (`C:\Windows\System32\drivers\etc\hosts` on Windows, `/etc/hosts` on Linux/macOS).
 
@@ -58,7 +64,7 @@ Mapigate automatically adds the required entries to your system `hosts` file (`C
 
 ### 3.1. GitHub Copilot Handler
 - Intercepts requests to `https://api.githubcopilot.com/chat/completions`.
-- Strips Copilot-specific proprietary telemetry and headers.
+- Non-chat traffic (auth, telemetry, experiments) passes through to GitHub unchanged.
 - Translates chat payload into standard OpenAI or Anthropic format.
 - Resolves model mapping (e.g., mapping `gpt-4o` to `deepseek-chat` or `claude-sonnet-4-6`).
 
@@ -73,20 +79,20 @@ Mapigate automatically adds the required entries to your system `hosts` file (`C
 
 ## 4. Security & Port Lifecycle Invariants
 
-### 4.1. Localhost Binding Restriction (`127.0.0.1`)
-For maximum security, the MITM interceptor binds strictly to the loopback address (`127.0.0.1`). It never binds to `0.0.0.0`, preventing devices on the same local area network (LAN) from accessing the proxy or intercepted traffic.
+### 4.1. Loopback Binding
+The MITM server binds to `127.0.0.1` by default (`MAPIGATE_MITM_HOST`), so other machines on the LAN cannot reach it. Only change this if you deliberately want to expose it.
 
-### 4.2. Security Headers & Telemetry Stripping
-- Outgoing upstream requests have proprietary IDE telemetry headers stripped (e.g. tracking cookies, device tokens, and analytics identifiers).
-- Incoming intercepted responses receive security headers, preventing local browser-based exploits or CSRF attempts against the proxy endpoints.
+### 4.2. Security Headers
+The gateway adds `X-Frame-Options` and `X-Content-Type-Options` to its responses to block clickjacking and MIME sniffing against the dashboard.
 
-### 4.3. Port Conflict Detection & Daemon Shutdown
-- Before starting, the MITM server validates that ports `443` or `8443` are free.
-- On Windows, Winsock socket states (such as `TIME_WAIT`) are handled defensively.
-- When stopping Mapigate (`mpg stop`), the MITM server closes active client sockets and safely releases port bindings.
+### 4.3. Port Conflict Detection & Shutdown
+- Before starting, Mapigate checks whether port 443 is in use and reports the owning process (for example IIS, with a hint to run `iisreset /stop`).
+- On Windows, a port in `TIME_WAIT` is reported as transient with a Retry option instead of a hard failure.
+- Orphaned `hosts` entries left behind while the proxy is stopped are detected and can be cleaned up.
+- `mpg stop` releases the MITM port and removes the `hosts` entries.
 
-### 4.4. Live Status Indicator in Web UI Header
-The Mapigate Web Dashboard header features a live status indicator showing whether the MITM proxy is active and healthy, including a visual badge and quick-toggle options.
+### 4.4. Status Indicator in the Dashboard Header
+The dashboard header shows whether the MITM proxy is running.
 
 ---
 

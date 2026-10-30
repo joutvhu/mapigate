@@ -15,7 +15,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Version](https://img.shields.io/badge/version-0.5.31-orange.svg)](package.json)
 
-[**Why Mapigate?**](#-why-mapigate) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
+[**Why Mapigate?**](#-why-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-194) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
 
 </div>
 
@@ -48,7 +48,7 @@ graph TD
     end
 
     subgraph MAPIGATE["Mapigate Local Engine (:20127)"]
-        INGEST["Network Ingestion<br/>• Direct Gateway (:20127)<br/>• Decoupled MITM (:443/8443)"]
+        INGEST["Network Ingestion<br/>• Direct Gateway (:20127)<br/>• Decoupled MITM (:443)"]
         ROUTER["Smart Router & Failover<br/>Automatic Cascading Fallback on 429"]
         RTK["RTK Token Saver (Fail-Open)<br/>Compresses diffs, logs & grep in-place"]
         COMBO["Combo Engine<br/>Fallback | Round-Robin | Fusion | LKGP | P2C"]
@@ -78,6 +78,63 @@ graph TD
 - ✂️ **In-Place RTK Token Saver:** Compresses verbose tool results before they leave your machine, slashing **20% to 40% of input tokens** while strictly preserving error traces and agent debugging accuracy.
 - 🔄 **Cascading Auto-Fallback:** If Claude hits a rate limit (HTTP 429), Mapigate transparently reroutes the ongoing request to a designated backup model (e.g. DeepSeek-R1 or GPT-4o) without dropping the client's SSE stream.
 - 🎯 **Bidirectional Multi-Protocol Translation:** Native translation between OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), and OpenAI Responses API (`/v1/responses`), preserving reasoning/thinking blocks and tool call streams.
+
+---
+
+## 🔌 Gateway API
+
+Mapigate exposes three client protocols on one port (`http://127.0.0.1:20127`). Any tool that speaks one of them can point its base URL at Mapigate and reach every configured provider, combo, or model alias.
+
+| Endpoint | Protocol | Typical clients |
+| :--- | :--- | :--- |
+| `POST /v1/chat/completions` | OpenAI Chat Completions | Cursor, Cline, Roo, Continue, OpenCode, most CLI agents |
+| `POST /v1/messages` | Anthropic Messages | Claude Code, Claude-native SDKs |
+| `POST /v1/responses` (alias `/responses`) | OpenAI Responses API | Codex CLI, Responses-based agents |
+| `GET /v1/models` (alias `/models`) | OpenAI model list | Model pickers in IDEs and CLIs |
+| `GET /health` | Health probe | `mpg status`, `mpg doctor`, monitoring |
+
+What every endpoint supports:
+- **Streaming (SSE) and non-streaming** responses, emitted in the format the client asked for (`[DONE]`, `message_stop`, or `response.completed`).
+- **Cross-protocol translation:** an Anthropic client can call an OpenAI-format provider and vice versa. Tool calls, tool results, and reasoning/thinking blocks are preserved.
+- **Model resolution:** the `model` field can be a provider model, a model alias, a per-tool mapping, or a combo name (`combo:<name>` or `<name>`).
+- **Fallback and load balancing:** on HTTP 429 or quota errors, the request moves to the next account or combo target.
+- **RTK compression** of tool results before the request goes upstream (fail-open).
+
+**Authentication:** by default the `/v1/*` endpoints accept any key (e.g. `mapigate-local`). Enable **Require API Key** in **Endpoints** settings to accept only keys you generate there, sent as `Authorization: Bearer <key>` or `x-api-key: <key>`. The `/api/*` management API is protected by the Master Password once one is set.
+
+```bash
+# OpenAI format
+curl http://127.0.0.1:20127/v1/chat/completions \
+  -H "Authorization: Bearer mapigate-local" -H "Content-Type: application/json" \
+  -d '{"model":"claude-sonnet-4-6","stream":true,"messages":[{"role":"user","content":"Hello"}]}'
+
+# Anthropic format
+curl http://127.0.0.1:20127/v1/messages \
+  -H "x-api-key: mapigate-local" -H "anthropic-version: 2023-06-01" -H "Content-Type: application/json" \
+  -d '{"model":"claude-sonnet-4-6","max_tokens":1024,"messages":[{"role":"user","content":"Hello"}]}'
+```
+
+The dashboard and CLI use a REST management API under `/api/*` (providers, accounts, combos, model mappings, MITM, quota, usage, settings). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#management-api) for the route list.
+
+---
+
+## 🌐 Supported Providers (194)
+
+Mapigate ships with **194 provider modules**, discovered automatically from `src/providers/` by `npm run codegen`:
+
+| Tier | Count | What it covers |
+| :--- | :---: | :--- |
+| **Runtime** (`src/providers/runtime/`) | 32 | Providers with custom auth, OAuth, or streaming: `claude`, `openai`, `gemini`, `gemini-cli`, `antigravity`, `bedrock`, `azure`, `cloudflare`, `deepseek`, `github` (Copilot), `codex`, `cursor`, `cursor-api`, `kiro`, `xkiro`, `windsurf`, `zed`, `trae`, `qoder`, `cline`, `codebuddy`, `devin`, `opencode`, `grok`, `grok-cli`, `kimi`, `glm`, `minimax`, `minimax-code`, `mimo`, `alicode`, `ollama` |
+| **Catalog** (`src/providers/catalog/`) | 161 | Standard OpenAI/Anthropic-compatible API-key providers: Anthropic, OpenRouter, Groq, Cerebras, Together, Fireworks, DeepInfra, Mistral, Codestral, Cohere, Perplexity, NVIDIA, Hugging Face, Vertex AI, Databricks, Snowflake, watsonx, SambaNova, Nebius, Novita, SiliconFlow, Moonshot, Z.ai, StepFun, Baidu, Tencent, Volcengine, Vercel AI Gateway, LM Studio, Jan, local Ollama, and more |
+| **Composite** (`src/providers/composite/`) | 1 | The `combo` engine (fallback, round-robin, fusion, lkgp, p2c) |
+| **Community catalog** | — | Additional providers importable from the dashboard (**Providers → Community Catalog**) |
+
+Authentication methods:
+- **API key** for most catalog providers (encrypted with AES-256-GCM before it reaches SQLite).
+- **OAuth / device-code / IDE token import** for 21 providers with custom routes, including Claude, GitHub Copilot, Codex, Gemini CLI, Antigravity, Kiro, Cursor, Windsurf, Zed, Trae, Qoder, Cline, CodeBuddy, Kimi, GLM, MiniMax, Grok, GitLab, iFlow, Kilo Code, and Kimchi.
+- **No auth** for local runtimes (Ollama, LM Studio, Jan, local device) and free gateways such as OpenCode.
+
+Per provider you can configure multiple accounts with `round-robin` (default) or `fill-first` rotation, a custom base URL, an outbound proxy, and default-header overrides. Full details: [docs/PROVIDERS_AND_MODELS.md](docs/PROVIDERS_AND_MODELS.md).
 
 ---
 
@@ -318,7 +375,7 @@ sequenceDiagram
     autonumber
     actor Tool as Closed Tool (Copilot / Kiro IDE)
     participant DNS as Local Hosts Redirect
-    participant MITM as Mapigate MITM Server (:443 / :8443)
+    participant MITM as Mapigate MITM Server (:443)
     participant TLS as Dynamic TLS Engine (Root CA)
     participant Handler as Tool Dispatcher
     participant Upstream as Target Upstream Provider
@@ -328,7 +385,7 @@ sequenceDiagram
     MITM->>TLS: SNI Callback for hostname
     TLS-->>MITM: Dynamically signed leaf certificate
     MITM->>Handler: Identify tool via Host & URL pattern
-    Handler->>Handler: Strip vendor telemetry & map target model
+    Handler->>Handler: Route chat/model requests (other traffic passes through) & map target model
     Handler->>Handler: Apply RTK Token Saver compression
     Handler->>Upstream: Forward request to Anthropic / DeepSeek / Google
     Upstream-->>Handler: Return response stream
@@ -339,8 +396,10 @@ sequenceDiagram
 1. Open the Web Dashboard at `http://127.0.0.1:20127` → Click the **MITM** tab.
 2. Click **Install Root CA** (Mapigate automatically registers the certificate into your Windows/macOS trust store).
 3. Toggle ON interception for your target tool:
-   - **GitHub Copilot:** Intercepts completions, strips telemetry, and maps `gpt-4o` to Claude 3.7 or DeepSeek-R1.
-   - **Kiro IDE:** Translates internal binary event-stream frames to Google Cloud Code / Antigravity endpoints, leveraging stable session hashing for **~98% KV prompt cache hits**, reducing turn latency from **12s to under 2s**!
+   - **GitHub Copilot:** Intercepts chat completions and model discovery, then maps Copilot's model names (e.g. `gpt-4o`) to any provider or combo you configure.
+   - **Kiro IDE:** Intercepts Kiro / CodeWhisperer streaming calls and answers them in Kiro's binary event-stream format, using any configured provider as the backend.
+   - **Antigravity:** Intercepts Google Cloud Code (`cloudcode-pa.googleapis.com`) traffic.
+   - All other traffic (auth, telemetry, experiments) passes through to the original host unchanged.
 4. When toggled off, Mapigate cleanly cleans up the `hosts` entries and restores default system networking.
 
 ---
@@ -357,7 +416,7 @@ Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashbo
 | :--- | :--- |
 | **Providers** | Add, edit, and test API keys; 1-click OAuth login (Google, GitHub Copilot...); auto-import keys from installed IDEs; customize, override, or disable/omit default headers. |
 | **Combos** | Visually build cascading Fallback chains, Round-Robin account pools, or Fusion judge setups with normalized `combo:` prefix support. |
-| **Tools & Mappings** | Inspect connection health for 26 coding assistants; 1-click apply/reset configs; configure Global Model Mappings and Per-Tool Model Mappings; import/export preset configurations. |
+| **Tools & Mappings** | Inspect connection health for 26 coding assistants; 1-click apply/reset configs; configure Global Model Mappings and Per-Tool Model Mappings; sync a tool's default aliases into the global table. |
 | **MITM** | Install/uninstall Root CA, toggle Copilot/Kiro interception with live header status indicator, secure `127.0.0.1` binding, and customize model mappings. |
 | **Token Saver** | View real-time token savings counters, estimated dollar savings, and adjust RTK compression filters. |
 | **Quotas** | Track daily/monthly usage budgets per account and configure automatic reset schedules. |

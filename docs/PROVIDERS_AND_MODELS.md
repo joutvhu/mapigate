@@ -137,7 +137,7 @@ When Claude Code requests:
 - `claude-3-5-haiku-20241022` or `haiku` ➔ routes to your high-speed model.
 - `claude-3-opus-20240229` or `opus` ➔ routes to thinking-enabled models.
 
-You can customize these aliases in the **Models** tab of the Web Dashboard or via `mpg connect claude --sonnet <model>`.
+You can customize these aliases in the **Tools & Mappings** tab of the Web Dashboard or via `mpg connect claude --sonnet <model>`.
 
 ---
 
@@ -164,15 +164,13 @@ In certain integration environments (e.g. corporate proxies, custom API gateways
 ## 6. Combo Execution Analytics & Prefix Normalization
 
 ### 6.1. Unified Execution Logging
-When a request targets a multi-model combo (e.g. `coding-combo` using a `fallback` strategy from Claude to DeepSeek):
-- Mapigate records the parent combo invocation as well as the exact sub-provider/sub-model that satisfied the query.
-- In the event of a cascading failover (e.g. primary encountered HTTP 429), both the failed attempt and the successful fallback are recorded.
+When a request targets a combo (e.g. `coding-combo` with a `fallback` chain from Claude to DeepSeek):
+- Usage is logged against the model that actually served the request, with tokens and cost.
+- On a failed `fallback` or `fusion` execution, the attempted models (and the judge model for fusion) are still recorded.
+- A `logged` flag on each model call prevents the same response from being counted twice.
 
-### 6.2. Combo Analytics in the Usage Dashboard
-The **Usage** tab includes dedicated analytics for combo performance:
-- **Sub-Model Distribution:** Tracks how often secondary or tertiary fallback models were triggered.
-- **Latency Breakdown:** Compares response latency across different models within a combo.
-- **Failover Frequency:** Alerts developers when a primary account is experiencing frequent rate limits.
+### 6.2. Combo Usage in the Dashboard
+The **Usage** tab reports combo requests alongside single-model requests, so traffic routed through a combo shows up under the models that served it.
 
 ### 6.3. Normalized `combo:` Prefix
 In model mapping tables, CLI commands, and API requests:
