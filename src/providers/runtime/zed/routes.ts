@@ -138,16 +138,16 @@ export const zedOAuthHandler: ProviderOAuthHandler = {
         headers: {
           Accept: "application/json",
           Authorization: `${userId} ${accessToken}`,
-          "x-zed-system-id": systemId,
         },
       });
       if (userRes.ok) {
         const u: any = await userRes.json();
-        accountName = u?.name || u?.display_name || u?.email || accountName;
-        email = u?.email;
+        const user = u?.user || u;
+        accountName = user?.name || user?.github_login || user?.email || accountName;
+        email = user?.email;
         const orgs = u?.organizations || [];
         const personalOrg = orgs.find((o: any) => o?.is_personal) || orgs[0];
-        organizationId = personalOrg?.id || "";
+        organizationId = personalOrg?.id || u?.default_organization_id || "";
       }
     } catch {}
 

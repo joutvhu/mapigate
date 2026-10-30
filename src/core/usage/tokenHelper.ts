@@ -55,6 +55,21 @@ export function extractCredentials(
 
   const trimmedKey = rawApiKey?.trim() || "";
 
+  if (pId === "zed") {
+    // Zed v2 native-app access token is an encrypted JSON struct: {"version":2,"id":"client_token_...","token":"..."}.
+    // Zed API server requires this exact JSON string as the token in `Authorization: <userId> <jsonToken>`.
+    return {
+      accessToken: trimmedKey,
+      apiKey: trimmedKey,
+      refreshToken,
+      expiresAt,
+      email,
+      githubAccessToken: "",
+      projectId: "",
+      providerSpecificData: psd,
+    };
+  }
+
   if (trimmedKey.startsWith("{") && trimmedKey.endsWith("}")) {
     try {
       const parsed = JSON.parse(trimmedKey);

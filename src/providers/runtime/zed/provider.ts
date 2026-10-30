@@ -37,7 +37,6 @@ async function fetchZedLlmToken(credentials: { accessToken: string; userId: stri
     Accept: "application/json",
     Authorization: `${credentials.userId} ${credentials.accessToken}`,
   };
-  if (credentials.systemId) headers["x-zed-system-id"] = credentials.systemId;
 
   const body: any = {};
   if (credentials.organizationId) body.organization_id = credentials.organizationId;
@@ -75,7 +74,7 @@ export class ZedProvider extends OpenAiCompatibleProvider {
   }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
-    const token = (context.apiKey || context.account?.rawApiKey || "").trim();
+    const token = (context.account?.rawApiKey || context.apiKey || "").trim();
     if (!token) {
       return {
         success: false,
@@ -85,7 +84,6 @@ export class ZedProvider extends OpenAiCompatibleProvider {
 
     const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
     const userId = psd.userId || psd.user_id || "";
-    const systemId = psd.systemId || psd.system_id || "";
     const timeoutMs = context.timeoutMs || 8000;
 
     const headers: Record<string, string> = {
@@ -93,7 +91,6 @@ export class ZedProvider extends OpenAiCompatibleProvider {
       Authorization: userId ? `${userId} ${token}` : `Bearer ${token}`,
       ...(context.customHeaders || {}),
     };
-    if (systemId) headers["x-zed-system-id"] = systemId;
 
     try {
       const res = await fetch("https://cloud.zed.dev/client/users/me", {
@@ -102,30 +99,11 @@ export class ZedProvider extends OpenAiCompatibleProvider {
       });
 
       if (res.ok || res.status === 200) {
-        let discoveredModels = metadata.models;
-        try {
-          const mRes = await fetch("https://cloud.zed.dev/models", {
-            headers,
-            signal: AbortSignal.timeout(Math.min(timeoutMs, 4000)),
-          });
-          if (mRes.ok) {
-            const data: any = await mRes.json();
-            const list = Array.isArray(data) ? data : data.models || data.data;
-            if (Array.isArray(list) && list.length > 0) {
-              discoveredModels = list.map((m: any) => ({
-                id: m.id || m.name,
-                name: m.name || m.display_name || m.id,
-                contextLength: m.max_tokens || m.context_length || 128000,
-              }));
-            }
-          }
-        } catch {}
-
         return {
           success: true,
           endpointUrl: "https://cloud.zed.dev",
-          models: discoveredModels.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
-          count: discoveredModels.length,
+          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+          count: metadata.models.length,
         };
       }
 
