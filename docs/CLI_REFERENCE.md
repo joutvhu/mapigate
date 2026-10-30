@@ -33,6 +33,7 @@ Running `mpg` without arguments in an interactive terminal starts the **Interact
 | [`mpg doctor`](#mpg-doctor) | Validates Node.js, port availability, SQLite WAL, machine ID |
 | [`mpg providers`](#mpg-providers) | Lists configured AI providers and accounts |
 | [`mpg models`](#mpg-models) | Lists active model routing rules and fallback combos |
+| [`mpg backup`](#mpg-backup) | Exports or restores configuration JSON backups |
 | [`mpg startup`](#mpg-startup) | Configures Mapigate to auto-launch on system boot |
 
 ---
@@ -259,3 +260,33 @@ mpg startup enable
 # Disable automatic boot launch:
 mpg startup disable
 ```
+
+---
+
+### `mpg backup`
+Exports or restores full gateway configurations (providers, accounts, combos, model mappings, and settings).
+
+```bash
+# Export zero-secrets configuration template (safe to share):
+mpg backup export
+
+# Export to a custom file with encrypted credentials (AES-256-GCM):
+mpg backup export my-backup.json --include-keys --password my-secret-pass
+
+# Restore configuration from a backup file:
+mpg backup import my-backup.json --password my-secret-pass
+
+# Overwrite existing records instead of merging:
+mpg backup import my-backup.json --password my-secret-pass --overwrite
+```
+
+**Export Options:**
+- `[output]`: Destination JSON file path (default: `mapigate-backup-YYYY-MM-DD.json`).
+- `--include-keys`: Include API keys in the exported backup.
+- `--password <password>`: Encrypt credentials with a passphrase using AES-256-GCM.
+
+**Import Options:**
+- `<file>`: Source backup JSON file path.
+- `--password <password>`: Decryption password if the backup was encrypted.
+- `--overwrite`: Overwrite matching configuration entries instead of merging.
+

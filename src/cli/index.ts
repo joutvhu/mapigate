@@ -18,6 +18,7 @@ import { runDoctor } from "./commands/doctor.js";
 import { runProviders } from "./commands/providers.js";
 import { runModels } from "./commands/models.js";
 import { runStartup } from "./commands/startup.js";
+import { runBackupExport, runBackupImport } from "./commands/backup.js";
 import { closeDatabase } from "../storage/database.js";
 
 async function showInterfaceMenu(port: number, pid: number | null): Promise<string> {
@@ -256,6 +257,28 @@ program
   .description("Configure Mapigate to start automatically on system boot (enable, disable, status)")
   .action(async (action) => {
     await runStartup(action);
+  });
+
+const backupCmd = program
+  .command("backup")
+  .description("Manage configuration backups (export and import)");
+
+backupCmd
+  .command("export [output]")
+  .description("Export full configuration to JSON file")
+  .option("--include-keys", "Include API keys in export")
+  .option("--password <password>", "Encrypt credentials with password")
+  .action(async (output, options) => {
+    await runBackupExport({ output, includeKeys: options.includeKeys, password: options.password });
+  });
+
+backupCmd
+  .command("import <file>")
+  .description("Import configuration from backup JSON file")
+  .option("--password <password>", "Decryption password if backup is encrypted")
+  .option("--overwrite", "Overwrite existing entries instead of merging")
+  .action(async (file, options) => {
+    await runBackupImport(file, { password: options.password, overwrite: options.overwrite });
   });
 
 program.parseAsync(process.argv).catch((err) => {

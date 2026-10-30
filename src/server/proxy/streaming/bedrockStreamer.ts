@@ -39,9 +39,20 @@ export async function pipeBedrockEventStream(
     clientRes.once("close", onClose);
   }
 
+  const ensureHeaders = () => {
+    if (!clientRes.headersSent && !clientRes.writableEnded && !clientRes.destroyed) {
+      clientRes.setHeader("Content-Type", "text/event-stream");
+      clientRes.setHeader("Cache-Control", "no-cache");
+      clientRes.setHeader("Connection", "keep-alive");
+      clientRes.setHeader("X-Accel-Buffering", "no");
+      clientRes.flushHeaders?.();
+    }
+  };
+
   const safeWrite = (data: string): boolean => {
     if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) return false;
     try {
+      ensureHeaders();
       return clientRes.write(data);
     } catch {
       return false;
@@ -89,6 +100,13 @@ export async function pipeBedrockEventStream(
           } catch {}
 
           logger.errorLine(reqTag || "BEDROCK", LogSymbol.ERROR, `Bedrock error: ${errorType} - ${errorMsg}`);
+          if (!clientRes.headersSent) {
+            const isThrottling = errorType.toLowerCase().includes("throttl") || errorMsg.toLowerCase().includes("rate");
+            const errObj: any = new Error(`Bedrock error (${errorType}): ${errorMsg}`);
+            errObj.status = isThrottling ? 429 : 502;
+            errObj.isRateLimit = isThrottling;
+            throw errObj;
+          }
           if (clientFormat === "anthropic") {
             safeWrite(
               `event: error\ndata: ${JSON.stringify({

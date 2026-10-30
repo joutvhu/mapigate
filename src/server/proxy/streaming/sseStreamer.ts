@@ -58,23 +58,6 @@ export async function pipeSseStream(
   const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
   const responsesState = clientFormat === "responses" ? createResponsesStreamState(requestId) : null;
   const seenToolCallIds = new Map<number, string>();
-
-  if (clientFormat === "anthropic" && targetFormat === "openai") {
-    clientRes.write(
-      `event: message_start\ndata: ${JSON.stringify({
-        type: "message_start",
-        message: {
-          id: `msg_${requestId}`,
-          type: "message",
-          role: "assistant",
-          model: targetModel,
-          content: [],
-        },
-      })}\n\n`
-    );
-    openAiToAnthropicState.messageStartSent = true;
-  }
-
   const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -92,28 +75,108 @@ export async function pipeSseStream(
     clientRes.once("close", onClose);
   }
 
+  const ensureHeaders = () => {
+    if (!clientRes.headersSent && !clientRes.writableEnded && !clientRes.destroyed) {
+      clientRes.setHeader("Content-Type", "text/event-stream");
+      clientRes.setHeader("Cache-Control", "no-cache");
+      clientRes.setHeader("Connection", "keep-alive");
+      clientRes.setHeader("X-Accel-Buffering", "no");
+      clientRes.flushHeaders?.();
+    }
+  };
+
   const safeWrite = (data: string): boolean => {
     if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) return false;
     try {
+      ensureHeaders();
       return clientRes.write(data);
     } catch {
       return false;
     }
   };
 
+  // 1. Read and verify initial chunk before committing HTTP headers to client
+  let firstReadDone = false;
+  let firstReadValue: Uint8Array | undefined;
+
+  try {
+    const firstRead = await reader.read();
+    firstReadDone = firstRead.done;
+    firstReadValue = firstRead.value;
+  } catch (err) {
+    throw err;
+  }
+
+  if (firstReadDone && !firstReadValue) {
+    throw new Error("Upstream stream ended immediately without sending any data");
+  }
+
+  // Pre-decode initial chunk to detect inline error events / rate limits before sending headers
+  if (firstReadValue) {
+    const preview = decoder.decode(firstReadValue, { stream: true });
+    const previewLines = preview.split("\n");
+    for (const pl of previewLines) {
+      const trimmed = pl.trim();
+      if (trimmed.startsWith("data:") && trimmed.includes('"error"')) {
+        try {
+          const parsed = JSON.parse(trimmed.slice(5).trim());
+          if (parsed && parsed.error) {
+            const msg = parsed.error.message || "Upstream stream error in initial chunk";
+            const isRateLimit =
+              parsed.error.code === "rate_limit_exceeded" ||
+              parsed.error.type?.includes("rate_limit") ||
+              msg.toLowerCase().includes("rate limit") ||
+              msg.toLowerCase().includes("quota");
+            const errObj: any = new Error(msg);
+            errObj.status = isRateLimit ? 429 : 502;
+            errObj.isRateLimit = isRateLimit;
+            throw errObj;
+          }
+        } catch (e: any) {
+          if (e.status) throw e;
+        }
+      }
+    }
+    buffer = preview;
+  }
+
+  if (clientFormat === "anthropic" && targetFormat === "openai") {
+    safeWrite(
+      `event: message_start\ndata: ${JSON.stringify({
+        type: "message_start",
+        message: {
+          id: `msg_${requestId}`,
+          type: "message",
+          role: "assistant",
+          model: targetModel,
+          content: [],
+        },
+      })}\n\n`
+    );
+    openAiToAnthropicState.messageStartSent = true;
+  }
+
+  let isFirstIteration = true;
+
   try {
     while (true) {
       if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
 
-      const { done, value } = await reader.read();
-      if (done || clientDisconnected) break;
+      if (!isFirstIteration) {
+        const { done, value } = await reader.read();
+        if (done || clientDisconnected) break;
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+        }
+      } else {
+        isFirstIteration = false;
+      }
 
       if (!state.ttftMs) {
         state.ttftMs = Date.now() - startTime;
         logger.line(reqTag || "STREAM", LogSymbol.STREAM, `TTFT ${state.ttftMs}ms · streaming chunks...`);
       }
 
-      buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
 

@@ -11,6 +11,7 @@ initConsoleLogCapture();
 
 import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, APP_VERSION } from "../shared/constants/index.js";
 import { handleProxyRequest } from "./proxy/chatProxy.js";
+import { handleCountTokens } from "./proxy/countTokens.js";
 import { convertResponsesApiFormat } from "../core/adapters/responsesAdapter.js";
 import { providerRouter } from "./routes/apiProviders.js";
 import { modelRouter, handleOpenAiModelsList } from "./routes/apiModels.js";
@@ -139,6 +140,8 @@ app.get("/health", (_req, res) => {
 app.post("/v1/chat/completions", (req, res) => {
   handleProxyRequest(req, res, "openai");
 });
+
+app.post("/v1/messages/count_tokens", handleCountTokens);
 
 app.post("/v1/messages", (req, res) => {
   handleProxyRequest(req, res, "anthropic");

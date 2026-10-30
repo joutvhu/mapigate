@@ -85,6 +85,7 @@ Mapigate exposes three client protocols on one port (`http://127.0.0.1:20127`). 
 | :--- | :--- | :--- |
 | `POST /v1/chat/completions` | OpenAI Chat Completions | Cursor, Cline, Roo, Continue, OpenCode, most CLI agents |
 | `POST /v1/messages` | Anthropic Messages | Claude Code, Claude-native SDKs |
+| `POST /v1/messages/count_tokens` | Anthropic Token Counting | Claude Code (context calculation & auto-compact) |
 | `POST /v1/responses` (alias `/responses`) | OpenAI Responses API | Codex CLI, Responses-based agents |
 | `GET /v1/models` (alias `/models`) | OpenAI model list | Model pickers in IDEs and CLIs |
 | `GET /health` | Health probe | `mpg status`, `mpg doctor`, monitoring |
@@ -419,7 +420,7 @@ Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashbo
 | **Usage** | Interactive charts for request volume, latency distribution, model consumption breakdown, and combo execution analytics. |
 | **Endpoints** | Test gateway endpoints (`/v1/chat/completions`, `/v1/messages`) and copy quick-start code snippets. |
 | **Console Logs** | Real-time streaming server log viewer with search and log level filtering directly in your browser. |
-| **Settings** | Configure Master Password protection, server ports, autostart on boot, and data directories. |
+| **Settings** | Configure Master Password protection, Configuration Backup & Restore (JSON export/import with optional AES-256-GCM encryption), server ports, and autostart on boot. |
 
 ---
 
@@ -442,6 +443,11 @@ mpg connect all           # Configure all installed AI coding tools
 mpg connect claude        # Configure Claude Code CLI
 mpg connect all --reset   # Restore default configurations
 mpg show                  # Inspect active configuration files of local tools
+
+# Configuration Backup & Migration
+mpg backup export         # Export configuration to JSON (zero-secrets template)
+mpg backup export my.json --include-keys --password secret # Encrypted backup
+mpg backup import my.json --password secret                # Restore configuration
 
 # System Health & Logs
 mpg doctor                # Validate Node.js, port availability, SQLite WAL, machine ID

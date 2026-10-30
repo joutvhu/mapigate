@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PortalModal } from "../components/PortalModal";
 import { RestartModal } from "../components/RestartModal";
 import { MasterPasswordModal, type MasterPasswordModalMode } from "../components/MasterPasswordModal";
+import { BackupCard } from "../components/BackupCard.js";
 import { useAuth } from "../hooks/useAuth";
 import { Github } from "lucide-react";
 
@@ -306,6 +307,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
           )}
         </div>
       </div>
+
+      {/* Configuration Backup & Migration Card */}
+      <BackupCard />
 
       {/* Gateway Server Control Card */}
       <div className="rt-card p-6 space-y-4 border border-[#1E293B]">

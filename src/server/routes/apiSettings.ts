@@ -15,6 +15,7 @@ import {
 } from "../../cli/daemon/autostart.js";
 import { serverLifecycle } from "../lifecycle.js";
 import { logger, parseLogLevel } from "../../shared/logger.js";
+import { BackupService } from "../../storage/backupService.js";
 
 export const settingsRouter = Router();
 
@@ -321,3 +322,37 @@ settingsRouter.post("/autostart", (req, res) => {
   }
 });
 
+
+// --- Configuration Backup & Restore ---
+
+// POST /api/settings/backup/export - Export full configuration
+settingsRouter.post("/backup/export", async (req, res) => {
+  try {
+    const { includeCredentials, password } = req.body || {};
+    const backup = await BackupService.exportConfig({
+      includeCredentials: Boolean(includeCredentials),
+      password: typeof password === "string" ? password : undefined,
+    });
+    res.json(backup);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to generate configuration backup" });
+  }
+});
+
+// POST /api/settings/backup/import - Import and restore configuration
+settingsRouter.post("/backup/import", async (req, res) => {
+  try {
+    const { backup, password, mode } = req.body || {};
+    if (!backup) {
+      res.status(400).json({ error: "Missing backup payload in request body" });
+      return;
+    }
+    const result = await BackupService.importConfig(backup, {
+      password: typeof password === "string" ? password : undefined,
+      mode: mode === "overwrite" ? "overwrite" : "merge",
+    });
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || "Failed to restore configuration backup" });
+  }
+});

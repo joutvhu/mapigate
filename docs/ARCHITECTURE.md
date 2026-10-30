@@ -19,7 +19,7 @@ graph TD
     end
 
     subgraph INGEST["2. Ingestion & Transport Layer"]
-        GATEWAY["Direct Gateway (Port 20127)<br/>• /v1/chat/completions (OpenAI)<br/>• /v1/messages (Anthropic)<br/>• /v1/responses (OpenAI Responses)<br/>• /v1/models & Static Web Assets"]
+        GATEWAY["Direct Gateway (Port 20127)<br/>• /v1/chat/completions (OpenAI)<br/>• /v1/messages & count_tokens (Anthropic)<br/>• /v1/responses (OpenAI Responses)<br/>• /v1/models & Static Web Assets"]
         MITM["Decoupled MITM Proxy (Port 443, bound to 127.0.0.1)<br/>• Dynamic Root CA & SNI TLS<br/>• Intercepts Copilot, Kiro IDE & Antigravity"]
     end
 
@@ -229,5 +229,5 @@ The dashboard and CLI talk to the gateway through a REST API under `/api/*`. Whe
 | `/api/usage` | Usage analytics | `GET /stats`, `GET /chart`, `GET /providers`, `GET /request-details`, `GET /request-details/:id`, `GET /stream` (SSE) |
 | `/api/stats` | Summary stats | `GET /`, `GET /logs` |
 | `/api/console-logs` | Server log viewer | `GET /`, `DELETE /`, `GET /stream` (SSE), `GET\|PUT /level` |
-| `/api/settings` | Settings | `GET\|PUT /`, `GET\|PUT /endpoint`, `GET\|POST /endpoint/keys`, `GET\|PUT /token-saver`, `GET\|PUT /capacity-adapter`, `GET\|PUT /logging`, `GET\|POST /autostart`, `GET /system-info` |
+| `/api/settings` | Settings & Backup | `GET\|PUT /`, `GET\|PUT /endpoint`, `GET\|POST /endpoint/keys`, `GET\|PUT /token-saver`, `GET\|PUT /capacity-adapter`, `GET\|PUT /logging`, `GET\|POST /autostart`, `GET /system-info`, `POST /backup/export`, `POST /backup/import` |
 | `/api/server` | Lifecycle | `POST /shutdown`, `POST /restart` |

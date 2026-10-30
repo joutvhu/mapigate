@@ -219,19 +219,42 @@ export async function handleStreamingResponse(
     };
   }
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders?.();
-
   let streamRes;
-  if (provider.streamResponse) {
-    streamRes = await provider.streamResponse(upstreamRes, res, context);
-  } else if (provider.streamType === "eventstream") {
-    streamRes = await pipeBedrockEventStream(upstreamRes, res, context, provider);
-  } else {
-    streamRes = await pipeSseStream(upstreamRes, res, context, provider);
+  try {
+    if (provider.streamResponse) {
+      if (!res.headersSent && !res.writableEnded && !res.destroyed) {
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.setHeader("X-Accel-Buffering", "no");
+        res.flushHeaders?.();
+      }
+      streamRes = await provider.streamResponse(upstreamRes, res, context);
+    } else if (provider.streamType === "eventstream") {
+      streamRes = await pipeBedrockEventStream(upstreamRes, res, context, provider);
+    } else {
+      streamRes = await pipeSseStream(upstreamRes, res, context, provider);
+    }
+  } catch (streamErr: any) {
+    if (!res.headersSent) {
+      const status = streamErr?.status || (streamErr?.isRateLimit ? 429 : 502);
+      const errMsg = streamErr?.message || "Failed during initial stream chunk";
+      logger.line(
+        context.reqTag || "STREAM",
+        LogSymbol.WARN,
+        `Initial stream chunk failed (${status}): ${errMsg}. Triggering fallback...`
+      );
+      return {
+        ok: false,
+        status,
+        error: errMsg,
+      };
+    }
+    return {
+      ok: false,
+      status: 500,
+      error: streamErr?.message || "Mid-stream connection error",
+    };
   }
 
   const durationMs = streamRes.totalDurationMs;
