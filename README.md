@@ -2,10 +2,10 @@
 
 # Mapigate 🚀
 
-### Ultra-Lightweight, Local-First AI Model API Gateway & Token Optimizer for Coding Assistants
+### Local-first AI model gateway and token optimizer for coding assistants
 
-**The unified routing plane for Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot, Kiro IDE, and 20+ developer coding tools.**  
-*Save 20% to 40% on token costs via in-place RTK compression, eliminate HTTP 429 rate-limit interruptions with automatic cascading fallback, balance multi-account quotas round-robin, and orchestrate 194+ AI providers on a single unified port (`20127`).*
+**One local endpoint (`http://127.0.0.1:20127`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 194 AI providers.**  
+*Works with Claude Code, Cursor, Cline, Codex, OpenCode, and 26 coding tools in total, plus GitHub Copilot, Kiro IDE, and Antigravity through a local MITM proxy.*
 
 ---
 
@@ -15,69 +15,65 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Version](https://img.shields.io/badge/version-0.5.31-orange.svg)](package.json)
 
-[**Why Mapigate?**](#-why-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-194) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
+[**What is Mapigate?**](#-what-is-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-194) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
 
 </div>
 
 ---
 
-## 🎯 Why Mapigate?
+## 🎯 What is Mapigate?
 
-When building software with AI coding assistants like **Claude Code**, **Cursor**, **Cline**, or **Codex**, developers face four critical bottlenecks:
+Mapigate is a local API gateway that runs on your machine (Node.js, single port `20127`). Coding tools send requests to it as if it were OpenAI or Anthropic. Mapigate picks the provider and account, compresses tool output, translates the request into the provider's format, and streams the answer back in the format the tool expects.
 
-1. **💸 Rapid Context Window & Token Bloat:** Agents frequently execute repetitive terminal commands (`git diff`, `grep_search`, `read_file`, `npm install`, build logs). These verbose outputs inject 15,000–50,000 redundant tokens per turn, inflating API bills and pushing models toward context limits.
-2. **⛔ Sudden Mid-Session Rate Limits (HTTP 429):** While deep in a multi-file refactoring loop, your primary model account suddenly hits quota or rate limits, abruptly terminating your coding session.
-3. **🔑 Provider & Configuration Fragment:** Juggling multiple accounts across Anthropic, OpenAI, Google AI Studio, DeepSeek, and AWS Bedrock requires editing dozens of individual extension settings files with mismatched protocol formats.
-4. **🔒 Locked-Down Endpoints in Closed Tools:** Tools like GitHub Copilot and Kiro IDE hardcode their upstream server endpoints, preventing you from pointing them to alternative providers or customized routing models.
+### At a glance
 
----
+| | |
+| :--- | :--- |
+| **Client APIs** | OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), OpenAI Responses (`/v1/responses`), model list (`/v1/models`). Streaming and non-streaming. |
+| **Providers** | 194 built in: 32 runtime (OAuth / custom auth: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Cursor, Bedrock, Azure…), 161 catalog (OpenRouter, Groq, Cerebras, Mistral, Together, Moonshot, Z.ai, local Ollama / LM Studio…), plus the combo engine. More via the community catalog. |
+| **Coding tools** | 26 with config definitions (`mpg connect`): Claude Code, Codex, OpenCode, Cline, Roo Code, Continue, Qwen Code, Crush, Factory Droid… Cursor via base URL override. Copilot, Kiro IDE, and Antigravity via MITM. |
+| **Routing** | Model aliases, global and per-tool model mappings, combos (`fallback`, `round-robin`, `fusion`, `lkgp`, `p2c`), multi-account rotation (`round-robin` / `fill-first`), automatic fallback on 429 and quota errors. |
+| **Token saving** | RTK compresses `git diff`, terminal logs, and search output in tool results (typically 20–40% fewer input tokens). Fail-open, and error results are never compressed. |
+| **Security** | Local only, no telemetry. API keys and OAuth tokens encrypted with AES-256-GCM keyed to your machine ID. Optional gateway API keys for `/v1/*` and a Master Password for the dashboard. |
+| **Interfaces** | Web dashboard (React), CLI `mpg` / `mapigate`, interactive TUI, system tray, background daemon, autostart on boot. |
 
-### 💡 The Mapigate Solution
+### Problems it solves
 
-Mapigate runs as an ultra-fast, 100% local proxy server directly on your development machine:
+1. **Token bloat:** agents resend large `git diff`, build logs, and grep output every turn. RTK trims them before they go upstream.
+2. **Rate limits mid-session:** when one account returns HTTP 429 or runs out of quota, the request moves to the next account or combo target.
+3. **Scattered configuration:** one place to manage keys, OAuth logins, and models for every tool, instead of editing each tool's settings file.
+4. **Closed tools:** Copilot, Kiro IDE, and Antigravity hardcode their endpoints. The MITM proxy redirects their chat traffic to the providers you choose.
+
+### How it fits together
 
 ```mermaid
 graph TD
-    subgraph CLIENTS["Your AI Coding Assistants"]
-        C1["Claude Code (CLI)"]
-        C2["Cursor IDE"]
-        C3["Cline / Roo Code"]
-        C4["OpenCode / Codex"]
-        C5["GitHub Copilot (MITM)"]
-        C6["Kiro IDE (MITM)"]
+    subgraph CLIENTS["Coding tools"]
+        C1["Claude Code"]
+        C2["Codex / OpenCode / Cline / Roo..."]
+        C3["Cursor (base URL override)"]
+        C4["Copilot / Kiro IDE / Antigravity (MITM)"]
     end
 
-    subgraph MAPIGATE["Mapigate Local Engine (:20127)"]
-        INGEST["Network Ingestion<br/>• Direct Gateway (:20127)<br/>• Decoupled MITM (:443)"]
-        ROUTER["Smart Router & Failover<br/>Automatic Cascading Fallback on 429"]
-        RTK["RTK Token Saver (Fail-Open)<br/>Compresses diffs, logs & grep in-place"]
-        COMBO["Combo Engine<br/>Fallback | Round-Robin | Fusion | LKGP | P2C"]
-        ADAPTER["Bidirectional Protocol Translators<br/>OpenAI ⇄ Anthropic ⇄ Responses ⇄ Gemini"]
-        VAULT[("AES-256-GCM Hardware Vault<br/>Keyed via host node-machine-id")]
+    subgraph MAPIGATE["Mapigate (local)"]
+        INGEST["Gateway :20127<br/>/v1/chat/completions · /v1/messages · /v1/responses<br/>MITM proxy :443"]
+        ROUTER["Router<br/>aliases · model mappings · combos · account rotation · fallback"]
+        RTK["RTK Token Saver (fail-open)"]
+        ADAPTER["Provider adapters<br/>OpenAI · Anthropic · Gemini · Bedrock · Kiro..."]
+        VAULT[("SQLite (WAL) + AES-256-GCM vault")]
     end
 
-    subgraph UPSTREAM["Upstream AI Cloud Providers (194+)"]
-        P1["Anthropic (Claude 3.7 Sonnet)"]
-        P2["OpenAI (GPT-4o / o3)"]
-        P3["DeepSeek (V3 / R1)"]
-        P4["Google AI Studio (Gemini 2.5)"]
-        P5["AWS Bedrock / Ollama Local"]
+    subgraph UPSTREAM["194 providers"]
+        P1["Runtime: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Bedrock..."]
+        P2["Catalog: OpenRouter, Groq, Cerebras, Mistral, Together..."]
+        P3["Local: Ollama, LM Studio, Jan"]
     end
 
-    CLIENTS --> INGEST
-    INGEST --> ROUTER
-    ROUTER --> COMBO
-    COMBO --> RTK
-    RTK --> ADAPTER
-    ADAPTER <--> VAULT
-    ADAPTER --> UPSTREAM
+    C1 & C2 & C3 --> INGEST
+    C4 --> INGEST
+    INGEST --> ROUTER --> RTK --> ADAPTER --> UPSTREAM
+    ROUTER <--> VAULT
 ```
-
-- ⚡ **Starts in `< 300ms` & Uses `< 50MB` RAM:** Built with zero runtime bloat. Serves streaming AI proxy endpoints and the static Web Dashboard on a **single unified port (`20127`)**.
-- 🛡️ **100% Local-First & Zero Telemetry:** Completely offline-friendly with zero remote phone-home pings. API keys and OAuth credentials are encrypted locally via **AES-256-GCM** with a dynamic key derived from your physical machine ID (`node-machine-id`).
-- ✂️ **In-Place RTK Token Saver:** Compresses verbose tool results before they leave your machine, slashing **20% to 40% of input tokens** while strictly preserving error traces and agent debugging accuracy.
-- 🔄 **Cascading Auto-Fallback:** If Claude hits a rate limit (HTTP 429), Mapigate transparently reroutes the ongoing request to a designated backup model (e.g. DeepSeek-R1 or GPT-4o) without dropping the client's SSE stream.
-- 🎯 **Bidirectional Multi-Protocol Translation:** Native translation between OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), and OpenAI Responses API (`/v1/responses`), preserving reasoning/thinking blocks and tool call streams.
 
 ---
 
