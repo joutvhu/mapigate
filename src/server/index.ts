@@ -179,10 +179,9 @@ app.use("/api/server", serverRouter);
 app.post("/api/shutdown", handleShutdownRequest);
 app.post("/api/restart", handleRestartRequest);
 
-// OAuth Callback Relay Endpoint
-app.get(["/callback", "/auth/callback"], (_req, res) => {
-  res.setHeader("Content-Type", "text/html; charset=utf-8");
-  res.send(`<!DOCTYPE html>
+// OAuth Callback Relay HTML generator
+function renderOAuthCallbackHtml(): string {
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -226,14 +225,18 @@ app.get(["/callback", "/auth/callback"], (_req, res) => {
   <script>
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const token = params.get("token");
+    const token = params.get("token") || params.get("access_token") || params.get("accessToken");
+    const userId = params.get("user_id") || params.get("userId");
     const state = params.get("state");
     const error = params.get("error");
     const errorDescription = params.get("error_description");
 
+    const effectiveCode = code || (userId && token ? window.location.href : token);
+
     const callbackData = {
-      code,
+      code: effectiveCode,
       token,
+      userId,
       state,
       error,
       errorDescription,
@@ -262,7 +265,7 @@ app.get(["/callback", "/auth/callback"], (_req, res) => {
 
     const title = document.getElementById("title");
     const desc = document.getElementById("desc");
-    if (code || token) {
+    if (effectiveCode) {
       title.textContent = "Authorization Successful!";
       desc.textContent = "This window will close automatically...";
       setTimeout(() => {
@@ -277,7 +280,27 @@ app.get(["/callback", "/auth/callback"], (_req, res) => {
     }
   </script>
 </body>
-</html>`);
+</html>`;
+}
+
+// Intercept OAuth callback on root path "/" (used by native-app flows like Zed)
+app.get("/", (req, res, next) => {
+  const hasCallbackParams = Boolean(
+    (req.query.user_id && (req.query.access_token || req.query.accessToken || req.query.token)) ||
+    (req.query.userId && (req.query.access_token || req.query.accessToken || req.query.token))
+  );
+
+  if (hasCallbackParams) {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(renderOAuthCallbackHtml());
+  }
+  next();
+});
+
+// OAuth Callback Relay Endpoint
+app.get(["/callback", "/auth/callback"], (_req, res) => {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderOAuthCallbackHtml());
 });
 
 import { fileURLToPath } from "node:url";

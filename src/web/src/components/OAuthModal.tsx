@@ -330,7 +330,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         setErrorMessage(data.errorDescription || data.error);
         return;
       }
-      const code = data.code || data.token;
+      const code = data.code || data.token || (data.userId && data.token ? (data.fullUrl || `${window.location.origin}/?user_id=${data.userId}&access_token=${data.token}`) : null);
       if (code) {
         exchangeCode(code);
       }

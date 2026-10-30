@@ -114,7 +114,7 @@ export const zedOAuthHandler: ProviderOAuthHandler = {
       authUrl: signInUrl.toString(),
       flowType: "authorization_code",
       redirectUri: params.redirectUri,
-      state: params.state,
+      state: params.state || systemId,
       codeVerifier: encodeZedPrivateKeyVerifier(privateKey),
       systemId,
     };

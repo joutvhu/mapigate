@@ -20,11 +20,19 @@ import { RestartModal } from "./components/RestartModal";
 import type { ProviderItem } from "./constants/providersData";
 
 export default function App() {
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const hasCallbackParams = Boolean(
+    searchParams &&
+      ((searchParams.has("user_id") && (searchParams.has("access_token") || searchParams.has("accessToken") || searchParams.has("token"))) ||
+        (searchParams.has("userId") && (searchParams.has("access_token") || searchParams.has("accessToken") || searchParams.has("token"))))
+  );
+
   const isCallbackRoute =
     typeof window !== "undefined" &&
     (window.location.pathname === "/callback" ||
       window.location.pathname === "/auth/callback" ||
-      window.location.pathname.startsWith("/callback"));
+      window.location.pathname.startsWith("/callback") ||
+      hasCallbackParams);
 
   if (isCallbackRoute) {
     return <CallbackPage />;

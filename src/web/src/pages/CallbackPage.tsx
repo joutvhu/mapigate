@@ -12,14 +12,18 @@ export function CallbackPage() {
 
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    const token = params.get("token");
+    const token = params.get("token") || params.get("access_token") || params.get("accessToken");
+    const userId = params.get("user_id") || params.get("userId");
     const state = params.get("state");
     const error = params.get("error");
     const errorDescription = params.get("error_description");
 
+    const effectiveCode = code || (userId && token ? window.location.href : token);
+
     const callbackData = {
-      code,
+      code: effectiveCode,
       token,
+      userId,
       state,
       error,
       errorDescription,
@@ -53,7 +57,7 @@ export function CallbackPage() {
       return;
     }
 
-    if (!code && !token) {
+    if (!effectiveCode) {
       setStatus("manual");
       return;
     }
@@ -75,7 +79,7 @@ export function CallbackPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              code: code || token,
+              code: effectiveCode,
               redirectUri: pendingFlow.redirectUri || `${window.location.origin}/callback`,
               codeVerifier: pendingFlow.codeVerifier,
               state: state || pendingFlow.state,
