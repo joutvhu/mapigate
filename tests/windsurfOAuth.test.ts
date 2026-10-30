@@ -61,3 +61,37 @@ test("Windsurf OAuth Handler - exchange Devin auth code", async () => {
     globalThis.fetch = origFetch;
   }
 });
+
+test("WindsurfProvider - probeModels verifies token via GetPlanStatus", async () => {
+  const { WindsurfProvider } = await import("../src/providers/runtime/windsurf/provider.js");
+  const provider = new WindsurfProvider();
+
+  // 1. Missing token
+  const noTokenRes = await provider.probeModels({} as any);
+  assert.equal(noTokenRes?.success, false);
+  assert.ok(noTokenRes?.error?.includes("required"));
+
+  // 2. Valid token mock
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input: any) => {
+      const url = String(input);
+      if (url.includes("/GetPlanStatus")) {
+        return new Response(JSON.stringify({ plan: "pro" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const validRes = await provider.probeModels({
+      apiKey: "session_tok_12345",
+    } as any);
+
+    assert.equal(validRes?.success, true);
+    assert.ok((validRes?.count || 0) > 0);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
