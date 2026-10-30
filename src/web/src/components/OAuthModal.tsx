@@ -185,6 +185,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                     codeVerifier: dData.codeVerifier,
                     region: currentRegion || undefined,
                     extraData: {
+                      ...(dData || {}),
                       _zcodePollToken: dData._zcodePollToken,
                       _minimaxPollByUser: dData._minimaxPollByUser,
                       codeVerifier: dData.codeVerifier,
