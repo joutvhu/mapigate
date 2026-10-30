@@ -4,7 +4,6 @@ import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult 
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { metadata } from "./metadata.js";
 import { getCodeBuddyUsage } from "./quota.js";
-import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 
 const NEUTRAL_PROMPT = "You are a helpful AI assistant that helps with software engineering tasks.";
 
@@ -72,7 +71,8 @@ export class CodebuddyProvider extends OpenAiCompatibleProvider {
     const isCn = psd.region === "cn";
     const host = isCn ? "https://copilot.tencent.com" : "https://www.codebuddy.ai";
     const timeoutMs = context.timeoutMs || 8000;
-    const url = `${host}/v2/models`;
+    // CodeBuddy exposes no /models listing; /v2/plugin/accounts validates the token.
+    const url = `${host}/v2/plugin/accounts`;
 
     const reqHeaders: Record<string, string> = {
       Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
@@ -93,14 +93,20 @@ export class CodebuddyProvider extends OpenAiCompatibleProvider {
         signal: AbortSignal.timeout(timeoutMs),
       });
 
-      if (res.ok || res.status === 200) {
-        const payload: any = await res.json();
-        const models = extractModelsFromPayload(payload, this.id);
+      if (res.ok) {
+        const payload: any = await res.json().catch(() => null);
+        if (payload && payload.code !== undefined && payload.code !== 0) {
+          return {
+            success: false,
+            error: `CodeBuddy rejected the token: ${payload.msg || `code ${payload.code}`}`,
+            authError: payload.msg || "Invalid CodeBuddy token",
+          };
+        }
         return {
           success: true,
           endpointUrl: url,
-          models: models.length > 0 ? models : metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
-          count: models.length > 0 ? models.length : metadata.models.length,
+          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+          count: metadata.models.length,
         };
       }
 
