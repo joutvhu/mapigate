@@ -223,3 +223,29 @@ To run end-to-end system validation:
 ```bash
 mpg doctor
 ```
+
+---
+
+## 11. Tools & Mappings: Global & Per-Tool Model Mappings
+
+In the Mapigate Web Dashboard, the **Tools & Mappings** tab provides unified control over tool discovery, configuration, and intelligent model alias mapping:
+
+### 11.1. Dual View Modes
+- **Tool Catalog View:** Displays interactive cards for all 26 supported assistants. Each card shows live connection status (`Connected`, `Setup Guide`, `Not configured`, `Not installed`), configuration file locations, quick PowerShell/Bash environment copy buttons, and a **Sync Aliases to Global Mappings** button.
+- **Global Model Mappings View:** A centralized table for managing how model identifiers requested by coding tools translate to upstream targets or combos.
+
+### 11.2. Global Model Mapping (`/api/model-mappings/global-mappings`)
+Many coding assistants have hardcoded model names (e.g. `claude-3-5-sonnet-20241022`, `gpt-4o`, `o1`). The Model Mapping subsystem intercepts these identifiers and routes them to your designated target model or multi-model combo:
+- **Source Model:** The model string requested by the client tool.
+- **Target Model:** The actual provider model or combo to invoke (e.g. `deepseek-chat`, `claude-sonnet-4-6`, or `combo:coding-combo`).
+- **Normalized `combo:` Prefix:** You can specify `combo:coding-combo` or simply `coding-combo`. Mapigate automatically normalizes the prefix across APIs and UI badges.
+
+### 11.3. Per-Tool Model Mapping Overrides (`/api/model-mappings/tool-mappings`)
+When different coding tools require distinct model behaviors for the same model name:
+- Define per-tool overrides in the tool detail modal.
+- Mapigate checks tool-specific mappings first before falling back to global mappings, ensuring complete flexibility.
+
+### 11.4. Preset Import & Export
+- **Export Presets:** Save your entire mapping setup as a shareable JSON file.
+- **Import Presets:** Load pre-configured mapping recipes (e.g. "Cost-Optimized Stack", "Maximum Reasoning Stack", or "Local Ollama Fallback") with a single click.
+

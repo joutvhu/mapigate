@@ -1,6 +1,6 @@
 # Providers, Models & Routing Architecture — Mapigate
 
-> Mapigate integrates over **190 AI model providers** into a unified routing plane with multi-account rotation, dynamic fallback, and model combo strategies.
+> Mapigate integrates over **194 AI model providers** into a unified routing plane with multi-account rotation, dynamic fallback, and model combo strategies.
 
 ---
 
@@ -138,3 +138,44 @@ When Claude Code requests:
 - `claude-3-opus-20240229` or `opus` ➔ routes to thinking-enabled models.
 
 You can customize these aliases in the **Models** tab of the Web Dashboard or via `mpg connect claude --sonnet <model>`.
+
+---
+
+## 5. Custom Default Headers Management
+
+Mapigate provides granular control over the HTTP headers sent to upstream providers, accessible via **Providers** → Click Provider → **HTTP Headers**:
+
+### 5.1. System Defaults & Custom Overrides
+- **Registry Defaults:** Each provider comes with pre-configured headers (such as `anthropic-version`, `anthropic-beta`, custom `User-Agent`, or API versioning headers) declared in its `metadata.ts`.
+- **Custom Overrides:** Developers can override default values directly from the Web Dashboard without modifying source code.
+
+### 5.2. Disabling or Omitting Default Headers
+In certain integration environments (e.g. corporate proxies, custom API gateways, or strict enterprise firewalls), certain upstream default headers must be suppressed:
+- Setting a header override value to empty string `""` explicitly **omits** that header from outgoing requests.
+- The UI provides **Disable** / **Enable** buttons for instant toggling.
+
+### 5.3. Isolation and Non-Destructive Storage
+- Custom headers are saved in the local SQLite database (`providers.customHeaders`).
+- When Mapigate starts, it merges runtime database overrides on top of registry defaults without mutating the immutable provider definitions in `src/providers/`.
+- Clicking **Reset to Defaults** restores the provider's exact factory headers.
+
+---
+
+## 6. Combo Execution Analytics & Prefix Normalization
+
+### 6.1. Unified Execution Logging
+When a request targets a multi-model combo (e.g. `coding-combo` using a `fallback` strategy from Claude to DeepSeek):
+- Mapigate records the parent combo invocation as well as the exact sub-provider/sub-model that satisfied the query.
+- In the event of a cascading failover (e.g. primary encountered HTTP 429), both the failed attempt and the successful fallback are recorded.
+
+### 6.2. Combo Analytics in the Usage Dashboard
+The **Usage** tab includes dedicated analytics for combo performance:
+- **Sub-Model Distribution:** Tracks how often secondary or tertiary fallback models were triggered.
+- **Latency Breakdown:** Compares response latency across different models within a combo.
+- **Failover Frequency:** Alerts developers when a primary account is experiencing frequent rate limits.
+
+### 6.3. Normalized `combo:` Prefix
+In model mapping tables, CLI commands, and API requests:
+- Target models can be specified with or without the `combo:` prefix (e.g. `combo:fast-code` or `fast-code`).
+- Mapigate automatically normalizes the prefix, resolving combos seamlessly while preventing naming collisions with standalone upstream models.
+

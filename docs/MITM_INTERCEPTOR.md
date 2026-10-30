@@ -67,10 +67,30 @@ Mapigate automatically adds the required entries to your system `hosts` file (`C
 - **Trajectory Preservation:** Tracks turn sequences and session IDs (`toNumericSessionId`), activating Google Cloud Code Prompt KV caching for **~98% cache hit rate**, dropping turn latency from 12s to under 2s.
 - **Thought Signature Persistence:** Safely persists cryptographic reasoning thought signatures in SQLite (`kv_store` with 7-day TTL) so multi-turn reasoning is never broken.
 - **Binary Event Stream Framing:** Translates upstream chunks into Kiro's binary event-stream frames (`toolUseEvent`, `messageStopEvent`, `usageEvent`).
+- **Alphabetical Model Sorting:** Models presented to Kiro are organized alphabetically with `auto` pinned at the top for consistent model selection.
 
 ---
 
-## 4. Disabling and Uninstalling MITM
+## 4. Security & Port Lifecycle Invariants
+
+### 4.1. Localhost Binding Restriction (`127.0.0.1`)
+For maximum security, the MITM interceptor binds strictly to the loopback address (`127.0.0.1`). It never binds to `0.0.0.0`, preventing devices on the same local area network (LAN) from accessing the proxy or intercepted traffic.
+
+### 4.2. Security Headers & Telemetry Stripping
+- Outgoing upstream requests have proprietary IDE telemetry headers stripped (e.g. tracking cookies, device tokens, and analytics identifiers).
+- Incoming intercepted responses receive security headers, preventing local browser-based exploits or CSRF attempts against the proxy endpoints.
+
+### 4.3. Port Conflict Detection & Daemon Shutdown
+- Before starting, the MITM server validates that ports `443` or `8443` are free.
+- On Windows, Winsock socket states (such as `TIME_WAIT`) are handled defensively.
+- When stopping Mapigate (`mpg stop`), the MITM server closes active client sockets and safely releases port bindings.
+
+### 4.4. Live Status Indicator in Web UI Header
+The Mapigate Web Dashboard header features a live status indicator showing whether the MITM proxy is active and healthy, including a visual badge and quick-toggle options.
+
+---
+
+## 5. Disabling and Uninstalling MITM
 
 When you no longer need HTTPS interception:
 1. In the **MITM** tab, toggle OFF the active tool interception. Mapigate cleanly removes the DNS entries from your `hosts` file.

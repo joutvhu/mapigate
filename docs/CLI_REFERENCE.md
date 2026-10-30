@@ -220,7 +220,7 @@ mpg doctor
 ```
 
 **Checks Performed:**
-1. **Node.js Runtime:** Verifies version `>= 18.0.0`.
+1. **Node.js Runtime:** Verifies version `>= 22.5.0` (Node 22 LTS recommended for native `node:sqlite`).
 2. **Server Port (20127):** Verifies availability or health response from `/health`.
 3. **Storage & SQLite WAL:** Checks data directory (`~/.mapigate`), database file integrity, and WAL mode.
 4. **Hardware Encryption Vault:** Verifies `node-machine-id` extraction for AES-256-GCM key derivation.

@@ -7,7 +7,7 @@
 
 ## 1. Prerequisites & Environment Setup
 
-- **Node.js:** `>= 18.0.0` (Node.js 20 or 22 LTS recommended).
+- **Node.js:** `>= 22.5.0` (Node.js 22 LTS recommended for native `node:sqlite` WAL mode support).
 - **Supported OS:** Windows (PowerShell) and Linux/macOS. Shell scripts (`.sh`) are prohibited; all tooling is cross-platform Node.js (`.mjs` / `.ts`).
 - **Package Manager:** `npm`, `pnpm`, or `yarn`.
 
@@ -36,9 +36,12 @@ npm run dev
 | `npm run codegen` | Scans module directories and regenerates typed registries (`scripts/generate-registries.mjs`) |
 | `npm run build` | Cleans `dist/`, compiles server TypeScript to `dist/server`, and builds Vite SPA to `dist/web` |
 | `npm run typecheck`| Validates TypeScript type safety across the entire codebase (`tsc --noEmit`) |
-| `npm test` | Runs the automated test suite (86+ test specs using the Node.js native test runner) |
+| `npm test` | Runs the automated test suite (102+ test suites covering 300+ tests using the Node.js native test runner) |
 | `npm run clean` | Removes the compiled `dist/` directory |
 | `npm run cli` | Runs the CLI directly via `tsx src/cli/index.ts` without needing a compilation step |
+| `npm run build:icons` | Regenerates icon assets and favicon variants (`scripts/generate-icons.mjs`) |
+| `npm run local:pack` | Validates build and packages a local tarball artifact |
+| `npm run local:publish` | Installs and tests the package locally in the global environment |
 | `npm link` | Creates a global symlink so `mpg` and `mapigate` can be invoked from any directory |
 
 ---
@@ -47,7 +50,7 @@ npm run dev
 
 Mapigate strictly enforces the **Open-Closed Principle (OCP)**:
 - Developers **never** manually edit import lists, central routing switch-cases, or static provider arrays.
-- `scripts/generate-registries.mjs` acts as an automated, pure file-system scanner. It detects modules and generates typed registries in `generated/`.
+- `scripts/generate-registries.mjs` acts as an automated, pure file-system scanner. It scans modules (currently discovering **194 providers**, **21 provider routes**, **3 MITM handlers**, and **26 CLI tools**) and generates typed registries in `generated/`.
 
 ```mermaid
 graph LR
@@ -176,3 +179,24 @@ When writing code for Mapigate, adhere to these development rules:
 3. **API Key Security Invariant:** Credentials saved to SQLite must be encrypted via `cryptoVault.encrypt()` using the Machine ID key. Plaintext keys must never be logged.
 4. **Cross-Platform Compatibility:** Never introduce `.sh` shell scripts. Always use `node:path` methods (`path.join`, `path.resolve`) for filesystem operations.
 5. **UI Icon Consistency:** Render provider, tool, and MITM icons through `src/web/src/components/ui/ToolIcon.tsx` with proper `iconBg` support for dark surfaces.
+
+---
+
+## 6. Automated CI/CD & GitHub Actions Workflows
+
+Mapigate enforces quality and automated releases through GitHub Actions:
+
+### 6.1. Continuous Integration (`.github/workflows/ci.yml`)
+Runs automatically on every push and pull request to the `main` branch across both **Ubuntu** and **Windows** operating systems:
+- Sets up Node.js 22 LTS environment.
+- Installs dependencies via `npm ci`.
+- Runs static typechecking (`npm run typecheck`).
+- Builds production server and Vite dashboard bundles (`npm run build`).
+- Executes the full automated test suite (`npm test`).
+
+### 6.2. Automated npm Release (`.github/workflows/release.yml`)
+Triggered automatically whenever a new GitHub Release is published:
+- Sets up Node.js 22 with the npm registry endpoint.
+- Verifies package integrity and executes full build verification.
+- Publishes the bundle directly to npm with public access using `NPM_TOKEN`.
+

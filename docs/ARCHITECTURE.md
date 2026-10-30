@@ -38,7 +38,7 @@ graph TD
         KV["KV Store (TTL Cache)<br/>Thought signatures & session states"]
     end
 
-    subgraph UPSTREAM["5. Upstream Providers (190+)"]
+    subgraph UPSTREAM["5. Upstream Providers (194+)"]
         PROV_RUN["Runtime Providers<br/>Claude, OpenAI, Bedrock, DeepSeek, Gemini, Antigravity"]
         PROV_CAT["Catalog Providers (100+)<br/>Groq, Cerebras, Mistral, Together, OpenRouter..."]
     end
@@ -197,7 +197,7 @@ mapigate/
 │   │   ├── router/              # Routing rules, fallback chains, combo presets, load balancing
 │   │   ├── tokenSaver/          # Token Saver architecture (RTK, Caveman, Ponytail, CustomPrompt)
 │   │   └── scheduler/           # Periodic quota resets and OAuth token refreshers
-│   ├── providers/               # Hierarchical Provider Modules (190+ providers)
+│   ├── providers/               # Hierarchical Provider Modules (194+ providers)
 │   │   ├── runtime/             # Custom providers (claude, openai, bedrock, copilot, antigravity...)
 │   │   ├── composite/           # Multi-model composite providers (combo engine)
 │   │   └── catalog/             # Lightweight standard providers (100+ API-key providers)
@@ -207,5 +207,5 @@ mapigate/
 │   ├── web/                     # Web Dashboard SPA (React 19 + Vite + Tailwind CSS)
 │   └── shared/                  # Common TypeScript interfaces, enums, constants
 ├── docs/                        # Complete technical documentation suite
-└── tests/                       # Automated test suite (86+ test specs)
+└── tests/                       # Automated test suite (102+ test suites)
 ```

@@ -5,15 +5,15 @@
 ### Ultra-Lightweight, Local-First AI Model API Gateway & Token Optimizer for Coding Assistants
 
 **The unified routing plane for Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot, Kiro IDE, and 20+ developer coding tools.**  
-*Save 20% to 40% on token costs via in-place RTK compression, eliminate HTTP 429 rate-limit interruptions with automatic cascading fallback, balance multi-account quotas round-robin, and orchestrate 190+ AI providers on a single unified port (`20127`).*
+*Save 20% to 40% on token costs via in-place RTK compression, eliminate HTTP 429 rate-limit interruptions with automatic cascading fallback, balance multi-account quotas round-robin, and orchestrate 194+ AI providers on a single unified port (`20127`).*
 
 ---
 
-[![Node.js Version](https://img.shields.io/badge/Node.js-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/Node.js-%3E%3D22.5.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blueviolet.svg)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/version-0.3.74-orange.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.5.31-orange.svg)](package.json)
 
 [**Why Mapigate?**](#-why-mapigate) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
 
@@ -56,7 +56,7 @@ graph TD
         VAULT[("AES-256-GCM Hardware Vault<br/>Keyed via host node-machine-id")]
     end
 
-    subgraph UPSTREAM["Upstream AI Cloud Providers (190+)"]
+    subgraph UPSTREAM["Upstream AI Cloud Providers (194+)"]
         P1["Anthropic (Claude 3.7 Sonnet)"]
         P2["OpenAI (GPT-4o / o3)"]
         P3["DeepSeek (V3 / R1)"]
@@ -85,7 +85,7 @@ graph TD
 
 ### 1. Installation
 
-Requires **Node.js `>= 18.0.0`**:
+Requires **Node.js `>= 22.5.0`** (Node 22 LTS recommended for built-in `node:sqlite` WAL engine):
 
 ```bash
 # Clone the repository
@@ -355,13 +355,13 @@ Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashbo
 
 | Dashboard Tab | Actions & Capabilities |
 | :--- | :--- |
-| **Providers** | Add, edit, and test API keys; 1-click OAuth login (Google, GitHub Copilot...); auto-import keys from installed IDEs. |
-| **Combos** | Visually build cascading Fallback chains, Round-Robin account pools, or Fusion judge setups. |
-| **CLI Tools** | Check the connection health of 26 coding assistants; apply or reset configs with a single click. |
-| **MITM** | Install/uninstall Root CA, toggle Copilot/Kiro interception, and customize model mappings. |
+| **Providers** | Add, edit, and test API keys; 1-click OAuth login (Google, GitHub Copilot...); auto-import keys from installed IDEs; customize, override, or disable/omit default headers. |
+| **Combos** | Visually build cascading Fallback chains, Round-Robin account pools, or Fusion judge setups with normalized `combo:` prefix support. |
+| **Tools & Mappings** | Inspect connection health for 26 coding assistants; 1-click apply/reset configs; configure Global Model Mappings and Per-Tool Model Mappings; import/export preset configurations. |
+| **MITM** | Install/uninstall Root CA, toggle Copilot/Kiro interception with live header status indicator, secure `127.0.0.1` binding, and customize model mappings. |
 | **Token Saver** | View real-time token savings counters, estimated dollar savings, and adjust RTK compression filters. |
 | **Quotas** | Track daily/monthly usage budgets per account and configure automatic reset schedules. |
-| **Usage** | Interactive charts for request volume, latency distribution, and model consumption breakdown. |
+| **Usage** | Interactive charts for request volume, latency distribution, model consumption breakdown, and combo execution analytics. |
 | **Endpoints** | Test gateway endpoints (`/v1/chat/completions`, `/v1/messages`) and copy quick-start code snippets. |
 | **Console Logs** | Real-time streaming server log viewer with search and log level filtering directly in your browser. |
 | **Settings** | Configure Master Password protection, server ports, autostart on boot, and data directories. |
@@ -412,7 +412,7 @@ End users do not need to worry about internal architecture. If you are a develop
 - 📖 [**Specialized Technical Guides**](docs/):
   - [Full CLI Reference Manual (docs/CLI_REFERENCE.md)](docs/CLI_REFERENCE.md)
   - [Detailed Coding Tools Guide (docs/CODING_TOOLS.md)](docs/CODING_TOOLS.md)
-  - [190+ Providers & Combo Engine (docs/PROVIDERS_AND_MODELS.md)](docs/PROVIDERS_AND_MODELS.md)
+  - [194+ Providers & Combo Engine (docs/PROVIDERS_AND_MODELS.md)](docs/PROVIDERS_AND_MODELS.md)
   - [RTK Token Saver Specification (docs/RTK_TOKEN_SAVER.md)](docs/RTK_TOKEN_SAVER.md)
   - [MITM HTTPS Interceptor Manual (docs/MITM_INTERCEPTOR.md)](docs/MITM_INTERCEPTOR.md)
 
