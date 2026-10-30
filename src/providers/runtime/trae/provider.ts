@@ -53,47 +53,60 @@ export class TraeProvider extends OpenAiCompatibleProvider {
       };
     }
 
+    const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
+    const loginHost = String(psd.loginHost || "https://api.marscode.com").replace(/\/$/, "");
     const timeoutMs = context.timeoutMs || 8000;
-    try {
-      const userRes = await fetch("https://api.marscode.com/cloudide/api/v3/trae/GetUserInfo", {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Cloud-IDE-JWT ${token}`,
-          "x-cloudide-token": token,
-          ...(context.customHeaders || {}),
-        },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+    const candidateUrls = [
+      `${loginHost}/cloudide/api/v3/trae/GetUserInfo`,
+      "https://api.marscode.com/cloudide/api/v3/trae/GetUserInfo",
+      "https://api.trae.ai/cloudide/api/v3/trae/GetUserInfo",
+    ];
 
-      if (userRes.ok || userRes.status === 200) {
-        return {
-          success: true,
-          endpointUrl: "https://api.marscode.com/cloudide/api/v3/trae",
-          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
-          count: metadata.models.length,
-        };
+    let lastErr = "";
+    for (const url of candidateUrls) {
+      try {
+        const userRes = await fetch(url, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Cloud-IDE-JWT ${token}`,
+            "x-cloudide-token": token,
+            "User-Agent": "Trae/1.0.0 Mapigate",
+            ...(context.customHeaders || {}),
+          },
+          body: JSON.stringify({}),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+
+        if (userRes.ok || userRes.status === 200) {
+          return {
+            success: true,
+            endpointUrl: url,
+            models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+            count: metadata.models.length,
+          };
+        }
+
+        if (userRes.status === 401 || userRes.status === 403) {
+          return {
+            success: false,
+            error: `Authentication failed (HTTP ${userRes.status}): Invalid or expired Trae token`,
+            authError: "Invalid or expired Trae token",
+          };
+        }
+
+        const errText = await userRes.text().catch(() => "");
+        lastErr = `Endpoint returned HTTP ${userRes.status}: ${errText.slice(0, 100)}`;
+      } catch (err: unknown) {
+        lastErr = err instanceof Error ? err.message : String(err);
       }
-
-      if (userRes.status === 401 || userRes.status === 403) {
-        return {
-          success: false,
-          error: `Authentication failed (HTTP ${userRes.status}): Invalid or expired Trae token`,
-          authError: "Invalid or expired Trae token",
-        };
-      }
-
-      const errText = await userRes.text().catch(() => "");
-      return {
-        success: false,
-        error: `Endpoint returned HTTP ${userRes.status}: ${errText.slice(0, 100)}`,
-      };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return {
-        success: false,
-        error: `Failed to connect to Trae: ${msg}`,
-      };
     }
+
+    return {
+      success: false,
+      error: `Failed to connect to Trae: ${lastErr || "Unknown error"}`,
+    };
   }
 
   private base(context: ProviderRequestContext): string {
