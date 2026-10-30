@@ -96,6 +96,7 @@ export const STANDARD_MODELS: Record<string, string> = {
 
   // ── Google Gemini & Gemma ──
   "gemini-4-argon": "Gemini 4 Argon",
+  "gemini-4-carbon": "Gemini 4 Carbon",
   "gemini-4-ultra": "Gemini 4 Ultra",
   "gemini-4-pro": "Gemini 4 Pro",
   "gemini-4-flash": "Gemini 4 Flash",

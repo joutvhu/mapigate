@@ -12,13 +12,33 @@ export const metadata: ProviderRegistryItem = {
   },
   "category": "apikey",
   "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
+  "baseUrl": "https://api.search.tinyfish.ai",
+  "baseUrls": [
+    "https://api.search.tinyfish.ai",
+    "https://api.fetch.tinyfish.ai",
+    "https://agent.tinyfish.ai/v1"
+  ],
+  "validateUrl": "https://api.search.tinyfish.ai/usage?limit=1",
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
-  "models": []
+  "models": [
+    {
+      "id": "tinyfish/search",
+      "name": "TinyFish Web Search",
+      "contextLength": 128000
+    },
+    {
+      "id": "tinyfish/fetch",
+      "name": "TinyFish Web Fetch",
+      "contextLength": 128000
+    },
+    {
+      "id": "tinyfish/agent",
+      "name": "TinyFish Web Agent",
+      "contextLength": 128000
+    }
+  ]
 };
 
 export const provider = metadata;
