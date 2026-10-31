@@ -80,7 +80,7 @@ export const iflowOAuthHandler: ProviderOAuthHandler = {
 
     const apiKey = userJson.data.apiKey;
     const email = userJson.data.email || userJson.data.phone || "iFlow User";
-    const displayName = userJson.data.nickname || userJson.data.name || email;
+    const displayName = userJson.data.userName || userJson.data.name || userJson.data.nickname || email;
 
     ProviderRepository.ensureProviderExists("iflow");
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
