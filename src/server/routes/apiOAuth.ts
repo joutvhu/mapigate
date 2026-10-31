@@ -63,11 +63,13 @@ oauthRouter.post("/:provider/poll", async (req, res) => {
     const handler = OAuthHandlerRegistry.get(provider);
     if (!handler.poll) return res.status(400).json({ error: `Poll not supported for provider '${provider}'` });
     res.json(await handler.poll({
+      provider,
+      providerId: provider,
       deviceCode: device_code,
       device_code,
       codeVerifier: codeVerifier || code_verifier,
       region,
-      extraData: { ...(extraData || {}), ...(region ? { region } : {}) },
+      extraData: { ...(extraData || {}), ...(region ? { region } : {}), provider },
     }));
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to poll token" });

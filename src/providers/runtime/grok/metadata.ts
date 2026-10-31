@@ -80,7 +80,6 @@ export const metadata: ProviderRegistryItem = {
     }
   ],
   "aliases": [
-    "grok-cli",
     "grok",
     "xai"
   ],

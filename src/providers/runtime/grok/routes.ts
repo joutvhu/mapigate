@@ -23,7 +23,8 @@ const GROK_SCOPE =
 export const grokOAuthHandler: ProviderOAuthHandler = {
   id: "grok",
 
-  async deviceCode(_params?: DeviceCodeParams): Promise<DeviceCodeResult> {
+  async deviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
+    const provider = params?.provider || "grok";
     const body = new URLSearchParams({
       client_id: GROK_CLIENT_ID,
       scope: GROK_SCOPE,
@@ -47,6 +48,8 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
 
     const data: any = await res.json();
     return {
+      provider,
+      _provider: provider,
       device_code: data.device_code,
       user_code: data.user_code,
       verification_uri: data.verification_uri || data.verification_url || "https://accounts.x.ai/oauth2/device",
@@ -112,12 +115,24 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
         }
       } catch {}
 
-      ProviderRepository.ensureProviderExists("grok");
+      const rawProvider = (
+        params.provider ||
+        params.providerId ||
+        params.extraData?.provider ||
+        params.extraData?._provider ||
+        ""
+      ).toLowerCase();
+      const targetProviderId =
+        (rawProvider === "grok-cli" || rawProvider === "supergrok" || rawProvider === "grok-build" || rawProvider === "gcli")
+          ? "grok-cli"
+          : "grok";
+
+      ProviderRepository.ensureProviderExists(targetProviderId);
       const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
 
       ProviderRepository.addAccount({
         id: accountId,
-        providerId: "grok",
+        providerId: targetProviderId,
         name: accountName,
         rawApiKey: data.access_token,
         providerSpecificData: {
@@ -134,7 +149,7 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
         account: {
           id: accountId,
           name: accountName,
-          providerId: "grok",
+          providerId: targetProviderId,
         },
       };
     }
@@ -168,12 +183,22 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
       } catch {}
     }
 
-    ProviderRepository.ensureProviderExists("grok");
+    const rawProvider = (
+      params.provider ||
+      (params as any).providerId ||
+      ""
+    ).toLowerCase();
+    const targetProviderId =
+      (rawProvider === "grok-cli" || rawProvider === "supergrok" || rawProvider === "grok-build" || rawProvider === "gcli")
+        ? "grok-cli"
+        : "grok";
+
+    ProviderRepository.ensureProviderExists(targetProviderId);
     const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
 
     ProviderRepository.addAccount({
       id: accountId,
-      providerId: "grok",
+      providerId: targetProviderId,
       name: accountName,
       rawApiKey: raw,
       providerSpecificData: {
@@ -187,7 +212,7 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
       account: {
         id: accountId,
         name: accountName,
-        providerId: "grok",
+        providerId: targetProviderId,
       },
     };
   },

@@ -77,4 +77,57 @@ test("Grok OAuth Handler - exchange supports manual token", async () => {
   assert.equal(res.success, true);
   assert.ok(res.account?.id);
   assert.equal(res.account?.providerId, "grok");
+
+  // When connecting for grok-cli (SuperGrok), account must be saved to grok-cli
+  const resCli = await grokOAuthHandler.exchange!({
+    provider: "grok-cli",
+    code: "xai-test-manual-cli-key",
+  });
+  assert.equal(resCli.success, true);
+  assert.ok(resCli.account?.id);
+  assert.equal(resCli.account?.providerId, "grok-cli");
+});
+
+test("Grok Providers - Account separation between grok and grok-cli", async () => {
+  const { ProviderRepository } = await import("../src/storage/repositories/providerRepo.js");
+
+  const grokAccounts = ProviderRepository.getAllAccountsByProvider("grok");
+  const grokCliAccounts = ProviderRepository.getAllAccountsByProvider("grok-cli");
+
+  for (const acc of grokAccounts) {
+    assert.equal(acc.providerId, "grok", "grok accounts must have providerId 'grok'");
+  }
+  for (const acc of grokCliAccounts) {
+    assert.equal(acc.providerId, "grok-cli", "grok-cli accounts must have providerId 'grok-cli'");
+  }
+});
+
+test("Grok OAuth Handler - poll saves to grok or grok-cli based on provider param", async () => {
+  const { grokOAuthHandler } = await import("../src/providers/runtime/grok/routes.js");
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input: any) => {
+      const url = String(input);
+      if (url.includes("/oauth2/token")) {
+        return new Response(JSON.stringify({ access_token: "mock-tok", refresh_token: "mock-ref" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    };
+
+    const pollGrok = await grokOAuthHandler.poll!({
+      provider: "grok",
+      deviceCode: "code-grok",
+    });
+    assert.equal(pollGrok.ok, true);
+    assert.equal(pollGrok.account?.providerId, "grok");
+
+    const pollGrokCli = await grokOAuthHandler.poll!({
+      provider: "grok-cli",
+      deviceCode: "code-cli",
+    });
+    assert.equal(pollGrokCli.ok, true);
+    assert.equal(pollGrokCli.account?.providerId, "grok-cli");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });
