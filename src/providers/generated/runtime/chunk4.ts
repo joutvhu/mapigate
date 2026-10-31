@@ -10,7 +10,6 @@ import Prov_openrouter from "../../catalog/openrouter/provider.js";
 import Prov_orcarouter from "../../catalog/orcarouter/provider.js";
 import Prov_ovhcloud from "../../catalog/ovhcloud/provider.js";
 import Prov_perplexity from "../../catalog/perplexity/provider.js";
-import Prov_perplexity_agent from "../../catalog/perplexity-agent/provider.js";
 import Prov_perplexity_web from "../../catalog/perplexity-web/provider.js";
 import Prov_pioneer from "../../catalog/pioneer/provider.js";
 import Prov_plamo from "../../catalog/plamo/provider.js";
@@ -40,6 +39,7 @@ import Prov_siliconflow from "../../catalog/siliconflow/provider.js";
 import Prov_snowflake from "../../catalog/snowflake/provider.js";
 import Prov_sparkdesk from "../../catalog/sparkdesk/provider.js";
 import Prov_stability_ai from "../../catalog/stability-ai/provider.js";
+import Prov_stepfun from "../../catalog/stepfun/provider.js";
 
 export function registerRuntimeChunk4(registry: { register(p: any): void }): void {
   registry.register(new Prov_onomeo());
@@ -52,7 +52,6 @@ export function registerRuntimeChunk4(registry: { register(p: any): void }): voi
   registry.register(new Prov_orcarouter());
   registry.register(new Prov_ovhcloud());
   registry.register(new Prov_perplexity());
-  registry.register(new Prov_perplexity_agent());
   registry.register(new Prov_perplexity_web());
   registry.register(new Prov_pioneer());
   registry.register(new Prov_plamo());
@@ -82,4 +81,5 @@ export function registerRuntimeChunk4(registry: { register(p: any): void }): voi
   registry.register(new Prov_snowflake());
   registry.register(new Prov_sparkdesk());
   registry.register(new Prov_stability_ai());
+  registry.register(new Prov_stepfun());
 }

@@ -11,7 +11,6 @@ import { metadata as openrouter } from "../../catalog/openrouter/metadata.js";
 import { metadata as orcarouter } from "../../catalog/orcarouter/metadata.js";
 import { metadata as ovhcloud } from "../../catalog/ovhcloud/metadata.js";
 import { metadata as perplexity } from "../../catalog/perplexity/metadata.js";
-import { metadata as perplexity_agent } from "../../catalog/perplexity-agent/metadata.js";
 import { metadata as perplexity_web } from "../../catalog/perplexity-web/metadata.js";
 import { metadata as pioneer } from "../../catalog/pioneer/metadata.js";
 import { metadata as plamo } from "../../catalog/plamo/metadata.js";
@@ -41,6 +40,7 @@ import { metadata as siliconflow } from "../../catalog/siliconflow/metadata.js";
 import { metadata as snowflake } from "../../catalog/snowflake/metadata.js";
 import { metadata as sparkdesk } from "../../catalog/sparkdesk/metadata.js";
 import { metadata as stability_ai } from "../../catalog/stability-ai/metadata.js";
+import { metadata as stepfun } from "../../catalog/stepfun/metadata.js";
 
 export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "onomeo": onomeo,
@@ -53,7 +53,6 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "orcarouter": orcarouter,
   "ovhcloud": ovhcloud,
   "perplexity": perplexity,
-  "perplexity-agent": perplexity_agent,
   "perplexity-web": perplexity_web,
   "pioneer": pioneer,
   "plamo": plamo,
@@ -83,4 +82,5 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "snowflake": snowflake,
   "sparkdesk": sparkdesk,
   "stability-ai": stability_ai,
+  "stepfun": stepfun,
 };
