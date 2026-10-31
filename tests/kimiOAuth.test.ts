@@ -45,14 +45,40 @@ test("Kimi OAuth Handler - deviceCode requests code and builds complete verifica
   }
 });
 
-test("Kimi OAuth Handler - exchange supports manual token", async () => {
-  const res = await kimiOAuthHandler.exchange!({
-    provider: "kimi",
-    code: "sk-kimi-manual-platform-key",
-  });
-  assert.equal(res.success, true);
-  assert.ok(res.account?.id);
-  assert.equal(res.account?.providerId, "kimi");
+test("MoonshotProvider - probeModels verifies API key", async () => {
+  const { MoonshotProvider } = await import("../src/providers/catalog/moonshot/provider.js");
+  const provider = new MoonshotProvider();
+
+  // 1. Missing token
+  const noToken = await provider.probeModels({} as any);
+  assert.equal(noToken?.success, false);
+  assert.ok(noToken?.error?.includes("required"));
+
+  // 2. Valid token mock
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input: any) => {
+      const url = String(input);
+      if (url.includes("/v1/models")) {
+        return new Response(
+          JSON.stringify({
+            data: [{ id: "kimi-k2.6" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await provider.probeModels({
+      apiKey: "sk-test-moonshot-key",
+    } as any);
+
+    assert.equal(res?.success, true);
+    assert.ok((res?.count || 0) > 0);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });
 
 test("KimiProvider - probeModels verifies credentials", async () => {

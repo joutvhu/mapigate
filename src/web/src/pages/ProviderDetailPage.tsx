@@ -67,12 +67,13 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const isCustomProvider = provider.category === "custom" || !registryItem;
 
   const isOAuth = isOAuthProvider(registryItem) || isOAuthProvider(provider);
-  const supportsApiKey = Boolean(
-    registryItem?.authModes?.includes("apikey") ||
-    registryItem?.category === "apikey" ||
-    registryItem?.notice?.apiKeyUrl ||
-    (provider.category === "apikey" && !["antigravity", "cursor", "github", "kiro"].includes(provider.id))
-  );
+  const supportsApiKey = Array.isArray(registryItem?.authModes)
+    ? registryItem.authModes.includes("apikey")
+    : Boolean(
+        registryItem?.category === "apikey" ||
+        registryItem?.notice?.apiKeyUrl ||
+        (provider.category === "apikey" && !["antigravity", "cursor", "github", "kiro"].includes(provider.id))
+      );
 
   const handleConnectOAuth = () => {
     if (provider.id === "github") {

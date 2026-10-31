@@ -4,30 +4,29 @@ import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const metadata: ProviderRegistryItem = {
   "id": "kimi",
-  "name": "Kimi",
+  "name": "Kimi for Coding",
   "alias": "kimi",
   "aliases": [
     "kimi-coding",
+    "kimi-code",
     "kmc"
   ],
   "color": "#1E3A8A",
   "image": "/assets/providers/kimi/icon.png",
   "website": "https://www.kimi.ai",
   "notice": {
-    "apiKeyUrl": "https://platform.kimi.ai/console/api-keys",
     "signupUrl": "https://www.kimi.ai/code",
-    "text": "Supports Kimi for Coding subscription via OAuth Device Code (kimi.ai / kimi.com) and Kimi/Moonshot Open Platform API Keys (platform.kimi.ai / platform.moonshot.cn)."
+    "text": "Kimi for Coding subscription via OAuth Device Code (kimi.ai / kimi.com). For pay-as-you-go API keys (sk-...), use Moonshot AI (Kimi Platform)."
   },
   "category": "oauth",
   "authModes": [
-    "oauth",
-    "apikey"
+    "oauth"
   ],
   "baseUrl": "https://api.kimi.com/coding/v1/messages",
   "baseUrls": [
     "https://api.kimi.com/coding/v1/messages"
   ],
-  "validateUrl": "",
+  "validateUrl": "https://api.kimi.com/coding/v1/usages",
   "format": "claude",
   "defaultHeaders": {
     "Anthropic-Version": "2023-06-01",
