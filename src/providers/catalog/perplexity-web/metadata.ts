@@ -18,7 +18,7 @@ export const metadata: ProviderRegistryItem = {
   "baseUrls": [
     "https://www.perplexity.ai/rest/sse/perplexity_ask"
   ],
-  "validateUrl": "",
+  "validateUrl": "https://www.perplexity.ai/api/auth/session",
   "format": "perplexity-web",
   "defaultHeaders": {},
   "thinkingMode": "auto",
