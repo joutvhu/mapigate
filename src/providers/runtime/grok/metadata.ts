@@ -84,6 +84,14 @@ export const metadata: ProviderRegistryItem = {
     "grok",
     "xai"
   ],
+  "oauth": {
+    "clientId": "b1a00492-073a-47ea-816f-4c329264a828",
+    "deviceCodeUrl": "https://auth.x.ai/oauth2/device/code",
+    "tokenUrl": "https://auth.x.ai/oauth2/token",
+    "refreshUrl": "https://auth.x.ai/oauth2/token",
+    "scope": "openid profile email offline_access grok-cli:access api:access conversations:read conversations:write",
+    "referrer": "grok-build"
+  },
   "uiAlias": "grok"
 };
 

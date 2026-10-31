@@ -13,7 +13,7 @@ export const oauthRouter = Router();
 registerAllProviderRoutes(oauthRouter);
 
 const DEVICE_CODE_PROVIDERS = new Set([
-  "kimi", "kimi-coding", "glm", "minimax-code", "minimax-code-global", "qoder", "qoder-cn", "grok-cli", "kilocode",
+  "kimi", "kimi-coding", "glm", "minimax-code", "minimax-code-global", "qoder", "qoder-cn", "grok", "grok-cli", "kilocode",
 ]);
 
 // GET /api/oauth/:provider/authorize - Get authorization URL & PKCE metadata

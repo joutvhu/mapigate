@@ -8,12 +8,17 @@ import type {
   DeviceCodeResult,
   DevicePollParams,
   DevicePollResult,
+  OAuthExchangeParams,
+  OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
 
-const GROK_CLIENT_ID = "xai-grok-cli";
+const GROK_CLIENT_ID =
+  process.env.MAPIGATE_GROK_CLIENT_ID || "b1a00492-073a-47ea-816f-4c329264a828";
 const GROK_DEVICE_CODE_URL = "https://auth.x.ai/oauth2/device/code";
 const GROK_TOKEN_URL = "https://auth.x.ai/oauth2/token";
-const GROK_UA = "xai-grok-cli/0.1.0";
+const GROK_UA = "grok-pager/1.0.44 grok-shell/1.0.44 (linux; x86_64)";
+const GROK_SCOPE =
+  "openid profile email offline_access grok-cli:access api:access conversations:read conversations:write";
 
 export const grokOAuthHandler: ProviderOAuthHandler = {
   id: "grok",
@@ -21,7 +26,7 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
   async deviceCode(_params?: DeviceCodeParams): Promise<DeviceCodeResult> {
     const body = new URLSearchParams({
       client_id: GROK_CLIENT_ID,
-      scope: "all",
+      scope: GROK_SCOPE,
       referrer: "grok-build",
     });
 
@@ -44,9 +49,11 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
     return {
       device_code: data.device_code,
       user_code: data.user_code,
-      verification_uri: data.verification_uri || data.verification_url,
-      verification_uri_complete: data.verification_uri_complete || data.verification_uri,
-      expires_in: data.expires_in || 300,
+      verification_uri: data.verification_uri || data.verification_url || "https://accounts.x.ai/oauth2/device",
+      verification_uri_complete:
+        data.verification_uri_complete ||
+        (data.verification_uri ? `${data.verification_uri}?user_code=${data.user_code}` : "https://accounts.x.ai/oauth2/device"),
+      expires_in: data.expires_in || 1800,
       interval: data.interval || 5,
     };
   },
@@ -95,6 +102,7 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
             Accept: "application/json",
             "User-Agent": GROK_UA,
             "x-xai-token-auth": "xai-grok-cli",
+            "x-grok-client-version": "1.0.44",
           },
         });
         if (uRes.ok) {
@@ -133,9 +141,61 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
 
     return { ok: false, error: "no_access_token" };
   },
+
+  async exchange(params: OAuthExchangeParams): Promise<OAuthExchangeResult> {
+    const raw = String(params.code || "").trim();
+    if (!raw) return { success: false, error: "Token is required" };
+
+    let accountName = "Grok User";
+    let email: string | undefined;
+
+    if (raw.startsWith("eyJ")) {
+      try {
+        const uRes = await fetch("https://cli-chat-proxy.grok.com/v1/user", {
+          headers: {
+            Authorization: `Bearer ${raw}`,
+            Accept: "application/json",
+            "User-Agent": GROK_UA,
+            "x-xai-token-auth": "xai-grok-cli",
+            "x-grok-client-version": "1.0.44",
+          },
+        });
+        if (uRes.ok) {
+          const u: any = await uRes.json();
+          email = u.email;
+          accountName = [u.firstName, u.lastName].filter(Boolean).join(" ") || email || accountName;
+        }
+      } catch {}
+    }
+
+    ProviderRepository.ensureProviderExists("grok");
+    const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+
+    ProviderRepository.addAccount({
+      id: accountId,
+      providerId: "grok",
+      name: accountName,
+      rawApiKey: raw,
+      providerSpecificData: {
+        authMethod: raw.startsWith("eyJ") ? "oauth_token" : "apikey",
+        email,
+      },
+    });
+
+    return {
+      success: true,
+      account: {
+        id: accountId,
+        name: accountName,
+        providerId: "grok",
+      },
+    };
+  },
 };
 
 export function registerRoutes(_router?: Router): void {
   OAuthHandlerRegistry.register("grok", grokOAuthHandler);
   OAuthHandlerRegistry.register("grok-cli", grokOAuthHandler);
+  OAuthHandlerRegistry.register("supergrok", grokOAuthHandler);
+  OAuthHandlerRegistry.register("xai", grokOAuthHandler);
 }

@@ -35,3 +35,46 @@ test("Grok Providers - Separation of Developer API and SuperGrok Subscription", 
   assert.ok(supergrokMetadata.baseUrls.includes("https://grok.com/rest/app-chat/conversations/new"));
   assert.notEqual(supergrokMetadata.baseUrl, grokMetadata.baseUrl);
 });
+
+test("Grok OAuth Handler - deviceCode uses real public client_id and scopes", async () => {
+  const { grokOAuthHandler } = await import("../src/providers/runtime/grok/routes.js");
+
+  const origFetch = globalThis.fetch;
+  let sentBody: any = null;
+  try {
+    globalThis.fetch = async (input: any, init?: any) => {
+      sentBody = new URLSearchParams(init?.body);
+      return new Response(
+        JSON.stringify({
+          device_code: "dev_code_123",
+          user_code: "ABCD-EFGH",
+          verification_uri: "https://accounts.x.ai/oauth2/device",
+          verification_uri_complete: "https://accounts.x.ai/oauth2/device?user_code=ABCD-EFGH",
+          expires_in: 1800,
+          interval: 5,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    };
+
+    const res = await grokOAuthHandler.deviceCode!();
+    assert.equal(res.device_code, "dev_code_123");
+    assert.equal(res.user_code, "ABCD-EFGH");
+    assert.equal(sentBody.get("client_id"), "b1a00492-073a-47ea-816f-4c329264a828");
+    assert.ok(sentBody.get("scope").includes("grok-cli:access"));
+    assert.equal(sentBody.get("referrer"), "grok-build");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("Grok OAuth Handler - exchange supports manual token", async () => {
+  const { grokOAuthHandler } = await import("../src/providers/runtime/grok/routes.js");
+  const res = await grokOAuthHandler.exchange!({
+    provider: "grok",
+    code: "xai-test-manual-key",
+  });
+  assert.equal(res.success, true);
+  assert.ok(res.account?.id);
+  assert.equal(res.account?.providerId, "grok");
+});
