@@ -1,0 +1,13 @@
+{
+  "antigravity_client_id": "<google-oauth-client-id>.apps.googleusercontent.com",
+  "antigravity_client_secret": "<google-oauth-client-secret>",
+  "iflow_client_id": "<iflow-client-id>",
+  "iflow_client_secret": "<iflow-client-secret>",
+  "github_copilot_client_id": "<github-copilot-oauth-app-id>",
+  "claude_client_id": "<claude-code-oauth-client-id>",
+  "codex_client_id": "<codex-cli-oauth-client-id>",
+  "windsurf_client_id": "<windsurf-auth0-client-id>",
+  "windsurf_firebase_api_key": "<windsurf-firebase-web-api-key>",
+  "kimi_client_id": "<kimi-cli-oauth-client-id>",
+  "trae_client_id": "<trae-oauth-client-id>"
+}

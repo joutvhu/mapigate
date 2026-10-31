@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const metadata: ProviderRegistryItem = {
   id: "trae",
@@ -28,7 +29,7 @@ export const metadata: ProviderRegistryItem = {
   thinkingMode: "auto",
   defaultRegion: "cn",
   oauth: {
-    clientId: "REDACTED_TRAE_CLIENT_ID",
+    clientId: resolvePublicCred("trae_client_id"),
     clientSecret: "-",
     platform: "trae",
     pollInterval: 1500,

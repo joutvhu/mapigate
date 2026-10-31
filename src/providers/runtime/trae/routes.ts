@@ -9,8 +9,9 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-const TRAE_CLIENT_ID = "REDACTED_TRAE_CLIENT_ID";
+const TRAE_CLIENT_ID = resolvePublicCred("trae_client_id");
 const TRAE_CLIENT_SECRET = "-";
 const TRAE_GUIDANCE_URLS = [
   "https://api.marscode.com/cloudide/api/v3/trae/GetLoginGuidance",

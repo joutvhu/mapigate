@@ -1,5 +1,7 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
       "5-Hour Window",
@@ -46,7 +48,7 @@ export const metadata: ProviderRegistryItem = {
   },
   "thinkingMode": "auto",
   "oauth": {
-    "clientId": "REDACTED_CLAUDE_CLIENT_ID",
+    "clientId": resolvePublicCred("claude_client_id"),
     "authorizeUrl": "https://claude.ai/oauth/authorize",
     "tokenUrl": "https://api.anthropic.com/v1/oauth/token",
     "scopes": [

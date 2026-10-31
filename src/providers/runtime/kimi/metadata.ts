@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const metadata: ProviderRegistryItem = {
   "id": "kimi",
@@ -33,7 +34,7 @@ export const metadata: ProviderRegistryItem = {
   },
   "thinkingMode": "auto",
   "oauth": {
-    "clientId": "REDACTED_KIMI_CLIENT_ID",
+    "clientId": resolvePublicCred("kimi_client_id"),
     "deviceCodeUrl": "https://auth.kimi.com/api/oauth/device_authorization",
     "tokenUrl": "https://auth.kimi.com/api/oauth/token",
     "refreshUrl": "https://auth.kimi.com/api/oauth/token",

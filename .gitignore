@@ -11,6 +11,7 @@ build/
 # Local Environment & Data
 .env
 .env.local
+config/public-creds.json
 .mapigate/
 .mapigate-test/
 .mapigate-data/

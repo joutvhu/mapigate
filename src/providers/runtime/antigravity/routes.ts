@@ -10,9 +10,10 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-export const ANTIGRAVITY_CLIENT_ID = "REDACTED_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
-export const ANTIGRAVITY_CLIENT_SECRET = "REDACTED_GOOGLE_CLIENT_SECRET";
+export const ANTIGRAVITY_CLIENT_ID = resolvePublicCred("antigravity_client_id");
+export const ANTIGRAVITY_CLIENT_SECRET = resolvePublicCred("antigravity_client_secret");
 export const ANTIGRAVITY_SCOPES = [
   "https://www.googleapis.com/auth/cloud-platform",
   "https://www.googleapis.com/auth/userinfo.email",

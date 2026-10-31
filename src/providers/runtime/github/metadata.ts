@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
@@ -45,7 +46,7 @@ export const metadata: ProviderRegistryItem = {
   },
   "thinkingMode": "auto",
   "oauth": {
-    "clientId": "Iv1.REDACTED_GITHUB_CLIENT_ID",
+    "clientId": resolvePublicCred("github_copilot_client_id"),
     "authorizeUrl": "https://github.com/login/oauth/authorize",
     "deviceCodeUrl": "https://github.com/login/device/code",
     "tokenUrl": "https://github.com/login/oauth/access_token",

@@ -1,8 +1,10 @@
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+
 export const COPILOT_INTERNAL_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token";
 export const GITHUB_OAUTH_TOKEN_URL = "https://github.com/login/oauth/access_token";
-export const GITHUB_COPILOT_CLIENT_ID = "Iv1.REDACTED_GITHUB_CLIENT_ID";
+export const GITHUB_COPILOT_CLIENT_ID = resolvePublicCred("github_copilot_client_id");
 
 /**
  * Default buffer before expiration to consider Copilot token expired (5 minutes)

@@ -9,9 +9,10 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-const IFLOW_CLIENT_ID = "REDACTED_IFLOW_CLIENT_ID";
-const IFLOW_CLIENT_SECRET = "REDACTED_IFLOW_CLIENT_SECRET";
+const IFLOW_CLIENT_ID = resolvePublicCred("iflow_client_id");
+const IFLOW_CLIENT_SECRET = resolvePublicCred("iflow_client_secret");
 const IFLOW_AUTHORIZE_URL = "https://iflow.cn/oauth";
 const IFLOW_TOKEN_URL = "https://iflow.cn/oauth/token";
 const IFLOW_USER_INFO_URL = "https://iflow.cn/api/oauth/getUserInfo";

@@ -9,8 +9,9 @@ import type {
   DevicePollParams,
   DevicePollResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-export const KIMI_CLIENT_ID = "REDACTED_KIMI_CLIENT_ID";
+export const KIMI_CLIENT_ID = resolvePublicCred("kimi_client_id");
 export const KIMI_DEVICE_CODE_URL = "https://auth.kimi.com/api/oauth/device_authorization";
 export const KIMI_TOKEN_URL = "https://auth.kimi.com/api/oauth/token";
 export const KIMI_AUTHORIZE_DEVICE_URL = "https://www.kimi.com/code/authorize_device";

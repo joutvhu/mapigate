@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const metadata: ProviderRegistryItem = {
   id: "windsurf",
@@ -25,8 +26,8 @@ export const metadata: ProviderRegistryItem = {
   },
   thinkingMode: "auto",
   oauth: {
-    clientId: "REDACTED_WINDSURF_CLIENT_ID",
-    firebaseApiKey: "REDACTED_FIREBASE_API_KEY",
+    clientId: resolvePublicCred("windsurf_client_id"),
+    firebaseApiKey: resolvePublicCred("windsurf_firebase_api_key"),
     registerUrl: "https://register.windsurf.com/exa.seat_management_pb.SeatManagementService/RegisterUser",
     apiServerUrl: "https://server.codeium.com",
     platform: "windsurf",

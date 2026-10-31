@@ -12,8 +12,9 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-export const CODEX_CLIENT_ID = "REDACTED_CODEX_CLIENT_ID";
+export const CODEX_CLIENT_ID = resolvePublicCred("codex_client_id");
 export const CODEX_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
 export const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
 export const CODEX_SCOPE = "openid profile email offline_access";

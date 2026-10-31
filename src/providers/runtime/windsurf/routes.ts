@@ -9,8 +9,9 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-const WINDSURF_CLIENT_ID = "REDACTED_WINDSURF_CLIENT_ID";
+const WINDSURF_CLIENT_ID = resolvePublicCred("windsurf_client_id");
 const WINDSURF_REGISTER_URL = "https://register.windsurf.com/exa.seat_management_pb.SeatManagementService/RegisterUser";
 const DEVIN_AUTH_CODE_URL = "https://app.devin.ai/auth/windsurf/show-auth-code";
 

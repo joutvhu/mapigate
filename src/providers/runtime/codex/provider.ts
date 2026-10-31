@@ -11,6 +11,7 @@ import { ProviderRepository } from "../../../storage/repositories/providerRepo.j
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { checkBinaryInstalled } from "../../core/base/baseProvider.js";
 import { metadata } from "./metadata.js";
+import { CODEX_CLIENT_ID } from "./routes.js";
 
 export class CodexProvider extends OpenAiCompatibleProvider {
   public override readonly id = "codex";
@@ -118,7 +119,7 @@ export class CodexProvider extends OpenAiCompatibleProvider {
                 headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
                 body: new URLSearchParams({
                   grant_type: "refresh_token",
-                  client_id: "REDACTED_CODEX_CLIENT_ID",
+                  client_id: CODEX_CLIENT_ID,
                   refresh_token: rToken,
                 }),
               });

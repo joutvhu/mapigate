@@ -11,8 +11,9 @@ import type {
   OAuthExchangeParams,
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
-export const CLAUDE_CLIENT_ID = "REDACTED_CLAUDE_CLIENT_ID";
+export const CLAUDE_CLIENT_ID = resolvePublicCred("claude_client_id");
 export const CLAUDE_AUTHORIZE_URL = "https://claude.ai/oauth/authorize";
 export const CLAUDE_TOKEN_URL = "https://api.anthropic.com/v1/oauth/token";
 export const CLAUDE_SCOPES = [

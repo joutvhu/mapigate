@@ -23,11 +23,6 @@ interface OAuthModalProps {
   onClose: () => void;
 }
 
-const getAntigravityAuthUrl = (port: number = 20127) =>
-  `https://accounts.google.com/o/oauth2/v2/auth?client_id=REDACTED_GOOGLE_CLIENT_ID.apps.googleusercontent.com&response_type=code&redirect_uri=${encodeURIComponent(
-    `http://localhost:${port}/callback`
-  )}&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcloud-platform+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcclog+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fexperimentsandconfigs&access_type=offline&prompt=consent`;
-
 export const OAuthModal: React.FC<OAuthModalProps> = ({
   isOpen,
   providerId,
@@ -44,9 +39,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
     regProvider?.defaultRegion || (availableRegions.length > 0 ? availableRegions[0].id : "")
   );
 
-  const [authUrl, setAuthUrl] = useState(
-    providerId === "antigravity" ? getAntigravityAuthUrl(effectivePort) : ""
-  );
+  const [authUrl, setAuthUrl] = useState("");
   const [redirectUri, setRedirectUri] = useState(`http://localhost:${effectivePort}/callback`);
   const [callbackUrl, setCallbackUrl] = useState("");
   const [status, setStatus] = useState<"loading" | "waiting" | "processing" | "success" | "error">("loading");

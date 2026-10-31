@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
@@ -48,7 +49,7 @@ export const metadata: ProviderRegistryItem = {
     "high"
   ],
   "oauth": {
-    "clientId": "REDACTED_CODEX_CLIENT_ID",
+    "clientId": resolvePublicCred("codex_client_id"),
     "authorizeUrl": "https://auth.openai.com/oauth/authorize",
     "tokenUrl": "https://auth.openai.com/oauth/token",
     "scope": "openid profile email offline_access",

@@ -1,6 +1,8 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
 
+import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+
 export const metadata: ProviderRegistryItem = {
   "id": "iflow",
   "name": "iFlow AI",
@@ -24,8 +26,8 @@ export const metadata: ProviderRegistryItem = {
   },
   "thinkingMode": "auto",
   "oauth": {
-    "clientId": "REDACTED_IFLOW_CLIENT_ID",
-    "clientSecret": "REDACTED_IFLOW_CLIENT_SECRET",
+    "clientId": resolvePublicCred("iflow_client_id"),
+    "clientSecret": resolvePublicCred("iflow_client_secret"),
     "authorizeUrl": "https://iflow.cn/oauth",
     "tokenUrl": "https://iflow.cn/oauth/token",
     "userInfoUrl": "https://iflow.cn/api/oauth/getUserInfo",
