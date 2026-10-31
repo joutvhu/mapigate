@@ -273,7 +273,7 @@ export class TokenScheduler {
       return false;
     }
 
-    // 3. Other OAuth providers (Gemini, Claude, Codex, Kiro, MiniMax Code) via ensureFreshCredentials
+    // 3. Other OAuth providers (Gemini, Claude, Codex, Kiro, MiniMax Code, Kimi, Cline, Grok, SuperGrok) via ensureFreshCredentials
     if (
       [
         "gemini-cli",
@@ -287,6 +287,14 @@ export class TokenScheduler {
         "mm",
         "mmg",
         "mcode",
+        "kimi",
+        "kimi-coding",
+        "kmc",
+        "cline",
+        "clinepass",
+        "grok",
+        "grok-cli",
+        "supergrok",
       ].includes(pId)
     ) {
       const refreshed = await ensureFreshCredentials(

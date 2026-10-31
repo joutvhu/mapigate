@@ -466,6 +466,68 @@ export async function ensureFreshCredentials(
       }
     }
 
+    // 7. Kimi for Coding (kimi)
+    else if (pId === "kimi" || pId === "kimi-coding" || pId === "kmc") {
+      const isCn = creds.providerSpecificData?.region === "cn";
+      const tokenUrl = isCn
+        ? "https://auth.kimi.com/api/oauth/token"
+        : "https://auth.kimi.ai/api/oauth/token";
+
+      const res = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: "17e5f671-d194-4dfb-9706-5516cb48c098",
+          refresh_token: creds.refreshToken,
+        }),
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        newAccessToken = data.access_token;
+        if (data.refresh_token) newRefreshToken = data.refresh_token;
+        if (data.expires_in) expiresInSec = Number(data.expires_in);
+      }
+    }
+
+    // 8. Cline / ClinePass (WorkOS token endpoint)
+    else if (pId === "cline" || pId === "clinepass") {
+      const res = await fetch("https://api.workos.com/user_management/authenticate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          grant_type: "refresh_token",
+          client_id: "client_01K3A541FN8TA3EPPHTD2325AR",
+          refresh_token: creds.refreshToken,
+        }),
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        newAccessToken = data.access_token;
+        if (data.refresh_token) newRefreshToken = data.refresh_token;
+        expiresInSec = 3600; // WorkOS access token lifetime ~ 1 hour
+      }
+    }
+
+    // 9. xAI Grok / SuperGrok (grok, grok-cli)
+    else if (pId === "grok" || pId === "grok-cli" || pId === "supergrok") {
+      const res = await fetch("https://auth.x.ai/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: "b1a00492-073a-47ea-816f-4c329264a828",
+          refresh_token: creds.refreshToken,
+        }),
+      });
+      if (res.ok) {
+        const data: any = await res.json();
+        newAccessToken = data.access_token;
+        if (data.refresh_token) newRefreshToken = data.refresh_token;
+        if (data.expires_in) expiresInSec = Number(data.expires_in);
+      }
+    }
+
     if (newAccessToken) {
       const newExpiresAt = Date.now() + expiresInSec * 1000;
       const updatedPsd = {
