@@ -230,18 +230,18 @@ export const UsageTab: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex-1 overflow-y-auto mt-2 min-h-[220px] max-h-[300px]">
+              <div className="flex-1 overflow-y-auto mt-2 min-h-[220px] max-h-[300px] pr-1">
                 {recentRequests.length === 0 ? (
                   <div className="py-16 text-center text-slate-500 text-xs">
                     No recent proxy requests yet. Call /v1/messages or /v1/chat/completions to see live logs.
                   </div>
                 ) : (
-                  <table className="w-full text-left text-xs font-mono border-collapse">
+                  <table className="w-full text-left text-xs font-mono border-collapse table-fixed">
                     <thead>
                       <tr className="text-slate-500 text-[10px] uppercase border-b border-[#1E293B]">
-                        <th className="pb-2 font-semibold">Model / Provider</th>
-                        <th className="pb-2 font-semibold text-right">In / Out</th>
-                        <th className="pb-2 font-semibold text-right">When</th>
+                        <th className="pb-2 font-semibold pr-2">Model / Provider</th>
+                        <th className="pb-2 font-semibold text-right px-2 w-[125px]">In / Out</th>
+                        <th className="pb-2 font-semibold text-right pl-2 pr-2 w-[95px]">When</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#1E293B]/50">
@@ -252,26 +252,28 @@ export const UsageTab: React.FC = () => {
                           : `${r.model} · ${r.provider || "unknown"}`;
                         return (
                           <tr key={r.id || i} className="hover:bg-slate-800/30 transition-colors">
-                            <td className="py-2 flex items-center gap-1.5 truncate max-w-[170px]" title={tooltip}>
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  isOk ? "bg-emerald-400" : "bg-red-400"
-                                }`}
-                              />
-                              <span className="text-slate-200 text-xs truncate font-medium">
-                                {r.model}
-                              </span>
-                              {r.provider && (
-                                <span className="text-[9px] text-slate-400 font-mono uppercase px-1 py-0.2 rounded bg-slate-800 border border-slate-700/50 shrink-0">
-                                  {r.provider}
+                            <td className="py-2 pr-2 overflow-hidden" title={tooltip}>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    isOk ? "bg-emerald-400" : "bg-red-400"
+                                  }`}
+                                />
+                                <span className="text-slate-200 text-xs truncate font-medium">
+                                  {r.model}
                                 </span>
-                              )}
+                                {r.provider && (
+                                  <span className="text-[9px] text-slate-400 font-mono uppercase px-1 py-0.5 rounded bg-slate-800 border border-slate-700/50 shrink-0">
+                                    {r.provider}
+                                  </span>
+                                )}
+                              </div>
                             </td>
-                            <td className="py-2 text-right whitespace-nowrap text-[11px]">
+                            <td className="py-2 text-right whitespace-nowrap px-2 text-[11px] w-[125px]">
                               <span className="text-blue-400">{r.promptTokens.toLocaleString()}↑</span>{" "}
                               <span className="text-emerald-400">{r.completionTokens.toLocaleString()}↓</span>
                             </td>
-                            <td className="py-2 text-right text-[10px] text-slate-400 whitespace-nowrap">
+                            <td className="py-2 text-right text-[10px] text-slate-400 whitespace-nowrap pl-2 pr-2 w-[95px]">
                               {typeof r.timestamp === "number"
                                 ? new Date(r.timestamp).toLocaleTimeString()
                                 : new Date(String(r.timestamp)).toLocaleTimeString()}
