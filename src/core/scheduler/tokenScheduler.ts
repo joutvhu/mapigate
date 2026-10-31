@@ -1,10 +1,6 @@
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { refreshGoogleOAuthToken } from "../../providers/runtime/antigravity/routes.js";
-import {
-  ensureFreshCopilotCredentials,
-  isCopilotTokenExpiring,
-  normalizeExpiryMs,
-} from "../auth/copilotToken.js";
+import { OAuthHandlerRegistry } from "../../providers/core/oauthRegistry.js";
+import { normalizeExpiryMs } from "../auth/copilotToken.js";
 import { ensureFreshCredentials } from "../usage/tokenHelper.js";
 import { logger, LogSymbol } from "../../shared/logger.js";
 
@@ -193,117 +189,37 @@ export class TokenScheduler {
     const pId = (account.providerId || "").toLowerCase();
     const psd = account.providerSpecificData || {};
 
-    // 1. GitHub Copilot
-    if (pId === "github") {
-      const expiresAt = psd.copilotTokenExpiresAt;
-      const isExpiring = isCopilotTokenExpiring(expiresAt, this.leadMs);
-
-      if (isExpiring) {
-        const result = await ensureFreshCopilotCredentials(account, {
-          force: true,
-          bufferMs: this.leadMs,
-        });
-        if (result?.copilotToken) {
-          logger.line(
-            "⏰",
-            LogSymbol.KEY,
-            `Refreshed GitHub Copilot token for account ${account.id} (${account.name})`
-          );
-          return true;
-        }
-      }
+    const handler = OAuthHandlerRegistry.get(pId);
+    if (typeof handler?.refreshToken !== "function") {
       return false;
     }
 
-    // 2. Google OAuth / Antigravity
-    if (pId === "antigravity") {
-      let refreshToken = psd.refreshToken;
-      let expiresAt = psd.expiresAt;
-      let oauthJson: any = null;
-
-      if (account.rawApiKey && account.rawApiKey.trim().startsWith("{")) {
-        try {
-          oauthJson = JSON.parse(account.rawApiKey);
-          if (!refreshToken && oauthJson.refreshToken) {
-            refreshToken = oauthJson.refreshToken;
-          }
-          if (!expiresAt && oauthJson.expiresAt) {
-            expiresAt = oauthJson.expiresAt;
-          }
-        } catch {}
-      }
-
-      const normalizedExp = normalizeExpiryMs(expiresAt);
-      const isExpiring = !normalizedExp || normalizedExp <= now + this.leadMs;
-
-      if (isExpiring && refreshToken) {
-        const refreshed = await refreshGoogleOAuthToken(refreshToken);
-        if (refreshed?.accessToken) {
-          const newExpiresAt = now + (refreshed.expiresIn || 3600) * 1000;
-          const updatedJson = oauthJson
-            ? {
-                ...oauthJson,
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken || refreshToken,
-                expiresAt: newExpiresAt,
-              }
-            : {
-                accessToken: refreshed.accessToken,
-                refreshToken: refreshed.refreshToken || refreshToken,
-                expiresAt: newExpiresAt,
-              };
-
-          ProviderRepository.updateAccount(account.id, {
-            rawApiKey: JSON.stringify(updatedJson),
-            providerSpecificData: {
-              ...psd,
-              refreshToken: refreshed.refreshToken || refreshToken,
-              expiresAt: newExpiresAt,
-            },
-          });
-
-          logger.line(
-            "⏰",
-            LogSymbol.KEY,
-            `Refreshed Google OAuth token for account ${account.id} (${account.name})`
-          );
-          return true;
-        }
-      }
-      return false;
+    let expiresAt = psd.expiresAt || psd.tokenExpiresAt || psd.copilotTokenExpiresAt;
+    if (!expiresAt && account.rawApiKey && account.rawApiKey.trim().startsWith("{")) {
+      try {
+        const oauthJson = JSON.parse(account.rawApiKey);
+        expiresAt = oauthJson.expiresAt || oauthJson.tokenExpiresAt;
+      } catch {}
     }
 
-    // 3. Other OAuth providers (Gemini, Claude, Codex, Kiro, MiniMax Code, Kimi, Cline, Grok, SuperGrok) via ensureFreshCredentials
-    if (
-      [
-        "gemini-cli",
-        "gemini",
-        "claude",
-        "codex",
-        "kiro",
-        "minimax-code",
-        "minimax-code-global",
-        "minimax",
-        "mm",
-        "mmg",
-        "mcode",
-        "kimi",
-        "kimi-coding",
-        "kmc",
-        "cline",
-        "clinepass",
-        "grok",
-        "grok-cli",
-        "supergrok",
-      ].includes(pId)
-    ) {
+    const normalizedExp = normalizeExpiryMs(expiresAt);
+    const isExpiring = !normalizedExp || normalizedExp <= now + this.leadMs;
+
+    if (isExpiring) {
       const refreshed = await ensureFreshCredentials(
         account.id,
         account.providerId,
         account.rawApiKey,
         account.providerSpecificData
       );
-      return Boolean(refreshed && refreshed.accessToken);
+      if (refreshed?.accessToken) {
+        logger.line(
+          "⏰",
+          LogSymbol.KEY,
+          `Refreshed OAuth credentials for account ${account.id} (${account.name}) [${account.providerId}]`
+        );
+        return true;
+      }
     }
 
     return false;

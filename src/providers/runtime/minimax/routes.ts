@@ -9,6 +9,8 @@ import type {
   DeviceCodeResult,
   DevicePollParams,
   DevicePollResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 
 const minimaxPendingVerifiers = new Map<string, string>();
@@ -165,6 +167,34 @@ export const minimaxOAuthHandler: ProviderOAuthHandler = {
   id: "minimax",
   deviceCode: requestMinimaxDeviceCode,
   poll: pollMinimaxDeviceCode,
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const token = params.refreshToken;
+    if (!token) return null;
+    const isCn = params.providerSpecificData?.region === "cn";
+    const tokenUrl = isCn
+      ? "https://account.minimax.cn/oauth2/token"
+      : "https://account.minimax.io/oauth2/token";
+
+    const res = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: token,
+        client_id: "mcode-public",
+        scope: "agent.default",
+        audience: "agent-backend",
+      }),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || token,
+      expiresIn: Number(data.expires_in) || 3600,
+    };
+  },
 };
 
 export function registerRoutes(_router?: Router): void {

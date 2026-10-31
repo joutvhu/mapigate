@@ -8,6 +8,8 @@ import type {
   OAuthAuthorizeResult,
   OAuthExchangeParams,
   OAuthExchangeResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import {
   ANTIGRAVITY_CLIENT_ID,
@@ -15,6 +17,7 @@ import {
   ANTIGRAVITY_SCOPES,
   loadCodeAssist,
   onboardUser,
+  refreshGoogleOAuthToken,
 } from "../antigravity/routes.js";
 
 // Exported for backward compatibility with tests and consumers
@@ -116,6 +119,16 @@ export const geminiCliOAuthHandler: ProviderOAuthHandler = {
     return {
       success: true,
       account: { id: accountId, name: accountName, providerId: pId },
+    };
+  },
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const refreshed = await refreshGoogleOAuthToken(params.refreshToken);
+    if (!refreshed?.accessToken) return null;
+    return {
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      expiresIn: refreshed.expiresIn,
     };
   },
 };

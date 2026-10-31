@@ -10,6 +10,8 @@ import type {
   DevicePollResult,
   OAuthExchangeParams,
   OAuthExchangeResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 
 const GROK_CLIENT_ID =
@@ -214,6 +216,27 @@ export const grokOAuthHandler: ProviderOAuthHandler = {
         name: accountName,
         providerId: targetProviderId,
       },
+    };
+  },
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const token = params.refreshToken;
+    if (!token) return null;
+    const res = await fetch(GROK_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: GROK_CLIENT_ID,
+        refresh_token: token,
+      }),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || token,
+      expiresIn: Number(data.expires_in) || 1800,
     };
   },
 };

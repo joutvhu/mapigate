@@ -10,6 +10,8 @@ import type {
   DevicePollResult,
   OAuthExchangeParams,
   OAuthExchangeResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
@@ -159,6 +161,32 @@ export const kimiOAuthHandler: ProviderOAuthHandler = {
         name: accountName,
         providerId: "kimi",
       },
+    };
+  },
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const token = params.refreshToken;
+    if (!token) return null;
+    const isCn = params.providerSpecificData?.region === "cn";
+    const tokenUrl = isCn
+      ? "https://auth.kimi.com/api/oauth/token"
+      : "https://auth.kimi.ai/api/oauth/token";
+
+    const res = await fetch(tokenUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: KIMI_CLIENT_ID,
+        refresh_token: token,
+      }),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || token,
+      expiresIn: Number(data.expires_in) || 3600,
     };
   },
 };

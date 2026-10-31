@@ -5,7 +5,12 @@ import crypto from "node:crypto";
 import type { Router } from "express";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { OAuthHandlerRegistry } from "../../core/oauthRegistry.js";
-import type { ProviderOAuthHandler, IdeAutoImportResult } from "../../core/oauthTypes.js";
+import type {
+  ProviderOAuthHandler,
+  IdeAutoImportResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
+} from "../../core/oauthTypes.js";
 import { importExternalIdpAccount } from "./externalIdp.js";
 import { requestKiroDeviceCode, pollKiroDeviceToken } from "./deviceFlow.js";
 
@@ -253,6 +258,98 @@ export const kiroOAuthHandler: ProviderOAuthHandler = {
   importApiKey,
   importAccessToken,
   importExternalIdpAccount,
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const refreshToken = params.refreshToken;
+    if (!refreshToken) return null;
+    const psd = params.providerSpecificData || {};
+    const clientId = psd.clientId;
+    const clientSecret = psd.clientSecret;
+    const authMethod = psd.authMethod || "builder-id";
+    const region = psd.region || "us-east-1";
+
+    let newAccessToken = "";
+    let newRefreshToken = refreshToken;
+    let expiresInSec = 3600;
+    let profileArn = psd.profileArn;
+
+    if (authMethod === "external_idp" && psd.tokenEndpoint) {
+      const tokenEndpoint = psd.tokenEndpoint;
+      const scope = psd.scope || "https://service.codewhisperer.amazonaws.com/.default offline_access";
+
+      const res = await fetch(tokenEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: clientId || "",
+          refresh_token: refreshToken,
+          scope,
+        }),
+      });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      newAccessToken = data.access_token || data.accessToken;
+      if (data.refresh_token) newRefreshToken = data.refresh_token;
+      if (data.expires_in) expiresInSec = Number(data.expires_in);
+    } else if (clientId && clientSecret) {
+      const isIDC = authMethod === "idc";
+      const endpoint = isIDC && region
+        ? `https://oidc.${region}.amazonaws.com/token`
+        : "https://oidc.us-east-1.amazonaws.com/token";
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          refreshToken,
+          clientId,
+          clientSecret,
+          grantType: "refresh_token",
+        }),
+      });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      newAccessToken = data.accessToken || data.access_token;
+      if (data.refreshToken) newRefreshToken = data.refreshToken;
+      if (data.expiresIn) expiresInSec = Number(data.expiresIn);
+      if (data.profileArn && !profileArn) {
+        profileArn = data.profileArn;
+      }
+    } else {
+      const tokenUrl = "https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken";
+      const res = await fetch(tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "User-Agent": "kiro-cli/1.0.0",
+        },
+        body: JSON.stringify({
+          refreshToken,
+        }),
+      });
+      if (!res.ok) return null;
+      const data: any = await res.json();
+      newAccessToken = data.accessToken || data.access_token;
+      if (data.refreshToken) newRefreshToken = data.refreshToken;
+      if (data.expiresIn) expiresInSec = Number(data.expiresIn);
+      if (data.profileArn && !profileArn) {
+        profileArn = data.profileArn;
+      }
+    }
+
+    if (!newAccessToken) return null;
+    return {
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
+      expiresIn: expiresInSec,
+      providerSpecificData: {
+        ...psd,
+        ...(profileArn ? { profileArn } : {}),
+      },
+    };
+  },
 };
 
 export function registerRoutes(router: Router): void {

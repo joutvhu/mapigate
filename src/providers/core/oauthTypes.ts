@@ -90,12 +90,32 @@ export interface IdeAutoImportResult {
   [key: string]: any;
 }
 
+export interface OAuthRefreshTokenParams {
+  refreshToken: string;
+  rawApiKey?: string;
+  providerSpecificData?: Record<string, any>;
+  providerId?: string;
+  accountId?: string;
+  forceRefresh?: boolean;
+}
+
+export interface OAuthRefreshTokenResult {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+  expiresAt?: number;
+  providerSpecificData?: Record<string, any>;
+  rawApiKey?: string;
+  [key: string]: any;
+}
+
 export interface ProviderOAuthHandler {
   readonly id?: string;
   authorize?(params: OAuthAuthorizeParams): Promise<OAuthAuthorizeResult> | OAuthAuthorizeResult;
   deviceCode?(params?: DeviceCodeParams): Promise<DeviceCodeResult> | DeviceCodeResult;
   poll?(params: DevicePollParams): Promise<DevicePollResult> | DevicePollResult;
   exchange?(params: OAuthExchangeParams): Promise<OAuthExchangeResult> | OAuthExchangeResult;
+  refreshToken?(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> | OAuthRefreshTokenResult | null;
   autoImport?(): Promise<IdeAutoImportResult> | IdeAutoImportResult;
   importAccount?(params: any): Promise<any> | any;
   [key: string]: any;

@@ -11,6 +11,8 @@ import type {
   OAuthAuthorizeResult,
   OAuthExchangeParams,
   OAuthExchangeResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
@@ -180,6 +182,27 @@ export const codexOAuthHandler: ProviderOAuthHandler = {
     return {
       success: true,
       account: { id: accountId, name: accountName, providerId: "codex" },
+    };
+  },
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const token = params.refreshToken;
+    if (!token) return null;
+    const res = await fetch(CODEX_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: CODEX_CLIENT_ID,
+        refresh_token: token,
+      }),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || token,
+      expiresIn: Number(data.expires_in) || 3600,
     };
   },
 };

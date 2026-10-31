@@ -8,7 +8,10 @@ import type {
   DeviceCodeResult,
   DevicePollParams,
   DevicePollResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
+import { refreshCopilotToken, normalizeExpiryMs } from "../../../core/auth/copilotToken.js";
 
 import { GITHUB_COPILOT_CLIENT_ID } from "./auth.js";
 
@@ -176,6 +179,33 @@ export const githubOAuthHandler: ProviderOAuthHandler = {
   deviceCode: requestCopilotDeviceCode,
   poll: pollCopilotToken,
   importAccount: importGithubToken,
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const psd = params.providerSpecificData || {};
+    const refreshed = await refreshCopilotToken({
+      githubAccessToken: psd.githubAccessToken,
+      rawApiKey: params.rawApiKey,
+      refreshToken: params.refreshToken,
+      copilotToken: psd.copilotToken,
+      copilotTokenExpiresAt: psd.copilotTokenExpiresAt,
+    });
+    if (!refreshed?.copilotToken) return null;
+    const ghToken = refreshed.githubAccessToken || psd.githubAccessToken;
+    const newExpiresAt = normalizeExpiryMs(refreshed.copilotTokenExpiresAt) || undefined;
+    return {
+      accessToken: refreshed.copilotToken,
+      rawApiKey: params.rawApiKey || refreshed.copilotToken,
+      expiresAt: newExpiresAt,
+      refreshToken: refreshed.refreshToken || params.refreshToken,
+      providerSpecificData: {
+        ...psd,
+        copilotToken: refreshed.copilotToken,
+        copilotTokenExpiresAt: refreshed.copilotTokenExpiresAt,
+        ...(ghToken ? { githubAccessToken: ghToken } : {}),
+        ...(refreshed.refreshToken ? { refreshToken: refreshed.refreshToken } : {}),
+      },
+    };
+  },
 };
 
 export function registerRoutes(router: Router): void {

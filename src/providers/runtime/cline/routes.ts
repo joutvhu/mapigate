@@ -9,6 +9,8 @@ import type {
   OAuthAuthorizeResult,
   OAuthExchangeParams,
   OAuthExchangeResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 
 export function parseClineBase64Token(rawCode: string): any | null {
@@ -138,6 +140,27 @@ export const clineOAuthHandler: ProviderOAuthHandler = {
     return {
       success: true,
       account: { id: accountId, name: accountName, providerId: pId },
+    };
+  },
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const token = params.refreshToken;
+    if (!token) return null;
+    const res = await fetch("https://api.workos.com/user_management/authenticate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        grant_type: "refresh_token",
+        client_id: "client_01K3A541FN8TA3EPPHTD2325AR",
+        refresh_token: token,
+      }),
+    });
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || token,
+      expiresIn: 3600,
     };
   },
 };

@@ -3,6 +3,12 @@ process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ensureFreshCredentials, isTokenExpired } from "../src/core/usage/tokenHelper.js";
+import { kimiOAuthHandler } from "../src/providers/runtime/kimi/routes.js";
+import { clineOAuthHandler } from "../src/providers/runtime/cline/routes.js";
+import { OAuthHandlerRegistry } from "../src/providers/core/oauthRegistry.js";
+
+OAuthHandlerRegistry.register("kimi", kimiOAuthHandler);
+OAuthHandlerRegistry.register("cline", clineOAuthHandler);
 
 test("Token Helper - isTokenExpired checks expiration with safety window", () => {
   const now = Date.now();

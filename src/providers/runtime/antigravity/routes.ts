@@ -9,6 +9,8 @@ import type {
   OAuthAuthorizeResult,
   OAuthExchangeParams,
   OAuthExchangeResult,
+  OAuthRefreshTokenParams,
+  OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
@@ -191,6 +193,16 @@ export const antigravityOAuthHandler: ProviderOAuthHandler = {
     });
 
     return { success: true, account: { id: accountId, name: accountName, providerId: "antigravity" } };
+  },
+
+  async refreshToken(params: OAuthRefreshTokenParams): Promise<OAuthRefreshTokenResult | null> {
+    const refreshed = await refreshGoogleOAuthToken(params.refreshToken);
+    if (!refreshed?.accessToken) return null;
+    return {
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      expiresIn: refreshed.expiresIn,
+    };
   },
 };
 
