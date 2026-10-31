@@ -35,7 +35,8 @@ export const metadata: ProviderRegistryItem = {
   "oauth": {
     "clientId": "1031625952748946",
     "deviceCodeUrl": "https://auth.meta.com/oidc/device/authorization/",
-    "tokenUrl": "https://auth.meta.com/oidc/device/token/"
+    "tokenUrl": "https://auth.meta.com/oidc/device/token/",
+    "authorizeDeviceUrl": "https://auth.meta.com/oauth/device/"
   },
   "models": [
     {

@@ -17,6 +17,7 @@ import { registerRoutes as reg_kimchi } from "../catalog/kimchi/routes.js";
 import { registerRoutes as reg_kimi } from "../runtime/kimi/routes.js";
 import { registerRoutes as reg_kiro } from "../runtime/kiro/routes.js";
 import { registerRoutes as reg_minimax } from "../runtime/minimax/routes.js";
+import { registerRoutes as reg_muse } from "../catalog/muse/routes.js";
 import { registerRoutes as reg_qoder } from "../runtime/qoder/routes.js";
 import { registerRoutes as reg_trae } from "../runtime/trae/routes.js";
 import { registerRoutes as reg_windsurf } from "../runtime/windsurf/routes.js";
@@ -39,6 +40,7 @@ export function registerAllProviderRoutes(router: Router): void {
   reg_kimi(router);
   reg_kiro(router);
   reg_minimax(router);
+  reg_muse(router);
   reg_qoder(router);
   reg_trae(router);
   reg_windsurf(router);
