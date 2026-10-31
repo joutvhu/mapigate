@@ -12,10 +12,11 @@ export const metadata: ProviderRegistryItem = {
   ],
   "color": "#1E3A8A",
   "image": "/assets/providers/kimi/icon.png",
-  "website": "https://kimi.moonshot.cn",
+  "website": "https://www.kimi.ai",
   "notice": {
-    "apiKeyUrl": "https://platform.moonshot.ai/console/api-keys",
-    "signupUrl": "https://www.kimi.com/code"
+    "apiKeyUrl": "https://platform.kimi.ai/console/api-keys",
+    "signupUrl": "https://www.kimi.ai/code",
+    "text": "Supports Kimi for Coding subscription via OAuth Device Code (kimi.ai / kimi.com) and Kimi/Moonshot Open Platform API Keys (platform.kimi.ai / platform.moonshot.cn)."
   },
   "category": "oauth",
   "authModes": [
@@ -33,15 +34,19 @@ export const metadata: ProviderRegistryItem = {
     "Anthropic-Beta": "claude-code-20250219,interleaved-thinking-2025-05-14"
   },
   "thinkingMode": "auto",
+  "regions": [
+    { "id": "intl", "label": "International (kimi.ai - Google / Email)" },
+    { "id": "cn", "label": "China (kimi.com - Phone / WeChat)" }
+  ],
+  "defaultRegion": "intl",
   "oauth": {
     "clientId": resolvePublicCred("kimi_client_id"),
-    "deviceCodeUrl": "https://auth.kimi.com/api/oauth/device_authorization",
-    "tokenUrl": "https://auth.kimi.com/api/oauth/token",
-    "refreshUrl": "https://auth.kimi.com/api/oauth/token",
+    "deviceCodeUrl": "https://auth.kimi.ai/api/oauth/device_authorization",
+    "tokenUrl": "https://auth.kimi.ai/api/oauth/token",
+    "refreshUrl": "https://auth.kimi.ai/api/oauth/token",
     "refreshLeadMs": 300000,
-    "authorizeDeviceUrl": "https://www.kimi.com/code/authorize_device"
-  }
-,
+    "authorizeDeviceUrl": "https://www.kimi.ai/code/authorize_device"
+  },
   models
 };
 

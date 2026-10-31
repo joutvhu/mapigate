@@ -8,16 +8,27 @@ import type {
   DeviceCodeResult,
   DevicePollParams,
   DevicePollResult,
+  OAuthExchangeParams,
+  OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const KIMI_CLIENT_ID = resolvePublicCred("kimi_client_id");
-export const KIMI_DEVICE_CODE_URL = "https://auth.kimi.com/api/oauth/device_authorization";
-export const KIMI_TOKEN_URL = "https://auth.kimi.com/api/oauth/token";
-export const KIMI_AUTHORIZE_DEVICE_URL = "https://www.kimi.com/code/authorize_device";
+export const KIMI_DEVICE_CODE_URL = "https://auth.kimi.ai/api/oauth/device_authorization";
+export const KIMI_TOKEN_URL = "https://auth.kimi.ai/api/oauth/token";
+export const KIMI_AUTHORIZE_DEVICE_URL = "https://www.kimi.ai/code/authorize_device";
 
-export async function requestKimiDeviceCode(_params?: DeviceCodeParams): Promise<DeviceCodeResult> {
-  const resp = await fetch(KIMI_DEVICE_CODE_URL, {
+export async function requestKimiDeviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
+  const region = params?.region || params?.extraData?.region || "intl";
+  const isCn = region === "cn" || (params?.provider || "").toLowerCase().includes("cn");
+  const deviceAuthUrl = isCn
+    ? "https://auth.kimi.com/api/oauth/device_authorization"
+    : "https://auth.kimi.ai/api/oauth/device_authorization";
+  const authorizeDeviceUrl = isCn
+    ? "https://www.kimi.com/code/authorize_device"
+    : "https://www.kimi.ai/code/authorize_device";
+
+  const resp = await fetch(deviceAuthUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -36,11 +47,12 @@ export async function requestKimiDeviceCode(_params?: DeviceCodeParams): Promise
   return {
     device_code: data.device_code,
     user_code: data.user_code,
-    verification_uri: data.verification_uri || KIMI_AUTHORIZE_DEVICE_URL,
+    verification_uri: data.verification_uri || authorizeDeviceUrl,
     verification_uri_complete:
-      data.verification_uri_complete || `${KIMI_AUTHORIZE_DEVICE_URL}?user_code=${data.user_code}`,
-    expires_in: data.expires_in || 300,
+      data.verification_uri_complete || `${authorizeDeviceUrl}?user_code=${data.user_code}`,
+    expires_in: data.expires_in || 1800,
     interval: data.interval || 5,
+    _region: isCn ? "cn" : "intl",
   };
 }
 
@@ -50,7 +62,13 @@ export async function pollKimiToken(params: DevicePollParams): Promise<DevicePol
     return { ok: false, error: "Missing device_code" };
   }
 
-  const resp = await fetch(KIMI_TOKEN_URL, {
+  const region = params.region || params.extraData?.region || params.extraData?._region || "intl";
+  const isCn = region === "cn" || (params.provider || "").toLowerCase().includes("cn");
+  const tokenUrl = isCn
+    ? "https://auth.kimi.com/api/oauth/token"
+    : "https://auth.kimi.ai/api/oauth/token";
+
+  const resp = await fetch(tokenUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -104,8 +122,49 @@ export const kimiOAuthHandler: ProviderOAuthHandler = {
   id: "kimi",
   deviceCode: requestKimiDeviceCode,
   poll: pollKimiToken,
+
+  async exchange(params: OAuthExchangeParams): Promise<OAuthExchangeResult> {
+    const raw = String(params.code || "").trim();
+    if (!raw) return { success: false, error: "Token is required" };
+
+    let token = raw;
+    let refreshToken = "";
+    if (raw.startsWith("{") && raw.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(raw);
+        token = parsed.accessToken || parsed.access_token || parsed.token || parsed.apiKey || token;
+        refreshToken = parsed.refreshToken || parsed.refresh_token || "";
+      } catch {}
+    }
+
+    ProviderRepository.ensureProviderExists("kimi");
+    const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+    const accountName = token.startsWith("sk-") ? "Kimi Platform Key" : "Kimi Account";
+
+    ProviderRepository.addAccount({
+      id: accountId,
+      providerId: "kimi",
+      name: accountName,
+      rawApiKey: raw,
+      providerSpecificData: {
+        authMethod: token.startsWith("sk-") ? "apikey" : "oauth",
+        ...(refreshToken ? { refreshToken } : {}),
+      },
+    });
+
+    return {
+      success: true,
+      account: {
+        id: accountId,
+        name: accountName,
+        providerId: "kimi",
+      },
+    };
+  },
 };
 
 export function registerRoutes(_router?: Router): void {
   OAuthHandlerRegistry.register("kimi", kimiOAuthHandler);
+  OAuthHandlerRegistry.register("kimi-coding", kimiOAuthHandler);
+  OAuthHandlerRegistry.register("kmc", kimiOAuthHandler);
 }
