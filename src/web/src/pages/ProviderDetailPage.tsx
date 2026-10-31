@@ -66,14 +66,19 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
   const isCustomProvider = provider.category === "custom" || !registryItem;
 
-  const isOAuth = isOAuthProvider(registryItem) || isOAuthProvider(provider);
-  const supportsApiKey = Array.isArray(registryItem?.authModes)
+  const isCookie =
+    registryItem?.authType === "cookie" ||
+    registryItem?.category === "webCookie" ||
+    provider.category === "webCookie";
+
+  const isOAuth = !isCookie && (isOAuthProvider(registryItem) || isOAuthProvider(provider));
+  const supportsApiKey = !isCookie && (Array.isArray(registryItem?.authModes)
     ? registryItem.authModes.includes("apikey")
     : Boolean(
         registryItem?.category === "apikey" ||
         registryItem?.notice?.apiKeyUrl ||
         (provider.category === "apikey" && !["antigravity", "cursor", "github", "kiro"].includes(provider.id))
-      );
+      ));
 
   const handleConnectOAuth = () => {
     if (provider.id === "github") {
@@ -864,10 +869,16 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             className="rt-btn rt-btn--primary"
           >
             <span className="material-symbols-outlined text-[16px]">
-              {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro" ? "lock" : "add"}
+              {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro"
+                ? "lock"
+                : isCookie
+                ? "cookie"
+                : "add"}
             </span>
             {isOAuth || provider.id === "github" || provider.id === "cursor" || provider.id === "kiro"
               ? `Connect ${provider.name}`
+              : isCookie
+              ? "Add Session Cookie"
               : "Add Account"}
           </button>
         )}

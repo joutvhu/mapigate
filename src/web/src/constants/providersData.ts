@@ -42,6 +42,7 @@ export function isOAuthProvider(p?: {
   oauth?: any;
 }): boolean {
   if (!p) return false;
+  if (p.category === "webCookie" || p.authType === "cookie") return false;
   const pId = p.id?.toLowerCase() || "";
   if (
     pId === "antigravity" ||
@@ -60,7 +61,7 @@ export function isOAuthProvider(p?: {
     return true;
   }
   if (p.oauth != null) return true;
-  if (p.category === "oauth" || p.category === "webCookie") return true;
+  if (p.category === "oauth") return true;
   if (p.authType === "oauth") return true;
   if (Array.isArray(p.authModes) && p.authModes.includes("oauth")) return true;
   return false;
