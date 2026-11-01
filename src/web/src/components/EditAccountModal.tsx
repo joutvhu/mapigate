@@ -51,6 +51,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   const [bedrockRegion, setBedrockRegion] = useState("us-east-1");
   const [bedrockAccessKeyId, setBedrockAccessKeyId] = useState("");
   const [bedrockSessionToken, setBedrockSessionToken] = useState("");
+  const [aliCustomUrl, setAliCustomUrl] = useState("");
 
   const pId = (account?.providerId || "").toLowerCase();
   const regProvider = getRegistryProvider(account?.providerId || "");
@@ -72,6 +73,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   const isCloudflareAi = pId === "cloudflare-ai" || pId === "cloudflare";
   const isBedrock = pId === "bedrock" || pId.includes("bedrock");
   const isXiaomiTokenPlan = pId === "xiaomi-tokenplan";
+  const isAlibaba = pId === "alicode" || pId === "alibaba";
 
   const availableRegions: { id: string; label: string }[] = isXiaomiTokenPlan
     ? [
@@ -108,6 +110,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
       setSelectedRegion(
         psd.region || (availableRegions.length > 0 ? availableRegions[0].id : "sgp")
       );
+      setAliCustomUrl(psd.baseUrl || "");
 
       const isStatic = Boolean(psd.accessKeyId);
       setBedrockMode(isStatic ? "static" : "profile");
@@ -151,7 +154,14 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
         };
       }
     } else if (isXiaomiTokenPlan || availableRegions.length > 0) {
-      customPsd = { region: selectedRegion };
+      customPsd.region = selectedRegion;
+      if (isAlibaba) {
+        if (aliCustomUrl.trim()) {
+          customPsd.baseUrl = aliCustomUrl.trim();
+        } else if (existingPsd.baseUrl) {
+          delete existingPsd.baseUrl;
+        }
+      }
     }
 
     if (Object.keys(customPsd).length > 0) {
@@ -440,20 +450,39 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
 
           {/* Specialized: Region Selector */}
           {(isXiaomiTokenPlan || availableRegions.length > 0) && (
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">
-                Cluster Region
-              </label>
-              <Select
-                value={selectedRegion}
-                onChange={(val) => setSelectedRegion(val)}
-                options={availableRegions.map((r) => ({
-                  value: r.id,
-                  label: `${r.label} (${r.id})`,
-                }))}
-                className="w-full"
-                triggerClassName="bg-[#0A0D14] font-mono text-xs py-2"
-              />
+            <div className="space-y-2">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">
+                  Cluster Region
+                </label>
+                <Select
+                  value={selectedRegion}
+                  onChange={(val) => setSelectedRegion(val)}
+                  options={availableRegions.map((r) => ({
+                    value: r.id,
+                    label: r.label.includes(r.id) ? r.label : `${r.label} (${r.id})`,
+                  }))}
+                  className="w-full"
+                  triggerClassName="bg-[#0A0D14] font-mono text-xs py-2"
+                />
+              </div>
+              {isAlibaba && (
+                <div className="space-y-1">
+                  <label className="block text-slate-400 text-xs">
+                    Dedicated Workspace Endpoint URL <span className="text-slate-500">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={aliCustomUrl}
+                    onChange={(e) => setAliCustomUrl(e.target.value)}
+                    placeholder="e.g. https://ws-xxx.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+                    className="w-full bg-[#0A0D14] border border-[#1E293B] text-slate-100 px-3 py-1.5 rounded-lg focus:outline-none focus:border-blue-500 font-mono text-xs"
+                  />
+                  <p className="text-[11px] text-slate-400">
+                    Required if your API key was created inside an Alibaba Model Studio custom workspace.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

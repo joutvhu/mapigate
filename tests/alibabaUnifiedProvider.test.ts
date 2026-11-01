@@ -3,7 +3,7 @@ process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ProviderRegistry } from "../src/providers/core/registry.js";
-import { resolveAlibabaBaseUrl } from "../src/providers/runtime/alicode/provider.js";
+import { resolveAlibabaBaseUrl, normalizeAlibabaEndpoint } from "../src/providers/runtime/alicode/provider.js";
 import { metadata } from "../src/providers/runtime/alicode/metadata.js";
 
 test("Alibaba Unified Provider - Auto-detection and Region Routing", () => {
@@ -45,7 +45,71 @@ test("Alibaba Unified Provider - Auto-detection and Region Routing", () => {
     "token-plan region must route to Singapore Token Plan"
   );
 
-  // 3. ProviderRegistry aliases resolution
+  assert.equal(
+    resolveAlibabaBaseUrl("token-plan-cn", "any-key"),
+    "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+    "token-plan-cn region must route to Beijing Token Plan"
+  );
+
+  assert.equal(
+    resolveAlibabaBaseUrl("ap-southeast-1", "any-key"),
+    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+    "ap-southeast-1 region must route to Singapore Model Studio"
+  );
+
+  assert.equal(
+    resolveAlibabaBaseUrl("cn-beijing", "any-key"),
+    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "cn-beijing region must route to Beijing Model Studio"
+  );
+
+  assert.equal(
+    resolveAlibabaBaseUrl("cn-hongkong", "any-key"),
+    "https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1",
+    "cn-hongkong region must route to Hong Kong Model Studio"
+  );
+
+  assert.equal(
+    resolveAlibabaBaseUrl("us-east-1", "any-key"),
+    "https://dashscope-us.aliyuncs.com/compatible-mode/v1",
+    "us-east-1 region must route to US Virginia Model Studio"
+  );
+
+  // 3. Custom Dedicated Workspace URL overrides
+  assert.equal(
+    resolveAlibabaBaseUrl(
+      "ap-southeast-1",
+      "sk-custom",
+      "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+    ),
+    "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    "customBaseUrl must take highest priority"
+  );
+
+  assert.equal(
+    normalizeAlibabaEndpoint("ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com"),
+    "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    "normalizeAlibabaEndpoint must handle bare host name"
+  );
+
+  assert.equal(
+    normalizeAlibabaEndpoint("https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions"),
+    "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    "normalizeAlibabaEndpoint must strip /chat/completions"
+  );
+
+  assert.equal(
+    resolveAlibabaBaseUrl(
+      "ap-southeast-1",
+      "sk-custom",
+      undefined,
+      "ws-tx2va1idka7fndag"
+    ),
+    "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    "workspaceId + region must format into dedicated workspace endpoint"
+  );
+
+  // 4. ProviderRegistry aliases resolution
   const provInstance = ProviderRegistry.get("alicode");
   assert.ok(provInstance, "ProviderRegistry must resolve alicode");
   assert.equal(provInstance.id, "alicode");
@@ -57,8 +121,8 @@ test("Alibaba Unified Provider - Auto-detection and Region Routing", () => {
     assert.equal(resolvedInst.id, "alicode", `Provider instance for alias '${alias}' must be alicode`);
   }
 
-  // 4. Metadata verification
+  // 5. Metadata verification
   assert.equal(metadata.id, "alicode");
-  assert.ok(metadata.regions && metadata.regions.length >= 5);
+  assert.ok(metadata.regions && metadata.regions.length >= 10);
   assert.equal(metadata.hasProviderSpecificData, true);
 });

@@ -57,6 +57,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const isBedrock = pId === "bedrock" || pId.includes("bedrock");
   const isCookie = pId === "grok-web" || pId === "iflow";
   const isXiaomiTokenPlan = pId === "xiaomi-tokenplan";
+  const isAlibaba = pId === "alicode" || pId === "alibaba";
 
   const availableRegions: { id: string; label: string }[] = useMemo(
     () =>
@@ -94,6 +95,9 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const [azureOrganization, setAzureOrganization] = useState("");
   const [cfAccountId, setCfAccountId] = useState("");
 
+  // Alibaba Workspace / Endpoint URL
+  const [aliCustomUrl, setAliCustomUrl] = useState("");
+
   // Bedrock
   const [bedrockMode, setBedrockMode] = useState<"profile" | "static">("profile");
   const [bedrockProfile, setBedrockProfile] = useState("");
@@ -130,6 +134,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     setAzureApiVersion("2024-10-01-preview");
     setAzureOrganization("");
     setCfAccountId("");
+    setAliCustomUrl("");
     setBedrockMode("profile");
     setBedrockProfile("");
     setBedrockRegion("us-east-1");
@@ -204,7 +209,11 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       };
     }
     if (isXiaomiTokenPlan || availableRegions.length > 0) {
-      return { region: selectedRegion };
+      const out: Record<string, any> = { region: selectedRegion };
+      if (isAlibaba && aliCustomUrl.trim()) {
+        out.baseUrl = aliCustomUrl.trim();
+      }
+      return out;
     }
     return undefined;
   };
@@ -493,7 +502,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   onChange={(val) => setSelectedRegion(val)}
                   options={availableRegions.map((r) => ({
                     value: r.id,
-                    label: `${r.label} (${r.id})`,
+                    label: r.label.includes(r.id) ? r.label : `${r.label} (${r.id})`,
                   }))}
                   className="w-full"
                   triggerClassName="bg-[#0F1420] font-mono text-xs py-2"
@@ -502,6 +511,23 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                   <p className="text-[11px] text-slate-400 mt-1">
                     Token Plan keys are cluster-specific — select the region matching your subscription.
                   </p>
+                )}
+                {isAlibaba && (
+                  <div className="pt-2 border-t border-[#1E293B]/70 mt-2 space-y-1">
+                    <label className="block text-slate-400 text-xs">
+                      Dedicated Workspace Endpoint URL <span className="text-slate-500">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={aliCustomUrl}
+                      onChange={(e) => setAliCustomUrl(e.target.value)}
+                      placeholder="e.g. https://ws-xxx.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+                      className="w-full bg-[#0F1420] border border-[#1E293B] rounded-xl px-3 py-1.5 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Required if your API key was created inside an Alibaba Model Studio custom workspace.
+                    </p>
+                  </div>
                 )}
               </div>
             )}

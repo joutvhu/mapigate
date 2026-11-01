@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../providers/core/metadataRegistry.js";
+import { ProviderRegistry } from "../../providers/core/registry.js";
 import {
   COMMUNITY_PROVIDERS_CATALOG,
   getCommunityCatalogProvider,
@@ -273,8 +274,37 @@ providerRouter.post("/validate", async (req, res) => {
     return;
   }
 
+  // Provider-specific probe delegation (e.g. Alibaba Cloud with custom workspace/region)
+  try {
+    const provInstance = ProviderRegistry.get(pId);
+    if (provInstance && typeof provInstance.probeModels === "function") {
+      const probeRes = await provInstance.probeModels({
+        apiKey,
+        region: providerSpecificData?.region,
+        baseUrl: providerSpecificData?.baseUrl,
+        providerSpecificData,
+        timeoutMs: 6000,
+      });
+      if (probeRes?.success) {
+        res.json({ valid: true });
+        return;
+      }
+      if (probeRes?.authError || probeRes?.error) {
+        res.json({ valid: false, error: probeRes.authError || probeRes.error });
+        return;
+      }
+    }
+  } catch {
+    // Fall back to standard probing below
+  }
+
   const dbProv = ProviderRepository.getProviderById(pId);
-  const baseUrl = (dbProv?.baseUrl || reg?.baseUrl || "https://api.openai.com").replace(/\/+$/, "");
+  const baseUrl = (
+    providerSpecificData?.baseUrl ||
+    dbProv?.baseUrl ||
+    reg?.baseUrl ||
+    "https://api.openai.com"
+  ).replace(/\/+$/, "");
   const format = dbProv?.format || reg?.format || "openai";
 
   try {

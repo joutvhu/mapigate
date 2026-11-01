@@ -3,14 +3,66 @@ import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult 
 import { metadata, ALIBABA_REGIONS } from "./metadata.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 
-export function resolveAlibabaBaseUrl(region?: string, token?: string): string {
-  // 1. Explicit region
+/**
+ * Standardize an Alibaba custom or workspace base URL.
+ * Handles inputs like:
+ * - "ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com"
+ * - "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com"
+ * - "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+ * - "https://ws-tx2va1idka7fndag.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions"
+ */
+export function normalizeAlibabaEndpoint(rawUrl: string): string {
+  let url = rawUrl.trim();
+  if (!url) return "";
+
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+
+  // Remove trailing slashes and common path suffixes
+  url = url.replace(/\/+$/, "");
+  url = url.replace(/\/(chat\/completions|messages|models)$/i, "");
+
+  // If host only without path, append /compatible-mode/v1
+  try {
+    const parsed = new URL(url);
+    if (!parsed.pathname || parsed.pathname === "/" || parsed.pathname === "") {
+      return `${parsed.origin}/compatible-mode/v1`;
+    }
+  } catch {
+    // Return sanitized url if parsing fails
+  }
+
+  return url;
+}
+
+export function resolveAlibabaBaseUrl(
+  region?: string,
+  token?: string,
+  customBaseUrl?: string,
+  workspaceId?: string
+): string {
+  // 1. Explicit customBaseUrl from providerSpecificData or account
+  if (customBaseUrl && customBaseUrl.trim()) {
+    return normalizeAlibabaEndpoint(customBaseUrl);
+  }
+
+  // 2. Dedicated Workspace ID + Region
+  if (workspaceId && workspaceId.trim()) {
+    const cleanWs = workspaceId.trim();
+    const effectiveRegion = region && region !== "coding-intl" && region !== "coding-cn" && region !== "token-plan"
+      ? region
+      : "ap-southeast-1";
+    return `https://${cleanWs}.${effectiveRegion}.maas.aliyuncs.com/compatible-mode/v1`;
+  }
+
+  // 3. Explicit region matching ALIBABA_REGIONS
   if (region) {
     const found = ALIBABA_REGIONS.find((r) => r.id === region);
     if (found) return found.baseUrl;
   }
 
-  // 2. Auto-detect from token pattern
+  // 4. Auto-detect from token pattern
   if (token) {
     const cleanToken = token.trim();
     if (cleanToken.startsWith("sk-sp-")) {
@@ -35,7 +87,7 @@ export class AlibabaProvider extends OpenAiCompatibleProvider {
   public override buildUrl(context: ProviderRequestContext): string {
     const psd = ((context.account?.providerSpecificData || {}) as any);
     const token = context.account?.rawApiKey || "";
-    const base = resolveAlibabaBaseUrl(psd.region, token);
+    const base = resolveAlibabaBaseUrl(psd.region, token, psd.baseUrl, psd.workspaceId);
     return `${base.replace(/\/+$/, "")}/chat/completions`;
   }
 
@@ -49,7 +101,12 @@ export class AlibabaProvider extends OpenAiCompatibleProvider {
     }
 
     const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
-    const resolvedBase = resolveAlibabaBaseUrl(psd.region || context.region, token);
+    const resolvedBase = resolveAlibabaBaseUrl(
+      psd.region || context.region,
+      token,
+      psd.baseUrl || context.baseUrl,
+      psd.workspaceId
+    );
     const timeoutMs = context.timeoutMs || 8000;
 
     const candidateUrls = [
