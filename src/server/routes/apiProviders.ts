@@ -7,6 +7,7 @@ import {
 } from "../../providers/catalog/index.js";
 import { scanProviderModels } from "../../core/scanner/modelScanner.js";
 import { testProviderConnection, testMultipleConnections } from "../../core/scanner/connectionTester.js";
+import { maskSensitivePsd } from "../../shared/utils/security.js";
 import crypto from "node:crypto";
 
 export const providerRouter = Router();
@@ -407,28 +408,6 @@ providerRouter.post("/:id/scan-models", async (req, res) => {
     res.status(500).json({ success: false, models: [], count: 0, error: msg });
   }
 });
-
-function maskSensitivePsd(psd?: Record<string, any> | null): Record<string, any> | undefined {
-  if (!psd || typeof psd !== "object") return undefined;
-  const SENSITIVE_KEYS = new Set([
-    "refreshtoken",
-    "secretaccesskey",
-    "clientsecret",
-    "privatekey",
-    "password",
-    "secretkey",
-  ]);
-
-  const sanitized: Record<string, any> = {};
-  for (const [k, v] of Object.entries(psd)) {
-    if (SENSITIVE_KEYS.has(k.toLowerCase()) && typeof v === "string" && v.length > 0) {
-      sanitized[k] = "••••••••";
-    } else {
-      sanitized[k] = v;
-    }
-  }
-  return sanitized;
-}
 
 // GET single provider details
 providerRouter.get("/:id", (req, res) => {

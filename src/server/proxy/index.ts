@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import crypto from "node:crypto";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { runProxyPipeline } from "./pipeline.js";
 import { extractHeader, mergeAnthropicBeta } from "../../providers/core/base/baseProvider.js";
@@ -8,6 +9,14 @@ export { executeSingleModel } from "./singleModelExecutor.js";
 export { ResponseLogger } from "./responseLogger.js";
 export { executeUpstreamFetch } from "./proxyDispatcher.js";
 export * from "./types.js";
+
+function safeCompareKeys(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 export async function handleProxyRequest(
   req: Request,
@@ -29,7 +38,7 @@ export async function handleProxyRequest(
   }
 
   // Resolve client gateway API key if provided
-  let matchedKey = providedKey ? allKeys.find((k) => k.key === providedKey) : undefined;
+  let matchedKey = providedKey ? allKeys.find((k) => safeCompareKeys(k.key, providedKey)) : undefined;
 
   if (endpointSettings.requireApiKey) {
     const activeKeys = allKeys.filter((k) => k.isActive);

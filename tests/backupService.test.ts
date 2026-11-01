@@ -105,3 +105,51 @@ test("BackupService - exports encrypted configuration and successfully restores 
     /Authentication failed|Invalid password/i
   );
 });
+
+test("BackupService - strips sensitive tokens from providerSpecificData when includeCredentials is false", async () => {
+  const testProvId = `test-psd-prov-${Date.now()}`;
+  ProviderRepository.saveProvider({
+    id: testProvId,
+    name: "Test PSD Provider",
+    baseUrl: "https://api.test.com/v1",
+    format: "openai",
+    priority: 1,
+    models: ["test-m1"],
+    isActive: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  const testAccId = `test-acc-psd-${Date.now()}`;
+  ProviderRepository.addAccount({
+    id: testAccId,
+    providerId: testProvId,
+    name: "OAuth Token Account",
+    rawApiKey: "some-key",
+    providerSpecificData: {
+      email: "user@example.com",
+      refreshToken: "secret-refresh-token-xyz",
+      accessToken: "secret-access-token-abc",
+      expiresAt: 1234567890,
+    },
+  });
+
+  const backupNoCreds = await BackupService.exportConfig({ includeCredentials: false });
+  const exportedProv = backupNoCreds.data.providers.find((p) => p.id === testProvId);
+  assert.ok(exportedProv);
+  const exportedAcc = exportedProv.accounts?.find((a) => a.id === testAccId);
+  assert.ok(exportedAcc);
+  assert.equal(exportedAcc.apiKey, "");
+  assert.equal(exportedAcc.providerSpecificData?.email, "user@example.com");
+  assert.equal(exportedAcc.providerSpecificData?.expiresAt, 1234567890);
+  assert.equal(exportedAcc.providerSpecificData?.refreshToken, undefined, "refreshToken must be stripped");
+  assert.equal(exportedAcc.providerSpecificData?.accessToken, undefined, "accessToken must be stripped");
+
+  const pwd = "test-encryption-psd";
+  const backupWithCreds = await BackupService.exportConfig({ includeCredentials: true, password: pwd });
+  const exportedProvEnc = backupWithCreds.data.providers.find((p) => p.id === testProvId);
+  const exportedAccEnc = exportedProvEnc?.accounts?.find((a) => a.id === testAccId);
+  assert.ok(typeof exportedAccEnc?.providerSpecificData === "string", "providerSpecificData must be encrypted string");
+  assert.ok(!exportedAccEnc?.providerSpecificData?.includes("secret-refresh-token-xyz"), "plaintext tokens must not appear");
+});
+

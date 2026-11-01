@@ -5,6 +5,7 @@ import { ToolMappingRepository } from "./repositories/toolMappingRepo.js";
 import { ModelRepository } from "./repositories/modelRepo.js";
 import { SettingsRepository } from "./repositories/settingsRepo.js";
 import { APP_NAME, APP_VERSION } from "../shared/constants/index.js";
+import { sanitizePsdForExport } from "../shared/utils/security.js";
 import type { ProviderConfig, ComboRecord } from "../shared/types/index.js";
 
 export interface BackupExportOptions {
@@ -45,7 +46,7 @@ export interface BackupPayload {
         apiKey?: string; // encrypted or plaintext
         isActive?: boolean;
         sortOrder?: number;
-        providerSpecificData?: Record<string, any>;
+        providerSpecificData?: Record<string, any> | string;
       }>;
     }>;
     combos: Array<{
@@ -160,12 +161,19 @@ export class BackupService {
         isActive: p.isActive,
         accounts: pAccounts.map((a) => {
           let exportedKey = "";
-          if (includeCredentials && a.rawApiKey) {
-            if (exportKey) {
-              exportedKey = encryptWithPassword(a.rawApiKey, exportKey);
-            } else {
-              exportedKey = a.rawApiKey;
+          let exportedPsd: any = undefined;
+          if (includeCredentials) {
+            if (a.rawApiKey) {
+              exportedKey = exportKey ? encryptWithPassword(a.rawApiKey, exportKey) : a.rawApiKey;
             }
+            if (a.providerSpecificData) {
+              exportedPsd = exportKey
+                ? encryptWithPassword(JSON.stringify(a.providerSpecificData), exportKey)
+                : a.providerSpecificData;
+            }
+          } else {
+            // Credentials not included: sanitize providerSpecificData to strip sensitive tokens
+            exportedPsd = sanitizePsdForExport(a.providerSpecificData);
           }
           return {
             id: a.id,
@@ -173,7 +181,7 @@ export class BackupService {
             apiKey: exportedKey,
             isActive: a.isActive,
             sortOrder: a.sortOrder,
-            providerSpecificData: a.providerSpecificData,
+            providerSpecificData: exportedPsd,
           };
         }),
       };
@@ -309,6 +317,18 @@ export class BackupService {
                 }
               }
 
+              let restoredPsd = accData.providerSpecificData;
+              if (typeof restoredPsd === "string" && decryptKey) {
+                try {
+                  const decrypted = decryptWithPassword(restoredPsd, decryptKey);
+                  if (decrypted) {
+                    restoredPsd = JSON.parse(decrypted);
+                  }
+                } catch {
+                  // best effort fallback
+                }
+              }
+
               const accId = accData.id || crypto.randomUUID();
               const existingAcc = ProviderRepository.getAccountById(accId);
               if (existingAcc) {
@@ -316,6 +336,7 @@ export class BackupService {
                   name: accData.name,
                   rawApiKey: rawKey || undefined,
                   isActive: accData.isActive,
+                  providerSpecificData: typeof restoredPsd === "object" ? restoredPsd : existingAcc.providerSpecificData,
                 });
                 restored.accountsCount++;
               } else {
@@ -325,7 +346,7 @@ export class BackupService {
                   name: accData.name || "Default Account",
                   rawApiKey: rawKey,
                   sortOrder: accData.sortOrder,
-                  providerSpecificData: accData.providerSpecificData,
+                  providerSpecificData: typeof restoredPsd === "object" ? restoredPsd : undefined,
                 });
                 if (accData.isActive === false) {
                   ProviderRepository.toggleAccount(accId, false);

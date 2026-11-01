@@ -233,6 +233,21 @@ settingsRouter.get("/", (_req, res) => {
   }
 });
 
+const FORBIDDEN_SETTINGS_KEYS = new Set([
+  "masterpassword",
+  "master_password",
+  "gatewayapikeys",
+  "gateway_api_keys",
+]);
+
+function isAllowedSettingKey(key: string): boolean {
+  if (!key || typeof key !== "string") return false;
+  const normalized = key.toLowerCase().replace(/[-_]/g, "");
+  if (FORBIDDEN_SETTINGS_KEYS.has(normalized)) return false;
+  if (normalized.startsWith("mitmhosts") || key.startsWith("mitm_hosts_")) return false;
+  return true;
+}
+
 // PATCH /api/settings - Partial update settings
 settingsRouter.patch("/", (req, res) => {
   try {
@@ -248,6 +263,9 @@ settingsRouter.patch("/", (req, res) => {
     }
     for (const [key, val] of Object.entries(body)) {
       if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver") {
+        if (!isAllowedSettingKey(key)) {
+          continue;
+        }
         SettingsRepository.setSetting(key, val);
       }
     }
@@ -279,6 +297,9 @@ settingsRouter.put("/", (req, res) => {
     }
     for (const [key, val] of Object.entries(body)) {
       if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver") {
+        if (!isAllowedSettingKey(key)) {
+          continue;
+        }
         SettingsRepository.setSetting(key, val);
       }
     }

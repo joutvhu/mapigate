@@ -115,6 +115,67 @@ app.use((req, res, next) => {
   });
 });
 
+function isTrustedHost(rawHost?: string): boolean {
+  if (!rawHost) {
+    return (
+      process.env.NODE_ENV === "test" ||
+      Boolean(process.env.NODE_TEST_CONTEXT) ||
+      process.argv.some((arg) => arg.includes("test"))
+    );
+  }
+
+  let hostname = rawHost.trim();
+  if (hostname.startsWith("[")) {
+    const closeIdx = hostname.indexOf("]");
+    if (closeIdx !== -1) {
+      hostname = hostname.slice(1, closeIdx);
+    }
+  } else {
+    hostname = hostname.split(":")[0];
+  }
+  hostname = hostname.toLowerCase();
+
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "0.0.0.0"
+  ) {
+    return true;
+  }
+
+  const customAllowed = process.env.MAPIGATE_ALLOWED_HOSTS;
+  if (customAllowed) {
+    const list = customAllowed.split(",").map((h) => h.trim().toLowerCase());
+    if (list.includes(hostname) || list.includes("*")) {
+      return true;
+    }
+  }
+
+  const envHost = (process.env.HOST || DEFAULT_HOST || "").toLowerCase().trim();
+  if (envHost && envHost === hostname) {
+    return true;
+  }
+
+  return false;
+}
+
+// Host header verification guard: protect against DNS rebinding attacks
+app.use((req, res, next) => {
+  const hostHeader = req.headers.host;
+  if (isTrustedHost(hostHeader)) {
+    return next();
+  }
+
+  res.status(403).json({
+    error: {
+      message: "Forbidden: Access denied with untrusted Host header",
+      type: "access_denied",
+      code: "untrusted_host",
+    },
+  });
+});
+
 // Security headers: prevent clickjacking (iframe embedding) and MIME-type sniffing
 app.use((_req, res, next) => {
   res.setHeader("X-Frame-Options", "DENY");

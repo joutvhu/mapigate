@@ -9,7 +9,7 @@ import {
   removeDNSEntry,
   checkAllDNSStatus,
 } from "../../mitm/dns/dnsConfig.js";
-import { type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
+import { TOOL_HOSTS, type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
 import {
   inspectPortOwner,
   PortConflictError,
@@ -240,13 +240,77 @@ mitmRouter.get("/hosts/:tool", (req, res) => {
   res.json({ tool, entries });
 });
 
+function validateHostsContent(tool: string, content: string): { valid: boolean; error?: string } {
+  const lines = content.split(/\r?\n/);
+  const defaultHosts = TOOL_HOSTS[tool] || [];
+  const allowedBaseDomains = defaultHosts.map((h) => {
+    const parts = h.split(".");
+    return parts.length >= 2 ? parts.slice(-2).join(".") : h;
+  });
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i].trim();
+    if (!rawLine || rawLine.startsWith("#")) continue;
+
+    const parts = rawLine.split(/\s+/).filter(Boolean);
+    if (parts.length < 2) {
+      return { valid: false, error: `Invalid syntax on line ${i + 1}: expected '<ip> <hostname>'` };
+    }
+    const [ip, host] = parts;
+    const isLoopback =
+      ip === "127.0.0.1" ||
+      ip === "::1" ||
+      /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/.test(ip);
+
+    if (!isLoopback) {
+      return {
+        valid: false,
+        error: `Security violation on line ${i + 1}: Only loopback IP addresses (127.0.0.1, ::1) are permitted`,
+      };
+    }
+
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?$/.test(host) || host.includes("..")) {
+      return { valid: false, error: `Invalid hostname format on line ${i + 1}: '${host}'` };
+    }
+
+    const hostLower = host.toLowerCase();
+    const matchesDomain = allowedBaseDomains.some(
+      (base) => hostLower === base.toLowerCase() || hostLower.endsWith("." + base.toLowerCase())
+    );
+
+    if (!matchesDomain && !defaultHosts.map((h) => h.toLowerCase()).includes(hostLower)) {
+      return {
+        valid: false,
+        error: `Unauthorized host '${host}' on line ${i + 1}: Only domains belonging to ${tool} (${allowedBaseDomains.join(", ")}) may be configured`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 mitmRouter.post("/hosts/:tool", (req, res) => {
   const { tool } = req.params;
-  const { entries } = req.body;
-  if (typeof entries === "string") {
-    MitmRepository.saveToolHosts(tool, entries);
+  const toolKey = (tool || "").toLowerCase();
+  if (!TOOL_HOSTS[toolKey]) {
+    res.status(400).json({ error: `Unknown or unsupported tool '${tool}'` });
+    return;
   }
-  res.json({ success: true, tool, entries: MitmRepository.getToolHosts(tool) });
+
+  const { entries } = req.body || {};
+  if (typeof entries !== "string") {
+    res.status(400).json({ error: "Missing or invalid 'entries' string parameter" });
+    return;
+  }
+
+  const validation = validateHostsContent(toolKey, entries);
+  if (!validation.valid) {
+    res.status(400).json({ error: validation.error });
+    return;
+  }
+
+  MitmRepository.saveToolHosts(toolKey, entries);
+  res.json({ success: true, tool: toolKey, entries: MitmRepository.getToolHosts(toolKey) });
 });
 
 // GET suggested source models for an IDE / tool
