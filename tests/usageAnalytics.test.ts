@@ -35,6 +35,102 @@ test("pricing - resolves known and pattern-matched model pricing", () => {
   assert.ok(deepseekPricing);
   assert.equal(deepseekPricing.input, 0.14);
   assert.equal(deepseekPricing.output, 0.28);
+
+  const dsV4Pro = getPricingForModel("deepseek", "deepseek-v4-pro");
+  assert.ok(dsV4Pro);
+  assert.equal(dsV4Pro.input, 0.66);
+  assert.equal(dsV4Pro.output, 1.98);
+  assert.equal(dsV4Pro.cached, 0.066);
+
+  const qwen38 = getPricingForModel("qwen", "qwen3.8-max");
+  assert.ok(qwen38);
+  assert.equal(qwen38.input, 2.00);
+  assert.equal(qwen38.output, 6.00);
+
+  const qwenTurbo = getPricingForModel("qwen", "qwen-turbo");
+  assert.ok(qwenTurbo);
+  assert.equal(qwenTurbo.input, 0.05);
+  assert.equal(qwenTurbo.output, 0.20);
+
+  const mimoPro = getPricingForModel("mimo", "mimo-v2.6-pro");
+  assert.ok(mimoPro);
+  assert.equal(mimoPro.input, 0.435);
+  assert.equal(mimoPro.output, 0.87);
+  assert.equal(mimoPro.cached, 0.0036);
+
+  const mimoFlash = getPricingForModel("mimo", "mimo-v2.6-flash");
+  assert.ok(mimoFlash);
+  assert.equal(mimoFlash.input, 0.14);
+  assert.equal(mimoFlash.output, 0.28);
+
+  const kimiK31Pro = getPricingForModel("kimi", "k3.1-pro");
+  assert.ok(kimiK31Pro);
+  assert.equal(kimiK31Pro.input, 2.0);
+  assert.equal(kimiK31Pro.output, 10.0);
+  assert.equal(kimiK31Pro.cached, 0.2);
+  assert.equal(kimiK31Pro.cache_creation, 2.0);
+
+  const kimiK31Highspeed = getPricingForModel("kimi", "k3.1-pro-highspeed");
+  assert.ok(kimiK31Highspeed);
+  assert.equal(kimiK31Highspeed.input, 4.0);
+  assert.equal(kimiK31Highspeed.output, 20.0);
+  assert.equal(kimiK31Highspeed.cached, 0.2);
+  assert.equal(kimiK31Highspeed.cache_creation, 4.0);
+
+  const kimiK3 = getPricingForModel("kimi", "k3");
+  assert.ok(kimiK3);
+  assert.equal(kimiK3.input, 3.0);
+  assert.equal(kimiK3.output, 15.0);
+  assert.equal(kimiK3.cached, 0.3);
+  assert.equal(kimiK3.cache_creation, 3.0);
+
+  const gemini4Argon = getPricingForModel("google", "gemini-4-argon");
+  assert.ok(gemini4Argon);
+  assert.equal(gemini4Argon.input, 2.0);
+  assert.equal(gemini4Argon.output, 10.0);
+  assert.equal(gemini4Argon.cached, 0.1);
+
+  const sonnet55 = getPricingForModel("anthropic", "claude-sonnet-5.5");
+  assert.ok(sonnet55);
+  assert.equal(sonnet55.input, 2.0);
+  assert.equal(sonnet55.output, 10.0);
+  assert.equal(sonnet55.cached, 0.2);
+
+  const opus55 = getPricingForModel("anthropic", "claude-opus-5.5");
+  assert.ok(opus55);
+  assert.equal(opus55.input, 4.0);
+  assert.equal(opus55.output, 20.0);
+  assert.equal(opus55.cached, 0.4);
+
+  const fable51 = getPricingForModel("anthropic", "claude-fable-5.1");
+  assert.ok(fable51);
+  assert.equal(fable51.input, 10.0);
+  assert.equal(fable51.output, 50.0);
+  assert.equal(fable51.cached, 1.0);
+
+  const gpt6Sol = getPricingForModel("openai", "gpt-6.1-sol");
+  assert.ok(gpt6Sol);
+  assert.equal(gpt6Sol.input, 2.0);
+  assert.equal(gpt6Sol.output, 10.0);
+  assert.equal(gpt6Sol.cached, 0.1);
+
+  const gpt6Terra = getPricingForModel("openai", "gpt-6.1-terra");
+  assert.ok(gpt6Terra);
+  assert.equal(gpt6Terra.input, 1.0);
+  assert.equal(gpt6Terra.output, 5.0);
+  assert.equal(gpt6Terra.cached, 0.05);
+
+  const mmM3 = getPricingForModel("minimax", "MiniMax-M3");
+  assert.ok(mmM3);
+  assert.equal(mmM3.input, 0.30);
+  assert.equal(mmM3.output, 1.20);
+  assert.equal(mmM3.cached, 0.06);
+
+  const mmFlash = getPricingForModel("minimax", "minimax-m3.1-flash");
+  assert.ok(mmFlash);
+  assert.equal(mmFlash.input, 0.15);
+  assert.equal(mmFlash.output, 0.60);
+  assert.equal(mmFlash.cached, 0.03);
 });
 
 test("pricing - calculates token cost accurately with caching and reasoning tiers", () => {

@@ -2,6 +2,34 @@ import type { RegistryModel } from "../../core/types.js";
 
 export const models: RegistryModel[] = [
   {
+    "id": "k3.1-pro",
+    "name": "Kimi K3.1 Pro",
+    "isDefault": true,
+    "capabilities": {
+      "vision": true,
+      "videoInput": true,
+      "reasoning": true,
+      "thinkingFormat": "kimi",
+      "thinkingCanDisable": false,
+      "contextWindow": 1048576,
+      "maxOutput": 131072
+    }
+  },
+  {
+    "id": "k3.1-pro-highspeed",
+    "name": "Kimi K3.1 Pro Highspeed",
+    "isDefault": false,
+    "capabilities": {
+      "vision": true,
+      "videoInput": true,
+      "reasoning": true,
+      "thinkingFormat": "kimi",
+      "thinkingCanDisable": false,
+      "contextWindow": 1048576,
+      "maxOutput": 131072
+    }
+  },
+  {
     "id": "kimi-k3",
     "name": "Kimi K3",
     "isDefault": false,
