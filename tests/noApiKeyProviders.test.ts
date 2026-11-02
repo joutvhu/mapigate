@@ -46,13 +46,6 @@ test("No-API-Key Providers - Metadata Configuration", () => {
   assert.equal(jan.isLocal, true);
   assert.equal(jan.baseUrl, "http://localhost:1337/v1");
   assert.equal(jan.defaultBaseUrl, "http://localhost:1337/v1");
-
-  // 5. local-device
-  const ld = getRegistryProvider("local-device");
-  assert.ok(ld, "local-device must exist in registry");
-  assert.equal(ld.authType, "none");
-  assert.equal(ld.requiresApiKey, false);
-  assert.equal(ld.isLocal, true);
 });
 
 test("No-API-Key Providers - Header Construction Without Empty Authorization", async () => {

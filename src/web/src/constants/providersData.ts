@@ -20,19 +20,7 @@ export interface ProviderItem {
   noAuth?: boolean;
 }
 
-const MEDIA_ONLY_PROVIDERS = new Set([
-  "assemblyai", "aws-polly", "black-forest-labs", "brave-search", "cartesia",
-  "comfyui", "coqui", "deepgram", "edge-tts", "elevenlabs", "exa", "fal-ai",
-  "firecrawl", "fish-audio", "google-pse", "google-tts", "inworld", "jina-ai",
-  "jina-reader", "linkup", "local-device", "nanobanana", "playht", "recraft",
-  "runwayml", "sdwebui", "searchapi", "searxng", "selfhosted-embedding",
-  "selfhosted-stt", "selfhosted-tts", "serper", "stability-ai", "tavily", "topaz",
-  "tortoise"
-]);
-
-const registryList = Object.values(PROVIDER_REGISTRY).filter(
-  (p) => !MEDIA_ONLY_PROVIDERS.has(p.id)
-);
+const registryList = Object.values(PROVIDER_REGISTRY);
 
 export function isOAuthProvider(p?: {
   id?: string;
@@ -81,8 +69,7 @@ export function isNoApiKeyProvider(p?: {
     pId === "oc" ||
     pId === "ollama-local" ||
     pId === "lm-studio" ||
-    pId === "jan" ||
-    pId === "local-device"
+    pId === "jan"
   ) {
     return true;
   }

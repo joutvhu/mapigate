@@ -13,10 +13,8 @@ import { metadata as antigravity } from "../../runtime/antigravity/metadata.js";
 import { metadata as anyapi } from "../../catalog/anyapi/metadata.js";
 import { metadata as api_airforce } from "../../catalog/api-airforce/metadata.js";
 import { metadata as arcee_ai } from "../../catalog/arcee-ai/metadata.js";
-import { metadata as assemblyai } from "../../catalog/assemblyai/metadata.js";
 import { metadata as atria } from "../../catalog/atria/metadata.js";
 import { metadata as auggie } from "../../catalog/auggie/metadata.js";
-import { metadata as aws_polly } from "../../catalog/aws-polly/metadata.js";
 import { metadata as azure } from "../../runtime/azure/metadata.js";
 import { metadata as bai } from "../../catalog/bai/metadata.js";
 import { metadata as baichuan } from "../../catalog/baichuan/metadata.js";
@@ -26,12 +24,9 @@ import { metadata as baseten } from "../../catalog/baseten/metadata.js";
 import { metadata as bazaarlink } from "../../catalog/bazaarlink/metadata.js";
 import { metadata as bedrock } from "../../runtime/bedrock/metadata.js";
 import { metadata as bedrock_xai } from "../../catalog/bedrock-xai/metadata.js";
-import { metadata as black_forest_labs } from "../../catalog/black-forest-labs/metadata.js";
 import { metadata as blackbox } from "../../catalog/blackbox/metadata.js";
 import { metadata as bluesminds } from "../../catalog/bluesminds/metadata.js";
-import { metadata as brave_search } from "../../catalog/brave-search/metadata.js";
 import { metadata as byteplus } from "../../catalog/byteplus/metadata.js";
-import { metadata as cartesia } from "../../catalog/cartesia/metadata.js";
 import { metadata as cerebras } from "../../catalog/cerebras/metadata.js";
 import { metadata as chutes } from "../../catalog/chutes/metadata.js";
 import { metadata as claude } from "../../runtime/claude/metadata.js";
@@ -41,6 +36,11 @@ import { metadata as clova_studio } from "../../catalog/clova-studio/metadata.js
 import { metadata as codebuddy } from "../../runtime/codebuddy/metadata.js";
 import { metadata as codestral } from "../../catalog/codestral/metadata.js";
 import { metadata as codex } from "../../runtime/codex/metadata.js";
+import { metadata as cohere } from "../../catalog/cohere/metadata.js";
+import { metadata as combo } from "../../composite/combo/metadata.js";
+import { metadata as commandcode } from "../../catalog/commandcode/metadata.js";
+import { metadata as coze } from "../../catalog/coze/metadata.js";
+import { metadata as cursor } from "../../runtime/cursor/metadata.js";
 
 export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "360ai": p_360ai,
@@ -55,10 +55,8 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "anyapi": anyapi,
   "api-airforce": api_airforce,
   "arcee-ai": arcee_ai,
-  "assemblyai": assemblyai,
   "atria": atria,
   "auggie": auggie,
-  "aws-polly": aws_polly,
   "azure": azure,
   "bai": bai,
   "baichuan": baichuan,
@@ -68,12 +66,9 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "bazaarlink": bazaarlink,
   "bedrock": bedrock,
   "bedrock-xai": bedrock_xai,
-  "black-forest-labs": black_forest_labs,
   "blackbox": blackbox,
   "bluesminds": bluesminds,
-  "brave-search": brave_search,
   "byteplus": byteplus,
-  "cartesia": cartesia,
   "cerebras": cerebras,
   "chutes": chutes,
   "claude": claude,
@@ -83,4 +78,9 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "codebuddy": codebuddy,
   "codestral": codestral,
   "codex": codex,
+  "cohere": cohere,
+  "combo": combo,
+  "commandcode": commandcode,
+  "coze": coze,
+  "cursor": cursor,
 };

@@ -5,7 +5,6 @@ import { registerRuntimeChunk1 } from "./runtime/chunk1.js";
 import { registerRuntimeChunk2 } from "./runtime/chunk2.js";
 import { registerRuntimeChunk3 } from "./runtime/chunk3.js";
 import { registerRuntimeChunk4 } from "./runtime/chunk4.js";
-import { registerRuntimeChunk5 } from "./runtime/chunk5.js";
 
 export { PROVIDER_REGISTRY };
 
@@ -14,5 +13,4 @@ export function registerAllGeneratedProviders(registry: { register(p: any, alias
   registerRuntimeChunk2(registry);
   registerRuntimeChunk3(registry);
   registerRuntimeChunk4(registry);
-  registerRuntimeChunk5(registry);
 }

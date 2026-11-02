@@ -39,6 +39,12 @@ function generateProviders() {
 
   fs.mkdirSync(chunksDir, { recursive: true });
   fs.mkdirSync(runtimeDir, { recursive: true });
+  for (const f of fs.readdirSync(chunksDir)) {
+    fs.unlinkSync(path.join(chunksDir, f));
+  }
+  for (const f of fs.readdirSync(runtimeDir)) {
+    fs.unlinkSync(path.join(runtimeDir, f));
+  }
 
   const categories = ["runtime", "composite", "catalog"];
   const providers = [];

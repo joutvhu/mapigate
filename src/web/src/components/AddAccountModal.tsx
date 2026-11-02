@@ -49,8 +49,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const isGenericLocal =
     Boolean(provider.isLocal) ||
     pId === "lm-studio" ||
-    pId === "jan" ||
-    pId === "local-device";
+    pId === "jan";
   const isNoApiKey = isNoAuth || isOllamaLocal || isGenericLocal || provider.requiresApiKey === false;
   const isAzure = pId === "azure" || pId.includes("azure");
   const isCloudflareAi = pId === "cloudflare-ai" || pId === "cloudflare";

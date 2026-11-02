@@ -70,8 +70,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       p.id === "oc" ||
       p.id === "ollama-local" ||
       p.id === "lm-studio" ||
-      p.id === "jan" ||
-      p.id === "local-device"
+      p.id === "jan"
     );
   };
 

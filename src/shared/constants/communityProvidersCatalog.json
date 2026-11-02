@@ -1,27 +1,5 @@
 [
   {
-    "id": "oci",
-    "name": "OCI Generative AI",
-    "baseUrl": "",
-    "format": "openai",
-    "category": "unknown",
-    "authType": "apikey",
-    "website": "https://www.oracle.com/artificial-intelligence/generative-ai",
-    "notice": "",
-    "models": []
-  },
-  {
-    "id": "sap",
-    "name": "SAP Generative AI Hub",
-    "baseUrl": "",
-    "format": "openai",
-    "category": "unknown",
-    "authType": "apikey",
-    "website": "https://help.sap.com/docs/sap-ai-core/sap-ai-core-service-guide/generative-ai-hub-in-sap-ai-core",
-    "notice": "",
-    "models": []
-  },
-  {
     "id": "heroku",
     "name": "Heroku AI",
     "baseUrl": "https://us.inference.heroku.com/v1/chat/completions",
@@ -29,28 +7,6 @@
     "category": "apikey",
     "authType": "apikey",
     "website": "https://www.heroku.com",
-    "notice": "",
-    "models": []
-  },
-  {
-    "id": "datarobot",
-    "name": "DataRobot",
-    "baseUrl": "",
-    "format": "openai",
-    "category": "unknown",
-    "authType": "apikey",
-    "website": "https://docs.datarobot.com",
-    "notice": "",
-    "models": []
-  },
-  {
-    "id": "clarifai",
-    "name": "Clarifai",
-    "baseUrl": "",
-    "format": "openai",
-    "category": "unknown",
-    "authType": "apikey",
-    "website": "https://docs.clarifai.com",
     "notice": "",
     "models": []
   },
@@ -118,17 +74,6 @@
         "contextLength": 128000
       }
     ]
-  },
-  {
-    "id": "cheaperinference",
-    "name": "Cheaper Inference",
-    "baseUrl": "",
-    "format": "openai",
-    "category": "unknown",
-    "authType": "apikey",
-    "website": "https://cheaperinference.com/?utm_source=omniroute",
-    "notice": "",
-    "models": []
   },
   {
     "id": "freebuff",

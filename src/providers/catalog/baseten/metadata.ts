@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "baseten",
   "color": "#111827",
-  "iconBg": "#FFFFFF",
+  "iconBg": "#3bc965",
   "image": "/assets/providers/baseten/icon.svg",
   "website": "https://baseten.co",
   "notice": {
