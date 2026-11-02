@@ -20,7 +20,9 @@ export interface ProviderItem {
   noAuth?: boolean;
 }
 
-const registryList = Object.values(PROVIDER_REGISTRY);
+const registryList = Object.values(PROVIDER_REGISTRY).filter(
+  (p) => p.id !== "combo" && p.category !== "composite"
+);
 
 export function isOAuthProvider(p?: {
   id?: string;

@@ -99,7 +99,10 @@ providerRouter.post("/community-catalog/import", (req, res) => {
 
 // GET all registry providers
 providerRouter.get("/registry", (_req, res) => {
-  res.json(PROVIDER_REGISTRY);
+  const filtered = Object.fromEntries(
+    Object.entries(PROVIDER_REGISTRY).filter(([id, p]) => id !== "combo" && p.category !== "composite")
+  );
+  res.json(filtered);
 });
 
 // GET single provider registry info
@@ -540,7 +543,9 @@ providerRouter.put("/:id/strategy", (req, res) => {
 
 // GET all providers with account counts
 providerRouter.get("/", (_req, res) => {
-  const providers = ProviderRepository.getAllProviders();
+  const providers = ProviderRepository.getAllProviders().filter(
+    (p) => p.id !== "combo" && (p as any).category !== "composite"
+  );
   const result = providers.map((p) => {
     const accounts = ProviderRepository.getAllAccountsByProvider(p.id);
     return {

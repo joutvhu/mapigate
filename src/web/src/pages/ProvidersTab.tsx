@@ -39,7 +39,10 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
       const res = await fetch("/api/providers");
       if (res.ok) {
         const data = await res.json();
-        setBackendProviders(data);
+        const filtered = Array.isArray(data)
+          ? data.filter((p: any) => p.id !== "combo" && p.category !== "composite")
+          : [];
+        setBackendProviders(filtered);
       }
     } catch {
       // Offline fallback
