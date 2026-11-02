@@ -273,6 +273,7 @@ export abstract class BaseProvider implements IProvider {
 
     const reqHeaders: Record<string, string> = {
       Accept: "application/json",
+      ...(reg?.defaultHeaders || {}),
       ...(context.customHeaders || {}),
     };
 
@@ -314,7 +315,25 @@ export abstract class BaseProvider implements IProvider {
         }
 
         if (res.status === 401 || res.status === 403) {
-          authError = `Authentication failed (HTTP ${res.status}) for account "${context.account?.name || this.name}". Please verify credentials.`;
+          let errDetail = "";
+          try {
+            const errJson: any = await res.json();
+            if (errJson?.error?.message) {
+              errDetail = errJson.error.message;
+            } else if (errJson?.message) {
+              errDetail = errJson.message;
+            } else if (typeof errJson?.error === "string") {
+              errDetail = errJson.error;
+            }
+          } catch {
+            const errText = await res.text().catch(() => "");
+            if (errText && !errText.includes("<html") && errText.length < 200) {
+              errDetail = errText.trim();
+            }
+          }
+          authError = errDetail
+            ? `Authentication failed (HTTP ${res.status}): ${errDetail}`
+            : `Authentication failed (HTTP ${res.status}) for account "${context.account?.name || this.name}". Please verify credentials.`;
         } else {
           let errDetail = res.statusText;
           try {
