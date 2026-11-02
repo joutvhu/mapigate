@@ -20,7 +20,7 @@ const P1_PROVIDERS = [
   "novita",
   "nanogpt",
   "bailian-coding-plan",
-  "codestral",
+  "mistral",
   "volcengine-coding-plan",
   "volcengine-agent-plan",
   "v0-vercel",
@@ -91,9 +91,12 @@ test("Providers Expansion - P1 Providers Registered and Configured", () => {
   const bailian = PROVIDER_REGISTRY["bailian-coding-plan"];
   assert.equal(bailian.format, "claude", "bailian-coding-plan must use format 'claude' (Anthropic Messages API)");
 
-  // Check codestral
-  const codestral = PROVIDER_REGISTRY["codestral"];
-  assert.ok(codestral.baseUrl.includes("codestral.mistral.ai"), "codestral must use codestral endpoint");
+  // Check mistral & codestral alias resolution
+  const mistral = PROVIDER_REGISTRY["mistral"];
+  assert.ok(mistral, "mistral must exist in PROVIDER_REGISTRY");
+  assert.ok(mistral.baseUrls?.includes("https://codestral.mistral.ai/v1/chat/completions"), "mistral must support codestral endpoint in baseUrls");
+  const codestralResolved = getRegistryProvider("codestral");
+  assert.equal(codestralResolved?.id, "mistral", "codestral alias must resolve to mistral provider");
 });
 
 test("Providers Expansion - P2 Providers Registered", () => {

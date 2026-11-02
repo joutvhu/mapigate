@@ -33,13 +33,13 @@ import Prov_cline from "../../runtime/cline/provider.js";
 import Prov_cloudflare from "../../runtime/cloudflare/provider.js";
 import Prov_clova_studio from "../../catalog/clova-studio/provider.js";
 import Prov_codebuddy from "../../runtime/codebuddy/provider.js";
-import Prov_codestral from "../../catalog/codestral/provider.js";
 import Prov_codex from "../../runtime/codex/provider.js";
 import Prov_cohere from "../../catalog/cohere/provider.js";
 import Prov_combo from "../../composite/combo/provider.js";
 import Prov_commandcode from "../../catalog/commandcode/provider.js";
 import Prov_coze from "../../catalog/coze/provider.js";
 import Prov_cursor from "../../runtime/cursor/provider.js";
+import Prov_cursor_api from "../../runtime/cursor-api/provider.js";
 
 export function registerRuntimeChunk1(registry: { register(p: any): void }): void {
   registry.register(new Prov_p_360ai());
@@ -75,11 +75,11 @@ export function registerRuntimeChunk1(registry: { register(p: any): void }): voi
   registry.register(new Prov_cloudflare());
   registry.register(new Prov_clova_studio());
   registry.register(new Prov_codebuddy());
-  registry.register(new Prov_codestral());
   registry.register(new Prov_codex());
   registry.register(new Prov_cohere());
   registry.register(new Prov_combo());
   registry.register(new Prov_commandcode());
   registry.register(new Prov_coze());
   registry.register(new Prov_cursor());
+  registry.register(new Prov_cursor_api());
 }

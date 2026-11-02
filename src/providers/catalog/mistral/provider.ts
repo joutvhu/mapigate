@@ -30,7 +30,8 @@ export class MistralProvider extends OpenAiCompatibleProvider {
       };
     }
 
-    const url = "https://api.mistral.ai/v1/models";
+    const rawBase = (context.baseUrl || context.account?.baseUrl || "").trim().replace(/\/chat\/completions\/?$/, "");
+    const url = rawBase ? `${rawBase}/models` : "https://api.mistral.ai/v1/models";
     const timeoutMs = context.timeoutMs || 8000;
     const reqHeaders: Record<string, string> = {
       Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,

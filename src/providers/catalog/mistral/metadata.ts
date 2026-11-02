@@ -2,45 +2,72 @@ import type { ProviderRegistryItem } from "../../core/types.js";
 
 export const metadata: ProviderRegistryItem = {
   "id": "mistral",
-  "name": "Mistral",
+  "name": "Mistral AI",
   "alias": "mistral",
+  "aliases": [
+    "mistral",
+    "codestral",
+    "mistral-ai"
+  ],
+  "uiAlias": "mistral",
   "color": "#FF7000",
-  "iconBg": "linear-gradient(to top, #d20500, #fed504)",
+  "iconBg": "#FFFFFF",
   "image": "/assets/providers/mistral/icon.png",
   "website": "https://mistral.ai",
   "notice": {
-    "apiKeyUrl": "https://console.mistral.ai/api-keys"
+    "apiKeyUrl": "https://console.mistral.ai/api-keys",
+    "text": "Mistral AI platform (api.mistral.ai) & Codestral endpoint (codestral.mistral.ai for dedicated coding keys)."
   },
   "category": "apikey",
+  "authType": "apikey",
   "baseUrl": "https://api.mistral.ai/v1/chat/completions",
   "baseUrls": [
-    "https://api.mistral.ai/v1/chat/completions"
+    "https://api.mistral.ai/v1/chat/completions",
+    "https://codestral.mistral.ai/v1/chat/completions"
   ],
   "validateUrl": "https://api.mistral.ai/v1/models",
   "format": "openai",
-  "defaultHeaders": {},
+  "defaultHeaders": {
+    "content-type": "application/json"
+  },
   "thinkingMode": "auto",
+  "passthroughModels": true,
   "models": [
+    {
+      "id": "codestral-latest",
+      "name": "Codestral Latest",
+      "isDefault": true,
+      "contextLength": 256000
+    },
+    {
+      "id": "codestral-2501",
+      "name": "Codestral 2501",
+      "isDefault": false,
+      "contextLength": 256000
+    },
     {
       "id": "mistral-large-latest",
       "name": "Mistral Large 3",
-      "isDefault": false
-    },
-    {
-      "id": "codestral-latest",
-      "name": "Codestral",
-      "isDefault": false
-    },
-    {
-      "id": "mistral-medium-latest",
-      "name": "Mistral Medium 3",
-      "isDefault": false
-    },
-    {
-      "id": "mistral-embed",
-      "name": "Mistral Embed",
       "isDefault": false,
-      "kind": "embedding"
+      "contextLength": 128000
+    },
+    {
+      "id": "mistral-small-latest",
+      "name": "Mistral Small",
+      "isDefault": false,
+      "contextLength": 128000
+    },
+    {
+      "id": "pixtral-large-latest",
+      "name": "Pixtral Large",
+      "isDefault": false,
+      "contextLength": 128000
+    },
+    {
+      "id": "ministral-8b-latest",
+      "name": "Ministral 8B",
+      "isDefault": false,
+      "contextLength": 128000
     }
   ]
 };
