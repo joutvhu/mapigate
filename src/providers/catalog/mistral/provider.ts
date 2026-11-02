@@ -30,8 +30,14 @@ export class MistralProvider extends OpenAiCompatibleProvider {
       };
     }
 
-    const rawBase = (context.baseUrl || context.account?.baseUrl || "").trim().replace(/\/chat\/completions\/?$/, "");
-    const url = rawBase ? `${rawBase}/models` : "https://api.mistral.ai/v1/models";
+    let url = (context.baseUrl || context.account?.baseUrl || "").trim().replace(/\/+$/, "");
+    if (!url) {
+      url = "https://api.mistral.ai/v1/models";
+    } else if (url.includes("/chat/completions")) {
+      url = url.replace(/\/chat\/completions\/?$/, "/models");
+    } else if (!url.endsWith("/models")) {
+      url = `${url}/models`;
+    }
     const timeoutMs = context.timeoutMs || 8000;
     const reqHeaders: Record<string, string> = {
       Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,

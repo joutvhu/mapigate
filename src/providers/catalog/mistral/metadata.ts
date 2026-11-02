@@ -11,19 +11,18 @@ export const metadata: ProviderRegistryItem = {
   ],
   "uiAlias": "mistral",
   "color": "#FF7000",
-  "iconBg": "#FFFFFF",
+  "iconBg": "#e10500",
   "image": "/assets/providers/mistral/icon.png",
   "website": "https://mistral.ai",
   "notice": {
     "apiKeyUrl": "https://console.mistral.ai/api-keys",
-    "text": "Mistral AI platform (api.mistral.ai) & Codestral endpoint (codestral.mistral.ai for dedicated coding keys)."
+    "text": "Mistral AI unified platform (api.mistral.ai) serving all Mistral and Codestral models via console API keys."
   },
   "category": "apikey",
   "authType": "apikey",
   "baseUrl": "https://api.mistral.ai/v1/chat/completions",
   "baseUrls": [
-    "https://api.mistral.ai/v1/chat/completions",
-    "https://codestral.mistral.ai/v1/chat/completions"
+    "https://api.mistral.ai/v1/chat/completions"
   ],
   "validateUrl": "https://api.mistral.ai/v1/models",
   "format": "openai",

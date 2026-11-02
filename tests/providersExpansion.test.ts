@@ -78,7 +78,7 @@ const P2_PROVIDERS = [
   "longcat",
 ];
 
-test("Providers Expansion - P1 Providers Registered and Configured", () => {
+test("Providers Expansion - P1 Providers Registered and Configured", async () => {
   for (const id of P1_PROVIDERS) {
     const p = PROVIDER_REGISTRY[id];
     assert.ok(p, `P1 Provider '${id}' must be present in PROVIDER_REGISTRY`);
@@ -94,9 +94,27 @@ test("Providers Expansion - P1 Providers Registered and Configured", () => {
   // Check mistral & codestral alias resolution
   const mistral = PROVIDER_REGISTRY["mistral"];
   assert.ok(mistral, "mistral must exist in PROVIDER_REGISTRY");
-  assert.ok(mistral.baseUrls?.includes("https://codestral.mistral.ai/v1/chat/completions"), "mistral must support codestral endpoint in baseUrls");
+  assert.ok(mistral.baseUrl.includes("api.mistral.ai"), "mistral must use api.mistral.ai endpoint");
   const codestralResolved = getRegistryProvider("codestral");
   assert.equal(codestralResolved?.id, "mistral", "codestral alias must resolve to mistral provider");
+
+  // Check mistral probe URL normalization (no double /models/models)
+  const { MistralProvider } = await import("../src/providers/catalog/mistral/provider.js");
+  const prov = new MistralProvider();
+  let requestedUrl = "";
+  const originalFetch = global.fetch;
+  global.fetch = (async (url: any) => {
+    requestedUrl = String(url);
+    return new Response(JSON.stringify({ data: [{ id: "codestral-latest" }] }), { status: 200 });
+  }) as any;
+  try {
+    await prov.probeModels({ apiKey: "test-key", baseUrl: "https://api.mistral.ai/v1/models" });
+    assert.equal(requestedUrl, "https://api.mistral.ai/v1/models", "Must not produce /models/models when validateUrl is passed");
+    await prov.probeModels({ apiKey: "test-key", baseUrl: "https://api.mistral.ai/v1/chat/completions" });
+    assert.equal(requestedUrl, "https://api.mistral.ai/v1/models", "Must replace /chat/completions with /models");
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test("Providers Expansion - P2 Providers Registered", () => {
