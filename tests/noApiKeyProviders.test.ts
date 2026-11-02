@@ -373,6 +373,22 @@ test("Catalog Provider Validation - uses registry baseUrl without error", async 
       requestedUrl.includes("api.deepinfra.com/v1/openai/models"),
       `Must probe deepinfra models endpoint, got ${requestedUrl}`
     );
+
+    const resRuncrate = await originalFetch(`${baseUrl}/api/providers/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "runcrate",
+        apiKey: "test-rc-token",
+      }),
+    });
+    assert.equal(resRuncrate.status, 200);
+    const bodyRc = (await resRuncrate.json()) as any;
+    assert.equal(bodyRc.valid, true);
+    assert.ok(
+      requestedUrl.includes("api.runcrate.ai/v1/models"),
+      `Must probe runcrate models endpoint, got ${requestedUrl}`
+    );
   } finally {
     global.fetch = originalFetch;
     await new Promise<void>((resolve) => server.close(() => resolve()));

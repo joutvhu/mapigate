@@ -16,7 +16,7 @@ export const metadata: ProviderRegistryItem = {
   authType: "apikey",
   baseUrl: "https://api.runcrate.ai/v1/chat/completions",
   baseUrls: ["https://api.runcrate.ai/v1/chat/completions"],
-  validateUrl: "https://www.runcrate.ai/api/v1/billing/balance",
+  validateUrl: "https://api.runcrate.ai/v1/models",
   format: "openai",
   defaultHeaders: {},
   thinkingMode: "auto",

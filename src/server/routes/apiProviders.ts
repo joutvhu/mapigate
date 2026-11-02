@@ -281,10 +281,15 @@ providerRouter.post("/validate", async (req, res) => {
   try {
     const provInstance = ProviderRegistry.get(pId);
     if (provInstance && typeof provInstance.probeModels === "function") {
+      const regValidateUrl =
+        reg?.validateUrl && (reg.validateUrl.includes("/models") || reg.validateUrl.includes("/tags"))
+          ? reg.validateUrl
+          : undefined;
+      const effectiveBase = providerSpecificData?.baseUrl || reg?.baseUrl || regValidateUrl || reg?.validateUrl;
       const probeRes = await provInstance.probeModels({
         apiKey,
         region: providerSpecificData?.region,
-        baseUrl: providerSpecificData?.baseUrl || reg?.validateUrl || reg?.baseUrl,
+        baseUrl: effectiveBase,
         providerSpecificData,
         timeoutMs: 6000,
       });

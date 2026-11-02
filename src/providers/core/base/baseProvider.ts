@@ -202,12 +202,17 @@ export abstract class BaseProvider implements IProvider {
     const token = (context.apiKey || context.account?.rawApiKey || "").trim();
     const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
     const reg = getRegistryProvider(this.id);
+    const regValidateUrl =
+      reg?.validateUrl && (reg.validateUrl.includes("/models") || reg.validateUrl.includes("/tags"))
+        ? reg.validateUrl
+        : undefined;
     let rawBase = (
       context.baseUrl ||
       psd.baseUrl ||
       this.defaultBaseUrl ||
-      reg?.validateUrl ||
       reg?.baseUrl ||
+      regValidateUrl ||
+      reg?.validateUrl ||
       ""
     ).replace(/\/+$/, "");
 
