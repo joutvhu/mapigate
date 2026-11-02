@@ -31,7 +31,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
         const stats = statsRes.data;
         console.log(`  Requests:     ${chalk.white(stats.totalRequests ?? 0)}`);
         console.log(
-          `  Tokens Saved: ${chalk.green(`${(stats.totalTokensSaved || 0).toLocaleString()} tokens`)} (~$${(stats.estimatedCostSavedUsd || 0).toFixed(4)} saved by RTK)`
+          `  Tokens Saved: ${chalk.green(`${(stats.totalTokensSaved || 0).toLocaleString()} tokens`)} (~$${(stats.estimatedCostSavedUsd || 0).toFixed(4)} saved)`
         );
       }
     } catch {

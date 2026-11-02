@@ -206,7 +206,7 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
                 </span>
               </div>
               <div className="bg-[#0B0F19] p-2.5 rounded-lg border border-slate-800">
-                <span className="text-[10px] text-slate-400 block uppercase font-semibold">RTK Saved</span>
+                <span className="text-[10px] text-slate-400 block uppercase font-semibold">Tokens Saved</span>
                 <span className="font-mono text-base font-bold text-purple-400 mt-1 block">
                   {(detail.tokens?.tokensSavedByRtk || 0).toLocaleString()}
                 </span>

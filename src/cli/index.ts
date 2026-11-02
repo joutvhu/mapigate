@@ -185,7 +185,7 @@ program
 
 program
   .command("status")
-  .description(`Check ${APP_NAME} server status and RTK savings metrics`)
+  .description(`Check ${APP_NAME} server status and token savings metrics`)
   .option("-p, --port <number>", "Port to check", String(DEFAULT_PORT))
   .action(async (options) => {
     await runStatus(options);

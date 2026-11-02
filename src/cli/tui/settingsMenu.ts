@@ -78,7 +78,7 @@ async function showStatsDetails(): Promise<void> {
     `Successful Requests: ${COLORS.green}${s.successfulRequests ?? 0}${COLORS.reset}`,
     `Failed Requests:     ${s.failedRequests ? `${COLORS.red}${s.failedRequests}${COLORS.reset}` : "0"}`,
     `Tokens Consumed:     ${(s.totalTokensConsumed || 0).toLocaleString()} tokens`,
-    `Tokens Saved (RTK):  ${COLORS.green}${(s.totalTokensSaved || 0).toLocaleString()} tokens${COLORS.reset}`,
+    `Tokens Saved:        ${COLORS.green}${(s.totalTokensSaved || 0).toLocaleString()} tokens${COLORS.reset}`,
     `Estimated Savings:   ${COLORS.green}$${(s.estimatedCostSavedUsd || 0).toFixed(4)}${COLORS.reset}`,
     `Average Latency:     ${s.averageLatencyMs ? `${Math.round(s.averageLatencyMs)}ms` : "N/A"}`,
   ].join("\n");

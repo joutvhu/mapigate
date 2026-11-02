@@ -112,6 +112,28 @@ Fatal error in execution.`,
   );
 });
 
+test("TokenSaverCoordinator - execution for Kiro and Antigravity tool results", () => {
+  const kiroBody = {
+    model: "antigravity/gemini-3.8-flash",
+    messages: [
+      { role: "user", content: "git diff" },
+      {
+        role: "tool",
+        tool_call_id: "call_abc",
+        content: `diff --git a/a.ts b/a.ts\nindex 000..111 100644\n--- a/a.ts\n+++ b/a.ts\n@@ -1,5 +1,5 @@\n-a\n+b\n` + " context line\n".repeat(25),
+      },
+    ],
+  };
+
+  const summary = TokenSaverCoordinator.process(kiroBody, {
+    clientFormat: "openai",
+    model: "antigravity/gemini-3.8-flash",
+    clientTool: "kiro",
+  }, { rtkEnabled: true });
+
+  assert.ok(summary.tokensSaved > 0, "RTK must save tokens for Kiro client");
+});
+
 test("TokenSaverCoordinator - fail-open when method throws", () => {
   const faultyMethod: ITokenSaverMethod = {
     id: "faulty_method",

@@ -77,17 +77,17 @@ export const OverviewCards: React.FC<OverviewCardsProps> = ({ stats, loading }) 
         </div>
       </div>
 
-      {/* 5. RTK Tokens Saved */}
+      {/* 5. Tokens Saved */}
       <div className="bg-[#0E1320] border border-[#1E293B] rounded-xl p-4 flex flex-col justify-between hover:border-purple-500/30 transition-all shadow-xs">
         <div className="flex items-center justify-between text-purple-400 mb-2">
-          <span className="text-[11px] font-bold uppercase tracking-wider">RTK Saved</span>
+          <span className="text-[11px] font-bold uppercase tracking-wider">Tokens Saved</span>
           <ShieldCheck className="w-4 h-4 text-purple-400" />
         </div>
         <div>
           <div className="text-xl sm:text-2xl font-black text-purple-400 truncate" title={fmt(tokensSaved)}>
             {loading ? "..." : fmt(tokensSaved)}
           </div>
-          <span className="text-[10px] text-slate-500 mt-0.5 block">Context optimized</span>
+          <span className="text-[10px] text-slate-500 mt-0.5 block">Token Saver optimized</span>
         </div>
       </div>
 

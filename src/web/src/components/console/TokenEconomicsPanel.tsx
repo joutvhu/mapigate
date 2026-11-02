@@ -31,7 +31,7 @@ export const TokenEconomicsPanel: React.FC<TokenEconomicsPanelProps> = ({ tokens
           </p>
         </div>
         <div className="p-3 rounded-lg bg-[#0A0E18] border border-[#1E293B]">
-          <span className="text-[11px] text-slate-400">RTK Saved</span>
+          <span className="text-[11px] text-slate-400">Tokens Saved</span>
           <p className="text-sm font-bold font-mono text-amber-400 flex items-center gap-1">
             <Zap className="size-3" />
             {(tokens.savedByRtk || 0).toLocaleString()}
