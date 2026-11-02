@@ -483,9 +483,10 @@ export async function executeAntigravity(
 
     const rawFinishReason = mapFinishReason(candidate?.finishReason);
     const finishReason = toolCalls.length > 0 && rawFinishReason === "stop" ? "tool_calls" : rawFinishReason;
-    const usage = responseObj?.usageMetadata || {};
-    const promptTokens = usage.promptTokenCount || 0;
-    const completionTokens = usage.candidatesTokenCount || 0;
+    const usage = responseObj?.usageMetadata || responseObj?.usage || {};
+    const promptTokens = usage.promptTokenCount ?? usage.prompt_tokens ?? 0;
+    const completionTokens = usage.candidatesTokenCount ?? usage.completion_tokens ?? 0;
+    const cachedTokens = usage.cachedContentTokenCount ?? usage.cached_tokens ?? 0;
 
     const openAiResponse = {
       id: responseId,
@@ -556,7 +557,7 @@ export async function executeAntigravity(
       apiKeyName: context.apiKeyName,
       promptTokens,
       completionTokens,
-      cachedTokens: 0,
+      cachedTokens,
       cacheCreationTokens: 0,
       reasoningTokens: 0,
       tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
@@ -569,6 +570,7 @@ export async function executeAntigravity(
       durationMs,
       promptTokens,
       completionTokens,
+      cachedTokens,
       tokensSaved: context.rtkStats?.tokensSaved || 0,
       cost: calculatedCost,
     });
@@ -593,6 +595,7 @@ export async function executeAntigravity(
   let buffer = "";
   let promptTokens = 0;
   let completionTokens = 0;
+  let cachedTokens = 0;
   let ttftMs = 0;
   let hasSentInitial = false;
   let geminiToolCallCount = 0;
@@ -670,6 +673,9 @@ export async function executeAntigravity(
         if (respObj?.usageMetadata) {
           promptTokens = respObj.usageMetadata.promptTokenCount || promptTokens;
           completionTokens = respObj.usageMetadata.candidatesTokenCount || completionTokens;
+          if (respObj.usageMetadata.cachedContentTokenCount != null) {
+            cachedTokens = respObj.usageMetadata.cachedContentTokenCount;
+          }
         }
 
         if (!hasSentInitial) {
@@ -823,7 +829,7 @@ export async function executeAntigravity(
     apiKeyName: context.apiKeyName,
     promptTokens,
     completionTokens,
-    cachedTokens: 0,
+    cachedTokens,
     cacheCreationTokens: 0,
     reasoningTokens: 0,
     tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
@@ -837,6 +843,7 @@ export async function executeAntigravity(
     durationMs,
     promptTokens,
     completionTokens,
+    cachedTokens,
     tokensSaved: context.rtkStats?.tokensSaved || 0,
     cost: calculatedCost,
   });

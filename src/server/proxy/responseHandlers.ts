@@ -54,9 +54,20 @@ export async function handleNonStreamingResponse(
   const usage = responseBody?.usage || {};
   let promptTokens = usage.prompt_tokens ?? usage.input_tokens ?? usage.prompt_eval_count ?? rtkStats.compressedTokens ?? 0;
   const completionTokens = usage.completion_tokens ?? usage.output_tokens ?? usage.eval_count ?? 0;
-  const cachedTokens = usage.prompt_tokens_details?.cached_tokens ?? usage.cache_read_input_tokens ?? 0;
+  const cachedTokens =
+    usage.prompt_tokens_details?.cached_tokens ??
+    usage.input_tokens_details?.cached_tokens ??
+    usage.prompt_cache_hit_tokens ??
+    usage.cache_read_input_tokens ??
+    usage.cachedContentTokenCount ??
+    usage.cached_tokens ??
+    0;
   const cacheCreationTokens = usage.cache_creation_input_tokens ?? 0;
-  const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens ?? 0;
+  const reasoningTokens =
+    usage.completion_tokens_details?.reasoning_tokens ??
+    usage.output_tokens_details?.reasoning_tokens ??
+    usage.reasoning_tokens ??
+    0;
 
   if (usage.input_tokens !== undefined && usage.prompt_tokens === undefined) {
     promptTokens = (usage.input_tokens || 0) + cachedTokens + cacheCreationTokens;

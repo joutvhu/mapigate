@@ -9,14 +9,13 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "baseUrl": ".",
     "paths": {
-      "@core/*": ["src/core/*"],
-      "@storage/*": ["src/storage/*"],
-      "@server/*": ["src/server/*"],
-      "@cli/*": ["src/cli/*"],
-      "@shared/*": ["src/shared/*"],
-      "@providers/*": ["src/providers/*"]
+      "@core/*": ["./src/core/*"],
+      "@storage/*": ["./src/storage/*"],
+      "@server/*": ["./src/server/*"],
+      "@cli/*": ["./src/cli/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@providers/*": ["./src/providers/*"]
     }
   },
   "include": [

@@ -35,11 +35,21 @@ export function extractTokensFromChunk(chunk: any, state: StreamTrackingState): 
   if (chunk.usage) {
     if (chunk.usage.prompt_tokens) state.promptTokens = chunk.usage.prompt_tokens;
     if (chunk.usage.completion_tokens) state.completionTokens = chunk.usage.completion_tokens;
-    if (chunk.usage.prompt_tokens_details?.cached_tokens) {
-      state.cachedTokens = chunk.usage.prompt_tokens_details.cached_tokens;
+    const cached =
+      chunk.usage.prompt_tokens_details?.cached_tokens ??
+      chunk.usage.input_tokens_details?.cached_tokens ??
+      chunk.usage.prompt_cache_hit_tokens ??
+      chunk.usage.cachedContentTokenCount ??
+      chunk.usage.cached_tokens;
+    if (cached != null) {
+      state.cachedTokens = Number(cached) || 0;
     }
-    if (chunk.usage.completion_tokens_details?.reasoning_tokens) {
-      state.reasoningTokens = chunk.usage.completion_tokens_details.reasoning_tokens;
+    const reasoning =
+      chunk.usage.completion_tokens_details?.reasoning_tokens ??
+      chunk.usage.output_tokens_details?.reasoning_tokens ??
+      chunk.usage.reasoning_tokens;
+    if (reasoning != null) {
+      state.reasoningTokens = Number(reasoning) || 0;
     }
   }
 
