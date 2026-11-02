@@ -17,9 +17,11 @@ export const metadata: ProviderRegistryItem = {
   },
   "category": "apikey",
   "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
+  "baseUrl": "https://api.360.cn/v1/chat/completions",
+  "baseUrls": [
+    "https://api.360.cn/v1/chat/completions"
+  ],
+  "validateUrl": "https://api.360.cn/v1/models",
   "format": "openai",
   "defaultHeaders": {
     "content-type": "application/json"

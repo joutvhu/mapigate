@@ -16,7 +16,6 @@ import { metadata as trae } from "../../runtime/trae/metadata.js";
 import { metadata as typhoon } from "../../catalog/typhoon/metadata.js";
 import { metadata as upstage } from "../../catalog/upstage/metadata.js";
 import { metadata as v0_vercel } from "../../catalog/v0-vercel/metadata.js";
-import { metadata as v1m } from "../../catalog/v1m/metadata.js";
 import { metadata as venice } from "../../catalog/venice/metadata.js";
 import { metadata as vercel_ai_gateway } from "../../catalog/vercel-ai-gateway/metadata.js";
 import { metadata as vertex } from "../../catalog/vertex/metadata.js";
@@ -24,15 +23,12 @@ import { metadata as vertex_partner } from "../../catalog/vertex-partner/metadat
 import { metadata as volcengine_agent_plan } from "../../catalog/volcengine-agent-plan/metadata.js";
 import { metadata as volcengine_ark } from "../../catalog/volcengine-ark/metadata.js";
 import { metadata as volcengine_coding_plan } from "../../catalog/volcengine-coding-plan/metadata.js";
-import { metadata as voyage_ai } from "../../catalog/voyage-ai/metadata.js";
 import { metadata as watsonx } from "../../catalog/watsonx/metadata.js";
 import { metadata as windsurf } from "../../runtime/windsurf/metadata.js";
 import { metadata as writer } from "../../catalog/writer/metadata.js";
 import { metadata as xiaomi_tokenplan } from "../../catalog/xiaomi-tokenplan/metadata.js";
 import { metadata as xkiro } from "../../runtime/xkiro/metadata.js";
-import { metadata as xquik } from "../../catalog/xquik/metadata.js";
 import { metadata as yi } from "../../catalog/yi/metadata.js";
-import { metadata as youcom } from "../../catalog/youcom/metadata.js";
 import { metadata as zai } from "../../catalog/zai/metadata.js";
 import { metadata as zcode } from "../../catalog/zcode/metadata.js";
 import { metadata as zed } from "../../runtime/zed/metadata.js";
@@ -53,7 +49,6 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "typhoon": typhoon,
   "upstage": upstage,
   "v0-vercel": v0_vercel,
-  "v1m": v1m,
   "venice": venice,
   "vercel-ai-gateway": vercel_ai_gateway,
   "vertex": vertex,
@@ -61,15 +56,12 @@ export const metadataChunk4: Record<string, ProviderRegistryItem> = {
   "volcengine-agent-plan": volcengine_agent_plan,
   "volcengine-ark": volcengine_ark,
   "volcengine-coding-plan": volcengine_coding_plan,
-  "voyage-ai": voyage_ai,
   "watsonx": watsonx,
   "windsurf": windsurf,
   "writer": writer,
   "xiaomi-tokenplan": xiaomi_tokenplan,
   "xkiro": xkiro,
-  "xquik": xquik,
   "yi": yi,
-  "youcom": youcom,
   "zai": zai,
   "zcode": zcode,
   "zed": zed,

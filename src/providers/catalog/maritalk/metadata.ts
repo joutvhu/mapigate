@@ -17,9 +17,11 @@ export const metadata: ProviderRegistryItem = {
   },
   "category": "apikey",
   "authType": "apikey",
-  "baseUrl": "",
-  "baseUrls": [],
-  "validateUrl": "",
+  "baseUrl": "https://chat.maritaca.ai/api/chat/inference",
+  "baseUrls": [
+    "https://chat.maritaca.ai/api/chat/inference"
+  ],
+  "validateUrl": "https://chat.maritaca.ai/api/models",
   "format": "openai",
   "defaultHeaders": {
     "content-type": "application/json"
