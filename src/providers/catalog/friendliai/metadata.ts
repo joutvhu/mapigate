@@ -13,8 +13,8 @@ export const metadata: ProviderRegistryItem = {
   "image": "/assets/providers/friendliai/icon.svg",
   "website": "https://friendli.ai",
   "notice": {
-    "apiKeyUrl": "",
-    "text": "FriendliAI provider endpoint."
+    "apiKeyUrl": "https://suite.friendli.ai/",
+    "text": "FriendliAI Serverless endpoints serving open models at high throughput with dedicated or serverless tokens."
   },
   "category": "apikey",
   "authType": "apikey",
@@ -22,7 +22,7 @@ export const metadata: ProviderRegistryItem = {
   "baseUrls": [
     "https://api.friendli.ai/serverless/v1/chat/completions"
   ],
-  "validateUrl": "",
+  "validateUrl": "https://api.friendli.ai/serverless/v1/models",
   "format": "openai",
   "defaultHeaders": {
     "content-type": "application/json"

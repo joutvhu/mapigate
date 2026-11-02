@@ -137,6 +137,8 @@ test("MiniMax Code Provider - probeModels reports invalid token on 401", async (
 test("MiniMax Code - ensureFreshCredentials refreshes expired token with refresh_token", async () => {
   const { ensureFreshCredentials } = await import("../src/core/usage/tokenHelper.js");
   const { ProviderRepository } = await import("../src/storage/repositories/providerRepo.js");
+  const { registerRoutes } = await import("../src/providers/runtime/minimax/routes.js");
+  registerRoutes();
 
   const origFetch = global.fetch;
   const testAccId = "test_acc_minimax_refresh";

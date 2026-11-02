@@ -42,6 +42,7 @@ export class MistralProvider extends OpenAiCompatibleProvider {
     const reqHeaders: Record<string, string> = {
       Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
       Accept: "application/json",
+      ...(metadata.defaultHeaders || {}),
       ...(context.customHeaders || {}),
     };
 

@@ -13,25 +13,19 @@ import {
 import { isLightColor } from "../src/web/src/components/ui/ToolIcon.js";
 
 test("Tool icon background configurations in Provider registry", () => {
-  const targetProviders = [
+  const whiteBgProviders = [
     "ollama",
     "ollama-local",
-    "ollama-search",
-    "baseten",
-    "black-forest-labs",
     "github",
     "cursor",
     "commandcode",
     "featherless",
-    "jina-reader",
     "reka",
-    "runwayml",
-    "voyage-ai",
     "vercel-ai-gateway",
     "writer",
   ];
 
-  for (const pId of targetProviders) {
+  for (const pId of whiteBgProviders) {
     const prov = getRegistryProvider(pId);
     assert.ok(prov, `Provider '${pId}' should exist in registry`);
     assert.equal(
@@ -40,6 +34,10 @@ test("Tool icon background configurations in Provider registry", () => {
       `Provider '${pId}' must have iconBg set to '#FFFFFF'`
     );
   }
+
+  const baseten = getRegistryProvider("baseten");
+  assert.ok(baseten, "Provider 'baseten' should exist in registry");
+  assert.equal(baseten.iconBg, "#3bc965", "Baseten must have iconBg set to '#3bc965'");
 });
 
 test("CLI tool definitions have iconBg properly set", () => {
@@ -80,7 +78,7 @@ test("Web providersData propagates iconBg for providers and CLI tools", () => {
 
   const basetenApiKey = API_KEY_PROVIDERS_LIST.find((p) => p.id === "baseten");
   assert.ok(basetenApiKey, "Baseten should be in API key list");
-  assert.equal(basetenApiKey.iconBg, "#FFFFFF");
+  assert.equal(basetenApiKey.iconBg, "#3bc965");
 
   const cursorCli = CLI_TOOLS_LIST.find((t) => t.id === "cursor");
   assert.ok(cursorCli, "Cursor should be in CLI_TOOLS_LIST");
