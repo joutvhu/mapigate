@@ -74,7 +74,7 @@ export abstract class BaseProvider implements IProvider {
 
   public buildUrl(context: ProviderRequestContext): string {
     const accountBase = (context.account?.providerSpecificData?.baseUrl || "").trim();
-    const rawBase = (accountBase || context.provider?.baseUrl || "").trim();
+    const rawBase = (accountBase || context.provider?.baseUrl || getRegistryProvider(this.id)?.baseUrl || "").trim();
     const hasTerminalPath =
       rawBase.includes("/chat/completions") ||
       rawBase.includes("/messages") ||
@@ -201,7 +201,15 @@ export abstract class BaseProvider implements IProvider {
   public async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
     const token = (context.apiKey || context.account?.rawApiKey || "").trim();
     const psd = ((context.account?.providerSpecificData || context.providerSpecificData || {}) as any);
-    let rawBase = (context.baseUrl || psd.baseUrl || this.defaultBaseUrl || "").replace(/\/+$/, "");
+    const reg = getRegistryProvider(this.id);
+    let rawBase = (
+      context.baseUrl ||
+      psd.baseUrl ||
+      this.defaultBaseUrl ||
+      reg?.validateUrl ||
+      reg?.baseUrl ||
+      ""
+    ).replace(/\/+$/, "");
 
     if (!rawBase) {
       return { success: false, error: "Base URL is required to probe models." };
@@ -242,7 +250,6 @@ export abstract class BaseProvider implements IProvider {
       rawBase = rawBase.replace(/\{accountId\}/g, accountId);
     }
 
-    const reg = getRegistryProvider(this.id);
     const candidateUrls = resolveCandidateUrls(
       rawBase,
       context.format || this.defaultFormat,

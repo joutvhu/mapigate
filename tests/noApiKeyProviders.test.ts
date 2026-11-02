@@ -344,3 +344,38 @@ test("Token Unpacking & Binary Inspection Safety", async () => {
   assert.equal(maliciousCheck2, false, "Must reject ampersand injection input");
 });
 
+test("Catalog Provider Validation - uses registry baseUrl without error", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const originalFetch = global.fetch;
+  let requestedUrl = "";
+  global.fetch = (async (url: any) => {
+    requestedUrl = String(url);
+    return new Response(JSON.stringify({ data: [{ id: "deepseek-ai/DeepSeek-V3" }] }), { status: 200 });
+  }) as any;
+
+  try {
+    const res = await originalFetch(`${baseUrl}/api/providers/validate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        provider: "deepinfra",
+        apiKey: "test-deepinfra-token",
+      }),
+    });
+    assert.equal(res.status, 200);
+    const body = (await res.json()) as any;
+    assert.equal(body.valid, true);
+    assert.ok(
+      requestedUrl.includes("api.deepinfra.com/v1/openai/models"),
+      `Must probe deepinfra models endpoint, got ${requestedUrl}`
+    );
+  } finally {
+    global.fetch = originalFetch;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+

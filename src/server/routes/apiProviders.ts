@@ -284,7 +284,7 @@ providerRouter.post("/validate", async (req, res) => {
       const probeRes = await provInstance.probeModels({
         apiKey,
         region: providerSpecificData?.region,
-        baseUrl: providerSpecificData?.baseUrl,
+        baseUrl: providerSpecificData?.baseUrl || reg?.validateUrl || reg?.baseUrl,
         providerSpecificData,
         timeoutMs: 6000,
       });
