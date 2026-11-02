@@ -210,9 +210,8 @@ export abstract class BaseProvider implements IProvider {
       context.baseUrl ||
       psd.baseUrl ||
       this.defaultBaseUrl ||
-      reg?.baseUrl ||
       regValidateUrl ||
-      reg?.validateUrl ||
+      reg?.baseUrl ||
       ""
     ).replace(/\/+$/, "");
 

@@ -36,7 +36,7 @@ export class MistralProvider extends OpenAiCompatibleProvider {
     } else if (url.includes("/chat/completions")) {
       url = url.replace(/\/chat\/completions\/?$/, "/models");
     } else if (!url.endsWith("/models")) {
-      url = `${url}/models`;
+      url = url.endsWith("/v1") ? `${url}/models` : `${url}/v1/models`;
     }
     const timeoutMs = context.timeoutMs || 8000;
     const reqHeaders: Record<string, string> = {

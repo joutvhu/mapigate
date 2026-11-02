@@ -30,10 +30,34 @@ export const metadata: ProviderRegistryItem = {
   "thinkingMode": "auto",
   "models": [
     {
-      "id": "friendliai-default",
-      "name": "FriendliAI Default",
+      "id": "meta-llama-3.3-70b-instruct",
+      "name": "Llama 3.3 70B Instruct",
       "isDefault": true,
-      "contextLength": 128000
+      "contextLength": 131072
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-R1",
+      "name": "DeepSeek R1",
+      "isDefault": false,
+      "contextLength": 163840
+    },
+    {
+      "id": "deepseek-ai/DeepSeek-V3",
+      "name": "DeepSeek V3",
+      "isDefault": false,
+      "contextLength": 163840
+    },
+    {
+      "id": "meta-llama-3.1-70b-instruct",
+      "name": "Llama 3.1 70B Instruct",
+      "isDefault": false,
+      "contextLength": 131072
+    },
+    {
+      "id": "meta-llama-3.1-8b-instruct",
+      "name": "Llama 3.1 8B Instruct",
+      "isDefault": false,
+      "contextLength": 131072
     }
   ],
   "passthroughModels": true

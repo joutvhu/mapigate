@@ -285,7 +285,7 @@ providerRouter.post("/validate", async (req, res) => {
         reg?.validateUrl && (reg.validateUrl.includes("/models") || reg.validateUrl.includes("/tags"))
           ? reg.validateUrl
           : undefined;
-      const effectiveBase = providerSpecificData?.baseUrl || reg?.baseUrl || regValidateUrl || reg?.validateUrl;
+      const effectiveBase = providerSpecificData?.baseUrl || regValidateUrl || reg?.baseUrl || "";
       const probeRes = await provInstance.probeModels({
         apiKey,
         region: providerSpecificData?.region,

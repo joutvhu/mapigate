@@ -112,6 +112,8 @@ test("Providers Expansion - P1 Providers Registered and Configured", async () =>
     assert.equal(requestedUrl, "https://api.mistral.ai/v1/models", "Must not produce /models/models when validateUrl is passed");
     await prov.probeModels({ apiKey: "test-key", baseUrl: "https://api.mistral.ai/v1/chat/completions" });
     assert.equal(requestedUrl, "https://api.mistral.ai/v1/models", "Must replace /chat/completions with /models");
+    await prov.probeModels({ apiKey: "test-key", baseUrl: "https://api.mistral.ai" });
+    assert.equal(requestedUrl, "https://api.mistral.ai/v1/models", "Must append /v1/models when root domain is passed");
   } finally {
     global.fetch = originalFetch;
   }
