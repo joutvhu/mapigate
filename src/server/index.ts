@@ -63,28 +63,42 @@ const app = express();
 const port = Number(process.env.PORT) || dbEndpointSettings?.port || DEFAULT_PORT;
 const host = process.env.HOST || dbEndpointSettings?.host || DEFAULT_HOST;
 
+function isTrustedOrigin(origin?: string): boolean {
+  if (!origin) return false;
+
+  const customOrigin = process.env.MAPIGATE_CORS_ORIGIN;
+  if (customOrigin && (origin === customOrigin || customOrigin === "*")) {
+    return true;
+  }
+
+  // Allow loopback origins and IDE webviews
+  if (
+    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ||
+    origin.startsWith("vscode-webview://") ||
+    origin.startsWith("chrome-extension://")
+  ) {
+    return true;
+  }
+
+  // Allow trusted host origins (e.g. LAN access when bound to 0.0.0.0 or configured allowed hosts)
+  try {
+    const url = new URL(origin);
+    if ((url.protocol === "http:" || url.protocol === "https:") && isTrustedHost(url.host)) {
+      return true;
+    }
+  } catch {
+    // Malformed origin URL -> reject
+  }
+
+  return false;
+}
+
 // Secure CORS configuration: allow CLI/desktop tools and localhost/webview origins, block foreign internet origins
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (curl, mobile apps, direct AI coding CLIs like Claude Code, Cursor)
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      // Allow custom origin override from environment if explicitly provided
-      const customOrigin = process.env.MAPIGATE_CORS_ORIGIN;
-      if (customOrigin && (origin === customOrigin || customOrigin === "*")) {
-        return callback(null, true);
-      }
-
-      // Allow loopback origins (localhost, 127.0.0.1, IPv6 [::1] on any port) and IDE webviews
-      const isTrustedLocalOrigin =
-        /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ||
-        origin.startsWith("vscode-webview://") ||
-        origin.startsWith("chrome-extension://");
-
-      if (isTrustedLocalOrigin) {
+      if (!origin || isTrustedOrigin(origin)) {
         return callback(null, true);
       }
 
@@ -98,21 +112,7 @@ app.use(
 // Origin verification guard: reject cross-origin requests from untrusted foreign websites (CSRF / drive-by protection)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (!origin) {
-    return next();
-  }
-
-  const customOrigin = process.env.MAPIGATE_CORS_ORIGIN;
-  if (customOrigin && (origin === customOrigin || customOrigin === "*")) {
-    return next();
-  }
-
-  const isTrustedLocalOrigin =
-    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ||
-    origin.startsWith("vscode-webview://") ||
-    origin.startsWith("chrome-extension://");
-
-  if (isTrustedLocalOrigin) {
+  if (!origin || isTrustedOrigin(origin)) {
     return next();
   }
 

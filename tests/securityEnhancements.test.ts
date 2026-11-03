@@ -80,7 +80,43 @@ test("Security - Host header pattern matching verifies LAN and custom patterns",
   assert.ok(isHostPatternMatch("*.local", "my-macbook.local"));
   assert.ok(isHostPatternMatch("my-pc.internal", "my-pc.internal"));
   assert.equal(isHostPatternMatch("192.168.*", "evil.attacker.com"), false);
+  assert.equal(isHostPatternMatch("192.168.*", "192.168.attacker.com"), false);
+  assert.equal(isHostPatternMatch("10.*", "10.attacker.com"), false);
   assert.equal(isHostPatternMatch("10.*", "8.8.8.8"), false);
+});
+
+test("Security - Origin verification rejects untrusted foreign origins", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const port = (server.address() as any).port;
+
+  try {
+    // 1. Untrusted foreign origin -> HTTP 403
+    const foreignRes = await rawHttpRequest({
+      port,
+      path: "/health",
+      headers: {
+        host: `127.0.0.1:${port}`,
+        origin: "https://evil.attacker.com",
+      },
+    });
+    assert.equal(foreignRes.status, 403);
+    const body = JSON.parse(foreignRes.body);
+    assert.equal(body.error?.code, "untrusted_origin");
+
+    // 2. Loopback origin -> HTTP 200
+    const localRes = await rawHttpRequest({
+      port,
+      path: "/health",
+      headers: {
+        host: `127.0.0.1:${port}`,
+        origin: `http://127.0.0.1:${port}`,
+      },
+    });
+    assert.equal(localRes.status, 200);
+  } finally {
+    server.close();
+  }
 });
 
 test("Security - Sensitive OAuth and custom tokens are masked in apiProviders", async () => {

@@ -11,7 +11,22 @@ export function isHostPatternMatch(pattern: string, hostname: string): boolean {
     return /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(h);
   }
 
-  // Handle wildcard like *.local or 192.168.*
+  // Handle IP prefix wildcards like 10.*, 192.168.*, 169.254.*
+  const ipPrefixMatch = p.match(/^(\d{1,3}(?:\.\d{1,3})*)\.\*+$/);
+  if (ipPrefixMatch) {
+    const prefixParts = ipPrefixMatch[1].split(".");
+    const hostParts = h.split(".");
+    if (hostParts.length !== 4) return false;
+    for (let i = 0; i < prefixParts.length; i++) {
+      if (hostParts[i] !== prefixParts[i]) return false;
+    }
+    return hostParts.every((part) => {
+      const n = Number(part);
+      return /^\d{1,3}$/.test(part) && n >= 0 && n <= 255;
+    });
+  }
+
+  // Handle wildcard like *.local
   if (p.includes("*")) {
     const escaped = p
       .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
