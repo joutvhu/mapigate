@@ -26,19 +26,19 @@ async function showInterfaceMenu(port: number, pid: number | null): Promise<stri
   clearScreen();
   const host = DEFAULT_HOST === "0.0.0.0" ? "localhost" : DEFAULT_HOST;
   const webUrl = `http://${host}:${port}`;
-  const pidStr = pid ? ` (PID: ${pid})` : "";
-  const subtitle = `🚀 Server: \x1b[32m${webUrl}\x1b[0m\x1b[90m${pidStr}\x1b[0m`;
+  const pidStr = pid ? ` · PID ${pid}` : "";
+  const subtitle = `Server: ${webUrl}${pidStr}`;
 
   const menuItems = [
-    { label: "Web UI (Open in Browser)", icon: "🌐" },
-    { label: "Terminal UI (Interactive CLI)", icon: "💻" },
-    { label: "Status & RTK Metrics", icon: "📊" },
-    { label: "Hide to Tray (Background)", icon: "🔔" },
-    { label: "Exit (Stop Gateway)", icon: "🚪" },
+    { label: "Web Dashboard", description: "Open gateway management in default browser" },
+    { label: "Terminal UI", description: "Interactive terminal management (providers, keys, combos)" },
+    { label: "Status & Metrics", description: "View daemon health, latency and token savings" },
+    { label: "Run in Background", description: "Keep gateway active in system tray and exit terminal" },
+    { label: "Exit Gateway", description: "Gracefully shut down the server process" },
   ];
 
   const selected = await selectMenu(
-    `Choose Interface (v${APP_VERSION})`,
+    `Mapigate v${APP_VERSION}`,
     menuItems,
     0,
     subtitle
@@ -96,16 +96,16 @@ async function runInteractiveLauncher(port: number = DEFAULT_PORT): Promise<void
     } else if (choice === "hide") {
       clearScreen();
       const currentPid = PidFileManager.readPid();
-      console.log(chalk.cyan(`\n🔔 ${APP_NAME} is running in background (PID: ${currentPid ?? "active"}).`));
-      console.log(chalk.gray(`   Web Dashboard: ${webUrl}`));
-      console.log(chalk.gray(`   API Endpoint:  ${webUrl}/v1\n`));
-      console.log(chalk.green(`💡 Mapigate is running in system tray. You can close this terminal.`));
-      console.log(chalk.gray(`   Right-click tray icon or run 'mpg stop' to quit.\n`));
+      console.log(`\n${chalk.bold(APP_NAME)} ${chalk.dim(`v${APP_VERSION}`)} running in background (PID: ${currentPid ?? "active"})\n`);
+      console.log(`  Web Dashboard: ${webUrl}`);
+      console.log(`  API Endpoint:  ${webUrl}/v1\n`);
+      console.log(chalk.dim(`  Running in system tray. You can close this terminal.`));
+      console.log(chalk.dim(`  Right-click tray icon or run 'mpg stop' to quit.\n`));
       closeDatabase();
       process.exit(0);
     } else if (choice === "exit") {
       clearScreen();
-      console.log(chalk.cyan(`\nStopping ${APP_NAME} on port ${port}...`));
+      console.log(`\nStopping ${APP_NAME} on port ${port}...`);
       const res = await ProcessManager.stopDaemon(port);
       if (res.success) {
         console.log(chalk.green(`[OK] ${res.message}\n`));
@@ -142,10 +142,10 @@ program
           process.exit(1);
         }
       }
-      console.log(`\n🚀 ${APP_NAME} v${APP_VERSION}`);
+      console.log(`\n${APP_NAME} v${APP_VERSION}`);
       console.log(`Server: http://${host}:${port}`);
-      console.log(chalk.green(`\n💡 Mapigate is running in system tray. You can close this terminal.`));
-      console.log(chalk.gray(`   Right-click tray icon or run 'mpg stop' to quit.\n`));
+      console.log(chalk.dim(`\nRunning in system tray. You can close this terminal.`));
+      console.log(chalk.dim(`Right-click tray icon or run 'mpg stop' to quit.\n`));
       process.exit(0);
     }
 

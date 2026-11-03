@@ -39,21 +39,21 @@ export async function runBackupExport(options: BackupExportCliOptions = {}): Pro
     }
     console.log();
   } catch (err: any) {
-    console.error(chalk.red(`\n❌ Failed to export backup: ${err.message}\n`));
+    console.error(chalk.red(`\nError: Failed to export backup: ${err.message}\n`));
     process.exitCode = 1;
   }
 }
 
 export async function runBackupImport(filePath: string, options: BackupImportCliOptions = {}): Promise<void> {
   if (!filePath) {
-    console.error(chalk.red("\n❌ Error: Please specify the path to the backup JSON file.\n"));
+    console.error(chalk.red("\nError: Please specify the path to the backup JSON file.\n"));
     process.exitCode = 1;
     return;
   }
 
   const resolvedPath = path.resolve(process.cwd(), filePath);
   if (!fs.existsSync(resolvedPath)) {
-    console.error(chalk.red(`\n❌ Error: Backup file not found: ${resolvedPath}\n`));
+    console.error(chalk.red(`\nError: Backup file not found: ${resolvedPath}\n`));
     process.exitCode = 1;
     return;
   }
@@ -76,14 +76,14 @@ export async function runBackupImport(filePath: string, options: BackupImportCli
     console.log(`  • Mappings imported: ${result.restored.mappingsCount}`);
 
     if (result.warnings && result.warnings.length > 0) {
-      console.log(chalk.yellow("\n⚠️ Warnings:"));
+      console.log(chalk.yellow("\nWarnings:"));
       for (const w of result.warnings) {
         console.log(chalk.yellow(`  - ${w}`));
       }
     }
     console.log();
   } catch (err: any) {
-    console.error(chalk.red(`\n❌ Failed to import backup: ${err.message}\n`));
+    console.error(chalk.red(`\nError: Failed to import backup: ${err.message}\n`));
     process.exitCode = 1;
   }
 }

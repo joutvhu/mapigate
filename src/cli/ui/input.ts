@@ -121,37 +121,47 @@ export async function selectMenu(
       if (!isActive) return;
       process.stdout.write("\x1b[2J\x1b[H");
 
-      const width = Math.min(process.stdout.columns || 50, 50);
-      console.log(`\n${COLORS.brand}${"═".repeat(width)}${COLORS.reset}`);
-      console.log(`  ${COLORS.bold}${COLORS.brand}${title}${COLORS.reset}`);
+      const width = Math.max(48, Math.min(process.stdout.columns || 56, 72));
+      const divider = `${COLORS.dim}${"─".repeat(width)}${COLORS.reset}`;
+
+      console.log();
+      if (breadcrumb.length > 0) {
+        console.log(`  ${COLORS.dim}${breadcrumb.join(` ${COLORS.dim}›${COLORS.reset} `)}${COLORS.reset}`);
+      }
+      console.log(`  ${COLORS.bold}${title}${COLORS.reset}`);
       if (subtitle) {
         console.log(`  ${COLORS.dim}${subtitle}${COLORS.reset}`);
       }
-      console.log(`${COLORS.brand}${"═".repeat(width)}${COLORS.reset}`);
-
-      if (breadcrumb.length > 0) {
-        console.log(`  ${COLORS.dim}${breadcrumb.join(" > ")}${COLORS.reset}`);
-      }
+      console.log(`  ${divider}`);
 
       if (headerContent) {
-        console.log();
-        console.log(headerContent);
+        const formattedHeader = headerContent
+          .split("\n")
+          .map((line) => `  ${line}`)
+          .join("\n");
+        console.log(formattedHeader);
+        console.log(`  ${divider}`);
       }
       console.log();
 
       items.forEach((item, index) => {
         const isSelected = index === selectedIndex;
-        const pointer = isSelected ? ">" : " ";
         const iconPart = item.icon ? `${item.icon} ` : "";
 
         if (isSelected) {
-          console.log(` ${COLORS.reverse}${COLORS.bold} ${pointer} ${iconPart}${item.label} ${COLORS.reset}`);
+          console.log(`  ${COLORS.cyan}❯${COLORS.reset} ${iconPart}${COLORS.bold}${item.label}${COLORS.reset}`);
+          if (item.description) {
+            console.log(`    ${COLORS.dim}${item.description}${COLORS.reset}`);
+          }
         } else {
-          console.log(`   ${pointer} ${iconPart}${item.label}`);
+          console.log(`    ${iconPart}${item.label}`);
+          if (item.description) {
+            console.log(`    ${COLORS.dim}${item.description}${COLORS.reset}`);
+          }
         }
       });
       console.log();
-      console.log(`  ${COLORS.dim}Use ↑/↓ arrows to navigate, Enter to select, Esc to go back${COLORS.reset}\n`);
+      console.log(`  ${COLORS.dim}↑/↓ navigate  •  enter select  •  esc back${COLORS.reset}\n`);
     };
 
     const cleanup = () => {

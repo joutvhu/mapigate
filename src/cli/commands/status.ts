@@ -18,7 +18,7 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
   ApiClient.configure({ port });
 
   console.log(`\n${chalk.bold(APP_NAME)} ${chalk.dim(`v${APP_VERSION}`)} Status:`);
-  console.log(`──────────────────────────────────────────`);
+  console.log(chalk.dim(`──────────────────────────────────────────`));
 
   if (isListening) {
     console.log(`  State:        ${chalk.green.bold("RUNNING")}`);
@@ -53,5 +53,5 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     // Best-effort
   }
 
-  console.log(`──────────────────────────────────────────\n`);
+  console.log(chalk.dim(`──────────────────────────────────────────\n`));
 }

@@ -39,8 +39,9 @@ export async function showMenuWithBack<T = any>(config: ShowMenuWithBackConfig<T
       }
     }
 
+    const cleanBack = backLabel.replace(/^[←‹<]\s*/, "");
     const menuItems: MenuItem[] = [
-      { label: backLabel, icon: "←" },
+      { label: `‹ ${cleanBack}` },
       ...items.map((item) => ({
         label: typeof item.label === "function" ? item.label(refreshedData) : item.label,
         icon: item.icon,
@@ -107,10 +108,12 @@ export async function showListMenu<T = any>(config: ShowListMenuConfig<T>): Prom
     if (!result) return;
 
     const { items } = result;
-    const menuItems: MenuItem[] = [{ label: backLabel, icon: "←" }];
+    const cleanBack = backLabel.replace(/^[←‹<]\s*/, "");
+    const menuItems: MenuItem[] = [{ label: `‹ ${cleanBack}` }];
 
     if (createAction) {
-      menuItems.push({ label: createAction.label, icon: "+" });
+      const cleanCreate = createAction.label.replace(/^\+\s*/, "");
+      menuItems.push({ label: `+ ${cleanCreate}` });
     }
 
     for (const item of items) {

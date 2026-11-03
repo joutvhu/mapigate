@@ -61,16 +61,16 @@ export function showBox(title: string, content: string, width: number = 64): voi
   const cleanTitle = stripAnsi(title);
   const remainingHoriz = Math.max(0, innerWidth - cleanTitle.length - 2);
 
-  const topBorder = `${BOX_CHARS.topLeft}${BOX_CHARS.horizontal.repeat(2)} ${title} ${BOX_CHARS.horizontal.repeat(remainingHoriz)}${BOX_CHARS.topRight}`;
+  const topBorder = `${COLORS.dim}${BOX_CHARS.topLeft}${BOX_CHARS.horizontal.repeat(2)}${COLORS.reset} ${COLORS.bold}${title}${COLORS.reset} ${COLORS.dim}${BOX_CHARS.horizontal.repeat(remainingHoriz)}${BOX_CHARS.topRight}${COLORS.reset}`;
   console.log(topBorder);
 
   for (const line of lines) {
     const cleanLine = stripAnsi(line);
     const paddingLength = Math.max(0, innerWidth - cleanLine.length);
-    console.log(`${BOX_CHARS.vertical} ${line}${" ".repeat(paddingLength)} ${BOX_CHARS.vertical}`);
+    console.log(`${COLORS.dim}${BOX_CHARS.vertical}${COLORS.reset} ${line}${" ".repeat(paddingLength)} ${COLORS.dim}${BOX_CHARS.vertical}${COLORS.reset}`);
   }
 
-  const bottomBorder = `${BOX_CHARS.bottomLeft}${BOX_CHARS.horizontal.repeat(innerWidth + 2)}${BOX_CHARS.bottomRight}`;
+  const bottomBorder = `${COLORS.dim}${BOX_CHARS.bottomLeft}${BOX_CHARS.horizontal.repeat(innerWidth + 2)}${BOX_CHARS.bottomRight}${COLORS.reset}`;
   console.log(bottomBorder);
 }
 
@@ -113,10 +113,10 @@ export function showTable(headers: string[], rows: (string | number)[][]): void 
  */
 export function showStatus(message: string, type: "success" | "error" | "warning" | "info" = "info"): void {
   const symbols = {
-    success: `${COLORS.green}[OK]${COLORS.reset}`,
-    error: `${COLORS.red}[ERR]${COLORS.reset}`,
-    warning: `${COLORS.yellow}[!]${COLORS.reset}`,
-    info: `${COLORS.cyan}[i]${COLORS.reset}`,
+    success: `${COLORS.green}✔${COLORS.reset}`,
+    error: `${COLORS.red}✖${COLORS.reset}`,
+    warning: `${COLORS.yellow}▲${COLORS.reset}`,
+    info: `${COLORS.cyan}ℹ${COLORS.reset}`,
   };
 
   console.log(`  ${symbols[type]} ${message}`);

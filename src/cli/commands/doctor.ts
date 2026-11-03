@@ -20,7 +20,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<void> {
   ApiClient.configure({ port });
 
   console.log(`\n${chalk.bold(`[Doctor] ${APP_NAME} v${APP_VERSION} System Doctor`)}`);
-  console.log(`──────────────────────────────────────────`);
+  console.log(chalk.dim(`──────────────────────────────────────────`));
 
   let allGood = true;
 
@@ -81,7 +81,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<void> {
     // ignore
   }
 
-  console.log(`──────────────────────────────────────────`);
+  console.log(chalk.dim(`──────────────────────────────────────────`));
   if (allGood) {
     console.log(chalk.green.bold("All core doctor health checks passed.\n"));
   } else {
