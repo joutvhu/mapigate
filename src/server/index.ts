@@ -34,6 +34,7 @@ import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 import { PidFileManager } from "../cli/daemon/pidFile.js";
 import { SettingsRepository } from "../storage/repositories/settingsRepo.js";
+import { isHostPatternMatch, DEFAULT_ALLOWED_HOSTS } from "../shared/utils/security.js";
 import { getRegistryProvider } from "../providers/core/metadataRegistry.js";
 
 // Sync persisted log level from settings repository if env is not explicitly set
@@ -171,16 +172,24 @@ function isTrustedHost(rawHost?: string): boolean {
     return true;
   }
 
-  // When listening on 0.0.0.0 (LAN exposed), trust local network IP ranges and mDNS .local
+  // When listening on 0.0.0.0 (LAN exposed), check allowed hosts patterns (configured in UI or env)
   if (configuredServerHost === "0.0.0.0") {
-    const isPrivateIpOrLocal =
-      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-      /^169\.254\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-      hostname.endsWith(".local");
-    if (isPrivateIpOrLocal) {
-      return true;
+    let rawAllowed = "";
+    try {
+      rawAllowed = SettingsRepository.getEndpointSettings().allowedHosts || DEFAULT_ALLOWED_HOSTS;
+    } catch {
+      rawAllowed = DEFAULT_ALLOWED_HOSTS;
+    }
+
+    const patterns = rawAllowed
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+
+    for (const pat of patterns) {
+      if (isHostPatternMatch(pat, hostname)) {
+        return true;
+      }
     }
   }
 

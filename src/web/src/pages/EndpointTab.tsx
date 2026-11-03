@@ -10,6 +10,7 @@ interface EndpointSettings {
   requireApiKey: boolean;
   proxyUrl?: string;
   customHeaders?: Record<string, string>;
+  allowedHosts?: string;
 }
 
 interface GatewayApiKey {
@@ -31,12 +32,15 @@ export interface EndpointTabProps {
   onRestartClick?: () => void;
 }
 
+const DEFAULT_ALLOWED_HOSTS = "10.*, 172.16-31.*, 192.168.*, 169.254.*, *.local";
+
 const DEFAULT_SETTINGS: EndpointSettings = {
   host: "127.0.0.1",
   port: 20127,
   requireApiKey: false,
   proxyUrl: "",
   customHeaders: {},
+  allowedHosts: DEFAULT_ALLOWED_HOSTS,
 };
 
 export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
@@ -87,6 +91,7 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
           requireApiKey: Boolean(data.requireApiKey),
           proxyUrl: data.proxyUrl || "",
           customHeaders: data.customHeaders || {},
+          allowedHosts: data.allowedHosts || DEFAULT_ALLOWED_HOSTS,
         });
         const rows: HeaderRow[] = Object.entries(data.customHeaders || {}).map(
           ([key, value], idx) => ({
@@ -150,6 +155,7 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
         requireApiKey: settings.requireApiKey,
         proxyUrl: settings.proxyUrl?.trim() || "",
         customHeaders,
+        allowedHosts: settings.allowedHosts?.trim() || DEFAULT_ALLOWED_HOSTS,
       };
 
       const res = await fetch("/api/settings/endpoint", {
@@ -515,6 +521,56 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
                 <p className="text-[11px] text-slate-500 mt-1">
                   Active server listening on port <span className="text-blue-400 font-mono font-semibold">{effectivePort}</span>. Default port is 20127. Change requires restarting Mapigate server.
                 </p>
+              </div>
+            </div>
+
+            {/* LAN Allowed Host Patterns Input */}
+            <div className="p-4 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="space-y-0.5">
+                  <label className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[16px] text-cyan-400">
+                      lan
+                    </span>
+                    Trusted LAN Host Patterns / IP Ranges
+                  </label>
+                  <p className="text-[11px] text-slate-400">
+                    Host header patterns allowed when accessing Mapigate over LAN (comma-separated).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      allowedHosts: DEFAULT_ALLOWED_HOSTS,
+                    })
+                  }
+                  className="px-2.5 py-1 rounded-lg bg-[#141B2D] border border-[#1E293B] hover:border-slate-600 text-[11px] font-medium text-slate-300 hover:text-white flex items-center gap-1 transition-all cursor-pointer self-start sm:self-center shrink-0"
+                  title="Reset to default private network ranges"
+                >
+                  <span className="material-symbols-outlined text-[13px] text-slate-400">
+                    restart_alt
+                  </span>
+                  Reset to Default
+                </button>
+              </div>
+
+              <input
+                type="text"
+                placeholder={DEFAULT_ALLOWED_HOSTS}
+                value={settings.allowedHosts || ""}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    allowedHosts: e.target.value,
+                  })
+                }
+                className="w-full bg-[#080B10] border border-[#1E293B] focus:border-blue-500 rounded-xl px-3.5 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition-colors"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-1 text-[10.5px] text-slate-500">
+                <span>Default: <code className="text-slate-400 font-mono">{DEFAULT_ALLOWED_HOSTS}</code></span>
+                <span>Supports wildcards (e.g. 192.168.*, 10.*, *.local)</span>
               </div>
             </div>
 

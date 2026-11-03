@@ -4,6 +4,7 @@ import http from "node:http";
 import app from "../src/server/index.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
 import { SettingsRepository } from "../src/storage/repositories/settingsRepo.js";
+import { isHostPatternMatch, DEFAULT_ALLOWED_HOSTS } from "../src/shared/utils/security.js";
 
 function rawHttpRequest(options: {
   port: number;
@@ -69,6 +70,17 @@ test("Security - Host header validation rejects DNS rebinding attacks", async ()
   } finally {
     server.close();
   }
+});
+
+test("Security - Host header pattern matching verifies LAN and custom patterns", () => {
+  assert.equal(typeof DEFAULT_ALLOWED_HOSTS, "string");
+  assert.ok(isHostPatternMatch("192.168.*", "192.168.1.100"));
+  assert.ok(isHostPatternMatch("10.*", "10.0.0.1"));
+  assert.ok(isHostPatternMatch("172.16-31.*", "172.20.0.50"));
+  assert.ok(isHostPatternMatch("*.local", "my-macbook.local"));
+  assert.ok(isHostPatternMatch("my-pc.internal", "my-pc.internal"));
+  assert.equal(isHostPatternMatch("192.168.*", "evil.attacker.com"), false);
+  assert.equal(isHostPatternMatch("10.*", "8.8.8.8"), false);
 });
 
 test("Security - Sensitive OAuth and custom tokens are masked in apiProviders", async () => {

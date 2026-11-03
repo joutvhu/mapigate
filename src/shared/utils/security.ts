@@ -1,3 +1,27 @@
+export const DEFAULT_ALLOWED_HOSTS = "10.*, 172.16-31.*, 192.168.*, 169.254.*, *.local";
+
+export function isHostPatternMatch(pattern: string, hostname: string): boolean {
+  const p = pattern.trim().toLowerCase();
+  const h = hostname.trim().toLowerCase();
+  if (!p || !h) return false;
+  if (p === "*" || p === h) return true;
+
+  // Handle special private ranges like 172.16-31.*
+  if (p === "172.16-31.*" || p === "172.16-31.*.*") {
+    return /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(h);
+  }
+
+  // Handle wildcard like *.local or 192.168.*
+  if (p.includes("*")) {
+    const escaped = p
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*");
+    return new RegExp(`^${escaped}$`).test(h);
+  }
+
+  return false;
+}
+
 export const SENSITIVE_KEY_NAMES = new Set([
   "refreshtoken",
   "secretaccesskey",

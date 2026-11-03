@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { getDatabase } from "../database.js";
+import { DEFAULT_ALLOWED_HOSTS } from "../../shared/utils/security.js";
 import {
   type TokenSaverSettings,
   DEFAULT_TOKEN_SAVER_SETTINGS,
@@ -52,6 +53,7 @@ export interface EndpointSettings {
   requireApiKey: boolean;
   proxyUrl?: string;
   customHeaders?: Record<string, string>;
+  allowedHosts?: string;
 }
 
 export const DEFAULT_ENDPOINT_SETTINGS: EndpointSettings = {
@@ -60,6 +62,7 @@ export const DEFAULT_ENDPOINT_SETTINGS: EndpointSettings = {
   requireApiKey: false,
   proxyUrl: "",
   customHeaders: {},
+  allowedHosts: DEFAULT_ALLOWED_HOSTS,
 };
 
 export interface GatewayApiKey {
@@ -200,6 +203,10 @@ export class SettingsRepository {
       requireApiKey: Boolean(raw.requireApiKey),
       proxyUrl: typeof raw.proxyUrl === "string" ? raw.proxyUrl : DEFAULT_ENDPOINT_SETTINGS.proxyUrl,
       customHeaders: raw.customHeaders && typeof raw.customHeaders === "object" ? raw.customHeaders : {},
+      allowedHosts:
+        typeof raw.allowedHosts === "string" && raw.allowedHosts.trim()
+          ? raw.allowedHosts.trim()
+          : DEFAULT_ALLOWED_HOSTS,
     };
   }
 
@@ -223,6 +230,10 @@ export class SettingsRepository {
         settings.customHeaders !== undefined && typeof settings.customHeaders === "object"
           ? settings.customHeaders
           : current.customHeaders,
+      allowedHosts:
+        settings.allowedHosts !== undefined && typeof settings.allowedHosts === "string" && settings.allowedHosts.trim()
+          ? settings.allowedHosts.trim()
+          : current.allowedHosts || DEFAULT_ALLOWED_HOSTS,
     };
     this.setSetting("endpointSettings", updated);
     return updated;
