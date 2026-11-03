@@ -1,23 +1,32 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Sidebar, type NavTab } from "./components/Sidebar";
 import { Header } from "./components/Header";
-import { ProvidersTab } from "./pages/ProvidersTab";
-import { ProviderDetailPage } from "./pages/ProviderDetailPage";
-import { CombosTab } from "./pages/CombosTab";
-import { UsageTab } from "./pages/UsageTab";
-import { QuotaTab } from "./pages/QuotaTab";
-import { CliToolsTab } from "./pages/CliToolsTab";
-import { MitmTab } from "./pages/MitmTab";
-import { EndpointTab } from "./pages/EndpointTab";
-import { TokenSaverTab } from "./pages/TokenSaverTab";
-import { ConsoleLogTab } from "./pages/ConsoleLogTab";
-import { SettingsTab } from "./pages/SettingsTab";
-import { CallbackPage } from "./pages/CallbackPage";
 import { useAuth } from "./hooks/useAuth";
 import { useSystemInfo } from "./hooks/useSystemInfo";
 import { LockScreen } from "./components/LockScreen";
 import { RestartModal } from "./components/RestartModal";
 import type { ProviderItem } from "./constants/providersData";
+
+const ProvidersTab = lazy(() => import("./pages/ProvidersTab").then((m) => ({ default: m.ProvidersTab })));
+const ProviderDetailPage = lazy(() => import("./pages/ProviderDetailPage").then((m) => ({ default: m.ProviderDetailPage })));
+const CombosTab = lazy(() => import("./pages/CombosTab").then((m) => ({ default: m.CombosTab })));
+const UsageTab = lazy(() => import("./pages/UsageTab").then((m) => ({ default: m.UsageTab })));
+const QuotaTab = lazy(() => import("./pages/QuotaTab").then((m) => ({ default: m.QuotaTab })));
+const CliToolsTab = lazy(() => import("./pages/CliToolsTab").then((m) => ({ default: m.CliToolsTab })));
+const MitmTab = lazy(() => import("./pages/MitmTab").then((m) => ({ default: m.MitmTab })));
+const EndpointTab = lazy(() => import("./pages/EndpointTab").then((m) => ({ default: m.EndpointTab })));
+const TokenSaverTab = lazy(() => import("./pages/TokenSaverTab").then((m) => ({ default: m.TokenSaverTab })));
+const ConsoleLogTab = lazy(() => import("./pages/ConsoleLogTab").then((m) => ({ default: m.ConsoleLogTab })));
+const SettingsTab = lazy(() => import("./pages/SettingsTab").then((m) => ({ default: m.SettingsTab })));
+const CallbackPage = lazy(() => import("./pages/CallbackPage"));
+
+function TabLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center py-24 text-slate-500">
+      <div className="size-6 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin" />
+    </div>
+  );
+}
 
 export default function App() {
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
@@ -91,35 +100,37 @@ export default function App() {
 
         {/* Tab Pages Scrollable Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full">
-          {currentTab === "endpoint" && (
-            <EndpointTab onRestartClick={() => setIsRestartModalOpen(true)} />
-          )}
+          <Suspense fallback={<TabLoadingFallback />}>
+            {currentTab === "endpoint" && (
+              <EndpointTab onRestartClick={() => setIsRestartModalOpen(true)} />
+            )}
 
-          {currentTab === "providers" &&
-            (detailProvider ? (
-              <ProviderDetailPage
-                provider={detailProvider}
-                onBack={() => setDetailProvider(null)}
-              />
-            ) : (
-              <ProvidersTab
-                searchQuery={searchQuery}
-                onSelectProvider={(p) => setDetailProvider(p)}
-              />
-            ))}
+            {currentTab === "providers" &&
+              (detailProvider ? (
+                <ProviderDetailPage
+                  provider={detailProvider}
+                  onBack={() => setDetailProvider(null)}
+                />
+              ) : (
+                <ProvidersTab
+                  searchQuery={searchQuery}
+                  onSelectProvider={(p) => setDetailProvider(p)}
+                />
+              ))}
 
-          {currentTab === "combos" && <CombosTab />}
-          {currentTab === "usage" && <UsageTab />}
-          {currentTab === "quota" && (
-            <QuotaTab searchQuery={searchQuery} />
-          )}
-          {currentTab === "tokensaver" && <TokenSaverTab />}
-          {currentTab === "clitools" && <CliToolsTab />}
-          {currentTab === "mitm" && <MitmTab />}
-          {currentTab === "consolelog" && <ConsoleLogTab />}
-          {currentTab === "settings" && (
-            <SettingsTab onRestartClick={() => setIsRestartModalOpen(true)} />
-          )}
+            {currentTab === "combos" && <CombosTab />}
+            {currentTab === "usage" && <UsageTab />}
+            {currentTab === "quota" && (
+              <QuotaTab searchQuery={searchQuery} />
+            )}
+            {currentTab === "tokensaver" && <TokenSaverTab />}
+            {currentTab === "clitools" && <CliToolsTab />}
+            {currentTab === "mitm" && <MitmTab />}
+            {currentTab === "consolelog" && <ConsoleLogTab />}
+            {currentTab === "settings" && (
+              <SettingsTab onRestartClick={() => setIsRestartModalOpen(true)} />
+            )}
+          </Suspense>
         </main>
       </div>
 

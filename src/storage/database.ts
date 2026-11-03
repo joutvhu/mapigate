@@ -205,14 +205,6 @@ export function getDatabase(): DatabaseDriver {
   };
 
   process.once("exit", cleanup);
-  process.once("SIGINT", () => {
-    cleanup();
-    process.exit(0);
-  });
-  process.once("SIGTERM", () => {
-    cleanup();
-    process.exit(0);
-  });
 
   initSchema(dbInstance);
   return dbInstance;

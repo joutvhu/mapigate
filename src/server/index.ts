@@ -161,9 +161,27 @@ function isTrustedHost(rawHost?: string): boolean {
     }
   }
 
+  const configuredServerHost = (host || "").toLowerCase().trim();
+  if (configuredServerHost && configuredServerHost === hostname) {
+    return true;
+  }
+
   const envHost = (process.env.HOST || DEFAULT_HOST || "").toLowerCase().trim();
   if (envHost && envHost === hostname) {
     return true;
+  }
+
+  // When listening on 0.0.0.0 (LAN exposed), trust local network IP ranges and mDNS .local
+  if (configuredServerHost === "0.0.0.0") {
+    const isPrivateIpOrLocal =
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^169\.254\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      hostname.endsWith(".local");
+    if (isPrivateIpOrLocal) {
+      return true;
+    }
   }
 
   return false;

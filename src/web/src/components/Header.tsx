@@ -106,6 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
     fetchMitmStatus();
     fetchSystemInfo();
     const interval = setInterval(() => {
+      if (document.hidden) return;
       fetchMitmStatus();
       fetchSystemInfo();
     }, 10000);

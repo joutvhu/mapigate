@@ -155,7 +155,10 @@ export async function inspectPortOwner(port: number): Promise<PortOwnerInfo> {
   if (isWin) {
     try {
       const psScript = `
-$c = Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1
+$c = Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $c) {
+  $c = Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -First 1
+}
 if ($c) {
   $p = Get-Process -Id $c.OwningProcess -ErrorAction SilentlyContinue
   @{
