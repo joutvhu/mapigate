@@ -294,8 +294,8 @@ export const CombosTab: React.FC = () => {
   return (
     <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
       {/* SECTION 1: Header, Strategies Description & Action Buttons */}
-      <div className="w-full p-5 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
-        <div className="text-xs text-slate-400 leading-relaxed space-y-2 flex-1">
+      <div className="w-full p-5 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-blue-400 text-[20px]">
               hub
@@ -304,72 +304,70 @@ export const CombosTab: React.FC = () => {
               Smart Model Combos & Routing Strategies
             </span>
           </div>
-          <p className="text-slate-300">
-            Group multiple models and provider accounts under a single unified alias. Mapigate automatically manages fallbacks, load balances requests, or fuses multiple outputs together.
-          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-2.5 pt-1 text-[11px]">
-            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
-              <span className="text-blue-400 font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">low_priority</span>
-                Fallback Strategy
-              </span>
-              <p className="text-slate-400">
-                Tries models in order; moves to backup on 429, 503, or quota limits.
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
-              <span className="text-cyan-400 font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">sync</span>
-                Round Robin Strategy
-              </span>
-              <p className="text-slate-400">
-                Spreads requests sequentially across accounts to maximize throughput.
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
-              <span className="text-indigo-400 font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">call_split</span>
-                Fusion Strategy
-              </span>
-              <p className="text-slate-400">
-                Queries models in parallel and synthesizes the best answer with a judge.
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">verified</span>
-                LKGP Strategy
-              </span>
-              <p className="text-slate-400">
-                Sticks to last known good model for prompt cache warmth; fails over on error.
-              </p>
-            </div>
-            <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
-              <span className="text-amber-400 font-bold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">balance</span>
-                P2C Strategy
-              </span>
-              <p className="text-slate-400">
-                Samples 2 random models and picks the higher-scoring via EMA latency/error rate.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Buttons: Create Combo */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start xl:self-center">
           <button
             type="button"
             onClick={() => {
               setEditingCombo(null);
               setShowComboModal(true);
             }}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
           >
             <span className="material-symbols-outlined text-[16px]">add_circle</span>
             Create Combo
           </button>
+        </div>
+
+        <p className="text-xs text-slate-300 leading-relaxed">
+          Group multiple models and provider accounts under a single unified alias. Mapigate automatically manages fallbacks, load balances requests, or fuses multiple outputs together.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-2.5 pt-1 text-[11px]">
+          <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+            <span className="text-blue-400 font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">low_priority</span>
+              Fallback Strategy
+            </span>
+            <p className="text-slate-400">
+              Tries models in order; moves to backup on 429, 503, or quota limits.
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+            <span className="text-cyan-400 font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">sync</span>
+              Round Robin Strategy
+            </span>
+            <p className="text-slate-400">
+              Spreads requests sequentially across accounts to maximize throughput.
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+            <span className="text-indigo-400 font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">call_split</span>
+              Fusion Strategy
+            </span>
+            <p className="text-slate-400">
+              Queries models in parallel and synthesizes the best answer with a judge.
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+            <span className="text-emerald-400 font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">verified</span>
+              LKGP Strategy
+            </span>
+            <p className="text-slate-400">
+              Sticks to last known good model for prompt cache warmth; fails over on error.
+            </p>
+          </div>
+          <div className="p-3 rounded-xl bg-[#0A0D14] border border-[#1E293B] space-y-1">
+            <span className="text-amber-400 font-bold flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">balance</span>
+              P2C Strategy
+            </span>
+            <p className="text-slate-400">
+              Samples 2 random models and picks the higher-scoring via EMA latency/error rate.
+            </p>
+          </div>
         </div>
       </div>
 
