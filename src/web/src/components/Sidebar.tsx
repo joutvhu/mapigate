@@ -48,25 +48,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     <aside className="rt-sidebar">
       <div>
         {/* Brand Logo Header */}
-        <div className="rt-sidebar__brand pt-5">
-          <div className="rt-sidebar__brand-icon">
-            <span className="material-symbols-outlined text-[20px]">graph_5</span>
+        <div className="rt-sidebar__brand pt-5 pr-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rt-sidebar__brand-icon shrink-0">
+              <span className="material-symbols-outlined text-[20px]">graph_5</span>
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-sm font-bold tracking-tight text-white leading-tight">
+                Mapigate
+              </h1>
+              <span className="text-[11px] text-slate-400 leading-tight mt-0.5">AI Model API Gateway</span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-1.5">
-              Mapigate
-              {version ? (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono font-medium">
-                  v{version}
-                </span>
-              ) : (
-                <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono">
-                  AI
-                </span>
-              )}
-            </h1>
-            <span className="text-[11px] text-slate-400">AI Model API Gateway</span>
-          </div>
+
+          {/* Prominent Version Badge (Aligned Right) */}
+          {version && (
+            <span
+              className="text-[11px] px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 font-mono font-semibold shrink-0 shadow-xs select-none"
+              title={`Mapigate Version v${version}`}
+            >
+              v{version}
+            </span>
+          )}
         </div>
 
         {/* Navigation Items */}

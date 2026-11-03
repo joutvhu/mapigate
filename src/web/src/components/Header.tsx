@@ -231,82 +231,74 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Network Access Status Button (Local Only vs LAN Active) */}
-        <button
-          type="button"
-          onClick={() => {
-            if (isRestartRequired && onRestartClick) {
-              onRestartClick();
-            } else {
-              onSelectTab?.("endpoint");
-            }
-          }}
-          title={networkTooltip}
-          className={`hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer shadow-xs ${networkColorClass}`}
-        >
-          <span className="material-symbols-outlined text-[15px]">
-            {networkIcon}
-          </span>
-          <span>{networkLabel}</span>
-        </button>
-
-        {/* Version Badge */}
-        {version && (
-          <div
-            className="hidden md:inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-[#111827] text-slate-300 text-xs font-mono border border-[#1E293B] shadow-inner select-none"
-            title={`Mapigate Version v${version}`}
-          >
-            <span className="text-slate-500 text-[10px]">v</span>
-            <span className="font-semibold text-slate-200">{version}</span>
-          </div>
-        )}
-
-        {/* GitHub Repository Link */}
-        <a
-          href="https://github.com/joutvhu/mapigate"
-          target="_blank"
-          rel="noreferrer"
-          title="Mapigate on GitHub (joutvhu/mapigate)"
-          className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-[#111827] hover:bg-white/5 text-slate-300 hover:text-white text-xs font-medium border border-[#1E293B] transition-all cursor-pointer shadow-xs"
-        >
-          <Github className="size-3.5 text-slate-400" />
-          <span className="hidden lg:inline text-[11px]">GitHub</span>
-        </a>
-
-        {/* Lock Dashboard Button (visible when master password is configured) */}
-        {isPasswordSet && (
+        {/* Group 1: Gateway Status Indicators (Network Mode & MITM Proxy) */}
+        <div className="flex items-center gap-1.5">
+          {/* Network Access Status Button */}
           <button
             type="button"
-            onClick={lock}
-            title="Lock Dashboard (Master Password Protected)"
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
+            onClick={() => {
+              if (isRestartRequired && onRestartClick) {
+                onRestartClick();
+              } else {
+                onSelectTab?.("endpoint");
+              }
+            }}
+            title={networkTooltip}
+            className={`w-8 h-8 rounded-lg border text-xs font-medium transition-all cursor-pointer shadow-xs inline-flex items-center justify-center ${networkColorClass}`}
           >
-            <span className="material-symbols-outlined text-[15px]">lock</span>
-            <span className="hidden sm:inline">Lock</span>
+            <span className="material-symbols-outlined text-[17px]">
+              {networkIcon}
+            </span>
           </button>
-        )}
 
-        {/* Action icons */}
-        <div className="flex items-center gap-1 border-l border-[#1E293B] pl-2 text-slate-400">
-          {onRestartClick && (
-            <button
-              type="button"
-              onClick={onRestartClick}
-              title="Restart Mapigate Gateway (Hot Reload)"
-              className="w-8 h-8 rounded-lg hover:bg-white/5 hover:text-blue-400 text-slate-400 transition-colors cursor-pointer inline-flex items-center justify-center"
-            >
-              <span className="material-symbols-outlined text-[17px]">restart_alt</span>
-            </button>
-          )}
           {/* MITM Proxy Status Indicator Button */}
           <button
             type="button"
             onClick={() => onSelectTab?.("mitm")}
             title={mitmTooltip}
-            className={`w-8 h-8 rounded-lg hover:bg-white/5 ${mitmColorClass} transition-colors cursor-pointer inline-flex items-center justify-center`}
+            className={`w-8 h-8 rounded-lg border border-[#1E293B] bg-[#111827] hover:bg-white/5 ${mitmColorClass} transition-colors cursor-pointer inline-flex items-center justify-center shadow-xs`}
           >
             <span className="material-symbols-outlined text-[17px]">alt_route</span>
           </button>
+        </div>
+
+        {/* Group 2: System & Security Actions */}
+        <div className="flex items-center gap-1.5 border-l border-[#1E293B] pl-2.5">
+          {onRestartClick && (
+            <button
+              type="button"
+              onClick={onRestartClick}
+              title="Restart Mapigate Gateway (Hot Reload)"
+              className="w-8 h-8 rounded-lg border border-[#1E293B] bg-[#111827] hover:bg-white/5 hover:text-blue-400 text-slate-400 transition-colors cursor-pointer inline-flex items-center justify-center shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[17px]">restart_alt</span>
+            </button>
+          )}
+
+          {/* Lock Dashboard Button (visible when master password is configured) */}
+          {isPasswordSet && (
+            <button
+              type="button"
+              onClick={lock}
+              title="Lock Dashboard (Master Password Protected)"
+              className="w-8 h-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/30 transition-all cursor-pointer inline-flex items-center justify-center shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[16px]">lock</span>
+            </button>
+          )}
+        </div>
+
+        {/* Group 3: External Links (GitHub) */}
+        <div className="flex items-center border-l border-[#1E293B] pl-2.5">
+          <a
+            href="https://github.com/joutvhu/mapigate"
+            target="_blank"
+            rel="noreferrer"
+            title="Mapigate on GitHub (joutvhu/mapigate)"
+            className="hidden sm:inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[#111827] hover:bg-white/5 text-slate-400 hover:text-white border border-[#1E293B] transition-all cursor-pointer shadow-xs"
+          >
+            <Github className="size-4" />
+          </a>
         </div>
       </div>
     </header>
