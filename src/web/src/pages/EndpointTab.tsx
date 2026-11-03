@@ -27,6 +27,10 @@ interface HeaderRow {
   value: string;
 }
 
+export interface EndpointTabProps {
+  onRestartClick?: () => void;
+}
+
 const DEFAULT_SETTINGS: EndpointSettings = {
   host: "127.0.0.1",
   port: 20127,
@@ -35,8 +39,10 @@ const DEFAULT_SETTINGS: EndpointSettings = {
   customHeaders: {},
 };
 
-export const EndpointTab: React.FC = () => {
+export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
   const systemInfo = useSystemInfo((s) => s.info);
+  const fetchSystemInfo = useSystemInfo((s) => s.fetchSystemInfo);
+  const isRestartRequired = Boolean(systemInfo?.isRestartRequired);
   // --- Endpoint Configuration State ---
   const [settings, setSettings] = useState<EndpointSettings>(DEFAULT_SETTINGS);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -67,9 +73,14 @@ export const EndpointTab: React.FC = () => {
   const loadSettings = useCallback(async () => {
     try {
       setLoadingSettings(true);
-      const res = await fetch("/api/settings/endpoint");
-      if (res.ok) {
-        const data = await res.json();
+      // Fetch both endpoint settings and system-info in parallel
+      const [resEndpoint] = await Promise.all([
+        fetch("/api/settings/endpoint"),
+        fetchSystemInfo(),
+      ]);
+
+      if (resEndpoint.ok) {
+        const data = await resEndpoint.json();
         setSettings({
           host: data.host || "127.0.0.1",
           port: data.port || 20127,
@@ -91,7 +102,7 @@ export const EndpointTab: React.FC = () => {
     } finally {
       setLoadingSettings(false);
     }
-  }, []);
+  }, [fetchSystemInfo]);
 
   // 2. Fetch Gateway API Keys
   const loadKeys = useCallback(async () => {
@@ -153,10 +164,14 @@ export const EndpointTab: React.FC = () => {
       }
 
       const updated = await res.json();
-      const socketChanged = updated.host !== settings.host || Number(updated.port) !== Number(settings.port);
       setSettings(updated);
+      
+      // Refresh global systemInfo store to detect isRestartRequired
+      const updatedSystem = await fetchSystemInfo();
+      const socketChanged = Boolean(updatedSystem?.isRestartRequired);
+
       if (socketChanged) {
-        setSaveFeedback("Settings saved! Note: Changes to Host/Port require restarting the Mapigate daemon (mpg stop && mpg start) to rebind the listening socket.");
+        setSaveFeedback("Configuration saved! Server restart is required to rebind the network interface.");
       } else {
         setSaveFeedback("Settings saved successfully!");
       }
@@ -410,6 +425,35 @@ export const EndpointTab: React.FC = () => {
             </span>
           )}
         </div>
+
+        {/* Restart Required Warning Banner */}
+        {isRestartRequired && (
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-rt-fade-in">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-amber-400 shrink-0">
+                restart_alt
+              </span>
+              <div>
+                <p className="text-xs font-bold text-amber-300">
+                  Restart Required to Apply Network Configuration
+                </p>
+                <p className="text-[11px] text-amber-200/70 mt-0.5">
+                  Listening host is configured as <span className="font-mono font-semibold text-white">{systemInfo?.configuredHost}</span>, but the gateway socket is still bound to <span className="font-mono font-semibold text-white">{systemInfo?.host}</span>.
+                </p>
+              </div>
+            </div>
+            {onRestartClick && (
+              <button
+                type="button"
+                onClick={onRestartClick}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer shadow-sm"
+              >
+                <span className="material-symbols-outlined text-[15px]">restart_alt</span>
+                Restart Gateway Now
+              </button>
+            )}
+          </div>
+        )}
 
         {loadingSettings ? (
           <div className="py-12 text-center text-slate-400 flex flex-col items-center gap-2">

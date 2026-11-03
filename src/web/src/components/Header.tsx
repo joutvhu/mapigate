@@ -96,6 +96,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isPasswordSet = useAuth((s) => s.isPasswordSet);
   const lock = useAuth((s) => s.lock);
   const systemInfo = useSystemInfo((s) => s.info);
+  const fetchSystemInfo = useSystemInfo((s) => s.fetchSystemInfo);
   const version = systemInfo?.version;
 
   const mitmStatus = useMitmStatus((s) => s.status);
@@ -103,20 +104,50 @@ export const Header: React.FC<HeaderProps> = ({
 
   useEffect(() => {
     fetchMitmStatus();
-    const interval = setInterval(fetchMitmStatus, 10000);
-    const onFocus = () => fetchMitmStatus();
+    fetchSystemInfo();
+    const interval = setInterval(() => {
+      fetchMitmStatus();
+      fetchSystemInfo();
+    }, 10000);
+    const onFocus = () => {
+      fetchMitmStatus();
+      fetchSystemInfo();
+    };
     window.addEventListener("focus", onFocus);
     return () => {
       clearInterval(interval);
       window.removeEventListener("focus", onFocus);
     };
-  }, [fetchMitmStatus]);
+  }, [fetchMitmStatus, fetchSystemInfo]);
 
   const isMitmRunning = Boolean(mitmStatus?.running);
   const mitmPort = mitmStatus?.port || 443;
   const activeDnsCount = mitmStatus?.activeDnsCount || 0;
   const activeDnsTools = mitmStatus?.activeDnsTools || [];
   const orphanedDns = Boolean(mitmStatus?.orphanedDns);
+
+  // Network listening status (Local-Only vs LAN)
+  const listeningHost = systemInfo?.host || "127.0.0.1";
+  const configuredHost = systemInfo?.configuredHost || listeningHost;
+  const isRestartRequired = Boolean(systemInfo?.isRestartRequired);
+  const isLanExposed = listeningHost === "0.0.0.0";
+
+  let networkTooltip = isLanExposed
+    ? `Network: LAN Active (0.0.0.0:${systemInfo?.port || 20127}) • Accessible from local network • Click to configure Endpoint`
+    : `Network: Local Only (127.0.0.1:${systemInfo?.port || 20127}) • Isolated to this machine • Click to configure Endpoint`;
+  let networkColorClass = isLanExposed
+    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+    : "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20";
+  let networkLabel = isLanExposed ? "LAN Active" : "Local Only";
+  let networkIcon = isLanExposed ? "wifi" : "shield";
+
+  if (isRestartRequired) {
+    const targetMode = configuredHost === "0.0.0.0" ? "LAN Active" : "Local Only";
+    networkTooltip = `⚠️ Restart Required: Configured for ${targetMode} (${configuredHost}), but running on ${listeningHost}. Click Restart button to apply.`;
+    networkColorClass = "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25 animate-pulse";
+    networkLabel = "Restart to apply";
+    networkIcon = "restart_alt";
+  }
 
   let mitmTooltip = "MITM Proxy: Stopped • Click to open settings";
   let mitmColorClass = "text-slate-500 hover:text-slate-300";
@@ -175,10 +206,10 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Header Tools */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {/* Search input */}
-        <div className="relative w-64">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[16px] text-slate-500">
+        <div className="relative w-64 h-8">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[15px] text-slate-500 pointer-events-none">
             search
           </span>
           <input
@@ -186,29 +217,45 @@ export const Header: React.FC<HeaderProps> = ({
             placeholder="Search providers & models..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-[#111827] border border-[#1E293B] rounded-xl pl-9 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all"
+            className="w-full h-8 bg-[#111827] border border-[#1E293B] rounded-lg pl-9 pr-8 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center w-5 h-5 rounded hover:bg-white/5"
               title="Clear search"
             >
-              <span className="material-symbols-outlined text-[16px]">close</span>
+              <span className="material-symbols-outlined text-[14px]">close</span>
             </button>
           )}
         </div>
 
-        {/* Local-First Badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-400 text-xs font-semibold border border-blue-500/20 shadow-xs">
-          <span className="material-symbols-outlined text-[15px]">verified_user</span>
-          100% Local-First
-        </div>
+        {/* Network Access Status Button (Local Only vs LAN Active) */}
+        <button
+          type="button"
+          onClick={() => {
+            if (isRestartRequired && onRestartClick) {
+              onRestartClick();
+            } else {
+              onSelectTab?.("endpoint");
+            }
+          }}
+          title={networkTooltip}
+          className={`hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-xs font-medium transition-all cursor-pointer shadow-xs ${networkColorClass}`}
+        >
+          <span className="material-symbols-outlined text-[15px]">
+            {networkIcon}
+          </span>
+          <span>{networkLabel}</span>
+        </button>
 
         {/* Version Badge */}
         {version && (
-          <div className="hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#111827] text-slate-300 text-xs font-mono border border-[#1E293B] shadow-inner" title={`Mapigate Version v${version}`}>
+          <div
+            className="hidden md:inline-flex items-center gap-1 h-8 px-2.5 rounded-lg bg-[#111827] text-slate-300 text-xs font-mono border border-[#1E293B] shadow-inner select-none"
+            title={`Mapigate Version v${version}`}
+          >
             <span className="text-slate-500 text-[10px]">v</span>
             <span className="font-semibold text-slate-200">{version}</span>
           </div>
@@ -220,7 +267,7 @@ export const Header: React.FC<HeaderProps> = ({
           target="_blank"
           rel="noreferrer"
           title="Mapigate on GitHub (joutvhu/mapigate)"
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#111827] hover:bg-white/5 text-slate-300 hover:text-white text-xs font-medium border border-[#1E293B] transition-all cursor-pointer shadow-xs"
+          className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-[#111827] hover:bg-white/5 text-slate-300 hover:text-white text-xs font-medium border border-[#1E293B] transition-all cursor-pointer shadow-xs"
         >
           <Github className="size-3.5 text-slate-400" />
           <span className="hidden lg:inline text-[11px]">GitHub</span>
@@ -232,7 +279,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={lock}
             title="Lock Dashboard (Master Password Protected)"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-[15px]">lock</span>
             <span className="hidden sm:inline">Lock</span>
@@ -246,9 +293,9 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={onRestartClick}
               title="Restart Mapigate Gateway (Hot Reload)"
-              className="p-2 rounded-lg hover:bg-white/5 hover:text-blue-400 text-slate-400 transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-lg hover:bg-white/5 hover:text-blue-400 text-slate-400 transition-colors cursor-pointer inline-flex items-center justify-center"
             >
-              <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+              <span className="material-symbols-outlined text-[17px]">restart_alt</span>
             </button>
           )}
           {/* MITM Proxy Status Indicator Button */}
@@ -256,9 +303,9 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             onClick={() => onSelectTab?.("mitm")}
             title={mitmTooltip}
-            className={`p-2 rounded-lg hover:bg-white/5 ${mitmColorClass} transition-colors cursor-pointer`}
+            className={`w-8 h-8 rounded-lg hover:bg-white/5 ${mitmColorClass} transition-colors cursor-pointer inline-flex items-center justify-center`}
           >
-            <span className="material-symbols-outlined text-[18px]">alt_route</span>
+            <span className="material-symbols-outlined text-[17px]">alt_route</span>
           </button>
         </div>
       </div>

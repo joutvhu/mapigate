@@ -186,12 +186,18 @@ export class ServerLifecycle {
     try {
       const { ProcessManager } = await import("../cli/daemon/processManager.js");
       const { getDefaultDataDir, MAPIGATE_LOG_FILE, DEFAULT_PORT, DEFAULT_HOST } = await import("../shared/constants/index.js");
+      const { SettingsRepository } = await import("../storage/repositories/settingsRepo.js");
       const { spawn } = await import("node:child_process");
       const path = await import("node:path");
       const fs = await import("node:fs");
 
-      const port = Number(process.env.PORT) || DEFAULT_PORT;
-      const host = process.env.HOST || DEFAULT_HOST;
+      let dbSettings = null;
+      try {
+        dbSettings = SettingsRepository.getEndpointSettings();
+      } catch {}
+
+      const port = Number(process.env.PORT) || dbSettings?.port || DEFAULT_PORT;
+      const host = process.env.HOST || dbSettings?.host || DEFAULT_HOST;
       const { cmd, args, shell } = ProcessManager.resolveSpawnCommand();
 
       const dataDir = getDefaultDataDir();

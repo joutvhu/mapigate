@@ -91,7 +91,9 @@ export default function App() {
 
         {/* Tab Pages Scrollable Container */}
         <main className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full">
-          {currentTab === "endpoint" && <EndpointTab />}
+          {currentTab === "endpoint" && (
+            <EndpointTab onRestartClick={() => setIsRestartModalOpen(true)} />
+          )}
 
           {currentTab === "providers" &&
             (detailProvider ? (

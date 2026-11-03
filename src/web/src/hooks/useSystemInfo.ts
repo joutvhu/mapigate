@@ -8,6 +8,9 @@ export interface SystemInfo {
   version: string;
   port: number;
   host: string;
+  configuredHost?: string;
+  configuredPort?: number;
+  isRestartRequired?: boolean;
 }
 
 interface SystemInfoState {
@@ -46,6 +49,9 @@ export const useSystemInfo = create<SystemInfoState>((set) => ({
           version: data.version || "",
           port: effectivePort,
           host,
+          configuredHost: data.configuredHost || host,
+          configuredPort: data.configuredPort || effectivePort,
+          isRestartRequired: Boolean(data.isRestartRequired),
         };
         set({ info: fullInfo, loading: false });
         return fullInfo;

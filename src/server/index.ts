@@ -49,9 +49,18 @@ if (envLevel) {
   } catch {}
 }
 
+// Load host/port preference from database if not explicitly set via environment variables
+const dbEndpointSettings = (() => {
+  try {
+    return SettingsRepository.getEndpointSettings();
+  } catch {
+    return null;
+  }
+})();
+
 const app = express();
-const port = Number(process.env.PORT) || DEFAULT_PORT;
-const host = process.env.HOST || DEFAULT_HOST;
+const port = Number(process.env.PORT) || dbEndpointSettings?.port || DEFAULT_PORT;
+const host = process.env.HOST || dbEndpointSettings?.host || DEFAULT_HOST;
 
 // Secure CORS configuration: allow CLI/desktop tools and localhost/webview origins, block foreign internet origins
 app.use(

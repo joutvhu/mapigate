@@ -27,6 +27,7 @@ settingsRouter.get("/system-info", (_req, res) => {
     const isDev = isDevelopmentMode();
     const runningPort = serverLifecycle.getPort();
     const runningHost = serverLifecycle.getHost();
+    const configuredEndpoint = SettingsRepository.getEndpointSettings();
     res.json({
       dataDir,
       dbPath,
@@ -35,6 +36,9 @@ settingsRouter.get("/system-info", (_req, res) => {
       version: APP_VERSION,
       port: runningPort,
       host: runningHost,
+      configuredHost: configuredEndpoint.host,
+      configuredPort: configuredEndpoint.port,
+      isRestartRequired: runningHost !== configuredEndpoint.host || runningPort !== configuredEndpoint.port,
       logLevel: logger.getLevelName(),
     });
   } catch (error: any) {
