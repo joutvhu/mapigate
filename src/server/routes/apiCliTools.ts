@@ -253,6 +253,11 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
       }
       const runningPort = serverLifecycle.getPort();
       if (!currentSettings.env) currentSettings.env = {};
+      if (req.body?.apiKey) {
+        currentSettings.env.ANTHROPIC_AUTH_TOKEN = req.body.apiKey;
+      } else {
+        currentSettings.env.ANTHROPIC_AUTH_TOKEN = "mapigate-local";
+      }
       currentSettings.env.ANTHROPIC_BASE_URL = getMapigateBaseUrl(runningPort);
       currentSettings.env.ANTHROPIC_MODEL = req.body?.model || "claude-sonnet-4-6";
       await fs.writeFile(targetPath, JSON.stringify(currentSettings, null, 2), "utf-8");
@@ -296,6 +301,7 @@ cliToolsRouter.post("/:tool/reset", async (req, res) => {
         const currentSettings = JSON.parse(raw.replace(/,(\s*[}\]])/g, "$1"));
         if (currentSettings.env) {
           delete currentSettings.env.ANTHROPIC_BASE_URL;
+          delete currentSettings.env.ANTHROPIC_AUTH_TOKEN;
           delete currentSettings.env.ANTHROPIC_MODEL;
         }
         await fs.writeFile(targetPath, JSON.stringify(currentSettings, null, 2), "utf-8");

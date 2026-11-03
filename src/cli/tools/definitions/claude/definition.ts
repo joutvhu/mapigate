@@ -38,9 +38,9 @@ export const definition: CliToolDefinition = {
     "claude-3-5-sonnet",
     "claude-3-5-haiku",
   ],
-  powershellTemplate: `$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"\n$env:ANTHROPIC_MODEL = "claude-sonnet-4-6"\nclaude`,
-  bashTemplate: `export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"\nexport ANTHROPIC_MODEL="claude-sonnet-4-6"\nclaude`,
-  configFileTemplate: `{\n  "env": {\n    "ANTHROPIC_BASE_URL": "http://127.0.0.1:20127",\n    "ANTHROPIC_MODEL": "claude-sonnet-4-6"\n  }\n}`,
+  powershellTemplate: `$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"\n$env:ANTHROPIC_AUTH_TOKEN = "mapigate-local"\n$env:ANTHROPIC_MODEL = "claude-sonnet-4-6"\nclaude`,
+  bashTemplate: `export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"\nexport ANTHROPIC_AUTH_TOKEN="mapigate-local"\nexport ANTHROPIC_MODEL="claude-sonnet-4-6"\nclaude`,
+  configFileTemplate: `{\n  "env": {\n    "ANTHROPIC_BASE_URL": "http://127.0.0.1:20127",\n    "ANTHROPIC_AUTH_TOKEN": "mapigate-local",\n    "ANTHROPIC_MODEL": "claude-sonnet-4-6"\n  }\n}`,
   guideSteps: [
     { step: 1, title: "Install Claude Code", desc: "npm install -g @anthropic-ai/claude-code" },
     { step: 2, title: "Set Base URL", desc: "Point ANTHROPIC_BASE_URL to Mapigate Port 20127", value: "http://127.0.0.1:20127", copyable: true },

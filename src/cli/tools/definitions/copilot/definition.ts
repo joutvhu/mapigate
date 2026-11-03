@@ -31,13 +31,13 @@ export const definition: CliToolDefinition = {
   guideSteps: [
     {
       step: 1,
-      title: "VS Code Copilot",
-      desc: "Use Mapigate MITM Proxy to transparently intercept api.githubcopilot.com, or use the Copilot configuration extension.",
+      title: "Method A: Local MITM Proxy (Recommended)",
+      desc: "Enable MITM Interceptor in Mapigate. Copilot traffic to api.githubcopilot.com will be intercepted and redirected automatically.",
     },
     {
       step: 2,
-      title: "Set Server URL",
-      desc: "Point endpoint to Mapigate server URL:",
+      title: "Method B: VS Code Copilot Extension Proxy",
+      desc: "Install a Copilot proxy extension in VS Code and set the Gateway Server URL to:",
       value: "http://127.0.0.1:20127",
       copyable: true,
     },

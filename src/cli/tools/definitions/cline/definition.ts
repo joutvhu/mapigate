@@ -7,7 +7,7 @@ export const definition: CliToolDefinition = {
   color: "#5B9BD5",
   description: "Cline AI Coding Assistant",
   configType: "file",
-  configPath: "~/.cline/config.json",
+  configPath: "~/.cline/data/globalState.json",
   baseUrlPath: "/v1",
   defaultModels: [
     "claude-3-7-sonnet-20250219",

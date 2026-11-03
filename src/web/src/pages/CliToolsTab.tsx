@@ -880,24 +880,26 @@ export const CliToolsTab: React.FC = () => {
                       selectedDef?.configFileTemplate || selectedDef?.codeBlock?.code
                     ) || `{\n  "baseUrl": "http://${effectiveHost}:${effectivePort}/v1",\n  "apiKey": "mapigate-local"\n}`}
                   </pre>
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      disabled={applying}
-                      onClick={() => handleApplyConfig(activeModalTool.id)}
-                      className="rt-btn rt-btn--primary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">save</span>
-                      {applying ? "Applying..." : "Apply to Config File"}
-                    </button>
-                    <button
-                      disabled={applying}
-                      onClick={() => handleResetConfig(activeModalTool.id)}
-                      className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">undo</span>
-                      Reset Config
-                    </button>
-                  </div>
+                  {Boolean(selectedDef?.configPath || selectedDef?.settingsFile) && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        disabled={applying}
+                        onClick={() => handleApplyConfig(activeModalTool.id)}
+                        className="rt-btn rt-btn--primary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">save</span>
+                        {applying ? "Applying..." : "Apply to Config File"}
+                      </button>
+                      <button
+                        disabled={applying}
+                        onClick={() => handleResetConfig(activeModalTool.id)}
+                        className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">undo</span>
+                        Reset Config
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

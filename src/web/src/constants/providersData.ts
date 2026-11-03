@@ -189,7 +189,7 @@ export const CLI_TOOLS_LIST: CliToolItem[] = [
   { id: "droid", name: "Factory Droid", image: "/assets/tools/droid/icon.png", status: "Not installed" },
   { id: "cursor", name: "Cursor", image: "/assets/providers/cursor/icon.png", iconBg: "#FFFFFF", status: "Guide" },
   { id: "cline", name: "Cline", image: "/assets/providers/cline/icon.png", status: "Not configured" },
-  { id: "kilo", name: "Kiro Code", image: "/assets/providers/kilocode/icon.png", status: "Guide" },
+  { id: "kilo", name: "Kilo Code", image: "/assets/providers/kilocode/icon.png", status: "Guide" },
   { id: "roo", name: "Roo", image: "/assets/tools/roo/icon.png", status: "Guide" },
   { id: "continue", name: "Continue", image: "/assets/tools/continue/icon.png", status: "Guide" },
   { id: "amp", name: "Amp CLI", image: "/assets/tools/amp/icon.png", status: "Guide" },
