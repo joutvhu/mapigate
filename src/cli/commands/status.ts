@@ -3,6 +3,7 @@ import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, APP_VERSION } from "../../shared/
 import { ProcessManager } from "../daemon/processManager.js";
 import { PidFileManager } from "../daemon/pidFile.js";
 import { ApiClient } from "../client/apiClient.js";
+import { checkForUpdates } from "../../shared/utils/versionChecker.js";
 
 export interface StatusOptions {
   port?: string | number;
@@ -41,5 +42,16 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
     console.log(`  State:        ${chalk.red.bold("STOPPED")}`);
     console.log(`  Port:         ${chalk.white(port)} (not listening)`);
   }
+
+  // Non-blocking background check for npm updates
+  try {
+    const updateInfo = await checkForUpdates();
+    if (updateInfo.hasUpdate && updateInfo.latestVersion) {
+      console.log(`  Update:       ${chalk.yellow(`v${updateInfo.latestVersion} available`)} ${chalk.dim(`(run 'mpg upgrade')`)}`);
+    }
+  } catch {
+    // Best-effort
+  }
+
   console.log(`──────────────────────────────────────────\n`);
 }

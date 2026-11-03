@@ -19,6 +19,7 @@ import { runProviders } from "./commands/providers.js";
 import { runModels } from "./commands/models.js";
 import { runStartup } from "./commands/startup.js";
 import { runBackupExport, runBackupImport } from "./commands/backup.js";
+import { runUpgrade } from "./commands/upgrade.js";
 import { closeDatabase } from "../storage/database.js";
 
 async function showInterfaceMenu(port: number, pid: number | null): Promise<string> {
@@ -257,6 +258,15 @@ program
   .description("Configure Mapigate to start automatically on system boot (enable, disable, status)")
   .action(async (action) => {
     await runStartup(action);
+  });
+
+program
+  .command("upgrade")
+  .alias("update")
+  .description(`Check npm registry and upgrade ${APP_NAME} to the latest version`)
+  .option("-f, --force", "Force reinstall latest version even if up to date")
+  .action(async (options) => {
+    await runUpgrade(options);
   });
 
 const backupCmd = program

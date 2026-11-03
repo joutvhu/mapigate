@@ -6,6 +6,8 @@ export interface SystemInfo {
   isDevelopmentMode: boolean;
   appName: string;
   version: string;
+  latestVersion?: string | null;
+  hasUpdate?: boolean;
   port: number;
   host: string;
   configuredHost?: string;
@@ -17,6 +19,7 @@ interface SystemInfoState {
   info: SystemInfo | null;
   loading: boolean;
   fetchSystemInfo: () => Promise<SystemInfo | null>;
+  checkForUpdate: () => Promise<void>;
 }
 
 export const useSystemInfo = create<SystemInfoState>((set) => ({
@@ -54,6 +57,31 @@ export const useSystemInfo = create<SystemInfoState>((set) => ({
           isRestartRequired: Boolean(data.isRestartRequired),
         };
         set({ info: fullInfo, loading: false });
+
+        // Trigger non-blocking version check
+        void (async () => {
+          try {
+            const vRes = await fetch("/api/settings/version");
+            if (vRes.ok) {
+              const vData = await vRes.json();
+              set((prev) =>
+                prev.info
+                  ? {
+                      ...prev,
+                      info: {
+                        ...prev.info,
+                        latestVersion: vData.latestVersion,
+                        hasUpdate: Boolean(vData.hasUpdate),
+                      },
+                    }
+                  : prev
+              );
+            }
+          } catch {
+            // best effort
+          }
+        })();
+
         return fullInfo;
       }
     } catch {
@@ -61,5 +89,27 @@ export const useSystemInfo = create<SystemInfoState>((set) => ({
     }
     set({ loading: false });
     return null;
+  },
+  checkForUpdate: async () => {
+    try {
+      const vRes = await fetch("/api/settings/version?force=true");
+      if (vRes.ok) {
+        const vData = await vRes.json();
+        set((prev) =>
+          prev.info
+            ? {
+                ...prev,
+                info: {
+                  ...prev.info,
+                  latestVersion: vData.latestVersion,
+                  hasUpdate: Boolean(vData.hasUpdate),
+                },
+              }
+            : prev
+        );
+      }
+    } catch {
+      // best effort
+    }
   },
 }));

@@ -16,8 +16,20 @@ import {
 import { serverLifecycle } from "../lifecycle.js";
 import { logger, parseLogLevel } from "../../shared/logger.js";
 import { BackupService } from "../../storage/backupService.js";
+import { checkForUpdates } from "../../shared/utils/versionChecker.js";
 
 export const settingsRouter = Router();
+
+// GET /api/settings/version - Check latest version on npm
+settingsRouter.get("/version", async (req, res) => {
+  try {
+    const force = req.query.force === "true";
+    const updateInfo = await checkForUpdates(force);
+    res.json(updateInfo);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to check version" });
+  }
+});
 
 // GET /api/settings/system-info - Get data directory, database path & environment status
 settingsRouter.get("/system-info", (_req, res) => {
