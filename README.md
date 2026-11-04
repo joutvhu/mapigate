@@ -141,6 +141,12 @@ Per provider you can configure multiple accounts with `round-robin` (default) or
 
 Requires **Node.js `>= 22.5.0`** (Node 22 LTS recommended for built-in `node:sqlite` WAL engine):
 
+#### Option A: Install via npm (Recommended)
+```bash
+npm install -g mapigate
+```
+
+#### Option B: From Source
 ```bash
 # Clone the repository
 git clone https://github.com/joutvhu/mapigate.git
