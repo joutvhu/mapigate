@@ -25,9 +25,10 @@
 * **Single Unified Port (20127):** Serves both real-time streaming AI proxy endpoints and the static Web Dashboard on a single port.
 * **Non-Blocking Storage:** SQLite running in WAL mode (native `node:sqlite` in Node.js >= 22.5 or `better-sqlite3`), eliminating native compilation lockups during package installations.
 
-### ✂️ Pillar 3: Coding-Centric Token Optimization (RTK Token Saver)
-* **In-Place Tool Result Compression:** Coding agents produce massive context payloads through repetitive tool invocations (`git diff`, `grep`, `file search`, `terminal logs`). RTK inspects and compresses these outputs in-place, achieving **20% – 40% context window savings**.
-* **Fail-Open Invariant:** If compression fails or payload structure is unfamiliar, RTK immediately passes the original request untouched. It must **never** break user requests.
+### ✂️ Pillar 3: Coding-Centric Token Optimization (Token Saver Engine)
+* **Modular Token Optimization:** Coordinates multiple token saving methods (RTK in-place tool result compression, Caveman style compression, Ponytail minimalist coding, and Custom Prompts) to optimize context window usage.
+* **In-Place Tool Result Compression (RTK):** Coding agents produce massive context payloads through repetitive tool invocations (`git diff`, `grep`, `file search`, `terminal logs`). The RTK method inspects and compresses these outputs in-place, achieving **20% – 40% context window savings**.
+* **Fail-Open Invariant:** If compression fails or payload structure is unfamiliar, the Token Saver immediately passes the original request untouched. It must **never** break user requests.
 * **Error Trace Preservation:** Tool results containing `is_error` or exception traces are strictly exempt from compression so coding agents retain full debugging visibility.
 
 ### 🔄 Pillar 4: Smart Routing & High Availability
@@ -37,7 +38,7 @@
 
 ### 🎯 Pillar 5: Support for Open & Closed Coding Tools
 * **Direct Gateway:** Direct connection for tools supporting configurable Base URLs (Claude Code via `ANTHROPIC_BASE_URL`, Cursor via OpenAI Base URL Override, Cline).
-* **Decoupled MITM Interceptor:** Local HTTPS proxy (Port 8443/443 with self-signed Root CA) to intercept hardcoded endpoints for tools like GitHub Copilot or legacy Cursor binaries.
+* **Decoupled MITM Interceptor:** Local HTTPS proxy (Port 443 with self-signed Root CA, configurable via `MAPIGATE_MITM_PORT`) to intercept hardcoded endpoints for closed tools (GitHub Copilot, Kiro IDE, Google Antigravity).
 
 ---
 
@@ -62,7 +63,8 @@ mapigate/
 │   │   ├── adapters/            # Protocol converters (OpenAI ⇄ Anthropic ⇄ Responses ⇄ Gemini)
 │   │   ├── capabilities/        # Context window & thinking token resolution engine
 │   │   ├── router/              # Routing engine, fallback rules, load balancing
-│   │   ├── rtk/                 # RTK Token Saver (compressors for diff, grep, logs)
+│   │   ├── tokenSaver/          # Token Saver Engine (methods: rtk, caveman, ponytail, customPrompt)
+│   │   │   └── methods/rtk/     # In-place diff, grep, search, logs compressors
 │   │   └── scheduler/           # Periodic quota resets and provider health-checks
 │   ├── providers/               # Hierarchical 100% Self-Contained Provider Modules
 │   │   ├── core/                # Shared base classes, interfaces, runtime ProviderRegistry
@@ -73,7 +75,7 @@ mapigate/
 │   │   ├── generated/           # AUTO-GENERATED metadata, provider, and routes registries
 │   │   └── index.ts             # Unified barrel export
 │   ├── mitm/                    # Decoupled HTTPS Interceptor
-│   │   ├── handlers/            # Modularized tool handlers (kiro, cursor, copilot, antigravity)
+│   │   ├── handlers/            # Modularized tool handlers (kiro, copilot, antigravity)
 │   │   │   └── <tool>/          # config.ts (hosts, patterns, UI config), handler.ts, interceptor.ts
 │   │   ├── toolsHelper.ts       # Runtime MITM helpers (getToolForHost, isChatRequest, extractModel)
 │   │   ├── cert/                # Root CA & dynamic TLS certificate generator
@@ -113,9 +115,10 @@ Client (Claude Code / Cursor / Cline / Kiro / Copilot)
   │     1. Detect client type & requested target model
   │     2. Select healthy provider/account (check quota & round-robin priority)
   │
-  ├─► [RTK Compressor] (Fail-Open):
-  │     - Inspect tool calls and tool results (git diff, terminal output)
-  │     - Compress verbose output in-place while preserving error traces
+  ├─► [Token Saver Coordinator] (Fail-Open):
+  │     - Inspect tool calls, tool results, and prompt instructions
+  │     - Apply active methods: RTK (tool outputs), Caveman, Ponytail, Custom Prompt
+  │     - Compress verbose output in-place while strictly preserving error traces
   │
   ├─► [Provider Dispatcher (`src/providers/`)]:
   │     - Retrieve provider from ProviderRegistry
@@ -132,7 +135,7 @@ Client (Claude Code / Cursor / Cline / Kiro / Copilot)
   │     - Pipe stream directly to client with minimal latency
   │
   └─► [Usage & Analytics Storage]:
-        - Record input/output token counts and RTK savings in SQLite (WAL mode)
+        - Record input/output token counts and token savings in SQLite (WAL mode)
 ```
 
 ---
@@ -159,8 +162,8 @@ Client (Claude Code / Cursor / Cline / Kiro / Copilot)
 6. **API Key Security Invariant:**
    * Any API key or OAuth secret stored in SQLite **must** pass through `cryptoVault.encrypt()`.
    * Never log raw API keys to `console.log` or store unencrypted credentials.
-7. **RTK Fail-Open Architecture:**
-   * All RTK compression logic under `src/core/rtk/` must be wrapped in defensive `try...catch` blocks. On any unexpected error or parser mismatch, return the unmodified request body.
+7. **Token Saver Fail-Open Architecture:**
+   * All Token Saver methods and compression logic under `src/core/tokenSaver/` must be wrapped in defensive `try...catch` blocks. On any unexpected error or parser mismatch, return the unmodified request body.
 8. **Anti-Bloat Discipline:**
    * Do not install heavy dependencies, reintroduce Next.js SSR, add i18n systems, or support media generation.
    * Always evaluate new features against the core mission: *"Does this directly accelerate or stabilize AI coding workflows?"*

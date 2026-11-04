@@ -4,7 +4,7 @@
 
 ### Local-first AI model gateway and token optimizer for coding assistants
 
-**One local endpoint (`http://127.0.0.1:20127`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 194 AI providers.**  
+**One local endpoint (`http://127.0.0.1:20127`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 151+ AI providers.**  
 *Works with Claude Code, Cursor, Cline, Codex, OpenCode, and 26 coding tools in total, plus GitHub Copilot, Kiro IDE, and Antigravity through a local MITM proxy.*
 
 ---
@@ -13,9 +13,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blueviolet.svg)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.31-orange.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-latest-orange.svg)](package.json)
 
-[**What is Mapigate?**](#-what-is-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-194) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**RTK Token Saver**](#-feature-1-rtk-token-saver-2040-context-savings) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
+[**What is Mapigate?**](#-what-is-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-151) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**Token Saver**](#-feature-1-token-saver-modular-token-optimization) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
 
 </div>
 
@@ -30,16 +30,16 @@ Mapigate is a local API gateway that runs on your machine (Node.js, single port 
 | | |
 | :--- | :--- |
 | **Client APIs** | OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), OpenAI Responses (`/v1/responses`), model list (`/v1/models`). Streaming and non-streaming. |
-| **Providers** | 194 built in: 32 runtime (OAuth / custom auth: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Cursor, Bedrock, Azure…), 161 catalog (OpenRouter, Groq, Cerebras, Mistral, Together, Moonshot, Z.ai, local Ollama / LM Studio…), plus the combo engine. More via the community catalog. |
+| **Providers** | 151+ built in: 32 runtime (OAuth / custom auth: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Cursor, Bedrock, Azure…), 118 catalog (OpenRouter, Groq, Cerebras, Mistral, Together, Moonshot, Z.ai, local Ollama / LM Studio…), plus the combo engine. More via the community catalog. |
 | **Coding tools** | 26 with config definitions (`mpg connect`): Claude Code, Codex, OpenCode, Cline, Roo Code, Continue, Qwen Code, Crush, Factory Droid… Cursor via base URL override. Copilot, Kiro IDE, and Antigravity via MITM. |
 | **Routing** | Model aliases, global and per-tool model mappings, combos (`fallback`, `round-robin`, `fusion`, `lkgp`, `p2c`), multi-account rotation (`round-robin` / `fill-first`), automatic fallback on 429 and quota errors. |
-| **Token saving** | RTK compresses `git diff`, terminal logs, and search output in tool results (typically 20–40% fewer input tokens). Fail-open, and error results are never compressed. |
+| **Token saving** | Modular Token Saver: RTK in-place compression (`git diff`, terminal logs, search results — 20–40% fewer input tokens), Caveman style compression, Ponytail minimalist coding, and Custom Prompts. Fail-open, and error results are never compressed. |
 | **Security** | Local only, no telemetry. API keys and OAuth tokens encrypted with AES-256-GCM keyed to your machine ID. Optional gateway API keys for `/v1/*` and a Master Password for the dashboard. |
 | **Interfaces** | Web dashboard (React), CLI `mpg` / `mapigate`, interactive TUI, system tray, background daemon, autostart on boot. |
 
 ### Problems it solves
 
-1. **Token bloat:** agents resend large `git diff`, build logs, and grep output every turn. RTK trims them before they go upstream.
+1. **Token bloat:** agents resend large `git diff`, build logs, and grep output every turn. Token Saver trims them before they go upstream.
 2. **Rate limits mid-session:** when one account returns HTTP 429 or runs out of quota, the request moves to the next account or combo target.
 3. **Scattered configuration:** one place to manage keys, OAuth logins, and models for every tool, instead of editing each tool's settings file.
 4. **Closed tools:** Copilot, Kiro IDE, and Antigravity hardcode their endpoints. The MITM proxy redirects their chat traffic to the providers you choose.
@@ -58,12 +58,12 @@ graph TD
     subgraph MAPIGATE["Mapigate (local)"]
         INGEST["Gateway :20127<br/>/v1/chat/completions · /v1/messages · /v1/responses<br/>MITM proxy :443"]
         ROUTER["Router<br/>aliases · model mappings · combos · account rotation · fallback"]
-        RTK["RTK Token Saver (fail-open)"]
+        SAVER["Token Saver (fail-open)"]
         ADAPTER["Provider adapters<br/>OpenAI · Anthropic · Gemini · Bedrock · Kiro..."]
         VAULT[("SQLite (WAL) + AES-256-GCM vault")]
     end
 
-    subgraph UPSTREAM["194 providers"]
+    subgraph UPSTREAM["151+ providers"]
         P1["Runtime: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Bedrock..."]
         P2["Catalog: OpenRouter, Groq, Cerebras, Mistral, Together..."]
         P3["Local: Ollama, LM Studio, Jan"]
@@ -71,7 +71,7 @@ graph TD
 
     C1 & C2 & C3 --> INGEST
     C4 --> INGEST
-    INGEST --> ROUTER --> RTK --> ADAPTER --> UPSTREAM
+    INGEST --> ROUTER --> SAVER --> ADAPTER --> UPSTREAM
     ROUTER <--> VAULT
 ```
 
@@ -95,7 +95,7 @@ What every endpoint supports:
 - **Cross-protocol translation:** an Anthropic client can call an OpenAI-format provider and vice versa. Tool calls, tool results, and reasoning/thinking blocks are preserved.
 - **Model resolution:** the `model` field can be a provider model, a model alias, a per-tool mapping, or a combo name (`combo:<name>` or `<name>`).
 - **Fallback and load balancing:** on HTTP 429 or quota errors, the request moves to the next account or combo target.
-- **RTK compression** of tool results before the request goes upstream (fail-open).
+- **Token Saver compression** of tool results and prompt optimization before the request goes upstream (fail-open).
 
 **Authentication:** by default the `/v1/*` endpoints accept any key (e.g. `mapigate-local`). Enable **Require API Key** in **Endpoints** settings to accept only keys you generate there, sent as `Authorization: Bearer <key>` or `x-api-key: <key>`. The `/api/*` management API is protected by the Master Password once one is set.
 
@@ -115,14 +115,14 @@ The dashboard and CLI use a REST management API under `/api/*` (providers, accou
 
 ---
 
-## 🌐 Supported Providers (194)
+## 🌐 Supported Providers (151+)
 
-Mapigate ships with **194 provider modules**, discovered automatically from `src/providers/` by `npm run codegen`:
+Mapigate ships with **151+ provider modules**, discovered automatically from `src/providers/` by `npm run codegen`:
 
 | Tier | Count | What it covers |
 | :--- | :---: | :--- |
 | **Runtime** (`src/providers/runtime/`) | 32 | Providers with custom auth, OAuth, or streaming: `claude`, `openai`, `gemini`, `gemini-cli`, `antigravity`, `bedrock`, `azure`, `cloudflare`, `deepseek`, `github` (Copilot), `codex`, `cursor`, `cursor-api`, `kiro`, `xkiro`, `windsurf`, `zed`, `trae`, `qoder`, `cline`, `codebuddy`, `devin`, `opencode`, `grok`, `grok-cli`, `kimi`, `glm`, `minimax`, `minimax-code`, `mimo`, `alicode`, `ollama` |
-| **Catalog** (`src/providers/catalog/`) | 161 | Standard OpenAI/Anthropic-compatible API-key providers: Anthropic, OpenRouter, Groq, Cerebras, Together, Fireworks, DeepInfra, Mistral, Codestral, Cohere, Perplexity, NVIDIA, Hugging Face, Vertex AI, Databricks, Snowflake, watsonx, SambaNova, Nebius, Novita, SiliconFlow, Moonshot, Z.ai, StepFun, Baidu, Tencent, Volcengine, Vercel AI Gateway, LM Studio, Jan, local Ollama, and more |
+| **Catalog** (`src/providers/catalog/`) | 118 | Standard OpenAI/Anthropic-compatible API-key providers: Anthropic, OpenRouter, Groq, Cerebras, Together, Fireworks, DeepInfra, Mistral, Codestral, Cohere, Perplexity, NVIDIA, Hugging Face, Vertex AI, Databricks, Snowflake, watsonx, SambaNova, Nebius, Novita, SiliconFlow, Moonshot, Z.ai, StepFun, Baidu, Tencent, Volcengine, Vercel AI Gateway, LM Studio, Jan, local Ollama, and more |
 | **Composite** (`src/providers/composite/`) | 1 | The `combo` engine (fallback, round-robin, fusion, lkgp, p2c) |
 | **Community catalog** | — | Additional providers importable from the dashboard (**Providers → Community Catalog**) |
 
@@ -165,7 +165,7 @@ Simply run:
 ```bash
 mpg
 ```
-Launches an interactive terminal menu allowing you to open the Web Dashboard, start the in-terminal TUI, view real-time RTK metrics, or minimize Mapigate to the background.
+Launches an interactive terminal menu allowing you to open the Web Dashboard, start the in-terminal TUI, view real-time token saving metrics, or minimize Mapigate to the background.
 
 #### Mode B: Windows System Tray (Runs Quietly in Taskbar)
 ```bash
@@ -195,9 +195,18 @@ Configures Mapigate to start automatically whenever your computer boots up.
 
 ---
 
-## ✂️ Feature 1: RTK Token Saver (20%–40% Context Savings)
+## ✂️ Feature 1: Token Saver (Modular Token Optimization)
 
-### The Problem
+Mapigate includes a modular **Token Saver** engine supporting multiple complementary optimization methods:
+
+| Method | Role | Description |
+| :--- | :--- | :--- |
+| **RTK** | Tool Output Compression | In-place compression of `git diff`, terminal logs, search/grep results (**20%–40% context savings**) |
+| **Caveman** | Style Compression | Concise prompt compression rules that drop conversational filler |
+| **Ponytail** | Minimalist Dev Coding | Senior dev instructions favoring minimal code, YAGNI, and stdlib |
+| **Custom Prompt** | Prompt Injection | User-defined prompt guidance appended to requests |
+
+### Tool Output Compression (RTK Method)
 During development, coding agents repeatedly execute shell commands that generate immense context payloads:
 - `git diff` produces hundreds of metadata lines and unchanged context blocks.
 - `npm install` and `cargo build` print thousands of lines of terminal progress spinners (`[===> ] 40%`).
@@ -205,18 +214,17 @@ During development, coding agents repeatedly execute shell commands that generat
 
 These outputs congest the context window, drive up token billing, and degrade model reasoning.
 
-### How RTK Solves It
-Mapigate's **RTK Token Saver** inspects incoming payloads and compresses tool outputs in-place:
+Mapigate inspects incoming payloads and compresses tool outputs in-place:
 
 <p align="center">
-  <img src="docs/assets/dashboard-tokensaver.png" alt="Mapigate RTK Token Saver Dashboard" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+  <img src="docs/assets/dashboard-tokensaver.png" alt="Mapigate Token Saver Dashboard" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
 </p>
 
 ```mermaid
 flowchart TD
     PAYLOAD["Incoming Tool Output Payload<br/>(Git Diff, Terminal Logs, Grep)"] --> CHECK{"Contains Error Trace?<br/>(is_error: true, exit code != 0, stack trace)"}
 
-    CHECK -->|YES| BYPASS["Bypass RTK Compression<br/>(Preserves 100% Error Trace for Debugging)"]
+    CHECK -->|YES| BYPASS["Bypass Compression<br/>(Preserves 100% Error Trace for Debugging)"]
     CHECK -->|NO| RTK_ENGINE["RTK Compression Engine"]
 
     RTK_ENGINE --> F1["Git Diff Filter<br/>Strips redundant index headers, preserves diff +/- lines"]
@@ -230,9 +238,9 @@ flowchart TD
     OUT --> METRICS["Record Token & Cost Savings in SQLite"]
 ```
 
-### Three Guarantees of RTK:
-1. 🛡️ **Fail-Open Invariant:** If payload parsing encounters an unexpected schema or error, RTK immediately returns the original payload unmodified. **It will never break or abort an agent turn.**
-2. 🔍 **Error Trace Preservation:** When a tool execution returns an error (`is_error: true`, compiler failures, stack traces, non-zero exit codes), RTK **completely bypasses compression** so coding models have exact diagnostic information to author fixes.
+### Core Guarantees:
+1. 🛡️ **Fail-Open Invariant:** If payload parsing encounters an unexpected schema or error, the Token Saver immediately returns the original payload unmodified. **It will never break or abort an agent turn.**
+2. 🔍 **Error Trace Preservation:** When a tool execution returns an error (`is_error: true`, compiler failures, stack traces, non-zero exit codes), the engine **completely bypasses compression** so coding models have exact diagnostic information to author fixes.
 3. 📊 **Real-Time Savings Tracking:** Monitor cumulative tokens saved and dollar amounts reduced directly on the dashboard or via:
    ```bash
    mpg status
@@ -383,7 +391,7 @@ sequenceDiagram
     TLS-->>MITM: Dynamically signed leaf certificate
     MITM->>Handler: Identify tool via Host & URL pattern
     Handler->>Handler: Route chat/model requests (other traffic passes through) & map target model
-    Handler->>Handler: Apply RTK Token Saver compression
+    Handler->>Handler: Apply Token Saver compression
     Handler->>Upstream: Forward request to Anthropic / DeepSeek / Google
     Upstream-->>Handler: Return response stream
     Handler-->>Tool: Return stream in tool-expected binary/SSE format
@@ -415,7 +423,7 @@ Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashbo
 | **Combos** | Visually build cascading Fallback chains, Round-Robin account pools, or Fusion judge setups with normalized `combo:` prefix support. |
 | **Tools & Mappings** | Inspect connection health for 26 coding assistants; 1-click apply/reset configs; configure Global Model Mappings and Per-Tool Model Mappings; sync a tool's default aliases into the global table. |
 | **MITM** | Install/uninstall Root CA, toggle Copilot/Kiro interception with live header status indicator, secure `127.0.0.1` binding, and customize model mappings. |
-| **Token Saver** | View real-time token savings counters, estimated dollar savings, and adjust RTK compression filters. |
+| **Token Saver** | View real-time token savings counters, estimated dollar savings, and configure Token Saver methods (RTK, Caveman, Ponytail, Custom Prompts). |
 | **Quotas** | Track daily/monthly usage budgets per account and configure automatic reset schedules. |
 | **Usage** | Interactive charts for request volume, latency distribution, model consumption breakdown, and combo execution analytics. |
 | **Endpoints** | Test gateway endpoints (`/v1/chat/completions`, `/v1/messages`) and copy quick-start code snippets. |
@@ -436,7 +444,7 @@ mpg
 mpg start -d              # Start Mapigate as a background daemon
 mpg stop                  # Stop running daemon
 mpg restart               # Restart daemon
-mpg status                # Check health, PID, and RTK savings metrics
+mpg status                # Check health, PID, and token savings metrics
 
 # Tool Auto-Configuration
 mpg connect all           # Configure all installed AI coding tools
