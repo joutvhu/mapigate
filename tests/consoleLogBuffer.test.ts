@@ -203,7 +203,13 @@ test("consoleLogBuffer - emits batched lines event and clear event", async () =>
   console.log("Batch message 1");
   console.log("Batch message 2");
 
-  const lines = await linesPromise;
+  // Wait for batch flush timer to trigger and resolve
+  const lines = await Promise.race([
+    linesPromise,
+    new Promise<string[]>((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout waiting for lines event")), 1000)
+    ),
+  ]);
   assert.ok(lines.length >= 2);
   assert.ok(receivedBatch.some((l) => l.includes("Batch message 1")));
   assert.ok(receivedBatch.some((l) => l.includes("Batch message 2")));
@@ -218,7 +224,12 @@ test("consoleLogBuffer - emits batched lines event and clear event", async () =>
   });
 
   clearConsoleLogs();
-  await clearPromise;
+  await Promise.race([
+    clearPromise,
+    new Promise<void>((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout waiting for clear event")), 1000)
+    ),
+  ]);
 
   assert.equal(cleared, true);
   assert.equal(getConsoleLogs().length, 0);

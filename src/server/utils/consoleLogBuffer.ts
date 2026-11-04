@@ -151,7 +151,6 @@ function queueAndSchedule(line: string, entry: StructuredLogEntry): void {
     flushPendingLines();
   } else if (!state.flushTimer) {
     state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
-    state.flushTimer?.unref?.();
   }
 }
 
@@ -208,7 +207,6 @@ export function appendStructuredLog(entry: StructuredLogEntry): void {
       }
       if (!state.flushTimer) {
         state.flushTimer = setTimeout(flushPendingLines, FLUSH_INTERVAL_MS);
-        state.flushTimer?.unref?.();
       }
       return;
     }
