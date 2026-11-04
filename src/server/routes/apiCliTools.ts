@@ -1,15 +1,12 @@
 import { Router } from "express";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { CLI_TOOLS, MAPIGATE_BASE_URL, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
+import { CLI_TOOLS, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
 import { serverLifecycle } from "../lifecycle.js";
 import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 
-const execAsync = promisify(exec);
 export const cliToolsRouter = Router();
 
 export interface ToolStatusResponse {
