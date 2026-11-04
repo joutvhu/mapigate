@@ -94,12 +94,12 @@ async function showSingleToolDetails(toolId: string, status: any, breadcrumb: st
 
           if (tool.powershellTemplate) {
             console.log(`\n${COLORS.yellow}PowerShell (Windows):${COLORS.reset}`);
-            console.log(tool.powershellTemplate.replace(/http:\/\/127\.0\.0\.1:20127/g, endpoint));
+            console.log(tool.powershellTemplate.replace(/http:\/\/127\.0\.0\.1:2012[78]/g, endpoint));
           }
 
           if (tool.bashTemplate) {
             console.log(`\n${COLORS.yellow}Bash / Zsh (Linux & macOS):${COLORS.reset}`);
-            console.log(tool.bashTemplate.replace(/http:\/\/127\.0\.0\.1:20127/g, endpoint));
+            console.log(tool.bashTemplate.replace(/http:\/\/127\.0\.0\.1:2012[78]/g, endpoint));
           }
 
           if (tool.guideSteps && tool.guideSteps.length > 0) {
@@ -114,7 +114,7 @@ async function showSingleToolDetails(toolId: string, status: any, breadcrumb: st
           if (copyCmd) {
             const shouldCopy = await confirm("Copy setup command to clipboard?", true);
             if (shouldCopy) {
-              copyToClipboard(copyCmd.replace(/http:\/\/127\.0\.0\.1:20127/g, endpoint));
+              copyToClipboard(copyCmd.replace(/http:\/\/127\.0\.0\.1:2012[78]/g, endpoint));
               showStatus("Command copied to clipboard!", "success");
             }
           }

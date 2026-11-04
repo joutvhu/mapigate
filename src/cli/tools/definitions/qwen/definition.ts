@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -25,7 +26,7 @@ export const definition: CliToolDefinition = {
   ],
   codeBlock: {
     language: "json",
-    code: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "mapigate-local",\n      "baseUrl": "http://127.0.0.1:20127/v1"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
+    code: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "mapigate-local",\n      "baseUrl": "${DEFAULT_V1_URL}"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
   },
-  configFileTemplate: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "mapigate-local",\n      "baseUrl": "http://127.0.0.1:20127/v1"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
+  configFileTemplate: `{\n  "security": {\n    "auth": {\n      "selectedType": "openai",\n      "apiKey": "mapigate-local",\n      "baseUrl": "${DEFAULT_V1_URL}"\n    }\n  },\n  "model": {\n    "name": "claude-sonnet-4-6"\n  }\n}`,
 };

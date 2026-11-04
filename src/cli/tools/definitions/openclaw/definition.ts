@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -23,7 +24,7 @@ export const definition: CliToolDefinition = {
     "deepseek-chat",
     "deepseek-reasoner",
   ],
-  powershellTemplate: `$env:OPENCLAW_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENCLAW_API_KEY = "mapigate-local"\nopenclaw`,
-  bashTemplate: `export OPENCLAW_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENCLAW_API_KEY="mapigate-local"\nopenclaw`,
-  configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
+  powershellTemplate: `$env:OPENCLAW_BASE_URL = "${DEFAULT_V1_URL}"\n$env:OPENCLAW_API_KEY = "mapigate-local"\nopenclaw`,
+  bashTemplate: `export OPENCLAW_BASE_URL="${DEFAULT_V1_URL}"\nexport OPENCLAW_API_KEY="mapigate-local"\nopenclaw`,
+  configFileTemplate: `{\n  "baseUrl": "${DEFAULT_V1_URL}",\n  "apiKey": "mapigate-local"\n}`,
 };

@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -23,7 +24,7 @@ export const definition: CliToolDefinition = {
     "deepseek-reasoner",
     "union-alpha",
   ],
-  powershellTemplate: `$env:OPENCODE_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENCODE_API_KEY = "mapigate-local"\nopencode`,
-  bashTemplate: `export OPENCODE_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENCODE_API_KEY="mapigate-local"\nopencode`,
-  configFileTemplate: `{\n  "provider": {\n    "mapigate": {\n      "options": {\n        "baseURL": "http://127.0.0.1:20127/v1",\n        "apiKey": "mapigate-local"\n      }\n    }\n  }\n}`,
+  powershellTemplate: `$env:OPENCODE_BASE_URL = "${DEFAULT_V1_URL}"\n$env:OPENCODE_API_KEY = "mapigate-local"\nopencode`,
+  bashTemplate: `export OPENCODE_BASE_URL="${DEFAULT_V1_URL}"\nexport OPENCODE_API_KEY="mapigate-local"\nopencode`,
+  configFileTemplate: `{\n  "provider": {\n    "mapigate": {\n      "options": {\n        "baseURL": "${DEFAULT_V1_URL}",\n        "apiKey": "mapigate-local"\n      }\n    }\n  }\n}`,
 };

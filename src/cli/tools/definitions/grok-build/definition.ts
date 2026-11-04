@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -19,7 +20,7 @@ export const definition: CliToolDefinition = {
     "grok-2-mini",
     "grok-beta",
   ],
-  powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\ngrok`,
-  bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\ngrok`,
-  configFileTemplate: `[model.mapigate]\ntype = "openai"\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
+  powershellTemplate: `$env:OPENAI_BASE_URL = "${DEFAULT_V1_URL}"\n$env:OPENAI_API_KEY = "mapigate-local"\ngrok`,
+  bashTemplate: `export OPENAI_BASE_URL="${DEFAULT_V1_URL}"\nexport OPENAI_API_KEY="mapigate-local"\ngrok`,
+  configFileTemplate: `[model.mapigate]\ntype = "openai"\nbase_url = "${DEFAULT_V1_URL}"\napi_key = "mapigate-local"`,
 };

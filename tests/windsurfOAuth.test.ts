@@ -7,7 +7,7 @@ import { windsurfOAuthHandler } from "../src/providers/runtime/windsurf/routes.j
 test("Windsurf OAuth Handler - authorize provides direct show-auth-code url", async () => {
   const authRes = await windsurfOAuthHandler.authorize?.({
     provider: "windsurf",
-    redirectUri: "http://localhost:20127/callback",
+    redirectUri: "http://localhost:20128/callback",
     state: "test-state",
   });
 
@@ -20,7 +20,7 @@ test("Windsurf OAuth Handler - exchange direct API key", async () => {
   const result = await windsurfOAuthHandler.exchange?.({
     provider: "windsurf",
     code: "sk-ws-test-apikey-12345",
-    redirectUri: "http://localhost:20127/callback",
+    redirectUri: "http://localhost:20128/callback",
   });
 
   assert.ok(result);
@@ -50,7 +50,7 @@ test("Windsurf OAuth Handler - exchange Devin auth code", async () => {
     const result = await windsurfOAuthHandler.exchange?.({
       provider: "windsurf",
       code: "devin-auth-code-999",
-      redirectUri: "http://localhost:20127/callback",
+      redirectUri: "http://localhost:20128/callback",
     });
 
     assert.ok(result);

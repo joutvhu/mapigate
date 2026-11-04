@@ -10,6 +10,7 @@ import { RawTerminalView } from "../components/console/RawTerminalView.js";
 import { LogDetailDrawer } from "../components/console/LogDetailDrawer.js";
 import { Layers } from "lucide-react";
 import { AuthService } from "../services/authService.js";
+import { DEFAULT_BASE_URL } from "../../../shared/constants/network.js";
 
 export const ConsoleLogTab: React.FC = () => {
   const [rawLogs, setRawLogs] = useState<string[]>([]);
@@ -357,7 +358,7 @@ export const ConsoleLogTab: React.FC = () => {
                   : "No structured logs yet. Proxy and system events will appear here."}
               </p>
               <span className="text-[10px] text-slate-600 font-mono">
-                Listening on http://127.0.0.1:20127/api/console-logs/stream
+                Listening on {DEFAULT_BASE_URL}/api/console-logs/stream
               </span>
             </div>
           ) : (

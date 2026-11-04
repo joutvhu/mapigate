@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -40,7 +41,7 @@ export const definition: CliToolDefinition = {
     { id: "profile_describer", label: "Profile Describer" },
     { id: "goal_judge", label: "Goal Judge" },
   ],
-  powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\nhermes`,
-  bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\nhermes`,
-  configFileTemplate: `model_provider: openai\nbase_url: http://127.0.0.1:20127/v1\napi_key: mapigate-local`,
+  powershellTemplate: `$env:OPENAI_BASE_URL = "${DEFAULT_V1_URL}"\n$env:OPENAI_API_KEY = "mapigate-local"\nhermes`,
+  bashTemplate: `export OPENAI_BASE_URL="${DEFAULT_V1_URL}"\nexport OPENAI_API_KEY="mapigate-local"\nhermes`,
+  configFileTemplate: `model_provider: openai\nbase_url: ${DEFAULT_V1_URL}\napi_key: mapigate-local`,
 };

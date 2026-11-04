@@ -9,7 +9,7 @@
 **Mapigate** (AI Model API Gateway) is an **ultra-lightweight, 100% local-first AI Router & Token Optimizer** built specifically and exclusively for **AI coding assistants**: Claude Code, Cursor, Cline, OpenCode, Codex, and GitHub Copilot.
 
 ### Why Mapigate Exists:
-* **Lean Stack:** Lightweight **Vite + React (SPA)** frontend served by a pure **Node.js Express** gateway on a single unified port (`20127`). Starts up in `< 300ms`, builds in `1–3 seconds`.
+* **Lean Stack:** Lightweight **Vite + React (SPA)** frontend served by a pure **Node.js Express** gateway on a single unified port (`20128`). Starts up in `< 300ms`, builds in `1–3 seconds`.
 * **Zero Non-Coding Bloat:** Exclusively for coding models and developer tools. Stripped of image/video/audio generators, multi-language dictionaries (i18n), dynamic theme engines, and external cloud sync.
 * **Flawless Cross-Platform DX:** Native Windows PowerShell and Linux support using pure Node.js scripts (`cross-env`, `concurrently`). No `.sh` scripts.
 
@@ -22,7 +22,7 @@
 * **Hardware-Tied Encryption Vault:** API keys and credentials are never stored in plain text. Encrypted using **AES-256-GCM** with a dynamic key derived from the host's hardware Machine ID (`node-machine-id`).
 
 ### ⚡ Pillar 2: High Performance & Developer Experience (DX)
-* **Single Unified Port (20127):** Serves both real-time streaming AI proxy endpoints and the static Web Dashboard on a single port.
+* **Single Unified Port (20128):** Serves both real-time streaming AI proxy endpoints and the static Web Dashboard on a single port.
 * **Non-Blocking Storage:** SQLite running in WAL mode (native `node:sqlite` in Node.js >= 22.5 or `better-sqlite3`), eliminating native compilation lockups during package installations.
 
 ### ✂️ Pillar 3: Coding-Centric Token Optimization (Token Saver Engine)
@@ -84,7 +84,7 @@ mapigate/
 │   │   ├── middlewares/         # Auth, logging, rate limiter, error handlers
 │   │   ├── proxy/               # Upstream streaming handler & decomposed SSE pipes
 │   │   ├── routes/              # REST APIs for Web Dashboard (/api/models, /api/providers)
-│   │   └── index.ts             # Gateway entry (Port 20127, serves static SPA & /assets/providers)
+│   │   └── index.ts             # Gateway entry (Port 20128, serves static SPA & /assets/providers)
 │   ├── storage/                 # Data persistence & security
 │   │   ├── crypto/              # Hardware-salted AES-256-GCM encryption vault
 │   │   ├── database.ts          # SQLite connection manager with WAL mode
@@ -107,7 +107,7 @@ mapigate/
 Client (Claude Code / Cursor / Cline / Kiro / Copilot)
   │
   ▼
-[Port 20127: Gateway Server]
+[Port 20128: Gateway Server]
   │
   ├─► Authenticate request & identify route (/v1/messages, /v1/chat/completions, or /v1/responses)
   │

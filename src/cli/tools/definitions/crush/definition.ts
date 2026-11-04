@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -19,5 +20,5 @@ export const definition: CliToolDefinition = {
     "deepseek-chat",
     "deepseek-reasoner",
   ],
-  configFileTemplate: `{\n  "providers": {\n    "mapigate": {\n      "type": "openai",\n      "base_url": "http://127.0.0.1:20127/v1",\n      "api_key": "mapigate-local"\n    }\n  }\n}`,
+  configFileTemplate: `{\n  "providers": {\n    "mapigate": {\n      "type": "openai",\n      "base_url": "${DEFAULT_V1_URL}",\n      "api_key": "mapigate-local"\n    }\n  }\n}`,
 };

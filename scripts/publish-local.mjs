@@ -265,7 +265,7 @@ async function main() {
       log(`You can now run any of the following commands in any terminal:`);
       log(`  ${colors.cyan}mpg --help${colors.reset}          - View all available commands`);
       log(`  ${colors.cyan}mpg doctor${colors.reset}          - Health check runtime & SQLite`);
-      log(`  ${colors.cyan}mpg start${colors.reset}           - Start gateway server on port 20127`);
+      log(`  ${colors.cyan}mpg start${colors.reset}           - Start gateway server on port 20128`);
       log(`  ${colors.cyan}mpg status${colors.reset}          - Check server status & RTK savings`);
       log(`\nTo uninstall this test version from local npm when done:`);
       log(`  ${colors.yellow}npm run local:uninstall${colors.reset}  (or npm uninstall -g ${pkgName})\n`);

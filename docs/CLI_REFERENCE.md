@@ -47,14 +47,14 @@ When executed without arguments in an interactive TTY session:
 mpg
 ```
 Displays an interactive menu:
-1. **Web UI (Open in Browser)**: Opens `http://127.0.0.1:20127` in your default browser.
+1. **Web UI (Open in Browser)**: Opens `http://127.0.0.1:20128` in your default browser.
 2. **Terminal UI (Interactive CLI)**: Launches the in-terminal TUI dashboard.
 3. **Status & RTK Metrics**: Displays live gateway statistics and token savings.
 4. **Hide to Tray (Background)**: Runs Mapigate quietly in the Windows notification tray.
 5. **Exit (Stop Gateway)**: Safely shuts down the server.
 
 **Flags:**
-- `-p, --port <number>`: Port to run on (default: `20127`).
+- `-p, --port <number>`: Port to run on (default: `20128`).
 - `-H, --host <host>`: Host to bind to (default: `127.0.0.1`).
 - `-t, --tray`: Directly launch in system tray mode.
 - `-n, --no-browser`: Suppress automatic browser launch.
@@ -72,7 +72,7 @@ mpg start
 mpg start -d
 
 # Specify custom port and host:
-mpg start -d -p 20127 -H 127.0.0.1
+mpg start -d -p 20128 -H 127.0.0.1
 
 # Start daemon and immediately show server logs:
 mpg start -d -l
@@ -80,7 +80,7 @@ mpg start -d -l
 
 **Options:**
 - `-d, --daemon`: Run as a background daemon process.
-- `-p, --port <number>`: Port to listen on (default: `20127`).
+- `-p, --port <number>`: Port to listen on (default: `20128`).
 - `-H, --host <host>`: Host to bind on (default: `127.0.0.1`).
 - `-n, --no-browser`: Do not open the web dashboard automatically.
 - `-l, --log`: Stream logs immediately after starting daemon.
@@ -92,11 +92,11 @@ Stops the running Mapigate daemon and cleans up the PID lockfile.
 
 ```bash
 mpg stop
-mpg stop -p 20127
+mpg stop -p 20128
 ```
 
 **Options:**
-- `-p, --port <number>`: Port of the running daemon to stop (default: `20127`).
+- `-p, --port <number>`: Port of the running daemon to stop (default: `20128`).
 
 ---
 
@@ -105,7 +105,7 @@ Gracefully stops the current daemon and restarts a fresh instance.
 
 ```bash
 mpg restart
-mpg restart -p 20127
+mpg restart -p 20128
 ```
 
 ---
@@ -123,8 +123,8 @@ Mapigate v0.3.69 Status:
 ──────────────────────────────────────────
   State:        RUNNING
   PID:          14892
-  Endpoint:     http://127.0.0.1:20127
-  API v1:       http://127.0.0.1:20127/v1
+  Endpoint:     http://127.0.0.1:20128
+  API v1:       http://127.0.0.1:20128/v1
   Requests:     1,248
   Tokens Saved: 342,890 tokens (~$1.0287 saved by RTK)
 ──────────────────────────────────────────
@@ -154,7 +154,7 @@ mpg logs -n 150
 - `-f, --follow`: Continuously stream new log entries.
 - `-n, --lines <number>`: Number of recent lines to display (default: `50`).
 - `-l, --level <level>`: Minimum log level (`trace`, `debug`, `info`, `warn`, `error`).
-- `-p, --port <number>`: Gateway port (default: `20127`).
+- `-p, --port <number>`: Gateway port (default: `20128`).
 
 ---
 
@@ -222,7 +222,7 @@ mpg doctor
 
 **Checks Performed:**
 1. **Node.js Runtime:** Verifies version `>= 22.5.0` (Node 22 LTS recommended for native `node:sqlite`).
-2. **Server Port (20127):** Verifies availability or health response from `/health`.
+2. **Server Port (20128):** Verifies availability or health response from `/health`.
 3. **Storage & SQLite WAL:** Checks data directory (`~/.mapigate`), database file integrity, and WAL mode.
 4. **Hardware Encryption Vault:** Verifies `node-machine-id` extraction for AES-256-GCM key derivation.
 5. **Tool Connection Health:** Counts how many local coding assistants are currently linked to Mapigate.

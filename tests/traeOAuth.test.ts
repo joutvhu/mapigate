@@ -20,15 +20,15 @@ test("Trae OAuth Handler - authorize builds valid authUrl with 127.0.0.1/authori
 
     const res = await traeOAuthHandler.authorize?.({
       provider: "trae",
-      redirectUri: "http://localhost:20127/callback",
-      appPort: "20127",
+      redirectUri: "http://localhost:20128/callback",
+      appPort: "20128",
     });
 
     assert.ok(res);
     assert.ok(res.authUrl.includes("https://www.trae.ai/authorization"));
     // Trae strict regex validation: /^http:\/\/127\.0\.0\.1:(\d+)\/authorize$/
-    assert.ok(res.authUrl.includes("auth_callback_url=http%3A%2F%2F127.0.0.1%3A20127%2Fauthorize"));
-    assert.equal(res.redirectUri, "http://127.0.0.1:20127/authorize");
+    assert.ok(res.authUrl.includes("auth_callback_url=http%3A%2F%2F127.0.0.1%3A20128%2Fauthorize"));
+    assert.equal(res.redirectUri, "http://127.0.0.1:20128/authorize");
   } finally {
     globalThis.fetch = origFetch;
   }
@@ -65,11 +65,11 @@ test("Trae OAuth Handler - exchange token from callback query", async () => {
       return new Response("Not found", { status: 404 });
     };
 
-    const callbackUrl = "http://127.0.0.1:20127/authorize?isRedirect=true&refreshToken=rf_12345&loginHost=api.marscode.com";
+    const callbackUrl = "http://127.0.0.1:20128/authorize?isRedirect=true&refreshToken=rf_12345&loginHost=api.marscode.com";
     const res = await traeOAuthHandler.exchange?.({
       provider: "trae",
       code: callbackUrl,
-      redirectUri: "http://127.0.0.1:20127/authorize",
+      redirectUri: "http://127.0.0.1:20128/authorize",
     });
 
     assert.ok(res);

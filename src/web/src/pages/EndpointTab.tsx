@@ -3,6 +3,7 @@ import { Select } from "../components/Select.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 import { PortalModal } from "../components/PortalModal.js";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
 
 interface EndpointSettings {
   host: string;
@@ -35,8 +36,8 @@ export interface EndpointTabProps {
 const DEFAULT_ALLOWED_HOSTS = "10.*, 172.16-31.*, 192.168.*, 169.254.*, *.local";
 
 const DEFAULT_SETTINGS: EndpointSettings = {
-  host: "127.0.0.1",
-  port: 20127,
+  host: DEFAULT_HOST,
+  port: DEFAULT_PORT,
   requireApiKey: false,
   proxyUrl: "",
   customHeaders: {},
@@ -86,8 +87,8 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
       if (resEndpoint.ok) {
         const data = await resEndpoint.json();
         setSettings({
-          host: data.host || "127.0.0.1",
-          port: data.port || 20127,
+          host: data.host || DEFAULT_HOST,
+          port: data.port || DEFAULT_PORT,
           requireApiKey: Boolean(data.requireApiKey),
           proxyUrl: data.proxyUrl || "",
           customHeaders: data.customHeaders || {},
@@ -151,7 +152,7 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
     try {
       const payload = {
         host: settings.host,
-        port: Number(settings.port) || 20127,
+        port: Number(settings.port) || DEFAULT_PORT,
         requireApiKey: settings.requireApiKey,
         proxyUrl: settings.proxyUrl?.trim() || "",
         customHeaders,
@@ -291,7 +292,7 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
     systemInfo?.port ||
     (typeof window !== "undefined" && window.location.port && window.location.port !== "5173"
       ? Number(window.location.port)
-      : 20127);
+      : DEFAULT_PORT);
   const effectivePort = settings.port || fallbackPort;
   const openAiBaseUrl = `http://${effectiveHost}:${effectivePort}/v1`;
   const anthropicBaseUrl = `http://${effectiveHost}:${effectivePort}`;
@@ -513,13 +514,13 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
                   onChange={(e) =>
                     setSettings({
                       ...settings,
-                      port: parseInt(e.target.value, 10) || 20127,
+                      port: parseInt(e.target.value, 10) || DEFAULT_PORT,
                     })
                   }
                   className="w-full bg-[#0A0D14] border border-[#1E293B] focus:border-blue-500 rounded-xl px-3.5 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition-colors"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Active server listening on port <span className="text-blue-400 font-mono font-semibold">{effectivePort}</span>. Default port is 20127. Change requires restarting Mapigate server.
+                  Active server listening on port <span className="text-blue-400 font-mono font-semibold">{effectivePort}</span>. Default port is {DEFAULT_PORT}. Change requires restarting Mapigate server.
                 </p>
               </div>
             </div>

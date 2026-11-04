@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_PORT } from "../shared/constants/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -120,7 +121,7 @@ function providerAssetsPlugin(): Plugin {
   };
 }
 
-const backendPort = process.env.PORT || 20127;
+const backendPort = process.env.PORT || DEFAULT_PORT;
 const backendTarget = `http://127.0.0.1:${backendPort}`;
 
 export default defineConfig({

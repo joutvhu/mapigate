@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getDatabase } from "../database.js";
 import { DEFAULT_ALLOWED_HOSTS } from "../../shared/utils/security.js";
+import { DEFAULT_HOST, DEFAULT_PORT } from "../../shared/constants/index.js";
 import {
   type TokenSaverSettings,
   DEFAULT_TOKEN_SAVER_SETTINGS,
@@ -57,8 +58,8 @@ export interface EndpointSettings {
 }
 
 export const DEFAULT_ENDPOINT_SETTINGS: EndpointSettings = {
-  host: "127.0.0.1",
-  port: 20127,
+  host: DEFAULT_HOST,
+  port: DEFAULT_PORT,
   requireApiKey: false,
   proxyUrl: "",
   customHeaders: {},

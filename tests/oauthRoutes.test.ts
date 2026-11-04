@@ -293,7 +293,7 @@ test("POST /api/oauth/:provider/exchange - Validation, sanitization, raw JWT, an
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      code: "http://localhost:20127/callback?code=secret_auth_code#received_state_xyz",
+      code: "http://localhost:20128/callback?code=secret_auth_code#received_state_xyz",
     }),
   });
   assert.equal(cleanExchangeRes.status, 200);

@@ -8,6 +8,7 @@ import { ToolCallsPanel } from "./ToolCallsPanel.js";
 import { LogPayloadViewer } from "./LogPayloadViewer.js";
 import { useSystemInfo } from "../../hooks/useSystemInfo.js";
 import { useBackdropClose } from "../../hooks/useBackdropClose.js";
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../../shared/constants/network.js";
 import {
   X,
   Copy,
@@ -34,8 +35,8 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
   onClose,
 }) => {
   const systemInfo = useSystemInfo((s) => s.info);
-  const effectivePort = systemInfo?.port || 20127;
-  const effectiveHost = systemInfo?.host || "127.0.0.1";
+  const effectivePort = systemInfo?.port || DEFAULT_PORT;
+  const effectiveHost = systemInfo?.host || DEFAULT_HOST;
 
   const [copiedId, setCopiedId] = useState(false);
   const [copiedJson, setCopiedJson] = useState(false);

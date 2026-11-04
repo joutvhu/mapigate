@@ -13,20 +13,20 @@ import {
 test("Zed OAuth Handler - authorize generates valid RSA keypair and native app url", async () => {
   const res = await zedOAuthHandler.authorize?.({
     provider: "zed",
-    redirectUri: "http://localhost:20127/callback",
-    appPort: "20127",
+    redirectUri: "http://localhost:20128/callback",
+    appPort: "20128",
   });
 
   assert.ok(res);
   assert.ok(res.authUrl.includes("https://zed.dev/native_app_signin"));
-  assert.ok(res.authUrl.includes("native_app_port=20127"));
+  assert.ok(res.authUrl.includes("native_app_port=20128"));
   assert.ok(res.authUrl.includes("native_app_public_key="));
   assert.ok(res.codeVerifier);
   assert.ok(res.state);
 });
 
 test("Zed OAuth Handler - parseZedCallbackPayload parses root redirect URL", () => {
-  const url = "http://127.0.0.1:20127/?user_id=usr_456&access_token=enc_tok_789";
+  const url = "http://127.0.0.1:20128/?user_id=usr_456&access_token=enc_tok_789";
   const parsed = parseZedCallbackPayload(url);
   assert.equal(parsed.userId, "usr_456");
   assert.equal(parsed.encryptedAccessToken, "enc_tok_789");
@@ -83,12 +83,12 @@ test("Zed OAuth Handler - exchange decrypts and adds account", async () => {
       return new Response("Not found", { status: 404 });
     };
 
-    const callbackUrl = `http://127.0.0.1:20127/?user_id=12345&access_token=${encryptedB64}`;
+    const callbackUrl = `http://127.0.0.1:20128/?user_id=12345&access_token=${encryptedB64}`;
     const result = await zedOAuthHandler.exchange?.({
       provider: "zed",
       code: callbackUrl,
       codeVerifier: verifier,
-      redirectUri: "http://localhost:20127/callback",
+      redirectUri: "http://localhost:20128/callback",
     });
 
     assert.ok(result);

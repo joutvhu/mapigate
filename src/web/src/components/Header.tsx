@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useSystemInfo } from "../hooks/useSystemInfo";
 import { useMitmStatus } from "../hooks/useMitmStatus";
 import { Github } from "lucide-react";
+import { DEFAULT_PORT } from "../../../shared/constants/network.js";
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -134,8 +135,8 @@ export const Header: React.FC<HeaderProps> = ({
   const isLanExposed = listeningHost === "0.0.0.0";
 
   let networkTooltip = isLanExposed
-    ? `Network: LAN Active (0.0.0.0:${systemInfo?.port || 20127}) • Accessible from local network • Click to configure Endpoint`
-    : `Network: Local Only (127.0.0.1:${systemInfo?.port || 20127}) • Isolated to this machine • Click to configure Endpoint`;
+    ? `Network: LAN Active (0.0.0.0:${systemInfo?.port || DEFAULT_PORT}) • Accessible from local network • Click to configure Endpoint`
+    : `Network: Local Only (127.0.0.1:${systemInfo?.port || DEFAULT_PORT}) • Isolated to this machine • Click to configure Endpoint`;
   let networkColorClass = isLanExposed
     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
     : "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20";

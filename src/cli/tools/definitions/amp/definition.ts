@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -24,11 +25,11 @@ export const definition: CliToolDefinition = {
     baseUrl: "OPENAI_BASE_URL",
     apiKey: "OPENAI_API_KEY",
   },
-  powershellTemplate: `$env:OPENAI_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:OPENAI_API_KEY = "mapigate-local"\namp`,
-  bashTemplate: `export OPENAI_BASE_URL="http://127.0.0.1:20127/v1"\nexport OPENAI_API_KEY="mapigate-local"\namp`,
+  powershellTemplate: `$env:OPENAI_BASE_URL = "${DEFAULT_V1_URL}"\n$env:OPENAI_API_KEY = "mapigate-local"\namp`,
+  bashTemplate: `export OPENAI_BASE_URL="${DEFAULT_V1_URL}"\nexport OPENAI_API_KEY="mapigate-local"\namp`,
   guideSteps: [
     { step: 1, title: "Install Amp", desc: "Install Amp CLI via official instructions" },
-    { step: 2, title: "Configure Env", desc: "Set OPENAI_BASE_URL and OPENAI_API_KEY", value: "http://127.0.0.1:20127/v1", copyable: true },
+    { step: 2, title: "Configure Env", desc: "Set OPENAI_BASE_URL and OPENAI_API_KEY", value: DEFAULT_V1_URL, copyable: true },
     { step: 3, title: "Run", desc: "amp --model claude-sonnet-4-6" },
   ],
 };

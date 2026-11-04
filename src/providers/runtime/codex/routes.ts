@@ -15,6 +15,7 @@ import type {
   OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+import { DEFAULT_PORT } from "../../../shared/constants/index.js";
 
 export const CODEX_CLIENT_ID = resolvePublicCred("codex_client_id");
 export const CODEX_AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
@@ -100,7 +101,7 @@ export const codexOAuthHandler: ProviderOAuthHandler = {
       .join("&");
     const authUrl = `${CODEX_AUTHORIZE_URL}?${queryString}`;
 
-    const appPort = Number(params.appPort) || Number(process.env.PORT) || 20127;
+    const appPort = Number(params.appPort) || Number(process.env.PORT) || DEFAULT_PORT;
     startCodexProxy(appPort);
 
     return {

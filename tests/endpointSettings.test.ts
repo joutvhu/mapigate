@@ -15,7 +15,7 @@ test("Unit - SettingsRepository endpoint settings and gateway API keys", () => {
   SettingsRepository.setSetting("endpointSettings", DEFAULT_ENDPOINT_SETTINGS);
   const initial = SettingsRepository.getEndpointSettings();
   assert.equal(initial.host, "127.0.0.1");
-  assert.equal(initial.port, 20127);
+  assert.equal(initial.port, 20128);
   assert.equal(initial.requireApiKey, false);
   assert.equal(initial.proxyUrl, "");
   assert.deepEqual(initial.customHeaders, {});
@@ -23,13 +23,13 @@ test("Unit - SettingsRepository endpoint settings and gateway API keys", () => {
   // 2. Update and persist endpoint settings
   const updated = SettingsRepository.setEndpointSettings({
     host: "0.0.0.0",
-    port: 20128,
+    port: 20129,
     requireApiKey: true,
     proxyUrl: "http://127.0.0.1:7890",
     customHeaders: { "X-Test-Env": "local-test", "X-Custom-Client": "mapigate-test" },
   });
   assert.equal(updated.host, "0.0.0.0");
-  assert.equal(updated.port, 20128);
+  assert.equal(updated.port, 20129);
   assert.equal(updated.requireApiKey, true);
   assert.equal(updated.proxyUrl, "http://127.0.0.1:7890");
   assert.equal(updated.customHeaders?.["X-Test-Env"], "local-test");
@@ -37,7 +37,7 @@ test("Unit - SettingsRepository endpoint settings and gateway API keys", () => {
   // Verify re-fetch persistence
   const reloaded = SettingsRepository.getEndpointSettings();
   assert.equal(reloaded.host, "0.0.0.0");
-  assert.equal(reloaded.port, 20128);
+  assert.equal(reloaded.port, 20129);
   assert.equal(reloaded.requireApiKey, true);
   assert.equal(reloaded.proxyUrl, "http://127.0.0.1:7890");
   assert.equal(reloaded.customHeaders?.["X-Custom-Client"], "mapigate-test");
@@ -46,7 +46,7 @@ test("Unit - SettingsRepository endpoint settings and gateway API keys", () => {
   SettingsRepository.setEndpointSettings(DEFAULT_ENDPOINT_SETTINGS);
   const reset = SettingsRepository.getEndpointSettings();
   assert.equal(reset.host, "127.0.0.1");
-  assert.equal(reset.port, 20127);
+  assert.equal(reset.port, 20128);
   assert.equal(reset.requireApiKey, false);
 
   // 4. Gateway API Keys lifecycle
@@ -113,7 +113,7 @@ test("Integration - Endpoint Settings & Gateway API Keys REST Endpoints", async 
     assert.equal(getRes.status, 200);
     const initialConfig = (await getRes.json()) as any;
     assert.equal(initialConfig.host, "127.0.0.1");
-    assert.equal(initialConfig.port, 20127);
+    assert.equal(initialConfig.port, 20128);
     assert.equal(initialConfig.requireApiKey, false);
 
     // 2. PUT /api/settings/endpoint
@@ -304,7 +304,7 @@ test("Security - requireApiKey fails closed (401) when enabled even with 0 activ
     // 1. Enable requireApiKey with NO active keys in database
     SettingsRepository.setEndpointSettings({
       host: "127.0.0.1",
-      port: 20127,
+      port: 20128,
       requireApiKey: true,
       proxyUrl: "",
       customHeaders: {},

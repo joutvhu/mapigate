@@ -6,6 +6,7 @@ import { CLI_TOOLS, type CliToolDefinition } from "../../../shared/constants/cli
 import { ToolIcon } from "../components/ui/ToolIcon";
 import { useSystemInfo } from "../hooks/useSystemInfo";
 import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput";
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
 
 interface ToolMappingItem {
   toolId: string;
@@ -25,15 +26,15 @@ interface ToolStatusData {
 
 export const CliToolsTab: React.FC = () => {
   const systemInfo = useSystemInfo((s) => s.info);
-  const effectivePort = systemInfo?.port || 20127;
-  const effectiveHost = systemInfo?.host || "127.0.0.1";
+  const effectivePort = systemInfo?.port || DEFAULT_PORT;
+  const effectiveHost = systemInfo?.host || DEFAULT_HOST;
 
   const formatWithActivePort = (text?: string): string => {
     if (!text) return "";
     return text
-      .replace(/127\.0\.0\.1:20127/g, `${effectiveHost}:${effectivePort}`)
-      .replace(/localhost:20127/g, `localhost:${effectivePort}`)
-      .replace(/:20127\b/g, `:${effectivePort}`);
+      .replace(/127\.0\.0\.1:2012[78]/g, `${effectiveHost}:${effectivePort}`)
+      .replace(/localhost:2012[78]/g, `localhost:${effectivePort}`)
+      .replace(/:2012[78]\b/g, `:${effectivePort}`);
   };
 
   // View Mode: Tool Catalog vs Global Model Mappings

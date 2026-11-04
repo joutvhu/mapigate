@@ -3,6 +3,7 @@ import { PortalModal } from "../components/PortalModal";
 import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput.js";
 import { SourceModelAutocompleteInput } from "../components/SourceModelAutocompleteInput.js";
 import { resolveModelDisplayName } from "../../../core/capabilities/index.js";
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
 
 interface MitmMappingRow {
   sourceModel: string;
@@ -72,8 +73,8 @@ interface PortOwnerInfo {
 
 export const MitmTab: React.FC = () => {
   const systemInfo = useSystemInfo((s) => s.info);
-  const effectivePort = systemInfo?.port || 20127;
-  const effectiveHost = systemInfo?.host || "127.0.0.1";
+  const effectivePort = systemInfo?.port || DEFAULT_PORT;
+  const effectiveHost = systemInfo?.host || DEFAULT_HOST;
   const [routerBaseUrl, setRouterBaseUrl] = useState<string>("");
   const localEndpoint = routerBaseUrl || `http://${effectiveHost}:${effectivePort}`;
 

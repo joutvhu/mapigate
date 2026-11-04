@@ -4,7 +4,7 @@
 
 ### Local-first AI model gateway and token optimizer for coding assistants
 
-**One local endpoint (`http://127.0.0.1:20127`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 151+ AI providers.**  
+**One local endpoint (`http://127.0.0.1:20128`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 151+ AI providers.**  
 *Works with Claude Code, Cursor, Cline, Codex, OpenCode, and 26 coding tools in total, plus GitHub Copilot, Kiro IDE, and Antigravity through a local MITM proxy.*
 
 ---
@@ -23,7 +23,7 @@
 
 ## 🎯 What is Mapigate?
 
-Mapigate is a local API gateway that runs on your machine (Node.js, single port `20127`). Coding tools send requests to it as if it were OpenAI or Anthropic. Mapigate picks the provider and account, compresses tool output, translates the request into the provider's format, and streams the answer back in the format the tool expects.
+Mapigate is a local API gateway that runs on your machine (Node.js, single port `20128`). Coding tools send requests to it as if it were OpenAI or Anthropic. Mapigate picks the provider and account, compresses tool output, translates the request into the provider's format, and streams the answer back in the format the tool expects.
 
 ### At a glance
 
@@ -56,7 +56,7 @@ graph TD
     end
 
     subgraph MAPIGATE["Mapigate (local)"]
-        INGEST["Gateway :20127<br/>/v1/chat/completions · /v1/messages · /v1/responses<br/>MITM proxy :443"]
+        INGEST["Gateway :20128<br/>/v1/chat/completions · /v1/messages · /v1/responses<br/>MITM proxy :443"]
         ROUTER["Router<br/>aliases · model mappings · combos · account rotation · fallback"]
         SAVER["Token Saver (fail-open)"]
         ADAPTER["Provider adapters<br/>OpenAI · Anthropic · Gemini · Bedrock · Kiro..."]
@@ -79,7 +79,7 @@ graph TD
 
 ## 🔌 Gateway API
 
-Mapigate exposes three client protocols on one port (`http://127.0.0.1:20127`). Any tool that speaks one of them can point its base URL at Mapigate and reach every configured provider, combo, or model alias.
+Mapigate exposes three client protocols on one port (`http://127.0.0.1:20128`). Any tool that speaks one of them can point its base URL at Mapigate and reach every configured provider, combo, or model alias.
 
 | Endpoint | Protocol | Typical clients |
 | :--- | :--- | :--- |
@@ -101,12 +101,12 @@ What every endpoint supports:
 
 ```bash
 # OpenAI format
-curl http://127.0.0.1:20127/v1/chat/completions \
+curl http://127.0.0.1:20128/v1/chat/completions \
   -H "Authorization: Bearer mapigate-local" -H "Content-Type: application/json" \
   -d '{"model":"claude-sonnet-4-6","stream":true,"messages":[{"role":"user","content":"Hello"}]}'
 
 # Anthropic format
-curl http://127.0.0.1:20127/v1/messages \
+curl http://127.0.0.1:20128/v1/messages \
   -H "x-api-key: mapigate-local" -H "anthropic-version: 2023-06-01" -H "Content-Type: application/json" \
   -d '{"model":"claude-sonnet-4-6","max_tokens":1024,"messages":[{"role":"user","content":"Hello"}]}'
 ```
@@ -175,7 +175,7 @@ Minimizes Mapigate to your Windows notification tray. Right-click the tray icon 
 
 #### Mode C: Background Daemon
 ```bash
-# Start background daemon on port 20127:
+# Start background daemon on port 20128:
 mpg start -d
 
 # Inspect status and tokens saved:
@@ -191,7 +191,7 @@ mpg startup enable
 ```
 Configures Mapigate to start automatically whenever your computer boots up.
 
-👉 **Open the Web Dashboard:** Navigate to **`http://127.0.0.1:20127`** in your browser!
+👉 **Open the Web Dashboard:** Navigate to **`http://127.0.0.1:20128`** in your browser!
 
 ---
 
@@ -330,13 +330,13 @@ mpg connect claude
 mpg connect claude --sonnet claude-sonnet-4-6 --opus claude-opus-4-6-thinking
 ```
 *Manual Environment Variables:*
-- **Windows PowerShell:** `$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"`
-- **Linux / macOS:** `export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"`
+- **Windows PowerShell:** `$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20128"`
+- **Linux / macOS:** `export ANTHROPIC_BASE_URL="http://127.0.0.1:20128"`
 
 #### 2. Cursor IDE
 1. Open Cursor → **Settings** → **Models** → **OpenAI API Key**.
 2. Toggle ON **Override OpenAI Base URL**.
-3. Set Base URL: `http://127.0.0.1:20127/v1`
+3. Set Base URL: `http://127.0.0.1:20128/v1`
 4. Set API Key: `mapigate-local` (or any string).
 5. In the model list, add your target alias (e.g. `claude-sonnet-4-6` or `cursor-fast`).
 
@@ -344,7 +344,7 @@ mpg connect claude --sonnet claude-sonnet-4-6 --opus claude-opus-4-6-thinking
 ```bash
 mpg connect cline
 ```
-*Manual Setup:* Set **API Provider** to `OpenAI Compatible`, **Base URL** to `http://127.0.0.1:20127/v1`, **API Key** to `mapigate-local`.
+*Manual Setup:* Set **API Provider** to `OpenAI Compatible`, **Base URL** to `http://127.0.0.1:20128/v1`, **API Key** to `mapigate-local`.
 
 #### 4. OpenCode CLI (`opencode`) & Codex CLI (`codex`)
 ```bash
@@ -354,7 +354,7 @@ mpg connect codex
 
 #### 5. Roo Code & Continue.dev
 - **Roo Code:** `mpg connect roo`
-- **Continue.dev:** Set `apiBase` in `~/.continue/config.json` to `http://127.0.0.1:20127/v1`.
+- **Continue.dev:** Set `apiBase` in `~/.continue/config.json` to `http://127.0.0.1:20128/v1`.
 
 ### 📋 Supported Tools Matrix (26 Built-In Tools):
 | Category | Supported Tools |
@@ -398,7 +398,7 @@ sequenceDiagram
 ```
 
 ### Simple 3-Step Setup:
-1. Open the Web Dashboard at `http://127.0.0.1:20127` → Click the **MITM** tab.
+1. Open the Web Dashboard at `http://127.0.0.1:20128` → Click the **MITM** tab.
 2. Click **Install Root CA** (Mapigate automatically registers the certificate into your Windows/macOS trust store).
 3. Toggle ON interception for your target tool:
    - **GitHub Copilot:** Intercepts chat completions and model discovery, then maps Copilot's model names (e.g. `gpt-4o`) to any provider or combo you configure.
@@ -411,7 +411,7 @@ sequenceDiagram
 
 ## 🖥️ Feature 5: Web Dashboard Tour
 
-Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashboard served directly from port `20127`:
+Mapigate includes a modern, high-speed **React 19 + Vite** dark developer dashboard served directly from port `20128`:
 
 <p align="center">
   <img src="docs/assets/dashboard-providers.png" alt="Mapigate Web Dashboard Overview" width="90%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />

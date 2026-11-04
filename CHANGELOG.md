@@ -12,7 +12,7 @@ Initial public release of **Mapigate** — an ultra-lightweight, 100% local-firs
 ### Features
 
 #### Core Gateway & Protocols
-- **Unified Local Gateway (Port `20127`)**: Single-port Express gateway serving streaming AI proxy endpoints and the Vite + React Web Dashboard with `< 300ms` cold start.
+- **Unified Local Gateway (Port `20128`)**: Single-port Express gateway serving streaming AI proxy endpoints and the Vite + React Web Dashboard with `< 300ms` cold start.
 - **Tri-Protocol Support**: First-class bidirectional conversion and streaming translation across:
   - OpenAI Chat Completions (`/v1/chat/completions`)
   - Anthropic Messages & Token Counting (`/v1/messages`, `/v1/messages/count_tokens`)

@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -19,5 +20,5 @@ export const definition: CliToolDefinition = {
     "deepseek-coder",
     "qwen-2.5-coder-32b",
   ],
-  configFileTemplate: `{\n  "provider": "openai",\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
+  configFileTemplate: `{\n  "provider": "openai",\n  "baseUrl": "${DEFAULT_V1_URL}",\n  "apiKey": "mapigate-local"\n}`,
 };

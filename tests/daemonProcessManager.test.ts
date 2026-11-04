@@ -153,7 +153,7 @@ test("ProcessManager - stopDaemon cleans orphan process listening on port when P
     PidFileManager.removePid();
 
     PortHelper.getAllPidsOnPort = (port: number) => {
-      if (port === 20127) return [4444];
+      if (port === DEFAULT_PORT) return [4444];
       return [];
     };
     PortHelper.killProcess = (pid: number) => {
@@ -161,7 +161,7 @@ test("ProcessManager - stopDaemon cleans orphan process listening on port when P
       return true;
     };
 
-    const res = await ProcessManager.stopDaemon(20127);
+    const res = await ProcessManager.stopDaemon(DEFAULT_PORT);
     assert.equal(res.success, true);
     assert.ok(res.message.includes("Stopped orphan process (PID: 4444)"));
     assert.deepEqual(killedPids, [4444]);
@@ -189,7 +189,7 @@ test("ProcessManager - stopDaemon cleans stale PID and orphan process on port", 
     PidFileManager.writePid(9999999);
 
     PortHelper.getAllPidsOnPort = (port: number) => {
-      if (port === 20127) return [5555];
+      if (port === DEFAULT_PORT) return [5555];
       return [];
     };
     PortHelper.killProcess = (pid: number) => {
@@ -197,7 +197,7 @@ test("ProcessManager - stopDaemon cleans stale PID and orphan process on port", 
       return true;
     };
 
-    const res = await ProcessManager.stopDaemon(20127);
+    const res = await ProcessManager.stopDaemon(DEFAULT_PORT);
     assert.equal(res.success, true);
     assert.ok(res.message.includes("Cleaned up stale PID 9999999 and stopped orphan process (PID: 5555)"));
     assert.deepEqual(killedPids, [5555]);
@@ -223,10 +223,10 @@ test("ProcessManager - stopDaemon does not kill PID registered to a different po
   const killedPids: number[] = [];
 
   try {
-    // Write PID 12345 registered to port 20127
-    PidFileManager.writePid(12345, 20127);
+    // Write PID 12345 registered to port DEFAULT_PORT
+    PidFileManager.writePid(12345, DEFAULT_PORT);
     assert.equal(PidFileManager.readPid(), 12345);
-    assert.equal(PidFileManager.readPort(), 20127);
+    assert.equal(PidFileManager.readPort(), DEFAULT_PORT);
 
     // Mock killProcess and getAllPidsOnPort
     PortHelper.getAllPidsOnPort = (_port: number) => [];
@@ -235,7 +235,7 @@ test("ProcessManager - stopDaemon does not kill PID registered to a different po
       return true;
     };
 
-    // Attempting to stop port 59999 must NOT kill PID 12345 on 20127
+    // Attempting to stop port 59999 must NOT kill PID 12345 on DEFAULT_PORT
     const res = await ProcessManager.stopDaemon(59999);
     assert.equal(res.success, false);
     assert.deepEqual(killedPids, [], "Must not kill PID running on a different port");

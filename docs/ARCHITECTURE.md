@@ -1,7 +1,7 @@
 # System Architecture & Technical Specifications — Mapigate
 
 > **Positioning:** Ultra-lightweight, 100% local-first AI Model API Gateway and Token Optimizer engineered exclusively for **AI Coding Assistants** (Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot, Kiro IDE, and Continue).  
-> **Core Tenet:** Zero telemetry, single unified port (`20127`), fail-open token compression, hardware-salted AES-256-GCM encryption vault, and pluggable zero-manual-import registry architecture.
+> **Core Tenet:** Zero telemetry, single unified port (`20128`), fail-open token compression, hardware-salted AES-256-GCM encryption vault, and pluggable zero-manual-import registry architecture.
 
 ---
 
@@ -19,7 +19,7 @@ graph TD
     end
 
     subgraph INGEST["2. Ingestion & Transport Layer"]
-        GATEWAY["Direct Gateway (Port 20127)<br/>• /v1/chat/completions (OpenAI)<br/>• /v1/messages & count_tokens (Anthropic)<br/>• /v1/responses (OpenAI Responses)<br/>• /v1/models & Static Web Assets"]
+        GATEWAY["Direct Gateway (Port 20128)<br/>• /v1/chat/completions (OpenAI)<br/>• /v1/messages & count_tokens (Anthropic)<br/>• /v1/responses (OpenAI Responses)<br/>• /v1/models & Static Web Assets"]
         MITM["Decoupled MITM Proxy (Port 443, bound to 127.0.0.1)<br/>• Dynamic Root CA & SNI TLS<br/>• Intercepts Copilot, Kiro IDE & Antigravity"]
     end
 
@@ -75,7 +75,7 @@ Every incoming request passes through an optimized, non-blocking pipeline:
 sequenceDiagram
     autonumber
     actor Client as Coding Tool (Claude Code / Cursor / Cline)
-    participant Gateway as Express Gateway (:20127)
+    participant Gateway as Express Gateway (:20128)
     participant Router as Smart Router & Combo
     participant RTK as RTK Token Saver
     participant Adapter as Protocol Converter
@@ -202,7 +202,7 @@ mapigate/
 │   │   ├── composite/           # Multi-model composite providers (combo engine)
 │   │   └── catalog/             # Lightweight standard providers (161 API-key providers)
 │   ├── mitm/                    # Decoupled HTTPS Interceptor (port 443, MAPIGATE_MITM_PORT)
-│   ├── server/                  # HTTP & SSE Express Gateway (Port 20127)
+│   ├── server/                  # HTTP & SSE Express Gateway (Port 20128)
 │   ├── storage/                 # SQLite (WAL mode) & AES-256-GCM hardware crypto vault
 │   ├── web/                     # Web Dashboard SPA (React 19 + Vite + Tailwind CSS)
 │   └── shared/                  # Common TypeScript interfaces, enums, constants

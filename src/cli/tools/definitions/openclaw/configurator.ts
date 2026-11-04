@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { home, v1, readJsonSafe, writeJsonSafe, rewriteFileSafe } from "../../helpers.js";
+import { home, v1, readJsonSafe, writeJsonSafe, rewriteFileSafe, DEFAULT_PORT } from "../../helpers.js";
 import type { ToolConfigHandler } from "../../types.js";
 
 export const openclawPath = () => path.join(home(), ".openclaw", "config.json");
@@ -14,7 +14,7 @@ export const openclawHandler: ToolConfigHandler = {
     return {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
-      active: Boolean(cfg.baseUrl?.includes("20127") || cfg.baseUrl?.includes("mapigate")),
+      active: Boolean(cfg.baseUrl?.includes(String(DEFAULT_PORT)) || cfg.baseUrl?.includes("20127") || cfg.baseUrl?.includes("mapigate")),
     };
   },
   async apply({ baseUrl, apiKey }) {

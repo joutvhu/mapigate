@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -22,7 +23,7 @@ export const definition: CliToolDefinition = {
     "deepseek-chat",
     "deepseek-r1",
   ],
-  powershellTemplate: `$env:FACTORY_BASE_URL = "http://127.0.0.1:20127/v1"\n$env:FACTORY_API_KEY = "mapigate-local"\ndroid`,
-  bashTemplate: `export FACTORY_BASE_URL="http://127.0.0.1:20127/v1"\nexport FACTORY_API_KEY="mapigate-local"\ndroid`,
-  configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
+  powershellTemplate: `$env:FACTORY_BASE_URL = "${DEFAULT_V1_URL}"\n$env:FACTORY_API_KEY = "mapigate-local"\ndroid`,
+  bashTemplate: `export FACTORY_BASE_URL="${DEFAULT_V1_URL}"\nexport FACTORY_API_KEY="mapigate-local"\ndroid`,
+  configFileTemplate: `{\n  "baseUrl": "${DEFAULT_V1_URL}",\n  "apiKey": "mapigate-local"\n}`,
 };

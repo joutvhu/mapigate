@@ -70,17 +70,17 @@ test("clipboard - copyToClipboard handles strings with variables and quotes safe
 });
 
 test("apiClient - configuration and URL resolution", () => {
-  ApiClient.configure({ host: "127.0.0.1", port: 20127 });
-  assert.equal(ApiClient.getBaseUrl(), "http://127.0.0.1:20127");
-  assert.equal(ApiClient.getV1Url(), "http://127.0.0.1:20127/v1");
-  assert.equal(ApiClient.getPort(), 20127);
+  ApiClient.configure({ host: "127.0.0.1", port: 20128 });
+  assert.equal(ApiClient.getBaseUrl(), "http://127.0.0.1:20128");
+  assert.equal(ApiClient.getV1Url(), "http://127.0.0.1:20128/v1");
+  assert.equal(ApiClient.getPort(), 20128);
   assert.equal(ApiClient.getHost(), "127.0.0.1");
 
-  ApiClient.configure({ host: "0.0.0.0", port: 20128 });
+  ApiClient.configure({ host: "0.0.0.0", port: 20129 });
   assert.equal(ApiClient.getHost(), "127.0.0.1"); // normalized to local IP
-  assert.equal(ApiClient.getPort(), 20128);
-  assert.equal(ApiClient.getBaseUrl(), "http://127.0.0.1:20128");
+  assert.equal(ApiClient.getPort(), 20129);
+  assert.equal(ApiClient.getBaseUrl(), "http://127.0.0.1:20129");
 
   // Restore default
-  ApiClient.configure({ host: "127.0.0.1", port: 20127 });
+  ApiClient.configure({ host: "127.0.0.1", port: 20128 });
 });

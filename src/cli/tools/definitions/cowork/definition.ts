@@ -1,3 +1,4 @@
+import { DEFAULT_BASE_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -28,6 +29,6 @@ export const definition: CliToolDefinition = {
     "claude-3-5-sonnet",
     "claude-3-5-haiku",
   ],
-  powershellTemplate: `$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"`,
-  bashTemplate: `export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"`,
+  powershellTemplate: `$env:ANTHROPIC_BASE_URL = "${DEFAULT_BASE_URL}"`,
+  bashTemplate: `export ANTHROPIC_BASE_URL="${DEFAULT_BASE_URL}"`,
 };

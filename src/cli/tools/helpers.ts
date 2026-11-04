@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { DEFAULT_PORT, DEFAULT_BASE_URL, DEFAULT_V1_URL } from "../../shared/constants/network.js";
+
+export { DEFAULT_PORT, DEFAULT_BASE_URL, DEFAULT_V1_URL };
 
 export function home(): string {
   return os.homedir();

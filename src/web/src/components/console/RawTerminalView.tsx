@@ -1,6 +1,7 @@
 import React from "react";
 import { Terminal } from "lucide-react";
 import { useSystemInfo } from "../../hooks/useSystemInfo.js";
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../../shared/constants/network.js";
 
 interface RawTerminalViewProps {
   logs: string[];
@@ -56,8 +57,8 @@ export const RawTerminalView: React.FC<RawTerminalViewProps> = ({
   scrollRef,
 }) => {
   const systemInfo = useSystemInfo((s) => s.info);
-  const effectivePort = systemInfo?.port || 20127;
-  const effectiveHost = systemInfo?.host || "127.0.0.1";
+  const effectivePort = systemInfo?.port || DEFAULT_PORT;
+  const effectiveHost = systemInfo?.host || DEFAULT_HOST;
 
   return (
     <div className="flex-1 flex flex-col rounded-xl border border-[#1E293B] bg-[#05070B] overflow-hidden shadow-2xl min-h-0">

@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -21,5 +22,5 @@ export const definition: CliToolDefinition = {
     "kimi-k2.7-code",
     "claude-sonnet-4-6",
   ],
-  configFileTemplate: `[openai]\nbase_url = "http://127.0.0.1:20127/v1"\napi_key = "mapigate-local"`,
+  configFileTemplate: `[openai]\nbase_url = "${DEFAULT_V1_URL}"\napi_key = "mapigate-local"`,
 };

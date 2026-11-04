@@ -6,8 +6,9 @@ import { promisify } from "node:util";
 import { HOST_REWRITE } from "../../shared/constants/mitmToolHosts.js";
 import { serverLifecycle } from "../../server/lifecycle.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
+import { DEFAULT_BASE_URL } from "../../shared/constants/index.js";
 
-export const DEFAULT_ROUTER_BASE = "http://127.0.0.1:20127";
+export const DEFAULT_ROUTER_BASE = DEFAULT_BASE_URL;
 export const ROUTER_BASE = String(process.env.MAPIGATE_BASE_URL || DEFAULT_ROUTER_BASE)
   .trim()
   .replace(/\/+$/, "");

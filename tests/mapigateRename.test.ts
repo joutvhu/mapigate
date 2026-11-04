@@ -26,8 +26,8 @@ test("Mapigate Rename - Constants", () => {
   assert.equal(MAPIGATE_PID_FILE, "mapigate.pid");
   assert.equal(MAPIGATE_DB_FILE, "mapigate.sqlite");
   assert.equal(MAPIGATE_LOG_FILE, "server.log");
-  assert.equal(MAPIGATE_BASE_URL, "http://127.0.0.1:20127");
-  assert.equal(MAPIGATE_V1_URL, "http://127.0.0.1:20127/v1");
+  assert.equal(MAPIGATE_BASE_URL, "http://127.0.0.1:20128");
+  assert.equal(MAPIGATE_V1_URL, "http://127.0.0.1:20128/v1");
 });
 
 test("Mapigate Rename - Data Directory Resolution", () => {

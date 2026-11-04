@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { CLI_TOOLS, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
+import { DEFAULT_PORT } from "../../shared/constants/index.js";
 import { serverLifecycle } from "../lifecycle.js";
 import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
@@ -67,7 +68,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
     try {
       fileContent = await fs.readFile(resolvedConfigPath, "utf-8");
       const runningPortStr = String(serverLifecycle.getPort());
-      if (fileContent.includes(runningPortStr) || fileContent.includes("20127") || fileContent.includes("mapigate")) {
+      if (fileContent.includes(runningPortStr) || fileContent.includes(String(DEFAULT_PORT)) || fileContent.includes("20127") || fileContent.includes("mapigate")) {
         hasMapigate = true;
       }
     } catch {
@@ -261,6 +262,8 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
     } else if (tool.configFileTemplate) {
       const runningPort = serverLifecycle.getPort();
       const renderedTemplate = tool.configFileTemplate
+        .replace(new RegExp(`127\\.0\\.0\\.1:${DEFAULT_PORT}`, "g"), `127.0.0.1:${runningPort}`)
+        .replace(new RegExp(`:${DEFAULT_PORT}`, "g"), `:${runningPort}`)
         .replace(/127\.0\.0\.1:20127/g, `127.0.0.1:${runningPort}`)
         .replace(/:20127/g, `:${runningPort}`);
       await fs.writeFile(targetPath, renderedTemplate, "utf-8");

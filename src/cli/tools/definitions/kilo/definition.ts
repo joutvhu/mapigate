@@ -1,3 +1,4 @@
+import { DEFAULT_V1_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -20,7 +21,7 @@ export const definition: CliToolDefinition = {
     "deepseek-chat",
     "deepseek-reasoner",
   ],
-  powershellTemplate: `$env:KILO_BASE_URL = "http://127.0.0.1:20127/v1"\nkilo`,
-  bashTemplate: `export KILO_BASE_URL="http://127.0.0.1:20127/v1"\nkilo`,
-  configFileTemplate: `{\n  "baseUrl": "http://127.0.0.1:20127/v1",\n  "apiKey": "mapigate-local"\n}`,
+  powershellTemplate: `$env:KILO_BASE_URL = "${DEFAULT_V1_URL}"\nkilo`,
+  bashTemplate: `export KILO_BASE_URL="${DEFAULT_V1_URL}"\nkilo`,
+  configFileTemplate: `{\n  "baseUrl": "${DEFAULT_V1_URL}",\n  "apiKey": "mapigate-local"\n}`,
 };

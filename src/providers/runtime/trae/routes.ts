@@ -10,6 +10,7 @@ import type {
   OAuthExchangeResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+import { DEFAULT_PORT } from "../../../shared/constants/index.js";
 
 const TRAE_CLIENT_ID = resolvePublicCred("trae_client_id");
 const TRAE_CLIENT_SECRET = "-";
@@ -137,7 +138,7 @@ export const traeOAuthHandler: ProviderOAuthHandler = {
     const machineId = crypto.randomUUID();
     const loginHost = await fetchTraeLoginGuidance(loginTraceId);
 
-    const appPort = Number(params.appPort) || Number(process.env.PORT) || 20127;
+    const appPort = Number(params.appPort) || Number(process.env.PORT) || DEFAULT_PORT;
     const callbackUrl = `http://127.0.0.1:${appPort}/authorize`;
     const authUrl = buildTraeVerificationUrl(loginHost, loginTraceId, callbackUrl, machineId);
     return {

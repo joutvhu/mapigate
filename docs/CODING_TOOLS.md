@@ -50,21 +50,21 @@ mpg connect claude --sonnet claude-sonnet-4-6 --opus claude-opus-4-6-thinking
 ### Method B: Environment Variables
 **Windows PowerShell:**
 ```powershell
-$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20127"
+$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:20128"
 $env:ANTHROPIC_API_KEY = "mapigate-local"
 claude
 ```
 
 **Bash / Zsh (Linux / macOS):**
 ```bash
-export ANTHROPIC_BASE_URL="http://127.0.0.1:20127"
+export ANTHROPIC_BASE_URL="http://127.0.0.1:20128"
 export ANTHROPIC_API_KEY="mapigate-local"
 claude
 ```
 
 **Permanent PowerShell Profile (`$PROFILE`):**
 ```powershell
-[System.Environment]::SetEnvironmentVariable('ANTHROPIC_BASE_URL', 'http://127.0.0.1:20127', 'User')
+[System.Environment]::SetEnvironmentVariable('ANTHROPIC_BASE_URL', 'http://127.0.0.1:20128', 'User')
 ```
 
 ---
@@ -79,7 +79,7 @@ Cursor can connect either via OpenAI Base URL Override or via the Mapigate MITM 
 3. Toggle ON **Override OpenAI Base URL**.
 4. Set Base URL:
    ```text
-   http://127.0.0.1:20127/v1
+   http://127.0.0.1:20128/v1
    ```
 5. Set API Key: `mapigate-local` (or any string).
 6. Under **Model Names**, add the model alias configured in Mapigate (e.g. `claude-sonnet-4-6` or `cursor-fast`).
@@ -101,7 +101,7 @@ mpg connect cline
 2. Click the **Settings (gear)** icon.
 3. Select **API Provider**: `OpenAI Compatible`.
 4. Configure:
-   - **Base URL**: `http://127.0.0.1:20127/v1`
+   - **Base URL**: `http://127.0.0.1:20128/v1`
    - **API Key**: `mapigate-local`
    - **Model ID**: `claude-sonnet-4-6` (or any alias/combo configured in Mapigate).
 
@@ -121,7 +121,7 @@ In `~/.config/opencode/config.json`:
 {
   "api": {
     "provider": "openai",
-    "baseURL": "http://127.0.0.1:20127/v1",
+    "baseURL": "http://127.0.0.1:20128/v1",
     "apiKey": "mapigate-local",
     "model": "claude-sonnet-4-6"
   }
@@ -141,7 +141,7 @@ mpg connect codex
 In `~/.codex/config.json`:
 ```json
 {
-  "endpoint": "http://127.0.0.1:20127/v1",
+  "endpoint": "http://127.0.0.1:20128/v1",
   "apiKey": "mapigate-local",
   "model": "gpt-4o"
 }
@@ -179,7 +179,7 @@ mpg connect roo
 ```
 Or in Roo Code settings:
 - **API Provider**: `OpenAI Compatible`
-- **Base URL**: `http://127.0.0.1:20127/v1`
+- **Base URL**: `http://127.0.0.1:20128/v1`
 - **API Key**: `mapigate-local`
 
 ---
@@ -194,7 +194,7 @@ In `~/.continue/config.json`:
       "title": "Mapigate Sonnet",
       "provider": "openai",
       "model": "claude-sonnet-4-6",
-      "apiBase": "http://127.0.0.1:20127/v1",
+      "apiBase": "http://127.0.0.1:20128/v1",
       "apiKey": "mapigate-local"
     }
   ]

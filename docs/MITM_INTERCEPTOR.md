@@ -38,7 +38,7 @@ sequenceDiagram
 ## 2. Setting Up the MITM Proxy
 
 ### Step 1: Open MITM Tab in Web Dashboard
-Navigate to `http://127.0.0.1:20127` and click the **MITM** tab.
+Navigate to `http://127.0.0.1:20128` and click the **MITM** tab.
 
 ### Step 2: Install Root Certificate Authority (CA)
 Click **Install Root CA**:

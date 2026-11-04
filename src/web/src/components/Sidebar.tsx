@@ -1,6 +1,7 @@
 import React from "react";
 import { useSystemInfo } from "../hooks/useSystemInfo";
 import { Github } from "lucide-react";
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
 
 export type NavTab =
   | "endpoint"
@@ -26,12 +27,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
     systemInfo?.port ||
     (typeof window !== "undefined" && window.location.port && window.location.port !== "5173"
       ? Number(window.location.port)
-      : 20127);
+      : DEFAULT_PORT);
   const runningHost =
     systemInfo?.host ||
     (typeof window !== "undefined" && window.location.hostname
       ? window.location.hostname
-      : "127.0.0.1");
+      : DEFAULT_HOST);
 
   const mainNav = [
     { id: "endpoint" as NavTab, label: "Endpoint & Key", icon: "api" },

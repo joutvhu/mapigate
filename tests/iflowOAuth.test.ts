@@ -8,7 +8,7 @@ import { IflowProvider } from "../src/providers/catalog/iflow/provider.js";
 test("iFlow OAuth Handler - authorize builds valid authUrl", async () => {
   const res = await iflowOAuthHandler.authorize!({
     provider: "iflow",
-    redirectUri: "http://localhost:20127/callback",
+    redirectUri: "http://localhost:20128/callback",
     state: "test-state",
   });
 
@@ -54,7 +54,7 @@ test("iFlow OAuth Handler - exchange fetches tokens and apiKey via getUserInfo",
     const res = await iflowOAuthHandler.exchange!({
       provider: "iflow",
       code: "test-auth-code",
-      redirectUri: "http://localhost:20127/callback",
+      redirectUri: "http://localhost:20128/callback",
     });
 
     assert.equal(res.success, true);

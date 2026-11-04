@@ -58,7 +58,7 @@ test("toolConfigs - pruneTomlSection surgically removes targeted TOML section", 
     ``,
     `[model_providers.mapigate]`,
     `name = "Mapigate"`,
-    `base_url = "http://127.0.0.1:20127/v1"`,
+    `base_url = "http://127.0.0.1:20128/v1"`,
     ``,
     `[model_providers.openai]`,
     `name = "OpenAI"`,
@@ -66,7 +66,7 @@ test("toolConfigs - pruneTomlSection surgically removes targeted TOML section", 
 
   const pruned = pruneTomlSection(sampleToml, "model_providers.mapigate");
   assert.ok(!pruned.includes("[model_providers.mapigate]"));
-  assert.ok(!pruned.includes("base_url = \"http://127.0.0.1:20127/v1\""));
+  assert.ok(!pruned.includes("base_url = \"http://127.0.0.1:20128/v1\""));
   // Other sections and settings must remain intact
   assert.ok(pruned.includes(`theme = "dark"`));
   assert.ok(pruned.includes(`[editor]`));
@@ -94,13 +94,13 @@ test("show - printToolRecord formats without crashing", () => {
       name: "Test Tool",
       files: ["config.json"],
       configured: true,
-      baseUrl: "http://127.0.0.1:20127/v1",
+      baseUrl: "http://127.0.0.1:20128/v1",
       apiKey: "sk-ant…1234",
       models: { main: "claude-sonnet-4-6" },
       active: true,
     });
     assert.ok(captured.some((l) => l.includes("Test Tool")));
-    assert.ok(captured.some((l) => l.includes("http://127.0.0.1:20127/v1")));
+    assert.ok(captured.some((l) => l.includes("http://127.0.0.1:20128/v1")));
   } finally {
     console.log = originalLog;
   }

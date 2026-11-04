@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
+
 export interface SystemInfo {
   dataDir: string;
   dbPath: string;
@@ -37,12 +39,12 @@ export const useSystemInfo = create<SystemInfoState>((set) => ({
             : undefined;
         // In dev mode (e.g. Vite on 5173), prefer data.port returned by Mapigate backend
         const effectivePort =
-          data.port || (windowPort && windowPort !== 5173 ? windowPort : 20127);
+          data.port || (windowPort && windowPort !== 5173 ? windowPort : DEFAULT_PORT);
         const host =
           data.host ||
           (typeof window !== "undefined" && window.location.hostname
             ? window.location.hostname
-            : "127.0.0.1");
+            : DEFAULT_HOST);
 
         const fullInfo: SystemInfo = {
           dataDir: data.dataDir || "",

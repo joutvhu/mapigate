@@ -5,9 +5,9 @@ import { resolveIconPath, resolveScriptPath } from "../src/cli/tray/trayWin.js";
 import { isTraySupported as isGeneralTraySupported, buildTrayItems as buildGeneralItems, killTray } from "../src/cli/tray/tray.js";
 
 test("Tray - buildTrayItems returns structured items with headers and actions", () => {
-  const items = buildGeneralItems(20127, false);
+  const items = buildGeneralItems(20128, false);
   assert.equal(items.length, 6);
-  assert.ok(items[0].title.includes("20127"));
+  assert.ok(items[0].title.includes("20128"));
   assert.equal(items[0].enabled, false);
   assert.equal(items[1].title, "Open Web Dashboard");
   assert.equal(items[1].enabled, true);
@@ -20,7 +20,7 @@ test("Tray - buildTrayItems returns structured items with headers and actions", 
   assert.equal(items[5].title, "Quit / Shutdown");
   assert.equal(items[5].enabled, true);
 
-  const activeItems = buildGeneralItems(20127, true);
+  const activeItems = buildGeneralItems(20128, true);
   assert.equal(activeItems[3].title, "✓ Auto-start on Boot");
 });
 

@@ -5,8 +5,7 @@ import { APP_VERSION } from "./version.js";
 export const APP_NAME = "Mapigate";
 export { APP_VERSION };
 
-export const DEFAULT_PORT = 20127;
-export const DEFAULT_HOST: string = "127.0.0.1";
+export * from "./network.js";
 
 export function isDevelopmentMode(): boolean {
   if (typeof process === "undefined" || !process?.env) {

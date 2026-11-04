@@ -62,8 +62,8 @@ test("CLI Tools Modular Registry - All 26 tools are registered in CLI_TOOLS", ()
 });
 
 test("CLI Tools Modular Registry - Backward compatibility constants", () => {
-  assert.equal(MAPIGATE_BASE_URL, "http://127.0.0.1:20127");
-  assert.equal(MAPIGATE_V1_URL, "http://127.0.0.1:20127/v1");
+  assert.equal(MAPIGATE_BASE_URL, "http://127.0.0.1:20128");
+  assert.equal(MAPIGATE_V1_URL, "http://127.0.0.1:20128/v1");
 });
 
 test("CLI Tools Modular Registry - All 6 tool configurator handlers are registered", () => {

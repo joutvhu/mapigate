@@ -1,3 +1,4 @@
+import { DEFAULT_BASE_URL } from "../../helpers.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {
@@ -38,7 +39,7 @@ export const definition: CliToolDefinition = {
       step: 2,
       title: "Method B: VS Code Copilot Extension Proxy",
       desc: "Install a Copilot proxy extension in VS Code and set the Gateway Server URL to:",
-      value: "http://127.0.0.1:20127",
+      value: DEFAULT_BASE_URL,
       copyable: true,
     },
     {

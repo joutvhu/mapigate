@@ -101,7 +101,7 @@ Each request records:
 
 ## 5. Configuring RTK
 
-In the Web Dashboard at `http://127.0.0.1:20127` → **Token Saver**:
+In the Web Dashboard at `http://127.0.0.1:20128` → **Token Saver**:
 - Toggle RTK compression on or off globally or per-tool.
 - Adjust maximum log line limits before truncation.
 - View real-time savings counters and cumulative cost reduction graphs.

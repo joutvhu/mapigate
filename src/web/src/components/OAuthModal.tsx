@@ -3,6 +3,7 @@ import { PortalModal } from "./PortalModal";
 import { Select } from "./Select";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
+import { DEFAULT_PORT } from "../../../shared/constants/network.js";
 
 interface DeviceCodeData {
   device_code: string;
@@ -31,7 +32,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   onClose,
 }) => {
   const systemInfo = useSystemInfo((s) => s.info);
-  const effectivePort = systemInfo?.port || 20127;
+  const effectivePort = systemInfo?.port || DEFAULT_PORT;
 
   const regProvider = getRegistryProvider(providerId);
   const availableRegions = regProvider?.regions || [];
