@@ -14,7 +14,7 @@ export const openclawHandler: ToolConfigHandler = {
     return {
       baseUrl: cfg.baseUrl,
       apiKey: cfg.apiKey,
-      active: Boolean(cfg.baseUrl?.includes(String(DEFAULT_PORT)) || cfg.baseUrl?.includes("20127") || cfg.baseUrl?.includes("mapigate")),
+      active: Boolean(cfg.baseUrl?.includes(String(DEFAULT_PORT)) || cfg.baseUrl?.includes("mapigate")),
     };
   },
   async apply({ baseUrl, apiKey }) {

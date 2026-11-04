@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.5.96] - 2026-11-05
+## [0.5.98] - 2026-11-05
 
 Initial public release of **Mapigate** — an ultra-lightweight, 100% local-first AI Model API Gateway and Token Optimizer tailored for AI coding assistants (Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot, Kiro IDE, and Antigravity).
 

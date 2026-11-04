@@ -108,13 +108,13 @@ test("show - printToolRecord formats without crashing", () => {
 
 test("portHelper - parseNetstatOutput parses listening PIDs accurately", () => {
   const sampleNetstat = `
-  TCP    0.0.0.0:20127          0.0.0.0:0              LISTENING       12345
-  TCP    127.0.0.1:20127        0.0.0.0:0              LISTENING       12345
+  TCP    0.0.0.0:20128          0.0.0.0:0              LISTENING       12345
+  TCP    127.0.0.1:20128        0.0.0.0:0              LISTENING       12345
   TCP    0.0.0.0:80             0.0.0.0:0              LISTENING       444
-  TCP    127.0.0.1:54321        127.0.0.1:20127        ESTABLISHED     9999
+  TCP    127.0.0.1:54321        127.0.0.1:20128        ESTABLISHED     9999
   `;
 
-  const pids = PortHelper.parseNetstatOutput(sampleNetstat, 20127);
+  const pids = PortHelper.parseNetstatOutput(sampleNetstat, 20128);
   assert.deepEqual(pids, [12345]);
 
   const nonExistent = PortHelper.parseNetstatOutput(sampleNetstat, 9999);

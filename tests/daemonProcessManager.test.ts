@@ -17,17 +17,17 @@ Active Connections
   Proto  Local Address          Foreign Address        State           PID
   TCP    0.0.0.0:135            0.0.0.0:0              LISTENING       900
   TCP    0.0.0.0:2012           0.0.0.0:0              LISTENING       1111
-  TCP    0.0.0.0:20127          0.0.0.0:0              LISTENING       4567
-  TCP    127.0.0.1:20127        0.0.0.0:0              LISTENING       4567
-  TCP    [::]:20127             [::]:0                 LISTENING       4567
-  TCP    [::1]:20127            [::]:0                 LISTENING       4568
-  TCP    127.0.0.1:20127        127.0.0.1:54321        ESTABLISHED     9999
+  TCP    0.0.0.0:20128          0.0.0.0:0              LISTENING       4567
+  TCP    127.0.0.1:20128        0.0.0.0:0              LISTENING       4567
+  TCP    [::]:20128             [::]:0                 LISTENING       4567
+  TCP    [::1]:20128            [::]:0                 LISTENING       4568
+  TCP    127.0.0.1:20128        127.0.0.1:54321        ESTABLISHED     9999
   TCP    0.0.0.0:8080           0.0.0.0:0              TIME_WAIT       0
 `;
 
-  // Matches only 20127, ignores 2012, 135, 8080, and non-LISTENING
-  const pids20127 = PortHelper.parseNetstatOutput(sampleNetstat, 20127);
-  assert.deepEqual(pids20127.sort(), [4567, 4568]);
+  // Matches only 20128, ignores 2012, 135, 8080, and non-LISTENING
+  const pids20128 = PortHelper.parseNetstatOutput(sampleNetstat, 20128);
+  assert.deepEqual(pids20128.sort(), [4567, 4568]);
 
   // Matches 2012
   const pids2012 = PortHelper.parseNetstatOutput(sampleNetstat, 2012);

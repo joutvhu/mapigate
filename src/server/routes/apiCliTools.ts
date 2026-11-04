@@ -68,7 +68,7 @@ async function inspectToolStatus(toolId: string): Promise<ToolStatusResponse> {
     try {
       fileContent = await fs.readFile(resolvedConfigPath, "utf-8");
       const runningPortStr = String(serverLifecycle.getPort());
-      if (fileContent.includes(runningPortStr) || fileContent.includes(String(DEFAULT_PORT)) || fileContent.includes("20127") || fileContent.includes("mapigate")) {
+      if (fileContent.includes(runningPortStr) || fileContent.includes(String(DEFAULT_PORT)) || fileContent.includes("mapigate")) {
         hasMapigate = true;
       }
     } catch {
@@ -263,9 +263,7 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
       const runningPort = serverLifecycle.getPort();
       const renderedTemplate = tool.configFileTemplate
         .replace(new RegExp(`127\\.0\\.0\\.1:${DEFAULT_PORT}`, "g"), `127.0.0.1:${runningPort}`)
-        .replace(new RegExp(`:${DEFAULT_PORT}`, "g"), `:${runningPort}`)
-        .replace(/127\.0\.0\.1:20127/g, `127.0.0.1:${runningPort}`)
-        .replace(/:20127/g, `:${runningPort}`);
+        .replace(new RegExp(`:${DEFAULT_PORT}`, "g"), `:${runningPort}`);
       await fs.writeFile(targetPath, renderedTemplate, "utf-8");
     } else {
       res.status(400).json({ error: `No config template available for ${toolId}` });

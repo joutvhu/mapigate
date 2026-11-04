@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
                   </a>
                 ) : (
                   <span
-                    className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/30 font-mono font-semibold shrink-0 shadow-xs select-none leading-none"
+                    className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 font-mono font-semibold shrink-0 shadow-xs select-none leading-none"
                     title={`Mapigate Version v${version}`}
                   >
                     v{version}
@@ -151,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
             <span className="rt-beacon size-2 bg-emerald-400" />
             <span className="font-semibold text-slate-200">Port {runningPort}</span>
           </div>
-          <span className="text-[10px] text-blue-400 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+          <span className="text-[10px] text-blue-300 font-mono bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
             {runningHost}
           </span>
         </div>
