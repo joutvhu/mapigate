@@ -220,3 +220,16 @@ test("StreamToolCallRescuer - parses Anthropic invoke format", () => {
   assert.equal(r.calls[0].name, "readFile");
   assert.deepEqual(JSON.parse(r.calls[0].arguments), { path: "src/main.ts" });
 });
+
+test("parseMimoFunctionAndParameters - rejects tool calls when toolNames is empty Set", async () => {
+  const { parseMimoFunctionAndParameters } = await import("../src/core/adapters/helpers/toolCallRescue.js");
+  const text = "<function=execute_pwsh><parameter=command>dir</function>";
+  const emptyTools = new Set<string>();
+  const res = parseMimoFunctionAndParameters(text, emptyTools);
+  assert.equal(res, null, "Must reject call when requested tool set is empty");
+
+  const matchingTools = new Set<string>(["execute_pwsh"]);
+  const resOk = parseMimoFunctionAndParameters(text, matchingTools);
+  assert.ok(resOk);
+  assert.equal(resOk?.name, "execute_pwsh");
+});

@@ -237,7 +237,7 @@ export function parseMimoFunctionAndParameters(
   const fnMatch = /<function=([A-Za-z0-9_.-]+)>/i.exec(inner);
   if (!fnMatch) return null;
   const name = fnMatch[1].trim();
-  if (toolNames && toolNames.size > 0 && !toolNames.has(name)) {
+  if (!isKnownTool(name, toolNames)) {
     return null;
   }
 

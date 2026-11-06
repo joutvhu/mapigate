@@ -531,6 +531,29 @@ function sendCompleted(state: ResponsesStreamState, emit: (event: string, data: 
   }
 }
 
+function flushToolRescuer(state: ResponsesStreamState, emit: (eventType: string, data: any) => void) {
+  const rescuer = state.toolRescuer;
+  if (!rescuer) return;
+  const { calls, cleanText } = rescuer.flush();
+  if (calls.length > 0) {
+    for (const c of calls) {
+      const tcIdx = ((state as any)._rescuedToolIdx = ((state as any)._rescuedToolIdx || 0) + 1);
+      const callId = `call_${Date.now()}_${tcIdx}`;
+      emitToolCall(state, emit, {
+        index: tcIdx,
+        id: callId,
+        function: {
+          name: c.name,
+          arguments: c.arguments,
+        },
+      });
+    }
+  }
+  if (cleanText) {
+    emitTextContent(state, emit, 0, cleanText);
+  }
+}
+
 export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamState): ResponsesStreamEvent[] {
   if (!chunk) {
     return finalizeResponsesStream(state);
@@ -657,6 +680,7 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
 
   // Handle finish reason
   if (choice.finish_reason) {
+    flushToolRescuer(state, emit);
     for (const i of Object.keys(state.msgItemAdded).map(Number)) closeMessage(state, emit, i);
     closeReasoning(state, emit);
     for (const i of Object.keys(state.funcCallIds).map(Number)) closeToolCall(state, emit, i);
@@ -677,27 +701,7 @@ export function finalizeResponsesStream(state: ResponsesStreamState): ResponsesS
     events.push({ event: eventType, data });
   };
 
-  const rescuer = state.toolRescuer;
-  if (rescuer) {
-    const { calls, cleanText } = rescuer.flush();
-    if (calls.length > 0) {
-      for (const c of calls) {
-        const tcIdx = ((state as any)._rescuedToolIdx = ((state as any)._rescuedToolIdx || 0) + 1);
-        const callId = `call_${Date.now()}_${tcIdx}`;
-        emitToolCall(state, emit, {
-          index: tcIdx,
-          id: callId,
-          function: {
-            name: c.name,
-            arguments: c.arguments,
-          },
-        });
-      }
-    }
-    if (cleanText) {
-      emitTextContent(state, emit, 0, cleanText);
-    }
-  }
+  flushToolRescuer(state, emit);
 
   // Close any unclosed items
   for (const i of Object.keys(state.msgItemAdded).map(Number)) closeMessage(state, emit, i);

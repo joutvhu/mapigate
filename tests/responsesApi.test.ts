@@ -393,6 +393,33 @@ describe("Responses API Adapter & Endpoints", () => {
       assert.equal(completed.data.response.output[1].type, "function_call");
     });
 
+    it("flushes remaining buffered text when finish_reason arrives in the same chunk", async () => {
+      const { createResponsesStreamState, openAiChunkToResponsesEvents, finalizeResponsesStream } = await import(
+        "../src/core/adapters/responsesAdapter.js"
+      );
+
+      const state = createResponsesStreamState("req-test-finish-flush", new Set(["read_file"]));
+      // Chunk ending with potential partial tag prefix like "<" and immediate finish_reason
+      const chunk = {
+        choices: [
+          {
+            index: 0,
+            delta: { content: "Here is the result: <" },
+            finish_reason: "stop",
+          },
+        ],
+      };
+
+      const events = openAiChunkToResponsesEvents(chunk, state);
+      // The partial buffer "<" must have been flushed out before response.completed
+      const textDeltas = events.filter((e) => e.event === "response.output_text.delta");
+      const fullText = textDeltas.map((e) => e.data.delta).join("");
+      assert.equal(fullText, "Here is the result: <");
+
+      const completed = events.find((e) => e.event === "response.completed");
+      assert.ok(completed, "Expected response.completed event to be emitted");
+    });
+
     it("finishes cleanly when upstream stream produces 0 text without synthesizing artificial fallback text (9router standard)", async () => {
       const { createResponsesStreamState, openAiChunkToResponsesEvents, finalizeResponsesStream } = await import(
         "../src/core/adapters/responsesAdapter.js"
