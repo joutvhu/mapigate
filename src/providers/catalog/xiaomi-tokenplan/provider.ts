@@ -70,6 +70,12 @@ export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
       if (!headers["anthropic-version"]) {
         headers["anthropic-version"] = "2023-06-01";
       }
+      if (!headers["anthropic-beta"]) {
+        headers["anthropic-beta"] = "claude-code-20250219,interleaved-thinking-2025-05-14";
+      }
+      if (!headers["user-agent"]) {
+        headers["user-agent"] = "claude-code/0.2.29 (external; x86_64)";
+      }
     }
     return headers;
   }
