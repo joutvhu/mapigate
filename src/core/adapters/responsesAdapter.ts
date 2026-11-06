@@ -1,4 +1,8 @@
 import { codeWhispererToMessages, extractTools } from "../../mitm/handlers/kiro/converter.js";
+import {
+  createStreamToolCallRescuer,
+  type StreamToolCallRescuer,
+} from "./helpers/toolCallRescue.js";
 
 /**
  * Normalize Responses API input to array format.
@@ -232,6 +236,7 @@ export interface ResponsesStreamState {
   completedSent: boolean;
   responsesUsage: any | null;
   completionPending: boolean;
+  toolRescuer?: StreamToolCallRescuer;
 }
 
 export function createResponsesStreamState(requestId?: string): ResponsesStreamState {
@@ -260,6 +265,7 @@ export function createResponsesStreamState(requestId?: string): ResponsesStreamS
     completedSent: false,
     responsesUsage: null,
     completionPending: false,
+    toolRescuer: createStreamToolCallRescuer(),
   };
 }
 
@@ -610,8 +616,28 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
     }
 
     if (content) {
-      closeReasoning(state, emit);
-      emitTextContent(state, emit, idx, content);
+      const rescuer = (state.toolRescuer ||= createStreamToolCallRescuer());
+      const { calls, cleanText } = rescuer.feed(content);
+      if (calls.length > 0) {
+        closeReasoning(state, emit);
+        closeMessage(state, emit, idx);
+        for (const c of calls) {
+          const tcIdx = ((state as any)._rescuedToolIdx = ((state as any)._rescuedToolIdx || 0) + 1);
+          const callId = `call_${Date.now()}_${tcIdx}`;
+          emitToolCall(state, emit, {
+            index: tcIdx,
+            id: callId,
+            function: {
+              name: c.name,
+              arguments: c.arguments,
+            },
+          });
+        }
+      }
+      if (cleanText) {
+        closeReasoning(state, emit);
+        emitTextContent(state, emit, idx, cleanText);
+      }
     }
   }
 
@@ -645,6 +671,28 @@ export function finalizeResponsesStream(state: ResponsesStreamState): ResponsesS
     data.sequence_number = nextSeq();
     events.push({ event: eventType, data });
   };
+
+  const rescuer = state.toolRescuer;
+  if (rescuer) {
+    const { calls, cleanText } = rescuer.flush();
+    if (calls.length > 0) {
+      for (const c of calls) {
+        const tcIdx = ((state as any)._rescuedToolIdx = ((state as any)._rescuedToolIdx || 0) + 1);
+        const callId = `call_${Date.now()}_${tcIdx}`;
+        emitToolCall(state, emit, {
+          index: tcIdx,
+          id: callId,
+          function: {
+            name: c.name,
+            arguments: c.arguments,
+          },
+        });
+      }
+    }
+    if (cleanText) {
+      emitTextContent(state, emit, 0, cleanText);
+    }
+  }
 
   // Close any unclosed items
   for (const i of Object.keys(state.msgItemAdded).map(Number)) closeMessage(state, emit, i);

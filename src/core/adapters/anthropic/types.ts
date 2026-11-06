@@ -1,5 +1,7 @@
 import type { JsonSchemaish } from "../helpers/toolArgsRepair.js";
 import { toolSchemaMap } from "../helpers/toolArgsRepair.js";
+import type { StreamToolCallRescuer } from "../helpers/toolCallRescue.js";
+import { createStreamToolCallRescuer } from "../helpers/toolCallRescue.js";
 
 export interface AnthropicStreamState {
   messageStartSent?: boolean;
@@ -23,6 +25,7 @@ export interface AnthropicToOpenAiStreamState {
   promptTokens?: number;
   cachedTokens?: number;
   cacheCreationTokens?: number;
+  toolRescuer?: StreamToolCallRescuer;
 }
 
 export function createStreamState(messageId?: string, tools?: any[]): AnthropicStreamState {
@@ -45,5 +48,6 @@ export function createAnthropicToOpenAiState(): AnthropicToOpenAiStreamState {
     promptTokens: 0,
     cachedTokens: 0,
     cacheCreationTokens: 0,
+    toolRescuer: createStreamToolCallRescuer(),
   };
 }

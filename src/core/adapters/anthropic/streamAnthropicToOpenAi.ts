@@ -46,20 +46,57 @@ export function anthropicChunkToOpenAiEvent(
     }
   } else if (event.type === "content_block_delta") {
     if (event.delta?.type === "text_delta" && event.delta.text) {
-      events.push(
-        `data: ${JSON.stringify({
-          id: chunkId,
-          object: "chat.completion.chunk",
-          created,
-          choices: [
-            {
-              index: 0,
-              delta: { content: event.delta.text },
-              finish_reason: null,
-            },
-          ],
-        })}\n\n`
-      );
+      const rescuer = streamState.toolRescuer;
+      const { calls, cleanText } = rescuer
+        ? rescuer.feed(event.delta.text)
+        : { calls: [], cleanText: event.delta.text };
+      if (calls.length > 0) {
+        for (const c of calls) {
+          const toolIdx = streamState.toolCallIndex++;
+          events.push(
+            `data: ${JSON.stringify({
+              id: chunkId,
+              object: "chat.completion.chunk",
+              created,
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: toolIdx,
+                        id: `call_${Date.now()}_${toolIdx}`,
+                        type: "function",
+                        function: {
+                          name: c.name,
+                          arguments: c.arguments,
+                        },
+                      },
+                    ],
+                  },
+                  finish_reason: null,
+                },
+              ],
+            })}\n\n`
+          );
+        }
+      }
+      if (cleanText) {
+        events.push(
+          `data: ${JSON.stringify({
+            id: chunkId,
+            object: "chat.completion.chunk",
+            created,
+            choices: [
+              {
+                index: 0,
+                delta: { content: cleanText },
+                finish_reason: null,
+              },
+            ],
+          })}\n\n`
+        );
+      }
     } else if (event.delta?.type === "thinking_delta" && event.delta.thinking) {
       events.push(
         `data: ${JSON.stringify({
@@ -140,9 +177,60 @@ export function anthropicChunkToOpenAiEvent(
       })}\n\n`
     );
   } else if (event.type === "message_delta") {
+    if (streamState.toolRescuer) {
+      const { calls, cleanText } = streamState.toolRescuer.flush();
+      if (calls.length > 0) {
+        for (const c of calls) {
+          const toolIdx = streamState.toolCallIndex++;
+          events.push(
+            `data: ${JSON.stringify({
+              id: chunkId,
+              object: "chat.completion.chunk",
+              created,
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    tool_calls: [
+                      {
+                        index: toolIdx,
+                        id: `call_${Date.now()}_${toolIdx}`,
+                        type: "function",
+                        function: {
+                          name: c.name,
+                          arguments: c.arguments,
+                        },
+                      },
+                    ],
+                  },
+                  finish_reason: null,
+                },
+              ],
+            })}\n\n`
+          );
+        }
+      }
+      if (cleanText) {
+        events.push(
+          `data: ${JSON.stringify({
+            id: chunkId,
+            object: "chat.completion.chunk",
+            created,
+            choices: [
+              {
+                index: 0,
+                delta: { content: cleanText },
+                finish_reason: null,
+              },
+            ],
+          })}\n\n`
+        );
+      }
+    }
+
     const stopReason = event.delta?.stop_reason;
     let finishReason: string | null = null;
-    if (stopReason === "end_turn") finishReason = "stop";
+    if (stopReason === "end_turn") finishReason = streamState.toolCallIndex > 0 ? "tool_calls" : "stop";
     else if (stopReason === "max_tokens") finishReason = "length";
     else if (stopReason === "tool_use") finishReason = "tool_calls";
     else if (stopReason) finishReason = stopReason;

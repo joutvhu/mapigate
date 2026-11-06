@@ -98,6 +98,18 @@ test("toolCallRescue - MiMo function and parameter dialect", () => {
   assert.equal(r.cleanText, "");
 });
 
+test("toolCallRescue - function tag with parameter closing tag", () => {
+  const text = '<function=run_workflow><parameter=workflowPath>bundled://investigate</parameter></function>';
+  const r = rescueInlineToolCalls(text, new Set(["run_workflow"]));
+  assert.equal(r.detected, true);
+  assert.equal(r.calls?.length, 1);
+  assert.equal(r.calls?.[0].name, "run_workflow");
+  assert.deepEqual(JSON.parse(r.calls?.[0].arguments || "{}"), {
+    workflowPath: "bundled://investigate",
+  });
+  assert.equal(r.cleanText, "");
+});
+
 test("toolCallRescue - truncated unclosed XML block", () => {
   const text = '<tool_call>{"name": "Read", "argum';
   const r = rescueInlineToolCalls(text, TOOLS);

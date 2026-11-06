@@ -208,8 +208,16 @@ function parseFunctionTagDialect(
       }
       if (ok) calls.push({ name, arguments: extracted.json });
     }
-    if (!ok) parsedAll = false;
     const closeTag = text.indexOf("</function>", extracted?.end ?? m.index + m[0].length);
+    if (!ok && closeTag !== -1) {
+      const block = text.slice(m.index, closeTag + "</function>".length);
+      const call = parseMimoFunctionAndParameters(block, toolNames);
+      if (call) {
+        calls.push(call);
+        ok = true;
+      }
+    }
+    if (!ok) parsedAll = false;
     spans.push({
       from: m.index,
       to: closeTag === -1 ? (extracted?.end ?? m.index + m[0].length) : closeTag + "</function>".length,
@@ -251,7 +259,7 @@ export function parseMimoFunctionAndParameters(
     const curr = paramMatches[i];
     const nextStart = i + 1 < paramMatches.length ? paramMatches[i + 1].end : afterFn.length;
     let rawVal = afterFn.slice(curr.start, nextStart).trim();
-    rawVal = rawVal.replace(/<\/(?:tool_call|function|invoke|tool_use)>$/i, "").trim();
+    rawVal = rawVal.replace(/(?:<\/(?:parameter|function|tool_call|invoke|tool_use)>\s*)+$/i, "").trim();
     let val: any = rawVal;
     if (
       (rawVal.startsWith("{") && rawVal.endsWith("}")) ||

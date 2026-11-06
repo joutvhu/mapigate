@@ -347,6 +347,52 @@ describe("Responses API Adapter & Endpoints", () => {
       assert.equal(completed?.data.response.usage?.total_tokens, 15);
     });
 
+    it("rescues inline MiMo tool calls emitted in delta.content into function_call output items", async () => {
+      const { createResponsesStreamState, openAiChunkToResponsesEvents, finalizeResponsesStream } = await import(
+        "../src/core/adapters/responsesAdapter.js"
+      );
+
+      const state = createResponsesStreamState("req-test-mimo-rescue");
+      // Chunk containing MiMo inline tool calls
+      const chunk = {
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content:
+                '<tool_call><function=read_file><parameter=path>README.md<parameter=limit>120</tool_call><tool_call><function=execute_pwsh><parameter=command>Get-ChildItem<parameter=description>List files</tool_call>',
+            },
+          },
+        ],
+      };
+
+      const events = openAiChunkToResponsesEvents(chunk, state);
+      // Must NOT emit output_text.delta containing <tool_call>!
+      const textDeltas = events.filter((e) => e.event === "response.output_text.delta");
+      assert.equal(textDeltas.length, 0);
+
+      // Must emit function_call output items
+      const addedItems = events.filter((e) => e.event === "response.output_item.added");
+      assert.equal(addedItems.length, 2);
+      assert.equal(addedItems[0].data.item.type, "function_call");
+      assert.equal(addedItems[0].data.item.name, "read_file");
+      assert.equal(addedItems[1].data.item.type, "function_call");
+      assert.equal(addedItems[1].data.item.name, "execute_pwsh");
+
+      // Check arguments
+      const argDeltas = events.filter((e) => e.event === "response.function_call_arguments.delta");
+      assert.equal(argDeltas.length, 2);
+      assert.deepEqual(JSON.parse(argDeltas[0].data.delta), { path: "README.md", limit: 120 });
+      assert.deepEqual(JSON.parse(argDeltas[1].data.delta), { command: "Get-ChildItem", description: "List files" });
+
+      const finalEvents = finalizeResponsesStream(state);
+      const completed = finalEvents.find((e) => e.event === "response.completed");
+      assert.ok(completed);
+      assert.equal(completed.data.response.output.length, 2);
+      assert.equal(completed.data.response.output[0].type, "function_call");
+      assert.equal(completed.data.response.output[1].type, "function_call");
+    });
+
     it("finishes cleanly when upstream stream produces 0 text without synthesizing artificial fallback text (9router standard)", async () => {
       const { createResponsesStreamState, openAiChunkToResponsesEvents, finalizeResponsesStream } = await import(
         "../src/core/adapters/responsesAdapter.js"
