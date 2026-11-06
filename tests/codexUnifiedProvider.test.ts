@@ -19,8 +19,8 @@ test("OpenAI Codex Unified Provider - Merged App-Server and Aliases Resolution",
   assert.ok(codexMetadata.baseUrls.includes("codex-app-server://cli/websocket"));
 
   // 3. Models verification
-  assert.ok(codexMetadata.models.some((m) => m.id === "gpt-5.5-codex"));
-  assert.ok(codexMetadata.models.some((m) => m.id === "codex-pro"));
+  assert.ok(codexMetadata.models.some((m) => m.id === "gpt-6.1-terra"));
+  assert.ok(codexMetadata.models.some((m) => m.id === "gpt-daybreak-blue-latest"));
 
   // 4. Aliases resolution
   for (const alias of ["codex-app-server", "cxa"]) {

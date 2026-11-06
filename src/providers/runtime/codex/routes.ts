@@ -38,36 +38,52 @@ export function stopCodexProxy(): void {
   }
 }
 
-export function startCodexProxy(appPort: number): void {
-  if (codexProxyServer) return;
+export function startCodexProxy(appPort: number): Promise<void> {
+  if (codexProxyServer) return Promise.resolve();
 
-  const server = http.createServer((req, res) => {
-    const url = new URL(req.url || "/", "http://localhost");
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      const origin = req.headers["origin"] as string | undefined;
+      if (origin && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) {
+        res.writeHead(403, { "Content-Type": "text/plain" });
+        res.end("Forbidden: cross-origin requests blocked");
+        return;
+      }
 
-    if (url.pathname !== "/callback" && url.pathname !== "/auth/callback") {
-      res.writeHead(404);
-      res.end("Not found");
-      return;
-    }
+      const url = new URL(req.url || "/", "http://localhost");
 
-    const redirectUrl = `http://localhost:${appPort}/callback${url.search}`;
-    res.writeHead(302, { Location: redirectUrl });
-    res.end();
-    stopCodexProxy();
-  });
+      if (url.pathname !== "/callback" && url.pathname !== "/auth/callback") {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
 
-  server.on("error", () => {
-    stopCodexProxy();
-  });
-
-  try {
-    server.listen(1455, "127.0.0.1", () => {
-      codexProxyServer = server;
-      codexProxyTimeout = setTimeout(() => stopCodexProxy(), 5 * 60 * 1000);
+      const redirectUrl = `http://localhost:${appPort}/callback${url.search}`;
+      res.writeHead(302, { Location: redirectUrl });
+      res.end();
+      stopCodexProxy();
     });
-  } catch {
-    stopCodexProxy();
-  }
+
+    server.on("error", (err: any) => {
+      stopCodexProxy();
+      if (err.code === "EADDRINUSE") {
+        reject(new Error("Port 1455 is already in use by another process. Please close Codex CLI or conflicting tools."));
+      } else {
+        reject(err);
+      }
+    });
+
+    try {
+      server.listen(1455, "127.0.0.1", () => {
+        codexProxyServer = server;
+        codexProxyTimeout = setTimeout(() => stopCodexProxy(), 5 * 60 * 1000);
+        resolve();
+      });
+    } catch (err) {
+      stopCodexProxy();
+      reject(err);
+    }
+  });
 }
 
 export const codexOAuthHandler: ProviderOAuthHandler = {
@@ -102,7 +118,7 @@ export const codexOAuthHandler: ProviderOAuthHandler = {
     const authUrl = `${CODEX_AUTHORIZE_URL}?${queryString}`;
 
     const appPort = Number(params.appPort) || Number(process.env.PORT) || DEFAULT_PORT;
-    startCodexProxy(appPort);
+    startCodexProxy(appPort).catch(() => {});
 
     return {
       authUrl,

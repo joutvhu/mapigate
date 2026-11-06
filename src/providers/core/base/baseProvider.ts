@@ -120,6 +120,7 @@ export abstract class BaseProvider implements IProvider {
 
     if (psd.chatgptAccountId) {
       outgoingHeaders["chatgpt-account-id"] = psd.chatgptAccountId;
+      outgoingHeaders["ChatGPT-Account-Id"] = psd.chatgptAccountId;
     }
 
     if (isNoApiKey && !bearerToken) {

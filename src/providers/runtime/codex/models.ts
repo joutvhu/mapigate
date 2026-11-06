@@ -19,8 +19,6 @@ export const models: RegistryModel[] = [
   {"id":"gpt-5.6-luna[1m]","name":"GPT 5.6 Luna (extended context)","upstreamModelId":"gpt-5.6-luna","isDefault":false},
   {"id":"gpt-5.6-luna-review","name":"GPT 5.6 Luna Review","upstreamModelId":"gpt-5.6-luna","isDefault":false},
   {"id":"gpt-daybreak-blue-latest","name":"GPT Daybreak Blue","isDefault":false},
-  {"id":"gpt-5.5-codex","name":"GPT 5.5 Codex","isDefault":false,"contextLength":400000},
-  {"id":"codex-pro","name":"Codex Pro","isDefault":false,"contextLength":400000},
   {"id":"gpt-reserve","name":"GPT Reserve","isDefault":false},
   {"id":"codex-auto-review","name":"Codex Auto Review","upstreamModelId":"codex-auto-review","isDefault":false},
   {"id":"gpt-image-2.5","name":"GPT Image 2.5","isDefault":false,"capabilities":["text2img","edit","multiImage"],"kind":"image"},
@@ -28,8 +26,5 @@ export const models: RegistryModel[] = [
   {"id":"gpt-image-2.5-sunburst","name":"GPT Image 2.5 Sunburst","isDefault":false,"capabilities":["text2img","edit","multiImage"],"kind":"image"},
   {"id":"gpt-image-2","name":"GPT Image 2","isDefault":false,"capabilities":["text2img","edit","multiImage"],"kind":"image"},
   {"id":"gpt-image-1.5","name":"GPT Image 1.5","isDefault":false,"capabilities":["text2img","edit","multiImage"],"kind":"image"},
-  {"id":"gpt-5.6-sol-image","name":"GPT 5.6 Sol Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
-  {"id":"gpt-5.6-terra-image","name":"GPT 5.6 Terra Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
-  {"id":"gpt-5.6-luna-image","name":"GPT 5.6 Luna Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
-  {"id":"gpt-5.3-image","name":"GPT 5.3 Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
+  {"id":"gpt-6-sol-image","name":"GPT 6.0 Sol Image","isDefault":false,"capabilities":["text2img","edit"],"kind":"image"},
 ];
