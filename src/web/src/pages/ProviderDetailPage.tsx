@@ -39,6 +39,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [thinkingOptions, setThinkingOptions] = useState<string[]>(
     registryItem?.thinkingOptions || ["auto", "none", "low", "medium", "high"]
   );
+  const [providerFormat, setProviderFormat] = useState<string>(
+    provider.format || registryItem?.format || "openai"
+  );
   const [baseUrlOverride, setBaseUrlOverride] = useState(registryItem?.baseUrl || provider.baseUrl || "");
   const [proxyUrl, setProxyUrl] = useState("");
   const [customHeaders, setCustomHeaders] = useState<{ key: string; value: string }[]>([]);
@@ -108,6 +111,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     fetch(`/api/providers/${provider.id}`)
       .then((r) => r.json())
       .then((data) => {
+        if (data.format) setProviderFormat(data.format);
         if (data.baseUrl) setBaseUrlOverride(data.baseUrl);
         if (data.proxyUrl) setProxyUrl(data.proxyUrl);
         if (data.thinkingMode) setThinkingMode(data.thinkingMode);
@@ -418,7 +422,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           id: provider.id,
           name: provider.name,
           baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl || "https://api.openai.com",
-          format: provider.format || registryItem?.format || "openai",
+          format: providerFormat || provider.format || registryItem?.format || "openai",
           customHeaders: headersObj,
           proxyUrl: proxyUrl.trim() || undefined,
           thinkingMode,
@@ -459,7 +463,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           id: provider.id,
           name: provider.name,
           baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl || "https://api.openai.com",
-          format: provider.format || registryItem?.format || "openai",
+          format: providerFormat || provider.format || registryItem?.format || "openai",
           customHeaders: headersObj,
           proxyUrl: proxyUrl.trim() || undefined,
           thinkingMode,
@@ -1127,6 +1131,28 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               + add header
             </button>
           </div>
+        </div>
+
+        {/* Provider Protocol Format */}
+        <div className="pt-3 border-t border-[#1E293B]">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-slate-400 font-semibold text-xs">
+              Target API Protocol Format
+            </label>
+            <span className="text-[11px] text-slate-500">
+              Protocol used to call upstream models
+            </span>
+          </div>
+          <Select
+            value={providerFormat}
+            onChange={setProviderFormat}
+            options={[
+              { value: "claude", label: "Anthropic API (/anthropic/v1/messages)" },
+              { value: "openai", label: "OpenAI API (/v1/chat/completions)" },
+            ]}
+            className="w-full"
+            triggerClassName="font-mono text-xs"
+          />
         </div>
 
         {/* Provider Base URL Override */}

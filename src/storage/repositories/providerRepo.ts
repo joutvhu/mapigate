@@ -81,8 +81,8 @@ export class ProviderRepository {
       updatedAt: Date.now(),
     };
 
-    // If registry provider format is defined and DB config format is different/stale, prefer registry format
-    const format = reg?.format || base.format || "openai";
+    // Preserve user-configured format if set, fallback to registry or default format
+    const format = base.format || reg?.format || "openai";
 
     // Dynamic Header Resolution:
     // reg.defaultHeaders provides the authoritative, up-to-date baseline from metadata.ts (automatically applied on new releases)

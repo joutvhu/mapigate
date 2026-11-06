@@ -8,7 +8,7 @@ import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
-  public override readonly defaultFormat = metadata.format || "openai";
+  public override readonly defaultFormat = metadata.format || "claude";
 
   public override supportsQuota(): boolean {
     return true;
@@ -39,6 +39,16 @@ export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
   public override buildUrl(context: ProviderRequestContext): string {
     const psd = context.account?.providerSpecificData || {};
     const region = psd.region || "sgp";
+    const customBase = context.provider?.baseUrl;
+
+    if (customBase && !customBase.includes("xiaomimimo.com")) {
+      const cleanBase = customBase.replace(/\/+$/, "");
+      if (context.targetFormat === "claude") {
+        return cleanBase.endsWith("/messages") ? cleanBase : `${cleanBase}/v1/messages`;
+      }
+      return cleanBase.endsWith("/chat/completions") ? cleanBase : `${cleanBase}/v1/chat/completions`;
+    }
+
     if (context.targetFormat === "claude") {
       return `https://token-plan-${region}.xiaomimimo.com/anthropic/v1/messages`;
     }
