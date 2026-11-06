@@ -1,65 +1,4 @@
 import { buildEventStreamFrame, withInitialFrame, type KiroState } from "./state.js";
-import {
-  parseMimoFunctionAndParameters,
-  callFromNamedJson,
-  type RescuedToolCall,
-} from "../../../core/adapters/helpers/toolCallRescue.js";
-
-export function extractInlineToolCalls(
-  text: string,
-  state: KiroState
-): { calls: RescuedToolCall[]; text: string | null } {
-  if (!text) return { calls: [], text: null };
-
-  let working = text;
-  if (state.inToolCall && state.toolBuf) {
-    working = state.toolBuf + working;
-    state.toolBuf = "";
-    state.inToolCall = false;
-  }
-
-  const startRe = /<tool_call>|<function=/i;
-  const startMatch = working.match(startRe);
-  if (!startMatch) {
-    return { calls: [], text: working };
-  }
-
-  const startIdx = startMatch.index ?? 0;
-  const tag = startMatch[0].toLowerCase();
-  const isToolCall = tag.startsWith("<tool_call");
-  const closeTag = isToolCall ? "</tool_call>" : "</function>";
-
-  const endIdx = working.indexOf(closeTag, startIdx + tag.length);
-  if (endIdx === -1) {
-    state.inToolCall = true;
-    state.toolBuf = working.slice(startIdx);
-    const before = working.slice(0, startIdx).trim();
-    return { calls: [], text: before || null };
-  }
-
-  const block = working.slice(startIdx, endIdx + closeTag.length);
-  const rawInner = isToolCall
-    ? block.slice("<tool_call>".length, block.length - "</tool_call>".length).trim()
-    : block;
-
-  const call = callFromNamedJson(rawInner) || parseMimoFunctionAndParameters(rawInner);
-
-  const calls: RescuedToolCall[] = [];
-  if (call) {
-    calls.push(call);
-  }
-
-  const before = working.slice(0, startIdx).trim();
-  const after = working.slice(endIdx + closeTag.length).trim();
-  const recurse = after ? extractInlineToolCalls(after, state) : { calls: [], text: null };
-  calls.push(...recurse.calls);
-
-  const combinedText = [before, recurse.text].filter(Boolean).join("\n");
-  return {
-    calls,
-    text: combinedText || null,
-  };
-}
 
 export function extractThinking(
   text: string,
@@ -272,53 +211,20 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
   // Flush: ensure clean stream termination
   if (!chunk) {
     if (state.finishSent) return null;
-    const flushFrames: Buffer[] = [];
     // Flush any remaining buffered thinking
     if (state.inThink && state.thinkBuf) {
       state.inThink = false;
       const thinking = state.thinkBuf;
       state.thinkBuf = "";
-      flushFrames.push(
+      return withInitialFrame(
+        state,
         buildEventStreamFrame("reasoningContentEvent", {
           content: thinking,
           modelId: state.modelId || "kiro-unknown",
         })
       );
     }
-    // Flush any remaining buffered inline tool call
-    if (state.inToolCall && state.toolBuf) {
-      state.inToolCall = false;
-      const raw = state.toolBuf;
-      state.toolBuf = "";
-      const rawInner = raw.replace(/^<tool_call>/i, "").replace(/<\/tool_call>$/i, "").trim();
-      const call = callFromNamedJson(rawInner) || parseMimoFunctionAndParameters(rawInner);
-      if (call) {
-        state.hasToolCalls = true;
-        const idx = state.toolCallCounter++;
-        const callId = `call_inline_${Date.now()}_${idx}`;
-        state.toolCallInit[idx] = { id: callId, name: call.name };
-        flushFrames.push(
-          buildEventStreamFrame("toolUseEvent", {
-            name: call.name,
-            toolUseId: callId,
-          }),
-          buildEventStreamFrame("toolUseEvent", {
-            input: call.arguments,
-            name: call.name,
-            toolUseId: callId,
-          })
-        );
-      }
-    }
-    if (state.hasToolCalls) {
-      const finishFrames = emitFinish(state);
-      if (finishFrames) {
-        flushFrames.push(...finishFrames);
-      }
-      return withInitialFrame(state, flushFrames.length > 0 ? flushFrames : null);
-    }
-    flushFrames.push(buildEventStreamFrame("messageStopEvent", {}));
-    return withInitialFrame(state, flushFrames);
+    return withInitialFrame(state, buildEventStreamFrame("messageStopEvent", {}));
   }
 
   const frames: Buffer[] = [];
@@ -375,9 +281,9 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
     );
   }
 
-  // Handle text content — extract thinking blocks, then extract inline tool calls
+  // Handle text content — extract thinking blocks, emit rest as assistantResponseEvent
   if (delta.content) {
-    const { thinking, text: textAfterThink } = extractThinking(delta.content, state);
+    const { thinking, text } = extractThinking(delta.content, state);
     if (thinking) {
       frames.push(
         buildEventStreamFrame("reasoningContentEvent", {
@@ -386,35 +292,13 @@ export function convertOpenAIToKiro(chunk: any | null, state: KiroState): Buffer
         })
       );
     }
-    if (textAfterThink) {
-      const { calls, text } = extractInlineToolCalls(textAfterThink, state);
-      if (calls.length > 0) {
-        state.hasToolCalls = true;
-        for (const call of calls) {
-          const idx = state.toolCallCounter++;
-          const callId = `call_inline_${Date.now()}_${idx}`;
-          state.toolCallInit[idx] = { id: callId, name: call.name };
-          frames.push(
-            buildEventStreamFrame("toolUseEvent", {
-              name: call.name,
-              toolUseId: callId,
-            }),
-            buildEventStreamFrame("toolUseEvent", {
-              input: call.arguments,
-              name: call.name,
-              toolUseId: callId,
-            })
-          );
-        }
-      }
-      if (text) {
-        frames.push(
-          buildEventStreamFrame("assistantResponseEvent", {
-            content: text,
-            modelId,
-          })
-        );
-      }
+    if (text) {
+      frames.push(
+        buildEventStreamFrame("assistantResponseEvent", {
+          content: text,
+          modelId,
+        })
+      );
     }
   }
 

@@ -4,7 +4,10 @@ import type { ProviderRequestContext } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getMimoUsage } from "../../runtime/mimo/quota.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
-import { rescueInlineToolCalls } from "../../../core/adapters/helpers/toolCallRescue.js";
+import {
+  rescueInlineToolCalls,
+  createStreamToolCallRescuer,
+} from "../../../core/adapters/helpers/toolCallRescue.js";
 
 export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
@@ -78,47 +81,29 @@ export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
     if (!delta?.content || typeof delta.content !== "string") return chunk;
 
     const ctx = context as any;
-    if (ctx._mimoBuffer === undefined) {
-      ctx._mimoBuffer = "";
-      ctx._mimoInToolCall = false;
+    if (!ctx._toolRescuer) {
+      ctx._toolRescuer = createStreamToolCallRescuer();
     }
 
-    const text = delta.content;
-    if (!ctx._mimoInToolCall && !text.includes("<tool_call>")) {
+    const { calls, cleanText } = ctx._toolRescuer.feed(delta.content);
+    if (calls.length > 0) {
+      delta.tool_calls = calls.map((c: any, idx: number) => ({
+        index: idx,
+        id: `call_mimo_${Date.now()}_${idx}`,
+        type: "function",
+        function: {
+          name: c.name,
+          arguments: c.arguments,
+        },
+      }));
+      delta.content = cleanText || null;
+      if (choice.finish_reason === "stop") {
+        choice.finish_reason = "tool_calls";
+      }
       return chunk;
     }
 
-    ctx._mimoBuffer += text;
-    if (ctx._mimoBuffer.includes("<tool_call>")) {
-      ctx._mimoInToolCall = true;
-      if (ctx._mimoBuffer.includes("</tool_call>")) {
-        const rescue = rescueInlineToolCalls(ctx._mimoBuffer, new Set());
-        ctx._mimoBuffer = "";
-        ctx._mimoInToolCall = false;
-        if (rescue.detected && rescue.calls && rescue.calls.length > 0) {
-          delta.tool_calls = rescue.calls.map((c, idx) => ({
-            index: idx,
-            id: `call_mimo_${Date.now()}_${idx}`,
-            type: "function",
-            function: {
-              name: c.name,
-              arguments: c.arguments,
-            },
-          }));
-          delta.content = rescue.cleanText || null;
-          if (choice.finish_reason === "stop") {
-            choice.finish_reason = "tool_calls";
-          }
-          return chunk;
-        }
-      } else {
-        const startIdx = ctx._mimoBuffer.indexOf("<tool_call>");
-        const before = ctx._mimoBuffer.slice(0, startIdx);
-        delta.content = before || null;
-        return chunk;
-      }
-    }
-
+    delta.content = cleanText;
     return chunk;
   }
 

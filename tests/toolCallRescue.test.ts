@@ -5,6 +5,7 @@ import {
   startsWithDialectMarker,
   couldBecomeDialectMarker,
   containsDialectMarker,
+  createStreamToolCallRescuer,
 } from "../src/core/adapters/helpers/toolCallRescue.js";
 
 const TOOLS = new Set(["Read", "Write", "Bash", "Grep", "list_dir"]);
@@ -156,4 +157,54 @@ test("toolCallRescue - marker detection helpers", () => {
 
   assert.equal(containsDialectMarker("Text with <tool_call> inside"), true);
   assert.equal(containsDialectMarker("Normal text"), false);
+});
+
+test("StreamToolCallRescuer - parses consecutive multiple tool calls in stream", () => {
+  const rescuer = createStreamToolCallRescuer();
+  const chunk =
+    '<tool_call><function=memory><parameter=command>get<parameter=title>prioritize-code-over-docs</tool_call> <tool_call><function=memory><parameter=command>get<parameter=title>prefer-vietnamese-language</tool_call>';
+
+  const res = rescuer.feed(chunk);
+  assert.equal(res.calls.length, 2);
+  assert.equal(res.calls[0].name, "memory");
+  assert.deepEqual(JSON.parse(res.calls[0].arguments), {
+    command: "get",
+    title: "prioritize-code-over-docs",
+  });
+  assert.equal(res.calls[1].name, "memory");
+  assert.deepEqual(JSON.parse(res.calls[1].arguments), {
+    command: "get",
+    title: "prefer-vietnamese-language",
+  });
+  assert.equal(res.cleanText, " ");
+});
+
+test("StreamToolCallRescuer - buffers partial tags across chunks", () => {
+  const rescuer = createStreamToolCallRescuer();
+
+  // Chunk 1: text + start of tag
+  const r1 = rescuer.feed("Check memory:\n<tool_call><function=memory><parameter=command>");
+  assert.equal(r1.calls.length, 0);
+  assert.equal(r1.cleanText, "Check memory:\n");
+
+  // Chunk 2: parameter content
+  const r2 = rescuer.feed("get<parameter=title>my-note");
+  assert.equal(r2.calls.length, 0);
+  assert.equal(r2.cleanText, null);
+
+  // Chunk 3: close tag + final text
+  const r3 = rescuer.feed("</tool_call>\nAll done.");
+  assert.equal(r3.calls.length, 1);
+  assert.equal(r3.calls[0].name, "memory");
+  assert.deepEqual(JSON.parse(r3.calls[0].arguments), { command: "get", title: "my-note" });
+  assert.equal(r3.cleanText, "\nAll done.");
+});
+
+test("StreamToolCallRescuer - parses Anthropic invoke format", () => {
+  const rescuer = createStreamToolCallRescuer();
+  const text = '<invoke name="readFile"><parameter name="path">src/main.ts</parameter></invoke>';
+  const r = rescuer.feed(text);
+  assert.equal(r.calls.length, 1);
+  assert.equal(r.calls[0].name, "readFile");
+  assert.deepEqual(JSON.parse(r.calls[0].arguments), { path: "src/main.ts" });
 });

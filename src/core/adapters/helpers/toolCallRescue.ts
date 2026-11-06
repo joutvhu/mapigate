@@ -250,7 +250,8 @@ export function parseMimoFunctionAndParameters(
   for (let i = 0; i < paramMatches.length; i++) {
     const curr = paramMatches[i];
     const nextStart = i + 1 < paramMatches.length ? paramMatches[i + 1].end : afterFn.length;
-    const rawVal = afterFn.slice(curr.start, nextStart).trim();
+    let rawVal = afterFn.slice(curr.start, nextStart).trim();
+    rawVal = rawVal.replace(/<\/(?:tool_call|function|invoke|tool_use)>$/i, "").trim();
     let val: any = rawVal;
     if (
       (rawVal.startsWith("{") && rawVal.endsWith("}")) ||
@@ -275,6 +276,177 @@ export function parseMimoFunctionAndParameters(
   };
 }
 
+export function parseAnyToolBlock(
+  raw: string,
+  toolNames?: Set<string>
+): RescuedToolCall | null {
+  if (!raw || typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+
+  // 1. JSON object format: {"name": ..., "arguments"|"parameters": ...}
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    const jsonCall = callFromNamedJson(trimmed, toolNames);
+    if (jsonCall) return jsonCall;
+  }
+
+  // 2. MiMo / Hermes parameter format: <function=NAME><parameter=KEY>VALUE...
+  const mimoCall = parseMimoFunctionAndParameters(trimmed, toolNames);
+  if (mimoCall) return mimoCall;
+
+  // 3. Anthropic XML format: <invoke name="NAME">... or <tool_use><name>NAME</name>...
+  const invokeMatch = /<(?:invoke|function)\s+(?:name|call)=["']?([A-Za-z0-9_.-]+)["']?>/i.exec(trimmed);
+  if (invokeMatch) {
+    const name = invokeMatch[1].trim();
+    if (!isKnownTool(name, toolNames)) return null;
+    const body = trimmed.slice(invokeMatch.index + invokeMatch[0].length);
+    const paramRegex = /<parameter\s+name=["']?([A-Za-z0-9_.-]+)["']?>([\s\S]*?)<\/parameter>/gi;
+    const argsObj: Record<string, any> = {};
+    let pm: RegExpExecArray | null;
+    let found = false;
+    while ((pm = paramRegex.exec(body)) !== null) {
+      found = true;
+      const key = pm[1].trim();
+      const rawVal = pm[2].trim();
+      let val: any = rawVal;
+      try { val = JSON.parse(rawVal); } catch {}
+      argsObj[key] = val;
+    }
+    if (found) {
+      return { name, arguments: JSON.stringify(argsObj) };
+    }
+    const argsMatch = /<arguments>([\s\S]*?)<\/arguments>/i.exec(body);
+    if (argsMatch) {
+      const rawArgs = argsMatch[1].trim();
+      try {
+        JSON.parse(rawArgs);
+        return { name, arguments: rawArgs };
+      } catch {}
+    }
+  }
+
+  const toolUseMatch = /<tool_use>[\s\S]*?<name>([A-Za-z0-9_.-]+)<\/name>/i.exec(trimmed);
+  if (toolUseMatch) {
+    const name = toolUseMatch[1].trim();
+    if (isKnownTool(name, toolNames)) {
+      const argsMatch = /<arguments>([\s\S]*?)<\/arguments>/i.exec(trimmed);
+      if (argsMatch) {
+        const rawArgs = argsMatch[1].trim();
+        try {
+          JSON.parse(rawArgs);
+          return { name, arguments: rawArgs };
+        } catch {}
+      }
+    }
+  }
+
+  return null;
+}
+
+export interface StreamToolCallRescuer {
+  feed(text: string): { calls: RescuedToolCall[]; cleanText: string | null };
+  flush(): { calls: RescuedToolCall[]; cleanText: string | null };
+}
+
+export function createStreamToolCallRescuer(toolNames?: Set<string>): StreamToolCallRescuer {
+  let buffer = "";
+  let inBlock = false;
+  let closeTag = "</tool_call>";
+
+  const TAG_PAIRS: Array<{ open: RegExp; close: string }> = [
+    { open: /<tool_call>/i, close: "</tool_call>" },
+    { open: /<function[=> ]/i, close: "</function>" },
+    { open: /<tool_use>/i, close: "</tool_use>" },
+    { open: /<invoke[> ]/i, close: "</invoke>" },
+  ];
+
+  function processBuffer(): { calls: RescuedToolCall[]; cleanText: string | null } {
+    const calls: RescuedToolCall[] = [];
+    let textOut = "";
+
+    while (buffer.length > 0) {
+      if (inBlock) {
+        const closeIdx = buffer.indexOf(closeTag);
+        if (closeIdx === -1) {
+          // Block is incomplete, keep all in buffer
+          break;
+        }
+        const block = buffer.slice(0, closeIdx + closeTag.length);
+        buffer = buffer.slice(closeIdx + closeTag.length);
+        inBlock = false;
+
+        const call = parseAnyToolBlock(block, toolNames);
+        if (call) {
+          calls.push(call);
+        } else {
+          // If unparseable, don't drop content, return as text
+          textOut += block;
+        }
+      } else {
+        // Search for opening tag
+        let earliestMatch: { index: number; length: number; close: string } | null = null;
+        for (const pair of TAG_PAIRS) {
+          const m = buffer.match(pair.open);
+          if (m && m.index !== undefined) {
+            if (!earliestMatch || m.index < earliestMatch.index) {
+              earliestMatch = { index: m.index, length: m[0].length, close: pair.close };
+            }
+          }
+        }
+
+        if (!earliestMatch) {
+          // No tag found in buffer. Check if buffer ends with a potential opening tag prefix (e.g. "<", "<tool", etc.)
+          const partialMatch = /<[a-z_0-9=-]*$/i.exec(buffer);
+          if (partialMatch) {
+            const safeLen = partialMatch.index;
+            textOut += buffer.slice(0, safeLen);
+            buffer = buffer.slice(safeLen);
+          } else {
+            textOut += buffer;
+            buffer = "";
+          }
+          break;
+        }
+
+        // Emit text before opening tag
+        if (earliestMatch.index > 0) {
+          textOut += buffer.slice(0, earliestMatch.index);
+        }
+
+        buffer = buffer.slice(earliestMatch.index);
+        inBlock = true;
+        closeTag = earliestMatch.close;
+      }
+    }
+
+    return {
+      calls,
+      cleanText: textOut.length > 0 ? textOut : null,
+    };
+  }
+
+  return {
+    feed(text: string) {
+      if (!text) return { calls: [], cleanText: null };
+      buffer += text;
+      return processBuffer();
+    },
+    flush() {
+      if (!buffer) return { calls: [], cleanText: null };
+      if (inBlock) {
+        inBlock = false;
+        const call = parseAnyToolBlock(buffer, toolNames);
+        buffer = "";
+        if (call) {
+          return { calls: [call], cleanText: null };
+        }
+      }
+      const remaining = buffer;
+      buffer = "";
+      return { calls: [], cleanText: remaining.length > 0 ? remaining : null };
+    },
+  };
+}
+
 /** Dialect 3: <tool_call>{...}</tool_call> XML-JSON blocks. */
 function parseXmlDialect(
   text: string,
@@ -290,10 +462,7 @@ function parseXmlDialect(
     matches.push(m[1]);
   }
   for (const inner of matches) {
-    let call = callFromNamedJson(inner, toolNames);
-    if (!call) {
-      call = parseMimoFunctionAndParameters(inner, toolNames);
-    }
+    let call = parseAnyToolBlock(inner, toolNames);
     if (call) calls.push(call);
     else parsedAll = false;
   }

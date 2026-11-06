@@ -27,9 +27,6 @@ export interface KiroState {
   inThink: boolean;
   thinkBuf: string;
   initialSent: boolean;
-  inToolCall: boolean;
-  toolBuf: string;
-  toolCallCounter: number;
 }
 
 export function initKiroState(modelId?: string, conversationId?: string): KiroState {
@@ -43,9 +40,6 @@ export function initKiroState(modelId?: string, conversationId?: string): KiroSt
     inThink: false,
     thinkBuf: "",
     initialSent: false,
-    inToolCall: false,
-    toolBuf: "",
-    toolCallCounter: 0,
   };
 }
 

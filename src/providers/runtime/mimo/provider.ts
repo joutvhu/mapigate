@@ -1,6 +1,11 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
+import type { ProviderRequestContext } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getMimoUsage } from "./quota.js";
+import {
+  rescueInlineToolCalls,
+  createStreamToolCallRescuer,
+} from "../../../core/adapters/helpers/toolCallRescue.js";
 
 export class MimoProvider extends OpenAiCompatibleProvider {
   public override readonly id = "mimo";
@@ -18,6 +23,63 @@ export class MimoProvider extends OpenAiCompatibleProvider {
       context.account.providerSpecificData,
       context.account.id
     );
+  }
+
+  public transformResponseChunk(chunk: any, context: ProviderRequestContext): any {
+    if (!chunk?.choices?.length) return chunk;
+    const choice = chunk.choices[0];
+    const delta = choice?.delta;
+    if (!delta?.content || typeof delta.content !== "string") return chunk;
+
+    const ctx = context as any;
+    if (!ctx._toolRescuer) {
+      ctx._toolRescuer = createStreamToolCallRescuer();
+    }
+
+    const { calls, cleanText } = ctx._toolRescuer.feed(delta.content);
+    if (calls.length > 0) {
+      delta.tool_calls = calls.map((c: any, idx: number) => ({
+        index: idx,
+        id: `call_mimo_${Date.now()}_${idx}`,
+        type: "function",
+        function: {
+          name: c.name,
+          arguments: c.arguments,
+        },
+      }));
+      delta.content = cleanText || null;
+      if (choice.finish_reason === "stop") {
+        choice.finish_reason = "tool_calls";
+      }
+      return chunk;
+    }
+
+    delta.content = cleanText;
+    return chunk;
+  }
+
+  public transformResponseBody(body: any, _context: ProviderRequestContext): any {
+    if (!body || typeof body !== "object") return body;
+    const choice = body.choices?.[0];
+    const msg = choice?.message;
+    if (msg?.content && typeof msg.content === "string" && msg.content.includes("<tool_call>")) {
+      const rescue = rescueInlineToolCalls(msg.content, new Set());
+      if (rescue.detected && rescue.calls && rescue.calls.length > 0) {
+        msg.tool_calls = rescue.calls.map((c, idx) => ({
+          id: `call_mimo_${Date.now()}_${idx}`,
+          type: "function",
+          function: {
+            name: c.name,
+            arguments: c.arguments,
+          },
+        }));
+        msg.content = rescue.cleanText || null;
+        if (choice.finish_reason === "stop" || !choice.finish_reason) {
+          choice.finish_reason = "tool_calls";
+        }
+      }
+    }
+    return body;
   }
 }
 
