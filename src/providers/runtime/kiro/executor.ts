@@ -70,13 +70,15 @@ export async function executeKiro(
 
   // 2. Build Headers
   const bearerToken = extractTokenFromAccount(context.account);
+  const provCustomHeaders = (context.provider as any)?.customHeaders || {};
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/vnd.amazon.eventstream",
-    "User-Agent": "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0",
-    "x-amz-user-agent": "aws-sdk-js/3.0.0 kiro-ide/1.0.0",
+    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE",
+    "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE",
     "x-amzn-kiro-agent-mode": "spec",
     "x-amzn-codewhisperer-machine-id": "kiro-desktop",
+    ...provCustomHeaders,
   };
 
   if (bearerToken) {

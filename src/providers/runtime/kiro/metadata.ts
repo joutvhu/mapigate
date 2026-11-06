@@ -33,8 +33,8 @@ export const metadata: ProviderRegistryItem = {
   "defaultHeaders": {
     "Content-Type": "application/json",
     "Accept": "application/vnd.amazon.eventstream",
-    "User-Agent": "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0",
-    "X-Amz-User-Agent": "aws-sdk-js/3.0.0 kiro-ide/1.0.0"
+    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE",
+    "X-Amz-User-Agent": "aws-sdk-js/3.0.0 KiroIDE"
   },
   "thinkingMode": "auto",
   "oauth": {
