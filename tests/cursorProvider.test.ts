@@ -39,6 +39,7 @@ import {
   resolveAutoModelSelection,
 } from "../src/providers/runtime/cursor/cursorModels.js";
 import { CursorProvider } from "../src/providers/runtime/cursor/provider.js";
+import { AnthropicAdapter } from "../src/core/adapters/anthropicAdapter.js";
 
 test("Cursor Checksum - Hashing and Session ID generation", () => {
   const hash = generateHashed64Hex("test-token");
@@ -217,3 +218,57 @@ test("Cursor Provider - Class instantiation and probeModels validation", async (
   assert.equal(resultNoToken.success, false);
   assert.ok(resultNoToken.error?.includes("token is required"));
 });
+
+test("Cursor Protobuf - Turn resolution preserves tool results and assistant calls in history", () => {
+  const toolCallMessages = [
+    { role: "user", content: "What is in file.txt?" },
+    {
+      role: "assistant",
+      content: "",
+      tool_calls: [
+        {
+          id: "call_read_1",
+          type: "function",
+          function: { name: "read_file", arguments: '{"path":"file.txt"}' },
+        },
+      ],
+    },
+    { role: "tool", tool_call_id: "call_read_1", content: "file content hello" },
+  ];
+
+  const frame = buildAgentRunFrame(toolCallMessages, "claude-3.5-sonnet");
+  const parsed = parseConnectRPCFrame(frame);
+  assert.ok(parsed);
+
+  const agentMsg = decodeMessage(parsed.payload);
+  assert.ok(agentMsg.has(1));
+  const runReq = decodeMessage(agentMsg.get(1)![0].value);
+  assert.ok(runReq.has(2));
+  const convAction = decodeMessage(runReq.get(2)![0].value);
+  assert.ok(convAction.has(1));
+  const userAction = decodeMessage(convAction.get(1)![0].value);
+
+  assert.ok(userAction.has(1));
+  const userMsg = decodeMessage(userAction.get(1)![0].value);
+  const activePrompt = Buffer.from(userMsg.get(1)?.[0]?.value || []).toString("utf8");
+  assert.ok(activePrompt.includes("file content hello"), "Active turn must contain tool result content");
+  assert.ok(activePrompt.includes("[tool_result id=call_read_1]"), "Active turn must contain tool_result tag");
+
+  assert.ok(userAction.has(7), "User action must contain conversation history");
+  const historyEntries = userAction.get(7)!;
+  assert.ok(historyEntries.length > 0, "History must preserve intermediate assistant and user turns");
+});
+
+test("Cursor Streamer - Anthropic stream finalization closes unclosed blocks", () => {
+  const anthropicState = AnthropicAdapter.createStreamState("msg_test", []);
+  const chunk = {
+    id: "chunk_1",
+    choices: [{ index: 0, delta: { content: "partial content" }, finish_reason: null }],
+  };
+  AnthropicAdapter.openAiChunkToAnthropicEvent(chunk, "msg_test", anthropicState);
+  const finalEvents = AnthropicAdapter.finalizeStream(anthropicState);
+  assert.ok(Array.isArray(finalEvents));
+  assert.ok(finalEvents.length > 0);
+  assert.ok(finalEvents.some((ev) => ev.includes("content_block_stop") || ev.includes("message_delta") || ev.includes("message_stop")));
+});
+

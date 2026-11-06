@@ -5,4 +5,5 @@ export * from "./cursorChecksum.js";
 export * from "./cursorWire.js";
 export * from "./cursorProtobuf.js";
 export * from "./cursorModels.js";
+export * from "./cursorStreamer.js";
 export * from "./executor.js";

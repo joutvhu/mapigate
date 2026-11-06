@@ -158,13 +158,19 @@ export function buildAgentRunFrame(
     .filter(Boolean)
     .join("\n\n");
   const chatMessages = messages.filter((message) => message?.role !== "system");
-  const currentIndex = [...chatMessages].map((message) => message?.role).lastIndexOf("user");
+  let currentIndex = -1;
+  for (let i = chatMessages.length - 1; i >= 0; i--) {
+    const role = chatMessages[i]?.role;
+    if (role === "user" || role === "tool") { currentIndex = i; break; }
+  }
   const current = currentIndex >= 0 ? chatMessages[currentIndex] : chatMessages[chatMessages.length - 1];
   const history = chatMessages
     .slice(0, currentIndex >= 0 ? currentIndex : -1)
     .map(encodeHistoryMessage)
     .filter((entry): entry is Uint8Array => entry !== null);
-  const rawUser = textFromContent(current?.content) || "Continue.";
+  const content = textFromContent(current?.content);
+  const toolTag = current?.role === "tool" && current.tool_call_id ? `[tool_result id=${current.tool_call_id}]` : "";
+  const rawUser = [content, toolTag].filter(Boolean).join("\n") || "Continue.";
   const userText = system ? `${system}\n\n${rawUser}` : rawUser;
 
   const userMessage = concatBuffers(
