@@ -19,9 +19,10 @@ interface SystemInfo {
 
 export interface SettingsTabProps {
   onRestartClick?: () => void;
+  onUpgradeClick?: () => void;
 }
 
-export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
+export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgradeClick }) => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRestartOpenInternal, setIsRestartOpenInternal] = useState(false);
@@ -142,7 +143,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div className="bg-[#0A0D14] p-4 rounded-xl border border-[#1E293B] space-y-1">
             <span className="text-slate-500 uppercase text-[10px] font-bold">App Version & Gateway</span>
-            <p className="text-white font-mono font-semibold">Mapigate v{systemInfo?.version || "0.3.3"}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-white font-mono font-semibold">Mapigate v{systemInfo?.version || "0.3.3"}</p>
+              {systemInfo?.hasUpdate && systemInfo.latestVersion && (
+                <button
+                  type="button"
+                  onClick={onUpgradeClick}
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/35 font-mono font-semibold hover:bg-amber-500/25 transition-all cursor-pointer"
+                  title={`Upgrade to v${systemInfo.latestVersion}`}
+                >
+                  <span>v{systemInfo.latestVersion}</span>
+                  <span className="text-[9px] text-amber-400">↑ Upgrade</span>
+                </button>
+              )}
+            </div>
             <p className="text-blue-400 font-mono text-[11px]">Active on port {systemInfo?.port || DEFAULT_PORT}</p>
           </div>
 

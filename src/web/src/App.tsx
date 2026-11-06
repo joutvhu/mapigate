@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useSystemInfo } from "./hooks/useSystemInfo";
 import { LockScreen } from "./components/LockScreen";
 import { RestartModal } from "./components/RestartModal";
+import { UpgradeModal } from "./components/UpgradeModal";
 import type { ProviderItem } from "./constants/providersData";
 
 const ProvidersTab = lazy(() => import("./pages/ProvidersTab").then((m) => ({ default: m.ProvidersTab })));
@@ -62,6 +63,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
   const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const systemInfo = useSystemInfo((s) => s.info);
 
   const handleSelectTab = (tab: NavTab) => {
     setCurrentTab(tab);
@@ -83,7 +86,11 @@ export default function App() {
   return (
     <div className="rt-app">
       {/* Blue Theme Sidebar with Glass Accents */}
-      <Sidebar currentTab={currentTab} onSelectTab={handleSelectTab} />
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={handleSelectTab}
+        onUpgradeClick={() => setIsUpgradeModalOpen(true)}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
@@ -128,7 +135,10 @@ export default function App() {
             {currentTab === "mitm" && <MitmTab />}
             {currentTab === "consolelog" && <ConsoleLogTab />}
             {currentTab === "settings" && (
-              <SettingsTab onRestartClick={() => setIsRestartModalOpen(true)} />
+              <SettingsTab
+                onRestartClick={() => setIsRestartModalOpen(true)}
+                onUpgradeClick={() => setIsUpgradeModalOpen(true)}
+              />
             )}
           </Suspense>
         </main>
@@ -138,6 +148,14 @@ export default function App() {
       <RestartModal
         isOpen={isRestartModalOpen}
         onClose={() => setIsRestartModalOpen(false)}
+      />
+
+      {/* Global Upgrade Gateway Modal */}
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        currentVersion={systemInfo?.version}
+        latestVersion={systemInfo?.latestVersion}
       />
     </div>
   );

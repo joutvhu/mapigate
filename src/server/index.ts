@@ -26,7 +26,7 @@ import { usageRouter } from "./routes/apiUsage.js";
 import { settingsRouter } from "./routes/apiSettings.js";
 import { authRouter } from "./routes/apiAuth.js";
 import { masterAuthMiddleware } from "./middlewares/masterAuthMiddleware.js";
-import { serverRouter, handleShutdownRequest, handleRestartRequest } from "./routes/apiServer.js";
+import { serverRouter, handleShutdownRequest, handleRestartRequest, handleUpgradeRequest } from "./routes/apiServer.js";
 import { serverLifecycle } from "./lifecycle.js";
 import { initTray } from "../cli/tray/tray.js";
 import { MitmRepository } from "../storage/repositories/mitmRepo.js";
@@ -275,6 +275,7 @@ app.use("/api/settings", settingsRouter);
 app.use("/api/server", serverRouter);
 app.post("/api/shutdown", handleShutdownRequest);
 app.post("/api/restart", handleRestartRequest);
+app.post("/api/upgrade", handleUpgradeRequest);
 
 // OAuth Callback Relay HTML generator
 function renderOAuthCallbackHtml(): string {

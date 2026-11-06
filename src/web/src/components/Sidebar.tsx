@@ -18,9 +18,10 @@ export type NavTab =
 interface SidebarProps {
   currentTab: NavTab;
   onSelectTab: (tab: NavTab) => void;
+  onUpgradeClick?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onUpgradeClick }) => {
   const systemInfo = useSystemInfo((s) => s.info);
   const version = systemInfo?.version;
   const runningPort =
@@ -61,12 +62,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
               </h1>
               {version && (
                 systemInfo?.hasUpdate && systemInfo.latestVersion ? (
-                  <a
-                    href="https://www.npmjs.com/package/mapigate"
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => onUpgradeClick?.()}
                     className="group relative inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/35 font-mono font-semibold shrink-0 select-none leading-none hover:bg-amber-500/25 transition-all cursor-pointer"
-                    title={`New version v${systemInfo.latestVersion} available! Click to view on npm or run 'mpg upgrade'`}
+                    title={`New version v${systemInfo.latestVersion} available! Click to upgrade`}
                   >
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -74,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab }) => 
                     </span>
                     <span>v{version}</span>
                     <span className="text-[9px] text-amber-400 group-hover:translate-y-[-0.5px] transition-transform">↑</span>
-                  </a>
+                  </button>
                 ) : (
                   <span
                     className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 font-mono font-semibold shrink-0 shadow-xs select-none leading-none"
