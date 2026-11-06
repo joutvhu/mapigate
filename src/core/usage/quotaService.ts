@@ -167,19 +167,23 @@ export class QuotaService {
 
       if (rawResult.quotas) {
         for (const [key, bucket] of Object.entries(rawResult.quotas)) {
-          // If antigravity, filter strictly to the 4 recognized summary buckets
+          // If antigravity, filter strictly to the recognized summary buckets
           if (account.providerId.toLowerCase() === "antigravity") {
             const allowedAntigravityKeys = [
               "gemini_session",
               "gemini_weekly",
               "claude_gpt_session",
               "claude_gpt_weekly",
+              "gemini_4_argon_session",
+              "gemini_4_argon_weekly",
             ];
             const allowedLabels = [
               "gemini (5h)",
               "gemini (weekly)",
               "claude & gpt (5h)",
               "claude & gpt (weekly)",
+              "gemini 4 argon (5h)",
+              "gemini 4 argon (weekly)",
             ];
             const isAllowed =
               allowedAntigravityKeys.includes(key.toLowerCase()) ||

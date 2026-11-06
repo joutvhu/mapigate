@@ -68,7 +68,7 @@ export async function loadCodeAssist(accessToken: string): Promise<{ projectId: 
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        "User-Agent": "antigravity/hub/2.28.0 darwin/arm64",
+        "User-Agent": "antigravity/hub/2.29.0 darwin/arm64",
         "x-request-source": "local",
       },
       body: JSON.stringify({ metadata: { ideType: 9, platform: getPlatformId(), pluginType: 2 } }),
@@ -93,7 +93,7 @@ export function onboardUser(accessToken: string, tierId: string): void {
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
-    "User-Agent": "antigravity/hub/2.28.0 darwin/arm64",
+    "User-Agent": "antigravity/hub/2.29.0 darwin/arm64",
     "x-request-source": "local",
   };
   (async () => {

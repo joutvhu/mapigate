@@ -72,18 +72,29 @@ export function getAntigravityMetrics(
 
   const quotas = quotaResult.quotas;
   const isClaudeGptModel = Boolean(targetModel && /claude|gpt/i.test(targetModel));
-  const isGeminiModel = Boolean(targetModel && /gemini/i.test(targetModel));
+  const isArgonModel = Boolean(targetModel && /argon/i.test(targetModel));
+  const isGeminiModel = Boolean(targetModel && /gemini/i.test(targetModel) && !isArgonModel);
 
   // Determine target buckets based on model family
   let weeklyBucket: NormalizedQuotaItem | undefined;
   let sessionBucket: NormalizedQuotaItem | undefined;
 
-  if (isClaudeGptModel) {
+  if (isArgonModel) {
+    weeklyBucket = quotas.find((q) => /argon/i.test(q.label) && /weekly/i.test(q.label));
+    sessionBucket = quotas.find((q) => /argon/i.test(q.label) && /5h|session|daily/i.test(q.label));
+    // Fallback to standard Gemini weekly/session if account has no dedicated Argon quota
+    if (!weeklyBucket) {
+      weeklyBucket = quotas.find((q) => /gemini/i.test(q.label) && !/argon/i.test(q.label) && /weekly/i.test(q.label));
+    }
+    if (!sessionBucket) {
+      sessionBucket = quotas.find((q) => /gemini/i.test(q.label) && !/argon/i.test(q.label) && /5h|session|daily/i.test(q.label));
+    }
+  } else if (isClaudeGptModel) {
     weeklyBucket = quotas.find((q) => /claude|gpt/i.test(q.label) && /weekly/i.test(q.label));
     sessionBucket = quotas.find((q) => /claude|gpt/i.test(q.label) && /5h|session|daily/i.test(q.label));
   } else if (isGeminiModel) {
-    weeklyBucket = quotas.find((q) => /gemini/i.test(q.label) && /weekly/i.test(q.label));
-    sessionBucket = quotas.find((q) => /gemini/i.test(q.label) && /5h|session|daily/i.test(q.label));
+    weeklyBucket = quotas.find((q) => /gemini/i.test(q.label) && !/argon/i.test(q.label) && /weekly/i.test(q.label));
+    sessionBucket = quotas.find((q) => /gemini/i.test(q.label) && !/argon/i.test(q.label) && /5h|session|daily/i.test(q.label));
   } else {
     // If model is unspecified or ambiguous: find earliest resetting weekly bucket with remaining > 0
     const weeklyBuckets = quotas.filter((q) => /weekly/i.test(q.label));

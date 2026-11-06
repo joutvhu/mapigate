@@ -250,6 +250,101 @@ test("Antigravity - parseWeeklyQuotaSummary accurately extracts weekly and sessi
   assert.equal(parsed.claude_gpt_session.remainingPercentage, 10);
 });
 
+test("Antigravity - parseWeeklyQuotaSummary extracts Gemini 4 Argon weekly quota when supported", () => {
+  const supportedPayload = {
+    groups: [
+      {
+        displayName: "Gemini Models",
+        buckets: [
+          {
+            displayName: "Weekly Limit Remaining",
+            window: "WEEKLY",
+            remainingFraction: 0,
+            resetTime: "2026-04-05T00:00:00.000Z",
+          },
+          {
+            displayName: "Five Hour Limit Remaining",
+            window: "5h",
+            remainingFraction: 0,
+            resetTime: "2026-03-31T12:00:00.000Z",
+          },
+        ],
+      },
+      {
+        displayName: "Claude and GPT models",
+        buckets: [
+          {
+            displayName: "Weekly Limit Remaining",
+            window: "WEEKLY",
+            remainingFraction: 1.0,
+            resetTime: "2026-04-05T00:00:00.000Z",
+          },
+          {
+            displayName: "Five Hour Limit Remaining",
+            window: "5h",
+            remainingFraction: 1.0,
+            resetTime: "2026-03-31T12:00:00.000Z",
+          },
+        ],
+      },
+      {
+        displayName: "Gemini 4 Argon",
+        buckets: [
+          {
+            displayName: "Gemini 4 Argon Weekly Limit",
+            window: "WEEKLY",
+            remainingFraction: 1.0,
+            resetTime: "2026-04-05T00:00:00.000Z",
+          },
+        ],
+      },
+    ],
+  };
+
+  const parsedSupported = parseWeeklyQuotaSummary(supportedPayload);
+  assert.ok(parsedSupported.gemini_weekly);
+  assert.equal(parsedSupported.gemini_weekly.remainingPercentage, 0);
+
+  assert.ok(parsedSupported.claude_gpt_weekly);
+  assert.equal(parsedSupported.claude_gpt_weekly.remainingPercentage, 100);
+
+  assert.ok(parsedSupported.gemini_4_argon_weekly);
+  assert.equal(parsedSupported.gemini_4_argon_weekly.displayName, "Gemini 4 Argon (Weekly)");
+  assert.equal(parsedSupported.gemini_4_argon_weekly.remainingPercentage, 100);
+  assert.equal(parsedSupported.gemini_4_argon_weekly.used, 0);
+  assert.equal(parsedSupported.gemini_4_argon_weekly.total, 3000);
+
+  // When account does not support Argon, gemini_4_argon_weekly must NOT be present
+  const unsupportedPayload = {
+    groups: [
+      {
+        displayName: "Gemini Models",
+        buckets: [
+          {
+            displayName: "Weekly Limit Remaining",
+            window: "WEEKLY",
+            remainingFraction: 0.8,
+          },
+        ],
+      },
+      {
+        displayName: "Claude and GPT models",
+        buckets: [
+          {
+            displayName: "Weekly Limit Remaining",
+            window: "WEEKLY",
+            remainingFraction: 0.9,
+          },
+        ],
+      },
+    ],
+  };
+
+  const parsedUnsupported = parseWeeklyQuotaSummary(unsupportedPayload);
+  assert.equal(parsedUnsupported.gemini_4_argon_weekly, undefined);
+  assert.equal(parsedUnsupported.gemini_4_argon_session, undefined);
+});
+
 test("Antigravity - tier detection: free-tier returns only weekly quotas without 0% session windows", async () => {
   _clearWeeklyCache();
 
@@ -1127,6 +1222,7 @@ test("fetchRawQuotaForProvider - dispatches correctly across all registered prov
 
 test("sortNormalizedQuotas - sorts Antigravity into exact fixed order without changing on refresh", () => {
   const rawItems = [
+    { label: "Gemini 4 Argon (Weekly)", used: 0, total: 3000, remainingPercentage: 100 },
     { label: "Claude & GPT (Weekly)", used: 200, total: 1000, remainingPercentage: 80 },
     { label: "Gemini (Weekly)", used: 300, total: 1000, remainingPercentage: 70 },
     { label: "Claude & GPT (5h)", used: 100, total: 1000, remainingPercentage: 90 },
@@ -1136,7 +1232,7 @@ test("sortNormalizedQuotas - sorts Antigravity into exact fixed order without ch
   const sorted1 = sortNormalizedQuotas("antigravity", rawItems);
   assert.deepEqual(
     sorted1.map((q) => q.label),
-    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)"]
+    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)", "Gemini 4 Argon (Weekly)"]
   );
 
   // Repeated calls must yield identical order (idempotent / stable)
@@ -1144,7 +1240,7 @@ test("sortNormalizedQuotas - sorts Antigravity into exact fixed order without ch
   const sorted2 = sortNormalizedQuotas("antigravity", reversed);
   assert.deepEqual(
     sorted2.map((q) => q.label),
-    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)"]
+    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)", "Gemini 4 Argon (Weekly)"]
   );
 });
 
@@ -1203,6 +1299,7 @@ test("QuotaService - Antigravity account normalizes to only the 4 summary bucket
     { label: "gemini-3.8-flash-high", used: 10, total: 1000, remainingPercentage: 99 },
     { label: "Claude & GPT (Weekly)", used: 200, total: 1000, remainingPercentage: 80 },
     { label: "Gemini (Weekly)", used: 300, total: 1000, remainingPercentage: 70 },
+    { label: "Gemini 4 Argon (Weekly)", used: 0, total: 3000, remainingPercentage: 100 },
     { label: "Claude & GPT (5h)", used: 100, total: 1000, remainingPercentage: 90 },
     { label: "claude-sonnet-5-5-high", used: 50, total: 1000, remainingPercentage: 95 },
     { label: "Gemini (5h)", used: 500, total: 1000, remainingPercentage: 50 },
@@ -1213,16 +1310,18 @@ test("QuotaService - Antigravity account normalizes to only the 4 summary bucket
     "gemini (weekly)",
     "claude & gpt (5h)",
     "claude & gpt (weekly)",
+    "gemini 4 argon (5h)",
+    "gemini 4 argon (weekly)",
   ];
   const filtered = simulatedQuotas.filter((q) =>
     allowedLabels.some((l) => q.label.toLowerCase() === l)
   );
   const sorted = sortNormalizedQuotas("antigravity", filtered);
 
-  assert.equal(sorted.length, 4);
+  assert.equal(sorted.length, 5);
   assert.deepEqual(
     sorted.map((q) => q.label),
-    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)"]
+    ["Gemini (5h)", "Gemini (Weekly)", "Claude & GPT (5h)", "Claude & GPT (Weekly)", "Gemini 4 Argon (Weekly)"]
   );
 
   ProviderRepository.deleteAccount(accId);

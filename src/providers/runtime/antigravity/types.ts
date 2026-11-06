@@ -1,7 +1,7 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 
-export const ANTIGRAVITY_IDE_VERSION = "2.28.0";
-export const ANTIGRAVITY_USER_AGENT = "antigravity/hub/2.28.0 darwin/arm64";
+export const ANTIGRAVITY_IDE_VERSION = "2.29.0";
+export const ANTIGRAVITY_USER_AGENT = "antigravity/hub/2.29.0 darwin/arm64";
 export const ANTIGRAVITY_LOAD_PROJECT_URL = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 export const ANTIGRAVITY_QUOTA_MODELS_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 export const ANTIGRAVITY_QUOTA_SUMMARY_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
@@ -45,6 +45,11 @@ export const CLIENT_METADATA = {
 
 export const GROUP_CONFIGS = [
   {
+    pattern: /argon/i,
+    weekly: { key: "gemini_4_argon_weekly", displayName: "Gemini 4 Argon (Weekly)" },
+    session: { key: "gemini_4_argon_session", displayName: "Gemini 4 Argon (5h)" },
+  },
+  {
     pattern: /gemini/i,
     weekly: { key: "gemini_weekly", displayName: "Gemini (Weekly)" },
     session: { key: "gemini_session", displayName: "Gemini (5h)" },
@@ -57,6 +62,10 @@ export const GROUP_CONFIGS = [
 ];
 
 export const IMPORTANT_MODELS = [
+  "gemini-4-argon-high",
+  "gemini-4-argon-medium",
+  "gemini-4-argon-low",
+  "gemini-4-argon",
   "gemini-3.8-flash-high",
   "gemini-3.8-flash-medium",
   "gemini-3.8-flash-low",

@@ -6,7 +6,9 @@ export const metadata: ProviderRegistryItem = {
       "Gemini (5h)",
       "Gemini (Weekly)",
       "Claude & GPT (5h)",
-      "Claude & GPT (Weekly)"
+      "Claude & GPT (Weekly)",
+      "Gemini 4 Argon (Weekly)",
+      "Gemini 4 Argon (5h)"
   ],
   "id": "antigravity",
   "name": "Antigravity",
@@ -28,7 +30,7 @@ export const metadata: ProviderRegistryItem = {
   "validateUrl": "",
   "format": "antigravity",
   "defaultHeaders": {
-    "User-Agent": "antigravity/hub/2.28.0 darwin/arm64"
+    "User-Agent": "antigravity/hub/2.29.0 darwin/arm64"
   },
   "thinkingMode": "auto",
   "oauth": {
@@ -46,7 +48,7 @@ export const metadata: ProviderRegistryItem = {
     "apiVersion": "v1internal",
     "loadCodeAssistEndpoint": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
     "onboardUserEndpoint": "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
-    "loadCodeAssistUserAgent": "antigravity/hub/2.28.0 darwin/arm64",
+    "loadCodeAssistUserAgent": "antigravity/hub/2.29.0 darwin/arm64",
     "refreshLeadMs": 300000
   }
 ,

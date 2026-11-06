@@ -129,12 +129,19 @@ export async function getAntigravityUsage(
     try {
       const weeklyQuotas = await fetchAntigravityWeeklyQuota(accessToken, projectId, options);
       if (isFreeTier) {
-        for (const k of ["gemini_weekly", "claude_gpt_weekly"]) {
+        for (const k of ["gemini_weekly", "claude_gpt_weekly", "gemini_4_argon_weekly", "gemini_4_argon_session"]) {
           if (weeklyQuotas[k]) quotas[k] = weeklyQuotas[k];
         }
       } else {
         reconcileModelQuotasIntoWeekly(modelQuotas, weeklyQuotas);
-        for (const key of ["gemini_session", "gemini_weekly", "claude_gpt_session", "claude_gpt_weekly"]) {
+        for (const key of [
+          "gemini_session",
+          "gemini_weekly",
+          "claude_gpt_session",
+          "claude_gpt_weekly",
+          "gemini_4_argon_session",
+          "gemini_4_argon_weekly",
+        ]) {
           if (weeklyQuotas[key]) quotas[key] = weeklyQuotas[key];
         }
       }
@@ -156,7 +163,7 @@ function reconcileModelQuotasIntoWeekly(
   weeklyQuotas: Record<string, RawQuotaBucket>
 ): void {
   const entries = Object.entries(modelQuotas);
-  const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image"));
+  const geminiModels = entries.filter(([k]) => k.startsWith("gemini-") && !k.includes("image") && !k.includes("argon"));
   const claudeModels = entries.filter(([k]) => k.startsWith("claude-"));
 
   if (!weeklyQuotas.gemini_session && geminiModels.length > 0) {
