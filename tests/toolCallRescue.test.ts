@@ -83,6 +83,20 @@ test("toolCallRescue - XML-style with parameters key and multiple blocks", () =>
   assert.equal(r.calls?.length, 2);
 });
 
+test("toolCallRescue - MiMo function and parameter dialect", () => {
+  const text =
+    '<tool_call><function=execute_pwsh><parameter=command>Get-ChildItem -Path "src"<parameter=description>Đếm file</tool_call>';
+  const r = rescueInlineToolCalls(text, new Set(["execute_pwsh"]));
+  assert.equal(r.detected, true);
+  assert.equal(r.calls?.length, 1);
+  assert.equal(r.calls?.[0].name, "execute_pwsh");
+  assert.deepEqual(JSON.parse(r.calls?.[0].arguments || "{}"), {
+    command: 'Get-ChildItem -Path "src"',
+    description: "Đếm file",
+  });
+  assert.equal(r.cleanText, "");
+});
+
 test("toolCallRescue - truncated unclosed XML block", () => {
   const text = '<tool_call>{"name": "Read", "argum';
   const r = rescueInlineToolCalls(text, TOOLS);

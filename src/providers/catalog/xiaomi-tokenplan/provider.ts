@@ -4,6 +4,7 @@ import type { ProviderRequestContext } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getMimoUsage } from "../../runtime/mimo/quota.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
+import { rescueInlineToolCalls } from "../../../core/adapters/helpers/toolCallRescue.js";
 
 export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
@@ -68,6 +69,81 @@ export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
       }
     }
     return headers;
+  }
+
+  public transformResponseChunk(chunk: any, context: ProviderRequestContext): any {
+    if (!chunk?.choices?.length) return chunk;
+    const choice = chunk.choices[0];
+    const delta = choice?.delta;
+    if (!delta?.content || typeof delta.content !== "string") return chunk;
+
+    const ctx = context as any;
+    if (ctx._mimoBuffer === undefined) {
+      ctx._mimoBuffer = "";
+      ctx._mimoInToolCall = false;
+    }
+
+    const text = delta.content;
+    if (!ctx._mimoInToolCall && !text.includes("<tool_call>")) {
+      return chunk;
+    }
+
+    ctx._mimoBuffer += text;
+    if (ctx._mimoBuffer.includes("<tool_call>")) {
+      ctx._mimoInToolCall = true;
+      if (ctx._mimoBuffer.includes("</tool_call>")) {
+        const rescue = rescueInlineToolCalls(ctx._mimoBuffer, new Set());
+        ctx._mimoBuffer = "";
+        ctx._mimoInToolCall = false;
+        if (rescue.detected && rescue.calls && rescue.calls.length > 0) {
+          delta.tool_calls = rescue.calls.map((c, idx) => ({
+            index: idx,
+            id: `call_mimo_${Date.now()}_${idx}`,
+            type: "function",
+            function: {
+              name: c.name,
+              arguments: c.arguments,
+            },
+          }));
+          delta.content = rescue.cleanText || null;
+          if (choice.finish_reason === "stop") {
+            choice.finish_reason = "tool_calls";
+          }
+          return chunk;
+        }
+      } else {
+        const startIdx = ctx._mimoBuffer.indexOf("<tool_call>");
+        const before = ctx._mimoBuffer.slice(0, startIdx);
+        delta.content = before || null;
+        return chunk;
+      }
+    }
+
+    return chunk;
+  }
+
+  public transformResponseBody(body: any, _context: ProviderRequestContext): any {
+    if (!body || typeof body !== "object") return body;
+    const choice = body.choices?.[0];
+    const msg = choice?.message;
+    if (msg?.content && typeof msg.content === "string" && msg.content.includes("<tool_call>")) {
+      const rescue = rescueInlineToolCalls(msg.content, new Set());
+      if (rescue.detected && rescue.calls && rescue.calls.length > 0) {
+        msg.tool_calls = rescue.calls.map((c, idx) => ({
+          id: `call_mimo_${Date.now()}_${idx}`,
+          type: "function",
+          function: {
+            name: c.name,
+            arguments: c.arguments,
+          },
+        }));
+        msg.content = rescue.cleanText || null;
+        if (choice.finish_reason === "stop" || !choice.finish_reason) {
+          choice.finish_reason = "tool_calls";
+        }
+      }
+    }
+    return body;
   }
 }
 

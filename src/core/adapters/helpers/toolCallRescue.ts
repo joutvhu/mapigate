@@ -101,13 +101,13 @@ export function extractBalancedJson(
   return null;
 }
 
-const isKnownTool = (name: string, toolNames: Set<string>): boolean =>
-  toolNames.has(name);
+const isKnownTool = (name: string, toolNames?: Set<string>): boolean =>
+  toolNames !== undefined ? (toolNames.size === 0 ? false : toolNames.has(name)) : true;
 
 /** Parse `{"name": ..., "arguments"|"parameters": ...}` into a call. */
-function callFromNamedJson(
+export function callFromNamedJson(
   json: string,
-  toolNames: Set<string>
+  toolNames?: Set<string>
 ): RescuedToolCall | null {
   let obj: unknown;
   try {
@@ -222,6 +222,59 @@ function parseFunctionTagDialect(
   return { calls: parsedAll && calls.length > 0 ? calls : null, cleanText: clean.trim() };
 }
 
+export function parseMimoFunctionAndParameters(
+  inner: string,
+  toolNames?: Set<string>
+): RescuedToolCall | null {
+  const fnMatch = /<function=([A-Za-z0-9_.-]+)>/i.exec(inner);
+  if (!fnMatch) return null;
+  const name = fnMatch[1].trim();
+  if (toolNames && toolNames.size > 0 && !toolNames.has(name)) {
+    return null;
+  }
+
+  const afterFn = inner.slice(fnMatch.index + fnMatch[0].length);
+  const paramRegex = /<parameter=([A-Za-z0-9_.-]+)>/gi;
+  const paramMatches: Array<{ key: string; start: number; end: number }> = [];
+
+  let pm: RegExpExecArray | null;
+  while ((pm = paramRegex.exec(afterFn)) !== null) {
+    paramMatches.push({
+      key: pm[1].trim(),
+      start: pm.index + pm[0].length,
+      end: pm.index,
+    });
+  }
+
+  const argsObj: Record<string, any> = {};
+  for (let i = 0; i < paramMatches.length; i++) {
+    const curr = paramMatches[i];
+    const nextStart = i + 1 < paramMatches.length ? paramMatches[i + 1].end : afterFn.length;
+    const rawVal = afterFn.slice(curr.start, nextStart).trim();
+    let val: any = rawVal;
+    if (
+      (rawVal.startsWith("{") && rawVal.endsWith("}")) ||
+      (rawVal.startsWith("[") && rawVal.endsWith("]")) ||
+      rawVal === "true" ||
+      rawVal === "false" ||
+      rawVal === "null" ||
+      (!isNaN(Number(rawVal)) && rawVal !== "")
+    ) {
+      try {
+        val = JSON.parse(rawVal);
+      } catch {
+        val = rawVal;
+      }
+    }
+    argsObj[curr.key] = val;
+  }
+
+  return {
+    name,
+    arguments: JSON.stringify(argsObj),
+  };
+}
+
 /** Dialect 3: <tool_call>{...}</tool_call> XML-JSON blocks. */
 function parseXmlDialect(
   text: string,
@@ -231,18 +284,20 @@ function parseXmlDialect(
   let parsedAll = true;
   const re = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/g;
   let m: RegExpExecArray | null;
-  let clean = text;
   const matches: string[] = [];
 
   while ((m = re.exec(text)) !== null) {
     matches.push(m[1]);
   }
   for (const inner of matches) {
-    const call = callFromNamedJson(inner, toolNames);
+    let call = callFromNamedJson(inner, toolNames);
+    if (!call) {
+      call = parseMimoFunctionAndParameters(inner, toolNames);
+    }
     if (call) calls.push(call);
     else parsedAll = false;
   }
-  clean = clean.replace(re, "");
+  let clean = text.replace(/<tool_call>\s*[\s\S]*?\s*<\/tool_call>/g, "");
   if (/<tool_call>/.test(clean)) {
     parsedAll = false;
     clean = clean.replace(/<tool_call>[\s\S]*$/, "");
@@ -271,12 +326,12 @@ export function rescueInlineToolCalls(
       const { calls, cleanText } = parseTokenDialect(text, toolNames);
       return { detected: true, calls, cleanText };
     }
-    if (text.includes("<function=")) {
-      const { calls, cleanText } = parseFunctionTagDialect(text, toolNames);
-      return { detected: true, calls, cleanText };
-    }
     if (text.includes("<tool_call>")) {
       const { calls, cleanText } = parseXmlDialect(text, toolNames);
+      return { detected: true, calls, cleanText };
+    }
+    if (text.includes("<function=")) {
+      const { calls, cleanText } = parseFunctionTagDialect(text, toolNames);
       return { detected: true, calls, cleanText };
     }
 
