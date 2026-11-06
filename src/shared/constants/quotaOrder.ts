@@ -10,7 +10,6 @@ const FALLBACK_QUOTA_ORDER_MAP: Record<string, string[]> = {
     "Claude & GPT (5h)",
     "Claude & GPT (Weekly)",
     "Gemini 4 Argon (Weekly)",
-    "Gemini 4 Argon (5h)",
   ],
   github: [
     "Chat",

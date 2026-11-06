@@ -174,7 +174,6 @@ export class QuotaService {
               "gemini_weekly",
               "claude_gpt_session",
               "claude_gpt_weekly",
-              "gemini_4_argon_session",
               "gemini_4_argon_weekly",
             ];
             const allowedLabels = [
@@ -182,7 +181,6 @@ export class QuotaService {
               "gemini (weekly)",
               "claude & gpt (5h)",
               "claude & gpt (weekly)",
-              "gemini 4 argon (5h)",
               "gemini 4 argon (weekly)",
             ];
             const isAllowed =

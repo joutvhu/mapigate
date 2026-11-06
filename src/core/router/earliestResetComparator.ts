@@ -81,12 +81,10 @@ export function getAntigravityMetrics(
 
   if (isArgonModel) {
     weeklyBucket = quotas.find((q) => /argon/i.test(q.label) && /weekly/i.test(q.label));
-    sessionBucket = quotas.find((q) => /argon/i.test(q.label) && /5h|session|daily/i.test(q.label));
+    // Argon only has weekly limit upstream, so sessionBucket remains undefined.
     // Fallback to standard Gemini weekly/session if account has no dedicated Argon quota
     if (!weeklyBucket) {
       weeklyBucket = quotas.find((q) => /gemini/i.test(q.label) && !/argon/i.test(q.label) && /weekly/i.test(q.label));
-    }
-    if (!sessionBucket) {
       sessionBucket = quotas.find((q) => /gemini/i.test(q.label) && !/argon/i.test(q.label) && /5h|session|daily/i.test(q.label));
     }
   } else if (isClaudeGptModel) {

@@ -7,8 +7,7 @@ export const metadata: ProviderRegistryItem = {
       "Gemini (Weekly)",
       "Claude & GPT (5h)",
       "Claude & GPT (Weekly)",
-      "Gemini 4 Argon (Weekly)",
-      "Gemini 4 Argon (5h)"
+      "Gemini 4 Argon (Weekly)"
   ],
   "id": "antigravity",
   "name": "Antigravity",

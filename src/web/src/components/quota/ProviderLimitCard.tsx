@@ -67,7 +67,6 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
         "gemini (weekly)",
         "claude & gpt (5h)",
         "claude & gpt (weekly)",
-        "gemini 4 argon (5h)",
         "gemini 4 argon (weekly)",
       ];
       const filtered = list.filter((q) =>

@@ -1310,7 +1310,6 @@ test("QuotaService - Antigravity account normalizes to only the 4 summary bucket
     "gemini (weekly)",
     "claude & gpt (5h)",
     "claude & gpt (weekly)",
-    "gemini 4 argon (5h)",
     "gemini 4 argon (weekly)",
   ];
   const filtered = simulatedQuotas.filter((q) =>

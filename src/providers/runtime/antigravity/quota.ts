@@ -129,7 +129,7 @@ export async function getAntigravityUsage(
     try {
       const weeklyQuotas = await fetchAntigravityWeeklyQuota(accessToken, projectId, options);
       if (isFreeTier) {
-        for (const k of ["gemini_weekly", "claude_gpt_weekly", "gemini_4_argon_weekly", "gemini_4_argon_session"]) {
+        for (const k of ["gemini_weekly", "claude_gpt_weekly", "gemini_4_argon_weekly"]) {
           if (weeklyQuotas[k]) quotas[k] = weeklyQuotas[k];
         }
       } else {
@@ -139,7 +139,6 @@ export async function getAntigravityUsage(
           "gemini_weekly",
           "claude_gpt_session",
           "claude_gpt_weekly",
-          "gemini_4_argon_session",
           "gemini_4_argon_weekly",
         ]) {
           if (weeklyQuotas[key]) quotas[key] = weeklyQuotas[key];

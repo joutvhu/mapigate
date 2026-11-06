@@ -43,11 +43,14 @@ export const CLIENT_METADATA = {
   pluginType: PLUGIN_TYPE.GEMINI,
 };
 
-export const GROUP_CONFIGS = [
+export const GROUP_CONFIGS: Array<{
+  pattern: RegExp;
+  weekly: { key: string; displayName: string };
+  session?: { key: string; displayName: string };
+}> = [
   {
     pattern: /argon/i,
     weekly: { key: "gemini_4_argon_weekly", displayName: "Gemini 4 Argon (Weekly)" },
-    session: { key: "gemini_4_argon_session", displayName: "Gemini 4 Argon (5h)" },
   },
   {
     pattern: /gemini/i,
