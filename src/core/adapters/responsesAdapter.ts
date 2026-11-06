@@ -265,7 +265,7 @@ export function createResponsesStreamState(requestId?: string, toolNames?: Set<s
     completedSent: false,
     responsesUsage: null,
     completionPending: false,
-    toolRescuer: createStreamToolCallRescuer(toolNames),
+    toolRescuer: toolNames ? createStreamToolCallRescuer(toolNames) : undefined,
   };
 }
 
@@ -616,27 +616,32 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
     }
 
     if (content) {
-      const rescuer = (state.toolRescuer ||= createStreamToolCallRescuer());
-      const { calls, cleanText } = rescuer.feed(content);
-      if (calls.length > 0) {
-        closeReasoning(state, emit);
-        closeMessage(state, emit, idx);
-        for (const c of calls) {
-          const tcIdx = ((state as any)._rescuedToolIdx = ((state as any)._rescuedToolIdx || 0) + 1);
-          const callId = `call_${Date.now()}_${tcIdx}`;
-          emitToolCall(state, emit, {
-            index: tcIdx,
-            id: callId,
-            function: {
-              name: c.name,
-              arguments: c.arguments,
-            },
-          });
+      if (state.toolRescuer) {
+        const rescuer = state.toolRescuer;
+        const { calls, cleanText } = rescuer.feed(content);
+        if (calls.length > 0) {
+          closeReasoning(state, emit);
+          closeMessage(state, emit, idx);
+          for (const c of calls) {
+            const tcIdx = ((state as any)._rescuedToolIdx = ((state as any)._rescuedToolIdx || 0) + 1);
+            const callId = `call_${Date.now()}_${tcIdx}`;
+            emitToolCall(state, emit, {
+              index: tcIdx,
+              id: callId,
+              function: {
+                name: c.name,
+                arguments: c.arguments,
+              },
+            });
+          }
         }
-      }
-      if (cleanText) {
+        if (cleanText) {
+          closeReasoning(state, emit);
+          emitTextContent(state, emit, idx, cleanText);
+        }
+      } else {
         closeReasoning(state, emit);
-        emitTextContent(state, emit, idx, cleanText);
+        emitTextContent(state, emit, idx, content);
       }
     }
   }

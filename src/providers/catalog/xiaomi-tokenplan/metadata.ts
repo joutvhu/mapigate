@@ -28,6 +28,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "validateUrl": "https://token-plan-sgp.xiaomimimo.com/v1/models",
   "format": "claude",
+  "rescueInlineTools": true,
   "defaultHeaders": {},
   "thinkingMode": "auto",
   "regions": [

@@ -31,6 +31,7 @@ export const metadata: ProviderRegistryItem = {
   ],
   "validateUrl": "https://api.xiaomimimo.com/v1/models",
   "format": "openai",
+  "rescueInlineTools": true,
   "defaultHeaders": {},
   "thinkingMode": "auto",
   "regions": [

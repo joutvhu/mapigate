@@ -49,13 +49,15 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
         }
 
         const lastMsg = anthropicMessages[anthropicMessages.length - 1];
-        if (
-          lastMsg &&
-          lastMsg.role === "user" &&
-          Array.isArray(lastMsg.content) &&
-          lastMsg.content.every((b: any) => b.type === "tool_result")
-        ) {
-          lastMsg.content.push(toolResultBlock);
+        if (lastMsg && lastMsg.role === "user") {
+          if (Array.isArray(lastMsg.content)) {
+            lastMsg.content.push(toolResultBlock);
+          } else {
+            const existingText = typeof lastMsg.content === "string" ? lastMsg.content : "";
+            lastMsg.content = existingText
+              ? [{ type: "text", text: existingText }, toolResultBlock]
+              : [toolResultBlock];
+          }
         } else {
           anthropicMessages.push({
             role: "user",

@@ -11,6 +11,7 @@ import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/core/types.js";
 import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
 import { reasoningCache } from "../../../core/caching/reasoningCache.js";
+import { getRegistryProvider } from "../../../providers/core/metadataRegistry.js";
 
 function ensureStreamToolCallIds(chunk: any, seenIds: Map<number, string>): boolean {
   if (!chunk?.choices?.length) return false;
@@ -56,10 +57,18 @@ export async function pipeSseStream(
   const requestTools = context.req?.body?.tools || context.body?.tools;
   const toolSchemas = toolSchemaMap(requestTools);
   const toolNameSet = new Set(toolSchemas.keys());
+
+  const regMeta = provider?.id ? getRegistryProvider(provider.id) : undefined;
+  const shouldRescue = Boolean(
+    (context.provider as any)?.rescueInlineTools ?? regMeta?.rescueInlineTools
+  );
+  const rescueToolNames = shouldRescue ? toolNameSet : undefined;
+
   const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
-  const responsesState = clientFormat === "responses" ? createResponsesStreamState(requestId, toolNameSet) : null;
+  const responsesState =
+    clientFormat === "responses" ? createResponsesStreamState(requestId, rescueToolNames) : null;
   const seenToolCallIds = new Map<number, string>();
-  const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState(toolNameSet);
+  const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState(rescueToolNames);
   const decoder = new TextDecoder();
   let buffer = "";
   let currentEventName = "";

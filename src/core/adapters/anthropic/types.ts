@@ -48,6 +48,6 @@ export function createAnthropicToOpenAiState(toolNames?: Set<string>): Anthropic
     promptTokens: 0,
     cachedTokens: 0,
     cacheCreationTokens: 0,
-    toolRescuer: createStreamToolCallRescuer(toolNames),
+    toolRescuer: toolNames ? createStreamToolCallRescuer(toolNames) : undefined,
   };
 }

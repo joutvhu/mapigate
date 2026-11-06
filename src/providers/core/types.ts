@@ -79,6 +79,7 @@ export interface ProviderRegistryItem {
   thinkingOptions?: string[];
   regions?: ProviderRegion[];
   defaultRegion?: string;
+  rescueInlineTools?: boolean;
   supportedFormats?: Array<{ value: string; label: string } | string>;
   credentialForm?: "aws" | string;
   apiKeyOptionalWith?: string;

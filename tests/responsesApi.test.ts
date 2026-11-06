@@ -352,7 +352,7 @@ describe("Responses API Adapter & Endpoints", () => {
         "../src/core/adapters/responsesAdapter.js"
       );
 
-      const state = createResponsesStreamState("req-test-mimo-rescue");
+      const state = createResponsesStreamState("req-test-mimo-rescue", new Set(["read_file", "execute_pwsh"]));
       // Chunk containing MiMo inline tool calls
       const chunk = {
         choices: [

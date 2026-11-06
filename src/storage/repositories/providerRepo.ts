@@ -57,6 +57,7 @@ export class ProviderRepository {
     regions?: ProviderRegion[];
     defaultRegion?: string;
     supportedFormats?: Array<{ value: string; label: string } | string>;
+    rescueInlineTools?: boolean;
     hasProviderSpecificData?: boolean;
     category?: string;
   }) | undefined {
@@ -135,6 +136,7 @@ export class ProviderRepository {
       regions: reg?.regions,
       defaultRegion: reg?.defaultRegion,
       supportedFormats: reg?.supportedFormats,
+      rescueInlineTools: reg?.rescueInlineTools,
       hasProviderSpecificData: reg?.hasProviderSpecificData,
     };
   }
