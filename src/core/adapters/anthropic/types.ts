@@ -41,13 +41,13 @@ export function createStreamState(messageId?: string, tools?: any[]): AnthropicS
   };
 }
 
-export function createAnthropicToOpenAiState(): AnthropicToOpenAiStreamState {
+export function createAnthropicToOpenAiState(toolNames?: Set<string>): AnthropicToOpenAiStreamState {
   return {
     toolCallIndex: 0,
     blockIndexToToolCallIndex: new Map(),
     promptTokens: 0,
     cachedTokens: 0,
     cacheCreationTokens: 0,
-    toolRescuer: createStreamToolCallRescuer(),
+    toolRescuer: createStreamToolCallRescuer(toolNames),
   };
 }

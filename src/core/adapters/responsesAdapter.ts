@@ -239,7 +239,7 @@ export interface ResponsesStreamState {
   toolRescuer?: StreamToolCallRescuer;
 }
 
-export function createResponsesStreamState(requestId?: string): ResponsesStreamState {
+export function createResponsesStreamState(requestId?: string, toolNames?: Set<string>): ResponsesStreamState {
   return {
     seq: 0,
     started: false,
@@ -265,7 +265,7 @@ export function createResponsesStreamState(requestId?: string): ResponsesStreamS
     completedSent: false,
     responsesUsage: null,
     completionPending: false,
-    toolRescuer: createStreamToolCallRescuer(),
+    toolRescuer: createStreamToolCallRescuer(toolNames),
   };
 }
 

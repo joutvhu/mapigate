@@ -443,8 +443,8 @@ export function createStreamToolCallRescuer(toolNames?: Set<string>): StreamTool
       if (inBlock) {
         inBlock = false;
         const call = parseAnyToolBlock(buffer, toolNames);
-        buffer = "";
         if (call) {
+          buffer = "";
           return { calls: [call], cleanText: null };
         }
       }

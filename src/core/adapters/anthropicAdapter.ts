@@ -40,8 +40,8 @@ export class AnthropicAdapter {
   /**
    * Create a state tracker for Anthropic -> OpenAI streaming
    */
-  public static createAnthropicToOpenAiState(): AnthropicToOpenAiStreamState {
-    return createAnthropicToOpenAiState();
+  public static createAnthropicToOpenAiState(toolNames?: Set<string>): AnthropicToOpenAiStreamState {
+    return createAnthropicToOpenAiState(toolNames);
   }
 
   /**

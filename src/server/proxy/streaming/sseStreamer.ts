@@ -55,10 +55,11 @@ export async function pipeSseStream(
   const state = createStreamTrackingState(rtkStats.compressedTokens || 0);
   const requestTools = context.req?.body?.tools || context.body?.tools;
   const toolSchemas = toolSchemaMap(requestTools);
+  const toolNameSet = new Set(toolSchemas.keys());
   const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
-  const responsesState = clientFormat === "responses" ? createResponsesStreamState(requestId) : null;
+  const responsesState = clientFormat === "responses" ? createResponsesStreamState(requestId, toolNameSet) : null;
   const seenToolCallIds = new Map<number, string>();
-  const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState();
+  const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState(toolNameSet);
   const decoder = new TextDecoder();
   let buffer = "";
   let currentEventName = "";
