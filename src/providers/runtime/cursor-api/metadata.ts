@@ -20,11 +20,12 @@ export const metadata: ProviderRegistryItem = {
   },
   category: "apikey",
   authType: "apikey",
-  baseUrl: "https://api2.cursor.sh",
+  baseUrl: "https://api.cursor.com",
   baseUrls: [
+    "https://api.cursor.com",
     "https://api2.cursor.sh",
   ],
-  validateUrl: "",
+  validateUrl: "https://api.cursor.com/v1/models",
   format: "openai",
   defaultHeaders: {
     "content-type": "application/json",

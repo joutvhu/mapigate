@@ -45,7 +45,7 @@ test("Cursor API Provider - Metadata & Registry Configuration", () => {
   assert.equal(cua.website, "https://cursor.com/dashboard/api");
   assert.equal(cua.category, "apikey");
   assert.equal(cua.authType, "apikey");
-  assert.equal(cua.baseUrl, "https://api2.cursor.sh");
+  assert.equal(cua.baseUrl, "https://api.cursor.com");
   assert.equal(cua.format, "openai");
   assert.equal(cua.passthroughModels, true);
 
@@ -257,3 +257,24 @@ test("Cursor API Provider - Header Injection & Auth Refresh on 401", async () =>
   assert.ok(fs.existsSync(iconPath), "cursor-api icon.png must exist");
   assert.ok(fs.statSync(iconPath).size > 0, "cursor-api icon.png must be non-empty");
 });
+
+test("Cursor API Provider - probeModels handles live models and exchange fallback", async () => {
+  const provider = new CursorApiProvider();
+
+  // Empty key fails fast
+  const emptyRes = await provider.probeModels({
+    apiKey: "",
+    account: { id: "acc_empty", name: "Empty", rawApiKey: "" } as any,
+  });
+  assert.equal(emptyRes?.success, false);
+  assert.match(emptyRes?.error || "", /Cursor API key is required/);
+
+  // Invalid key fails with authError
+  const invalidRes = await provider.probeModels({
+    apiKey: "crsr_invalid_key_testing_123",
+    account: { id: "acc_inv", name: "Invalid", rawApiKey: "crsr_invalid_key_testing_123" } as any,
+  });
+  assert.equal(invalidRes?.success, false);
+  assert.ok(invalidRes?.authError);
+});
+
