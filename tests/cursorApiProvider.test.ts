@@ -11,25 +11,15 @@ import {
 import { ProviderRegistry } from "../src/providers/core/registry.js";
 import {
   isCursorApiKey,
-  readJwtExpiryMs,
-  exchangeCursorApiKey,
-  resolveCursorSessionToken,
-  invalidateCursorSessionToken,
-  __resetCursorApiKeyAuthForTest,
-  CursorApiKeyExchangeError,
-  CURSOR_API_KEY_EXCHANGE_URL,
-  REFRESH_SKEW_MS,
+  buildCursorApiAuthHeaders,
+  verifyCursorApiKey,
+  CursorApiAuthError,
+  CURSOR_API_BASE_URL,
+  CURSOR_API_VERIFY_PATH,
+  CURSOR_API_MODELS_PATH,
 } from "../src/providers/runtime/cursor-api/auth.js";
 import { CursorApiProvider } from "../src/providers/runtime/cursor-api/provider.js";
 import type { ProviderRequestContext } from "../src/providers/core/types.js";
-
-function makeFakeJwt(expSeconds: number): string {
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(
-    JSON.stringify({ sub: "user-123", exp: expSeconds, type: "api_key_token" })
-  ).toString("base64url");
-  return `${header}.${payload}.fake-sig`;
-}
 
 test("Cursor API Provider - Metadata & Registry Configuration", () => {
   const cua = PROVIDER_REGISTRY["cursor-api"];
@@ -46,6 +36,8 @@ test("Cursor API Provider - Metadata & Registry Configuration", () => {
   assert.equal(cua.category, "apikey");
   assert.equal(cua.authType, "apikey");
   assert.equal(cua.baseUrl, "https://api.cursor.com");
+  assert.deepEqual(cua.baseUrls, ["https://api.cursor.com"]);
+  assert.equal(cua.validateUrl, "https://api.cursor.com/v1/models");
   assert.equal(cua.format, "openai");
   assert.equal(cua.passthroughModels, true);
 
@@ -83,149 +75,76 @@ test("Cursor API Provider - Resolution by ID and Aliases", () => {
   assert.equal(runtimeInstance.id, "cursor-api");
 });
 
-test("Cursor API Provider - Auth Validation & JWT Expiry Extraction", () => {
+test("Cursor API Provider - Official Auth & Header Building", () => {
   assert.equal(isCursorApiKey("crsr_abc123xyz"), true);
-  assert.equal(isCursorApiKey("crsr_"), true);
-  assert.equal(isCursorApiKey("sk-ant-api-key"), false);
+  assert.equal(isCursorApiKey("crsr_live_key"), true);
+  assert.equal(isCursorApiKey("key_service_account"), true);
   assert.equal(isCursorApiKey(""), false);
   assert.equal(isCursorApiKey(null), false);
   assert.equal(isCursorApiKey(undefined), false);
 
-  const expSec = Math.floor(Date.now() / 1000) + 3600;
-  const token = makeFakeJwt(expSec);
-  assert.equal(readJwtExpiryMs(token), expSec * 1000);
-  assert.equal(readJwtExpiryMs("invalid.token"), null);
-  assert.equal(readJwtExpiryMs("not-a-jwt"), null);
+  const headers = buildCursorApiAuthHeaders("crsr_test_123");
+  assert.equal(headers["Authorization"], "Bearer crsr_test_123");
+  assert.equal(headers["Content-Type"], "application/json");
+  assert.equal(headers["Accept"], "application/json");
+
+  const emptyHeaders = buildCursorApiAuthHeaders("");
+  assert.equal(emptyHeaders["Authorization"], undefined);
 });
 
-test("Cursor API Provider - Token Exchange Logic with Mock Fetch", async () => {
-  __resetCursorApiKeyAuthForTest();
-
+test("Cursor API Provider - verifyCursorApiKey against /v1/me", async () => {
   await assert.rejects(
     async () => {
-      await exchangeCursorApiKey("sk-invalid-key");
+      await verifyCursorApiKey("");
     },
-    (err: any) => err instanceof CursorApiKeyExchangeError && err.status === 400
+    (err: any) => err instanceof CursorApiAuthError && err.status === 400
   );
 
-  const targetExpSec = Math.floor(Date.now() / 1000) + 3600;
-  const fakeAccessToken = makeFakeJwt(targetExpSec);
-
-  const mockFetch: typeof fetch = async (url, init) => {
-    assert.equal(url, CURSOR_API_KEY_EXCHANGE_URL);
-    assert.equal(init?.method, "POST");
+  const mockSuccessFetch: typeof fetch = async (url, init) => {
+    assert.equal(url, `${CURSOR_API_BASE_URL}${CURSOR_API_VERIFY_PATH}`);
+    assert.equal(init?.method, "GET");
     assert.equal(
-      (init?.headers as Record<string, string>)?.authorization,
-      "Bearer crsr_test_key_123"
+      (init?.headers as Record<string, string>)?.Authorization,
+      "Bearer crsr_valid_test_key"
     );
     return new Response(
-      JSON.stringify({ accessToken: fakeAccessToken, refreshToken: "refresh-token-456" }),
+      JSON.stringify({
+        apiKeyName: "Test Key",
+        userId: 12345,
+        userEmail: "developer@example.com",
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   };
 
-  const exchanged = await exchangeCursorApiKey("crsr_test_key_123", {
-    fetchImpl: mockFetch as any,
+  const user = await verifyCursorApiKey("crsr_valid_test_key", {
+    fetchImpl: mockSuccessFetch as any,
   });
-  assert.equal(exchanged.accessToken, fakeAccessToken);
-  assert.equal(exchanged.refreshToken, "refresh-token-456");
-  assert.equal(exchanged.expiresAt, targetExpSec * 1000);
+  assert.equal(user.userId, 12345);
+  assert.equal(user.userEmail, "developer@example.com");
 
-  const rejectingFetch: typeof fetch = async () => {
+  const mockUnauthorizedFetch: typeof fetch = async () => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   };
   await assert.rejects(
     async () => {
-      await exchangeCursorApiKey("crsr_bad_key", { fetchImpl: rejectingFetch as any });
+      await verifyCursorApiKey("crsr_invalid_key", { fetchImpl: mockUnauthorizedFetch as any });
     },
-    (err: any) => err instanceof CursorApiKeyExchangeError && err.status === 401
+    (err: any) => err instanceof CursorApiAuthError && err.status === 401
+  );
+
+  const mockForbiddenFetch: typeof fetch = async () => {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+  };
+  await assert.rejects(
+    async () => {
+      await verifyCursorApiKey("crsr_free_key", { fetchImpl: mockForbiddenFetch as any });
+    },
+    (err: any) => err instanceof CursorApiAuthError && err.status === 403
   );
 });
 
-test("Cursor API Provider - Session Caching & Skew", async () => {
-  __resetCursorApiKeyAuthForTest();
-
-  let fetchCallCount = 0;
-  const targetExpSec = Math.floor(Date.now() / 1000) + 3600;
-  const fakeAccessToken = makeFakeJwt(targetExpSec);
-
-  const countingFetch: typeof fetch = async () => {
-    fetchCallCount++;
-    return new Response(
-      JSON.stringify({ accessToken: fakeAccessToken, refreshToken: null }),
-      { status: 200 }
-    );
-  };
-
-  const session1 = await resolveCursorSessionToken("crsr_cache_test", {
-    fetchImpl: countingFetch as any,
-  });
-  assert.equal(fetchCallCount, 1);
-  assert.equal(session1.accessToken, fakeAccessToken);
-
-  const session2 = await resolveCursorSessionToken("crsr_cache_test", {
-    fetchImpl: countingFetch as any,
-  });
-  assert.equal(fetchCallCount, 1);
-  assert.equal(session2.accessToken, fakeAccessToken);
-
-  const simulatedNearFuture = targetExpSec * 1000 - (REFRESH_SKEW_MS - 1000);
-  await resolveCursorSessionToken("crsr_cache_test", {
-    fetchImpl: countingFetch as any,
-    now: () => simulatedNearFuture,
-  });
-  assert.equal(fetchCallCount, 2);
-
-  invalidateCursorSessionToken("crsr_cache_test");
-  await resolveCursorSessionToken("crsr_cache_test", { fetchImpl: countingFetch as any });
-  assert.equal(fetchCallCount, 3);
-});
-
-test("Cursor API Provider - In-flight Deduplication", async () => {
-  __resetCursorApiKeyAuthForTest();
-
-  let fetchCallCount = 0;
-  const targetExpSec = Math.floor(Date.now() / 1000) + 3600;
-  const fakeAccessToken = makeFakeJwt(targetExpSec);
-
-  const delayedFetch: typeof fetch = async () => {
-    fetchCallCount++;
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    return new Response(
-      JSON.stringify({ accessToken: fakeAccessToken, refreshToken: null }),
-      { status: 200 }
-    );
-  };
-
-  const [res1, res2] = await Promise.all([
-    resolveCursorSessionToken("crsr_concurrent_key", { fetchImpl: delayedFetch as any }),
-    resolveCursorSessionToken("crsr_concurrent_key", { fetchImpl: delayedFetch as any }),
-  ]);
-
-  assert.equal(fetchCallCount, 1, "Concurrent requests must be deduplicated into 1 upstream call");
-  assert.equal(res1.accessToken, fakeAccessToken);
-  assert.equal(res2.accessToken, fakeAccessToken);
-});
-
-test("Cursor API Provider - Header Injection & Auth Refresh on 401", async () => {
-  __resetCursorApiKeyAuthForTest();
-
-  const targetExpSec = Math.floor(Date.now() / 1000) + 3600;
-  const fakeToken1 = makeFakeJwt(targetExpSec);
-  const fakeToken2 = makeFakeJwt(targetExpSec + 1000);
-  let exchangeCount = 0;
-
-  const mockFetch: typeof fetch = async () => {
-    exchangeCount++;
-    const token = exchangeCount === 1 ? fakeToken1 : fakeToken2;
-    return new Response(
-      JSON.stringify({ accessToken: token, refreshToken: null }),
-      { status: 200 }
-    );
-  };
-
-  await resolveCursorSessionToken("crsr_refresh_key", { fetchImpl: mockFetch as any });
-
+test("Cursor API Provider - Header Injection via Provider Context", async () => {
   const provider = new CursorApiProvider();
   const fakeContext: ProviderRequestContext = {
     req: { headers: {} } as any,
@@ -236,29 +155,20 @@ test("Cursor API Provider - Header Injection & Auth Refresh on 401", async () =>
       id: "acc_1",
       name: "Cursor Account",
       provider: "cursor-api",
-      rawApiKey: "crsr_refresh_key",
+      rawApiKey: "crsr_official_key",
     } as any,
   };
 
   const headers = await provider.buildHeaders(fakeContext);
-  assert.equal(headers["Authorization"], `Bearer ${fakeToken1}`);
+  assert.equal(headers["Authorization"], "Bearer crsr_official_key");
   assert.equal(headers["Content-Type"], "application/json");
-
-  const ignored = await provider.handleAuthRefresh(fakeContext, 500);
-  assert.equal(ignored, false);
-
-  invalidateCursorSessionToken("crsr_refresh_key");
-  const refreshedToken = await resolveCursorSessionToken("crsr_refresh_key", {
-    fetchImpl: mockFetch as any,
-  });
-  assert.equal(refreshedToken.accessToken, fakeToken2);
 
   const iconPath = path.resolve(process.cwd(), "src/providers/runtime/cursor-api/assets/icon.png");
   assert.ok(fs.existsSync(iconPath), "cursor-api icon.png must exist");
   assert.ok(fs.statSync(iconPath).size > 0, "cursor-api icon.png must be non-empty");
 });
 
-test("Cursor API Provider - probeModels handles live models and exchange fallback", async () => {
+test("Cursor API Provider - probeModels handles live models and auth checks", async () => {
   const provider = new CursorApiProvider();
 
   // Empty key fails fast
@@ -269,12 +179,11 @@ test("Cursor API Provider - probeModels handles live models and exchange fallbac
   assert.equal(emptyRes?.success, false);
   assert.match(emptyRes?.error || "", /Cursor API key is required/);
 
-  // Invalid key fails with authError
+  // Invalid key fails
   const invalidRes = await provider.probeModels({
     apiKey: "crsr_invalid_key_testing_123",
     account: { id: "acc_inv", name: "Invalid", rawApiKey: "crsr_invalid_key_testing_123" } as any,
   });
   assert.equal(invalidRes?.success, false);
-  assert.ok(invalidRes?.authError);
+  assert.ok(invalidRes?.error);
 });
-

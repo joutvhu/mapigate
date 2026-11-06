@@ -16,14 +16,13 @@ export const metadata: ProviderRegistryItem = {
   website: "https://cursor.com/dashboard/api",
   notice: {
     apiKeyUrl: "https://cursor.com/dashboard/api",
-    text: "Cursor User API Key (crsr_...) from cursor.com/dashboard/api. Keys are exchanged automatically for session tokens.",
+    text: "Cursor API Key (crsr_...) from cursor.com/dashboard/api. Direct REST API at api.cursor.com. Cloud Agents API requires a Pro/Business plan.",
   },
   category: "apikey",
   authType: "apikey",
   baseUrl: "https://api.cursor.com",
   baseUrls: [
     "https://api.cursor.com",
-    "https://api2.cursor.sh",
   ],
   validateUrl: "https://api.cursor.com/v1/models",
   format: "openai",
