@@ -62,17 +62,28 @@ export function extractSessionId(req?: any, body?: any): string | undefined {
 export function resolveTargetModelAndProvider(modelStr: string): {
   targetModel: string;
   providerId?: string;
+  targetTag?: string;
   is1mContext: boolean;
 } {
   const { model: cleanModelStr, is1mContext } = stripModelContextMarker(modelStr);
   const effective = cleanModelStr || modelStr;
   let targetModel = effective;
   let providerId: string | undefined;
+  let targetTag: string | undefined;
 
   if (effective.includes("/")) {
     const slash = effective.indexOf("/");
-    providerId = effective.slice(0, slash);
+    const rawProvider = effective.slice(0, slash);
     targetModel = effective.slice(slash + 1);
+
+    // Parse provider[tag] syntax, e.g. claude[pro] -> provider: claude, tag: pro
+    const tagMatch = rawProvider.match(/^([^\[\]]+)\[([^\[\]]+)\]$/);
+    if (tagMatch) {
+      providerId = tagMatch[1];
+      targetTag = tagMatch[2];
+    } else {
+      providerId = rawProvider;
+    }
   } else {
     const rules = ModelRepository.getAllRules();
     const resolved = new RuleEngine(rules).resolveModel(effective);
@@ -129,5 +140,5 @@ export function resolveTargetModelAndProvider(modelStr: string): {
       providerId = activeProviders[0]?.id;
     }
   }
-  return { targetModel, providerId, is1mContext: Boolean(is1mContext) };
+  return { targetModel, providerId, targetTag, is1mContext: Boolean(is1mContext) };
 }

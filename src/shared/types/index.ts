@@ -28,6 +28,7 @@ export interface ProviderAccount {
   id: string;
   providerId: string;
   name: string;
+  tag?: string;
   apiKeyEncrypted: string;
   isActive: boolean;
   rateLimitHits: number;

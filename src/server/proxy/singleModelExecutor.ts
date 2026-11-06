@@ -72,6 +72,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   const resolved = resolveTargetModelAndProvider(modelStr);
   let targetModel = resolved.targetModel;
   const providerId = resolved.providerId;
+  const targetTag = resolved.targetTag;
   const is1mContext = Boolean(optionIs1m || resolved.is1mContext);
 
   if (!providerId) {
@@ -127,6 +128,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     const account = LoadBalancer.pickAccount(targetProviderId, {
       excludeAccountIds: triedAccountIds,
       targetModel,
+      targetTag,
       prefixHash: prefixHash || undefined,
       sessionId,
     });

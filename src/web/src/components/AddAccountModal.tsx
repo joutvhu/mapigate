@@ -76,6 +76,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
 
   const [mode, setMode] = useState<"single" | "bulk">("single");
   const [accountName, setAccountName] = useState("");
+  const [tag, setTag] = useState("");
   const [apiKey, setApiKey] = useState("");
 
   // Specialized states
@@ -118,6 +119,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const resetForm = useCallback(() => {
     setMode("single");
     setAccountName("");
+    setTag("");
     setApiKey("");
     setOllamaHost("http://127.0.0.1:11434");
     setLocalHost(
@@ -276,7 +278,10 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       : `${provider.name} Account`;
 
     const name = accountName.trim() || defaultName;
-    const psd = buildProviderSpecificData();
+    const psd = buildProviderSpecificData() || {};
+    if (tag.trim()) {
+      psd.tag = tag.trim().toLowerCase();
+    }
 
     try {
       const res = await fetch(`/api/providers/${provider.id}/accounts`, {
@@ -285,7 +290,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         body: JSON.stringify({
           name,
           apiKey: apiKey.trim() || (pId === "opencode" || pId === "oc" ? "public" : ""),
-          providerSpecificData: psd,
+          providerSpecificData: Object.keys(psd).length > 0 ? psd : undefined,
         }),
       });
 
@@ -468,16 +473,57 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
         ) : (
           /* Single Mode */
           <div className="space-y-3.5 text-xs">
-            {/* Account Name */}
-            <div>
-              <label className="block text-slate-300 font-medium mb-1">Connection Label</label>
-              <input
-                type="text"
-                value={accountName}
-                onChange={(e) => setAccountName(e.target.value)}
-                placeholder={isOllamaLocal ? "Ollama Local" : isGenericLocal ? `${provider.name} Local` : isNoAuth ? "OpenCode Free" : "Primary Key (Production)"}
-                className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
-              />
+            {/* Account Name & Tag */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">Connection Label</label>
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  placeholder={isOllamaLocal ? "Ollama Local" : isGenericLocal ? `${provider.name} Local` : isNoAuth ? "OpenCode Free" : "Primary Key (Production)"}
+                  className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-slate-300 font-medium flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-[15px] text-blue-400">label</span>
+                    Group Tag
+                  </label>
+                  <span className="text-slate-500 text-[11px]">Optional • For grouping in Combos</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tag}
+                    onChange={(e) => setTag(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                    placeholder="e.g. pro, plus, free, team"
+                    className="w-full bg-[#0A0D14] border border-[#1E293B] text-slate-100 pl-3 pr-20 py-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                  />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                    {["pro", "plus", "free"].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        tabIndex={-1}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setTag(preset);
+                        }}
+                        className={`pointer-events-auto text-[10px] px-1.5 py-0.5 rounded font-mono transition-colors ${
+                          tag === preset
+                            ? "bg-blue-600 text-white font-semibold"
+                            : "bg-[#1E293B] text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Zero-Auth Free or Local Provider Notice */}

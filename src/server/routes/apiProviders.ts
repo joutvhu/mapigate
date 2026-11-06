@@ -9,6 +9,7 @@ import {
 import { scanProviderModels } from "../../core/scanner/modelScanner.js";
 import { testProviderConnection, testMultipleConnections } from "../../core/scanner/connectionTester.js";
 import { maskSensitivePsd } from "../../shared/utils/security.js";
+import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 import crypto from "node:crypto";
 
 export const providerRouter = Router();
@@ -458,15 +459,20 @@ providerRouter.get("/:id", (req, res) => {
   res.json({
     ...provider,
     accountsCount: accounts.length,
-    accounts: accounts.map((a) => ({
-      id: a.id,
-      name: a.name,
-      isActive: a.isActive,
-      rateLimitHits: a.rateLimitHits,
-      lastUsedAt: a.lastUsedAt,
-      sortOrder: a.sortOrder,
-      providerSpecificData: maskSensitivePsd(a.providerSpecificData),
-    })),
+    accounts: accounts.map((a) => {
+      const modelsSet = AccountModelRepository.getAccountModels(a.id);
+      return {
+        id: a.id,
+        name: a.name,
+        tag: a.tag || a.providerSpecificData?.tag,
+        supportedModelsCount: modelsSet ? modelsSet.size : null,
+        isActive: a.isActive,
+        rateLimitHits: a.rateLimitHits,
+        lastUsedAt: a.lastUsedAt,
+        sortOrder: a.sortOrder,
+        providerSpecificData: maskSensitivePsd(a.providerSpecificData),
+      };
+    }),
   });
 });
 
@@ -510,6 +516,11 @@ providerRouter.put("/:id/accounts/:accountId", (req, res) => {
       providerSpecificData: mergedPsd,
     });
 
+    // If API key was explicitly updated with a new non-empty key, clear cached models so account is fresh
+    if (apiKey !== undefined && apiKey !== existing.rawApiKey) {
+      AccountModelRepository.clearAccountModels(accountId);
+    }
+
     const updated = ProviderRepository.getAccountById(accountId);
     res.json({
       success: true,
@@ -535,6 +546,16 @@ providerRouter.put("/:id/accounts/:accountId/toggle", (req, res) => {
 providerRouter.delete("/:id/accounts/:accountId", (req, res) => {
   ProviderRepository.deleteAccount(req.params.accountId);
   res.json({ success: true });
+});
+
+// GET single account supported models
+providerRouter.get("/:id/accounts/:accountId/models", (req, res) => {
+  const modelsSet = AccountModelRepository.getAccountModels(req.params.accountId);
+  if (!modelsSet) {
+    res.json({ scanned: false, models: [] });
+    return;
+  }
+  res.json({ scanned: true, models: Array.from(modelsSet).sort() });
 });
 
 // PUT strategy and sticky limit

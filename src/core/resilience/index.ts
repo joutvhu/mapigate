@@ -10,6 +10,7 @@ import { ProviderCircuitBreaker, isInfrastructureError } from "./circuitBreaker.
 import { ConnectionCooldownManager, isTerminalError, calculateDecorrelatedJitter } from "./cooldownManager.js";
 import { ModelLockoutManager, isModelScopedError } from "./modelLockout.js";
 import { parseRateLimitHeaders } from "../../shared/utils/rateLimitParser.js";
+import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 import type {
   ResilienceSuccessOptions,
   ResilienceFailureOptions,
@@ -90,6 +91,9 @@ export function recordResilienceSuccess(opts: ResilienceSuccessOptions): void {
     cooldownManager.markSuccess(opts.accountId);
     if (opts.model) {
       modelLockoutManager.recordSuccess(opts.providerId, opts.accountId, opts.model);
+      try {
+        AccountModelRepository.addAccountModel(opts.accountId, opts.model);
+      } catch {}
     }
   }
 }

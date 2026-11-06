@@ -5,6 +5,7 @@ import { getCapabilitiesForModel } from "../capabilities/index.js";
 import { ensureFreshCredentials } from "../usage/tokenHelper.js";
 import { ProviderRegistry } from "../../providers/core/registry.js";
 import { resolveCandidateUrls } from "./urlResolver.js";
+import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 
 export { resolveCandidateUrls } from "./urlResolver.js";
 
@@ -195,10 +196,16 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
         if (!discoveredEndpointUrl && probeRes.endpointUrl) {
           discoveredEndpointUrl = probeRes.endpointUrl;
         }
+        const accountModelIds: string[] = [];
         for (const m of probeRes.models || []) {
           if (!modelsById.has(m.id)) {
             modelsById.set(m.id, m);
           }
+          accountModelIds.push(m.id);
+        }
+        // Persist account-specific supported models if not an ad-hoc explicit key
+        if (account.id && account.id !== "explicit" && !account.id.startsWith("acc_virtual") && accountModelIds.length > 0) {
+          AccountModelRepository.setAccountModels(account.id, accountModelIds);
         }
         scannedAccounts.push({ id: account.id, name: account.name });
       } else {

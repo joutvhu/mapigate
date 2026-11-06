@@ -22,6 +22,8 @@ interface ProviderDetailPageProps {
 interface ConnectionItem {
   id: string;
   name: string;
+  tag?: string;
+  supportedModelsCount?: number | null;
   isActive: boolean;
   order: number;
   providerSpecificData?: Record<string, any>;
@@ -67,6 +69,16 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingAccount, setEditingAccount] = useState<EditAccountData | null>(null);
+
+  // Account Models Viewer Modal State
+  const [viewingAccountModels, setViewingAccountModels] = useState<{
+    accountId: string;
+    accountName: string;
+    models: string[];
+    scanned: boolean;
+    loading: boolean;
+  } | null>(null);
+  const [modelFilterQuery, setModelFilterQuery] = useState("");
 
   const isCustomProvider = provider.category === "custom" || !registryItem;
 
@@ -167,6 +179,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             data.accounts.map((a: any, i: number) => ({
               id: a.id,
               name: a.name,
+              tag: a.tag || a.providerSpecificData?.tag,
+              supportedModelsCount: a.supportedModelsCount,
               isActive: a.isActive,
               order: a.sortOrder ?? i,
               providerSpecificData: a.providerSpecificData,
@@ -783,6 +797,69 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                         {isOAuth ? "lock" : "key"}
                       </span>
                       <span className="font-mono text-slate-200 truncate font-medium">{conn.name}</span>
+
+                      {/* Tag Chip - Prominent and readable */}
+                      {conn.tag ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-md bg-blue-500/15 text-blue-300 border border-blue-500/30 font-semibold tracking-wide shadow-sm">
+                          <span className="material-symbols-outlined text-[12px] text-blue-400">label</span>
+                          {conn.tag}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-slate-600 border border-dashed border-[#1E293B] px-1.5 py-0.5 rounded">
+                          no-tag
+                        </span>
+                      )}
+
+                      {/* Models Coverage Badge - Clickable to view full models */}
+                      {conn.supportedModelsCount != null ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewingAccountModels({
+                              accountId: conn.id,
+                              accountName: conn.name,
+                              models: [],
+                              scanned: true,
+                              loading: true,
+                            });
+                            setModelFilterQuery("");
+                            fetch(`/api/providers/${provider.id}/accounts/${conn.id}/models`)
+                              .then((r) => r.json())
+                              .then((res) => {
+                                setViewingAccountModels((prev) =>
+                                  prev && prev.accountId === conn.id
+                                    ? { ...prev, models: res.models || [], scanned: Boolean(res.scanned), loading: false }
+                                    : prev
+                                );
+                              })
+                              .catch(() => {
+                                setViewingAccountModels((prev) =>
+                                  prev && prev.accountId === conn.id ? { ...prev, loading: false } : prev
+                                );
+                              });
+                          }}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-md border font-medium cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] ${
+                            conn.supportedModelsCount >= (models.length || 1)
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-300 border-amber-500/20 hover:bg-amber-500/20"
+                          }`}
+                          title="Click to view verified models for this account"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">
+                            {conn.supportedModelsCount >= (models.length || 1) ? "check_circle" : "tune"}
+                          </span>
+                          {conn.supportedModelsCount} / {models.length} models
+                        </button>
+                      ) : (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono rounded-md bg-slate-800/80 text-slate-400 border border-slate-700/50"
+                          title="Account has not been scanned yet. Will fail-open and auto-learn when called."
+                        >
+                          <span className="material-symbols-outlined text-[12px] text-slate-500">help_outline</span>
+                          unscanned
+                        </span>
+                      )}
+
                       <span className={`rt-badge ${conn.isActive ? "rt-badge--success" : "rt-badge--muted"}`}>
                         {conn.isActive ? "● active" : "disabled"} • #{idx + 1}
                       </span>
@@ -1453,6 +1530,79 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         onClose={() => setEditingAccount(null)}
         onSave={handleSaveAccount}
       />
+
+      {/* Account Verified Models Popover / Modal */}
+      <PortalModal
+        isOpen={Boolean(viewingAccountModels)}
+        onClose={() => setViewingAccountModels(null)}
+        maxWidthClass="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">
+            <div>
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-400 text-[18px]">verified</span>
+                Verified Account Models
+              </h4>
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate max-w-xs">
+                {viewingAccountModels?.accountName}
+              </p>
+            </div>
+            <span className="px-2 py-0.5 text-[11px] font-mono rounded bg-blue-500/10 text-blue-400 font-semibold border border-blue-500/20">
+              {viewingAccountModels?.models.length || 0} models
+            </span>
+          </div>
+
+          {/* Search / Filter Input */}
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[16px]">
+              search
+            </span>
+            <input
+              type="text"
+              value={modelFilterQuery}
+              onChange={(e) => setModelFilterQuery(e.target.value)}
+              placeholder="Search supported models..."
+              className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-8 pr-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          {/* Model List */}
+          <div className="max-h-60 overflow-y-auto space-y-1 pr-1 font-mono text-xs">
+            {viewingAccountModels?.loading ? (
+              <div className="py-8 text-center text-slate-500 flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined animate-spin text-[16px]">sync</span>
+                Loading account models...
+              </div>
+            ) : viewingAccountModels?.models.length === 0 ? (
+              <div className="py-8 text-center text-slate-500">
+                No specific models registered for this account yet.
+              </div>
+            ) : (
+              viewingAccountModels?.models
+                .filter((m) => !modelFilterQuery || m.toLowerCase().includes(modelFilterQuery.toLowerCase()))
+                .map((m) => (
+                  <div
+                    key={m}
+                    className="flex items-center justify-between p-2 rounded-lg bg-[#0A0D14] border border-[#1E293B] hover:border-blue-500/30 text-slate-200"
+                  >
+                    <span className="truncate">{m}</span>
+                    <span className="text-[10px] text-emerald-400">ready</span>
+                  </div>
+                ))
+            )}
+          </div>
+
+          <div className="flex justify-end pt-2 border-t border-[#1E293B]">
+            <button
+              onClick={() => setViewingAccountModels(null)}
+              className="rt-btn rt-btn--secondary text-xs"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </PortalModal>
 
       {/* Confirm Delete Provider Modal */}
       {isCustomProvider && (

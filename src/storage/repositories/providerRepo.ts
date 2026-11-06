@@ -370,21 +370,25 @@ export class ProviderRepository {
       "SELECT * FROM provider_accounts ORDER BY provider_id ASC, sort_order ASC, created_at ASC, rowid ASC"
     );
 
-    return rows.map((r) => ({
-      id: r.id,
-      providerId: r.provider_id,
-      name: r.name,
-      apiKeyEncrypted: r.api_key_encrypted,
-      rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
-      isActive: Boolean(r.is_active),
-      rateLimitHits: r.rate_limit_hits,
-      sortOrder: r.sort_order ?? 0,
-      lastUsedAt: r.last_used_at,
-      createdAt: r.created_at,
-      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
-      cachedQuotas: r.cached_quotas || undefined,
-      quotaFetchedAt: r.quota_fetched_at || undefined,
-    }));
+    return rows.map((r) => {
+      const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+      return {
+        id: r.id,
+        providerId: r.provider_id,
+        name: r.name,
+        tag: psd?.tag || undefined,
+        apiKeyEncrypted: r.api_key_encrypted,
+        rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
+        isActive: Boolean(r.is_active),
+        rateLimitHits: r.rate_limit_hits,
+        sortOrder: r.sort_order ?? 0,
+        lastUsedAt: r.last_used_at,
+        createdAt: r.created_at,
+        providerSpecificData: psd,
+        cachedQuotas: r.cached_quotas || undefined,
+        quotaFetchedAt: r.quota_fetched_at || undefined,
+      };
+    });
   }
 
   public static bulkToggleAccounts(accountIds: string[], isActive: boolean): void {
@@ -444,21 +448,25 @@ export class ProviderRepository {
       ];
     }
 
-    return rows.map((r) => ({
-      id: r.id,
-      providerId: r.provider_id,
-      name: r.name,
-      apiKeyEncrypted: r.api_key_encrypted,
-      rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
-      isActive: Boolean(r.is_active),
-      rateLimitHits: r.rate_limit_hits,
-      sortOrder: r.sort_order ?? 0,
-      lastUsedAt: r.last_used_at,
-      createdAt: r.created_at,
-      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
-      cachedQuotas: r.cached_quotas || undefined,
-      quotaFetchedAt: r.quota_fetched_at || undefined,
-    }));
+    return rows.map((r) => {
+      const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+      return {
+        id: r.id,
+        providerId: r.provider_id,
+        name: r.name,
+        tag: psd?.tag || undefined,
+        apiKeyEncrypted: r.api_key_encrypted,
+        rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
+        isActive: Boolean(r.is_active),
+        rateLimitHits: r.rate_limit_hits,
+        sortOrder: r.sort_order ?? 0,
+        lastUsedAt: r.last_used_at,
+        createdAt: r.created_at,
+        providerSpecificData: psd,
+        cachedQuotas: r.cached_quotas || undefined,
+        quotaFetchedAt: r.quota_fetched_at || undefined,
+      };
+    });
   }
 
   public static getAccountsByProvider(providerId: string): (ProviderAccount & { rawApiKey: string })[] {
@@ -496,21 +504,25 @@ export class ProviderRepository {
       ];
     }
 
-    return rows.map((r) => ({
-      id: r.id,
-      providerId: r.provider_id,
-      name: r.name,
-      apiKeyEncrypted: r.api_key_encrypted,
-      rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
-      isActive: Boolean(r.is_active),
-      rateLimitHits: r.rate_limit_hits,
-      sortOrder: r.sort_order ?? 0,
-      lastUsedAt: r.last_used_at,
-      createdAt: r.created_at,
-      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
-      cachedQuotas: r.cached_quotas || undefined,
-      quotaFetchedAt: r.quota_fetched_at || undefined,
-    }));
+    return rows.map((r) => {
+      const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+      return {
+        id: r.id,
+        providerId: r.provider_id,
+        name: r.name,
+        tag: psd?.tag || undefined,
+        apiKeyEncrypted: r.api_key_encrypted,
+        rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
+        isActive: Boolean(r.is_active),
+        rateLimitHits: r.rate_limit_hits,
+        sortOrder: r.sort_order ?? 0,
+        lastUsedAt: r.last_used_at,
+        createdAt: r.created_at,
+        providerSpecificData: psd,
+        cachedQuotas: r.cached_quotas || undefined,
+        quotaFetchedAt: r.quota_fetched_at || undefined,
+      };
+    });
   }
 
   public static getAccountById(id: string): (ProviderAccount & { rawApiKey: string }) | undefined {
@@ -549,10 +561,12 @@ export class ProviderRepository {
       }
       return undefined;
     }
+    const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
     return {
       id: r.id,
       providerId: r.provider_id,
       name: r.name,
+      tag: psd?.tag || undefined,
       apiKeyEncrypted: r.api_key_encrypted,
       rawApiKey: CryptoVault.decrypt(r.api_key_encrypted),
       isActive: Boolean(r.is_active),
@@ -560,7 +574,7 @@ export class ProviderRepository {
       sortOrder: r.sort_order ?? 0,
       lastUsedAt: r.last_used_at,
       createdAt: r.created_at,
-      providerSpecificData: r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined,
+      providerSpecificData: psd,
       cachedQuotas: r.cached_quotas || undefined,
       quotaFetchedAt: r.quota_fetched_at || undefined,
     };

@@ -24,9 +24,19 @@ modelRouter.get("/available", (req, res) => {
     const dbProviders = ProviderRepository.getAllProviders();
 
     const activeCounts = new Map<string, number>();
+    const providerTagsMap = new Map<string, Set<string>>();
     for (const acc of accounts) {
       if (acc.isActive) {
         activeCounts.set(acc.providerId, (activeCounts.get(acc.providerId) || 0) + 1);
+        const tag = (acc.tag || acc.providerSpecificData?.tag)?.trim().toLowerCase();
+        if (tag) {
+          let set = providerTagsMap.get(acc.providerId);
+          if (!set) {
+            set = new Set();
+            providerTagsMap.set(acc.providerId, set);
+          }
+          set.add(tag);
+        }
       }
     }
 
@@ -207,6 +217,32 @@ modelRouter.get("/available", (req, res) => {
           },
           contextLength: modelCaps.contextWindow || 0,
         });
+
+        // If provider has tagged accounts, expose tagged variants e.g. claude[pro]/claude-3-7-sonnet
+        const tags = providerTagsMap.get(p.id);
+        if (tags && tags.size > 0) {
+          for (const t of tags) {
+            const taggedVal = `${p.id}[${t}]/${modelId}`;
+            if (!seenValues.has(taggedVal)) {
+              seenValues.add(taggedVal);
+              availableModels.push({
+                id: modelId,
+                value: taggedVal,
+                name: `${modelName} [${t}]`,
+                providerId: p.id,
+                providerName: `${p.name || p.id} [${t}]`,
+                hasConnectedAccount: true,
+                accountsCount: 1,
+                caps: {
+                  vision: Boolean(modelCaps.vision),
+                  reasoning: Boolean(modelCaps.reasoning),
+                  audio: Boolean(modelCaps.audioInput || modelCaps.audioOutput),
+                },
+                contextLength: modelCaps.contextWindow || 0,
+              });
+            }
+          }
+        }
       }
     }
 
@@ -267,6 +303,32 @@ modelRouter.get("/available", (req, res) => {
           },
           contextLength: model.contextLength || 0,
         });
+
+        // If provider has tagged accounts, expose tagged variants e.g. claude[pro]/claude-3-7-sonnet
+        const tags = providerTagsMap.get(provider.id);
+        if (tags && tags.size > 0) {
+          for (const t of tags) {
+            const taggedVal = `${provider.id}[${t}]/${model.id}`;
+            if (!seenValues.has(taggedVal)) {
+              seenValues.add(taggedVal);
+              availableModels.push({
+                id: model.id,
+                value: taggedVal,
+                name: `${model.name || model.id} [${t}]`,
+                providerId: provider.id,
+                providerName: `${provider.name} [${t}]`,
+                hasConnectedAccount: true,
+                accountsCount: 1,
+                caps: {
+                  vision,
+                  reasoning,
+                  audio,
+                },
+                contextLength: model.contextLength || 0,
+              });
+            }
+          }
+        }
       }
     }
 

@@ -252,6 +252,15 @@ function initSchema(db: DatabaseDriver) {
       FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS account_supported_models (
+      account_id TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      scanned_at INTEGER NOT NULL,
+      PRIMARY KEY (account_id, model_id),
+      FOREIGN KEY (account_id) REFERENCES provider_accounts(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_account_models_acc ON account_supported_models(account_id);
+
     CREATE TABLE IF NOT EXISTS model_rules (
       id TEXT PRIMARY KEY,
       alias TEXT UNIQUE NOT NULL,

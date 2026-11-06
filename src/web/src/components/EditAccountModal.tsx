@@ -32,6 +32,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   onSave,
 }) => {
   const [name, setName] = useState("");
+  const [tag, setTag] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -86,6 +87,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   useEffect(() => {
     if (account) {
       setName(account.name || "");
+      setTag(account.tag || account.providerSpecificData?.tag || "");
       setApiKey("");
       setShowPassword(false);
       setIsActive(Boolean(account.isActive));
@@ -180,11 +182,18 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
     setSaving(true);
     setError(null);
     try {
+      const psd = buildProviderSpecificData() || {};
+      if (tag.trim()) {
+        psd.tag = tag.trim().toLowerCase();
+      } else {
+        delete psd.tag;
+      }
+
       await onSave({
         name: name.trim(),
         apiKey: apiKey.trim() ? apiKey.trim() : undefined,
         isActive,
-        providerSpecificData: buildProviderSpecificData(),
+        providerSpecificData: Object.keys(psd).length > 0 ? psd : undefined,
       });
       onClose();
     } catch (err: any) {
@@ -233,18 +242,59 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
         )}
 
         <div className="space-y-3.5 text-xs">
-          {/* Account Name */}
-          <div>
-            <label className="block text-slate-300 font-medium mb-1">
-              Account Name / Connection Label <span className="text-red-400">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Work Account or user@example.com"
-              className="w-full bg-[#0A0D14] border border-[#1E293B] text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
-            />
+          {/* Account Name & Tag */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-slate-300 font-medium mb-1">
+                Account Name / Label <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Work Account or user@example.com"
+                className="w-full bg-[#0A0D14] border border-[#1E293B] text-slate-100 px-3 py-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-slate-300 font-medium flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[15px] text-blue-400">label</span>
+                  Group Tag
+                </label>
+                <span className="text-slate-500 text-[11px]">Optional • For grouping in Combos</span>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                  placeholder="e.g. pro, plus, free, team"
+                  className="w-full bg-[#0A0D14] border border-[#1E293B] text-slate-100 pl-3 pr-20 py-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+                  {["pro", "plus", "free"].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setTag(preset);
+                      }}
+                      className={`pointer-events-auto text-[10px] px-1.5 py-0.5 rounded font-mono transition-colors ${
+                        tag === preset
+                          ? "bg-blue-600 text-white font-semibold"
+                          : "bg-[#1E293B] text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Zero-Auth Free or Local Provider Notice */}

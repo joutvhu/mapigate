@@ -10,6 +10,7 @@ import {
 import { pickAffinityAccount } from "../caching/promptCacheAffinity.js";
 import { compareAccountsEarliestReset } from "./earliestResetComparator.js";
 import { SequentialSelector } from "./sequentialSelector.js";
+import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 
 export { isRateLimitOrQuotaError };
 
@@ -22,6 +23,7 @@ export interface PickAccountOptions {
   healthyOnly?: boolean;
   prefixHash?: string;
   targetModel?: string;
+  targetTag?: string;
   sessionId?: string;
 }
 
@@ -102,9 +104,26 @@ export class LoadBalancer {
       }
     }
 
+    const targetTag =
+      excludeOrOptions && !(excludeOrOptions instanceof Set) && !Array.isArray(excludeOrOptions)
+        ? excludeOrOptions.targetTag
+        : undefined;
+
+    // Optional tag filtering: if targetTag is specified, narrow allAccounts
+    let taggedAccounts = allAccounts;
+    if (targetTag) {
+      const cleanTag = targetTag.trim().toLowerCase();
+      const matched = allAccounts.filter(
+        (acc) => (acc.tag || acc.providerSpecificData?.tag)?.trim().toLowerCase() === cleanTag
+      );
+      if (matched.length > 0) {
+        taggedAccounts = matched;
+      }
+    }
+
     const eligibleAccounts = excludeSet
-      ? allAccounts.filter((acc) => !excludeSet.has(acc.id))
-      : allAccounts;
+      ? taggedAccounts.filter((acc) => !excludeSet.has(acc.id))
+      : taggedAccounts;
 
     if (eligibleAccounts.length === 0) return undefined;
 
@@ -127,7 +146,24 @@ export class LoadBalancer {
       return undefined;
     }
 
-    const pool = available.length > 0 ? available : eligibleAccounts;
+    let pool = available.length > 0 ? available : eligibleAccounts;
+
+    // Account-level model capability prioritization:
+    // If targetModel is present, partition pool into:
+    // Preferred: Accounts that explicitly support this model + unscanned accounts (fail-open)
+    // Backup: Accounts confirmed via scan to lack this model
+    if (targetModel && pool.length > 1) {
+      const classification = AccountModelRepository.classifyAccounts(
+        pool.map((a) => a.id),
+        targetModel
+      );
+      const preferred = pool.filter(
+        (a) => classification.supported.has(a.id) || classification.unscanned.has(a.id)
+      );
+      if (preferred.length > 0) {
+        pool = preferred;
+      }
+    }
 
     // Session Stickiness: 100% Affinity for active sessions with healthy accounts
     // Dynamic strategies like 'earliest-reset' re-evaluate dynamically as account reset windows shift
