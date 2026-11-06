@@ -42,6 +42,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [providerFormat, setProviderFormat] = useState<string>(
     provider.format || registryItem?.format || "openai"
   );
+  const [supportedFormats, setSupportedFormats] = useState<Array<{ value: string; label: string }>>([]);
   const [baseUrlOverride, setBaseUrlOverride] = useState(registryItem?.baseUrl || provider.baseUrl || "");
   const [proxyUrl, setProxyUrl] = useState("");
   const [customHeaders, setCustomHeaders] = useState<{ key: string; value: string }[]>([]);
@@ -112,6 +113,21 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       .then((r) => r.json())
       .then((data) => {
         if (data.format) setProviderFormat(data.format);
+        if (Array.isArray(data.supportedFormats) && data.supportedFormats.length > 0) {
+          setSupportedFormats(
+            data.supportedFormats.map((f: any) =>
+              typeof f === "string" ? { value: f, label: f.toUpperCase() } : f
+            )
+          );
+        } else if (Array.isArray(registryItem?.supportedFormats) && registryItem.supportedFormats.length > 0) {
+          setSupportedFormats(
+            registryItem.supportedFormats.map((f: any) =>
+              typeof f === "string" ? { value: f, label: f.toUpperCase() } : f
+            )
+          );
+        } else {
+          setSupportedFormats([]);
+        }
         if (data.baseUrl) setBaseUrlOverride(data.baseUrl);
         if (data.proxyUrl) setProxyUrl(data.proxyUrl);
         if (data.thinkingMode) setThinkingMode(data.thinkingMode);
@@ -1133,27 +1149,26 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           </div>
         </div>
 
-        {/* Provider Protocol Format */}
-        <div className="pt-3 border-t border-[#1E293B]">
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-slate-400 font-semibold text-xs">
-              Target API Protocol Format
-            </label>
-            <span className="text-[11px] text-slate-500">
-              Protocol used to call upstream models
-            </span>
+        {/* Provider Protocol Format (Dynamic per provider configuration) */}
+        {supportedFormats.length > 0 && (
+          <div className="pt-3 border-t border-[#1E293B]">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-slate-400 font-semibold text-xs">
+                Target API Protocol Format
+              </label>
+              <span className="text-[11px] text-slate-500">
+                Select upstream API format
+              </span>
+            </div>
+            <Select
+              value={providerFormat}
+              onChange={setProviderFormat}
+              options={supportedFormats}
+              className="w-full"
+              triggerClassName="font-mono text-xs"
+            />
           </div>
-          <Select
-            value={providerFormat}
-            onChange={setProviderFormat}
-            options={[
-              { value: "claude", label: "Anthropic API (/anthropic/v1/messages)" },
-              { value: "openai", label: "OpenAI API (/v1/chat/completions)" },
-            ]}
-            className="w-full"
-            triggerClassName="font-mono text-xs"
-          />
-        </div>
+        )}
 
         {/* Provider Base URL Override */}
         <div className="pt-3 border-t border-[#1E293B]">

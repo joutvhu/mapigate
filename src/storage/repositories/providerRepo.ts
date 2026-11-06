@@ -56,6 +56,7 @@ export class ProviderRepository {
     noAuth?: boolean;
     regions?: ProviderRegion[];
     defaultRegion?: string;
+    supportedFormats?: Array<{ value: string; label: string } | string>;
     hasProviderSpecificData?: boolean;
     category?: string;
   }) | undefined {
@@ -133,6 +134,7 @@ export class ProviderRepository {
       thinkingOptions: reg?.thinkingOptions || ["auto", "none", "low", "medium", "high"],
       regions: reg?.regions,
       defaultRegion: reg?.defaultRegion,
+      supportedFormats: reg?.supportedFormats,
       hasProviderSpecificData: reg?.hasProviderSpecificData,
     };
   }

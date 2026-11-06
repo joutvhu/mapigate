@@ -45,6 +45,10 @@ export const metadata: ProviderRegistryItem = {
     }
   ],
   "defaultRegion": "sgp",
+  "supportedFormats": [
+    { "value": "claude", "label": "Anthropic API (/anthropic/v1/messages) - Recommended" },
+    { "value": "openai", "label": "OpenAI API (/v1/chat/completions)" }
+  ],
   "hasProviderSpecificData": true
 ,
   models
