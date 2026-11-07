@@ -33,49 +33,52 @@ export class LogRepository {
       log.errorMessage || null
     );
 
-    // Roll up into daily_usage_stats for perpetual history
-    try {
-      const d = new Date(log.timestamp);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const providerId = log.providerId || "unknown";
-      const actualModel = log.actualModel || log.requestedModel || "unknown";
-      const accountId = log.accountId || "";
-      const accountName = log.accountName || "";
-      const apiKeyId = log.apiKeyId || "";
-      const apiKeyName = log.apiKeyName || "";
+    // Roll up into daily_usage_stats for perpetual history (only for requests with actual token usage)
+    const hasTokens = (log.promptTokens || 0) + (log.completionTokens || 0) > 0;
+    if (hasTokens) {
+      try {
+        const d = new Date(log.timestamp);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const providerId = log.providerId || "unknown";
+        const actualModel = log.actualModel || log.requestedModel || "unknown";
+        const accountId = log.accountId || "";
+        const accountName = log.accountName || "";
+        const apiKeyId = log.apiKeyId || "";
+        const apiKeyName = log.apiKeyName || "";
 
-      db.run(
-        `INSERT INTO daily_usage_stats (
-          date, provider_id, actual_model, account_id, account_name,
-          api_key_id, api_key_name, requests, prompt_tokens,
-          completion_tokens, cached_tokens, tokens_saved_by_rtk, cost, last_used
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(date, provider_id, actual_model, account_id, api_key_id) DO UPDATE SET
-          requests = requests + 1,
-          prompt_tokens = prompt_tokens + excluded.prompt_tokens,
-          completion_tokens = completion_tokens + excluded.completion_tokens,
-          cached_tokens = cached_tokens + excluded.cached_tokens,
-          tokens_saved_by_rtk = tokens_saved_by_rtk + excluded.tokens_saved_by_rtk,
-          cost = cost + excluded.cost,
-          account_name = CASE WHEN excluded.account_name != '' THEN excluded.account_name ELSE daily_usage_stats.account_name END,
-          api_key_name = CASE WHEN excluded.api_key_name != '' THEN excluded.api_key_name ELSE daily_usage_stats.api_key_name END,
-          last_used = MAX(last_used, excluded.last_used)`,
-        dateStr,
-        providerId,
-        actualModel,
-        accountId,
-        accountName,
-        apiKeyId,
-        apiKeyName,
-        log.promptTokens || 0,
-        log.completionTokens || 0,
-        log.cachedTokens || 0,
-        log.tokensSavedByRtk || 0,
-        log.cost || 0,
-        log.timestamp
-      );
-    } catch {
-      // Best effort rollup
+        db.run(
+          `INSERT INTO daily_usage_stats (
+            date, provider_id, actual_model, account_id, account_name,
+            api_key_id, api_key_name, requests, prompt_tokens,
+            completion_tokens, cached_tokens, tokens_saved_by_rtk, cost, last_used
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(date, provider_id, actual_model, account_id, api_key_id) DO UPDATE SET
+            requests = requests + 1,
+            prompt_tokens = prompt_tokens + excluded.prompt_tokens,
+            completion_tokens = completion_tokens + excluded.completion_tokens,
+            cached_tokens = cached_tokens + excluded.cached_tokens,
+            tokens_saved_by_rtk = tokens_saved_by_rtk + excluded.tokens_saved_by_rtk,
+            cost = cost + excluded.cost,
+            account_name = CASE WHEN excluded.account_name != '' THEN excluded.account_name ELSE daily_usage_stats.account_name END,
+            api_key_name = CASE WHEN excluded.api_key_name != '' THEN excluded.api_key_name ELSE daily_usage_stats.api_key_name END,
+            last_used = MAX(last_used, excluded.last_used)`,
+          dateStr,
+          providerId,
+          actualModel,
+          accountId,
+          accountName,
+          apiKeyId,
+          apiKeyName,
+          log.promptTokens || 0,
+          log.completionTokens || 0,
+          log.cachedTokens || 0,
+          log.tokensSavedByRtk || 0,
+          log.cost || 0,
+          log.timestamp
+        );
+      } catch {
+        // Best effort rollup
+      }
     }
 
     // Periodic retention prune (1 in 50 writes) to keep database lean and prevent unbounded table growth

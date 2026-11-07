@@ -83,6 +83,9 @@ export const UsageTable: React.FC<UsageTableProps> = ({
     }));
   }
 
+  // Always filter out zero-token records in Usage Breakdown; details/errors are inspected in Request Details
+  tableData = tableData.filter((item) => (item.promptTokens + item.completionTokens) > 0);
+
   tableData.sort((a, b) => b.requests - a.requests);
 
   const fmt = (n?: number) => (n || 0).toLocaleString("en-US");

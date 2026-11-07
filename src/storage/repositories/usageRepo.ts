@@ -65,6 +65,9 @@ export class UsageRepository {
   public static backfillDailyStats(): void {
     const db = getDatabase();
     try {
+      // Clean up any zero-token entries in daily_usage_stats from previous runs
+      db.run("DELETE FROM daily_usage_stats WHERE (prompt_tokens + completion_tokens) <= 0");
+
       db.run(`
         INSERT INTO daily_usage_stats (
           date, provider_id, actual_model, account_id, account_name,
@@ -87,6 +90,7 @@ export class UsageRepository {
           SUM(cost) as cost,
           MAX(timestamp) as last_used
         FROM request_logs
+        WHERE (prompt_tokens + completion_tokens) > 0
         GROUP BY 
           strftime('%Y-%m-%d', datetime(timestamp / 1000, 'unixepoch', 'localtime')),
           provider_id,
