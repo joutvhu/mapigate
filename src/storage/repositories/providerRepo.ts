@@ -261,18 +261,12 @@ export class ProviderRepository {
         changed = true;
       }
 
-      // Sync new models from catalog
+      // Sync new models from catalog only if provider has no custom/scanned models configured
+      // (Preserve user's custom and dynamically scanned model list across restarts)
       if (Array.isArray(reg.models) && reg.models.length > 0) {
-        const existingSet = new Set(Array.isArray(prov.models) ? prov.models : []);
-        let addedModel = false;
-        for (const m of reg.models) {
-          if (!existingSet.has(m.id)) {
-            existingSet.add(m.id);
-            addedModel = true;
-          }
-        }
-        if (addedModel) {
-          prov.models = Array.from(existingSet);
+        const hasExistingCustomModels = Array.isArray(prov.models) && prov.models.length > 0;
+        if (!hasExistingCustomModels) {
+          prov.models = reg.models.map((m) => m.id);
           changed = true;
         }
       }
