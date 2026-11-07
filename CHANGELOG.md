@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.120] - 2026-11-07
+
+### Features
+
+#### Cursor & Cursor API
+- **ConnectRPC & Model Probing**: Ported ConnectRPC protobuf definitions, checksum calculation, model probing, and executor from 9router.
+- **Decomposed Executor**: Decomposed executor into `cursorStreamer`, resolved tool turns in `buildAgentRunFrame`, and finalized Anthropic-compatible streams.
+- **Official Cloud Agents API**: Migrated `cursor-api` provider to official Cloud Agents API with execution delegation.
+
+#### Tool Call Rescue & Streaming Adapters
+- **Streaming Tool Call Rescuer**: Added streaming tool call rescuer with multi-format parsing (JSON, Markdown, Xiaomi MiMo dialect).
+- **Inline Tool Rescue Gating**: Gated inline tool rescue behind provider metadata (`rescueInlineTools`).
+- **Rescuer Stability**: Validated tool names, retained failed buffers, and ensured proper flushing on finish reasons.
+- **Xiaomi MiMo Dialect**: Added function parsing for Xiaomi MiMo and set required Xiaomi Claude headers.
+
+#### Usage & Analytics
+- **Daily Stats Aggregation**: Added periodic daily stats aggregation with SQLite rollup tables for fast metrics.
+- **Log Retention Settings**: Added configurable usage log retention settings with automatic pruning.
+
+#### Model Scanner & Discovery
+- **Auto-Persistence**: Auto-persist discovered models directly to provider configuration.
+- **Models URL Support**: Added `modelsUrl` support for dynamic model discovery.
+- **Capability Parsing**: Improved model capability parsing and URL resolution.
+
+#### Providers & Smart Routing
+- **Account Capability Routing**: Added account-level model capability routing and tag-based filtering.
+- **Custom Protocol Formats & Base URLs**: Supported configurable protocol formats per provider and custom base URL overrides.
+- **Codex Enhancements**: Added proxy origin verification, enhanced error handling, and updated model definitions.
+- **Kiro & Antigravity**: Supported custom headers and updated User-Agent strings for Kiro; updated Antigravity Gemini 4 Argon quota limits.
+
+#### Server & Web UI
+- **Self-Upgrade**: Added `/api/server/upgrade` endpoint and Web Dashboard modal for seamless in-app upgrades.
+
+### Fixes
+- **Usage Stats**: Excluded zero-token and failed requests from daily stats aggregation.
+- **Catalog Sync**: Preserved custom and dynamically scanned models across catalog synchronizations.
+- **Adapter Stream Flush**: Ensured tool call rescuer flushes remaining tokens on finish reason and tool name validation.
+- **Antigravity**: Removed invalid Gemini 4 Argon session quota bucket.
+
 ## [0.5.98] - 2026-11-05
 
 Initial public release of **Mapigate** — an ultra-lightweight, 100% local-first AI Model API Gateway and Token Optimizer tailored for AI coding assistants (Claude Code, Cursor, Cline, OpenCode, Codex, GitHub Copilot, Kiro IDE, and Antigravity).
