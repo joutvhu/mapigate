@@ -14,6 +14,12 @@ describe("Model Scanner - Candidate URL Resolution", () => {
     assert.deepEqual(urls, ["https://api.xkiro.com/v1/models"]);
   });
 
+  test("strips /usage path and probes /models for usage-validated providers", () => {
+    const urls = resolveCandidateUrls("https://api.xkiro.com/v1/usage");
+    assert.ok(urls.includes("https://api.xkiro.com/v1/models"));
+    assert.ok(!urls.some((u) => u.includes("/usage/models")));
+  });
+
   test("resolves Xiaomi endpoint to regional token-plan URL defaulting to sgp", () => {
     const urls = resolveCandidateUrls("https://token-plan-sgp.xiaomimimo.com/v1/models", undefined, "xiaomi-tokenplan");
     assert.equal(urls[0], "https://token-plan-sgp.xiaomimimo.com/v1/models");

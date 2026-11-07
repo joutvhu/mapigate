@@ -137,10 +137,16 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
         contextLength = rawCtx;
       }
 
+      const recCaps = rec.capabilities && typeof rec.capabilities === "object" ? (rec.capabilities as any) : undefined;
+      const isVisionFromCaps = typeof recCaps?.vision === "boolean" ? recCaps.vision : false;
+      const isReasoningFromCaps = typeof recCaps?.reasoning === "boolean" ? recCaps.reasoning : false;
+
       const isImageSupported =
-        Array.isArray((rec as any).supportedInputTypes) &&
-        (rec as any).supportedInputTypes.includes("IMAGE");
+        isVisionFromCaps ||
+        (Array.isArray((rec as any).supportedInputTypes) &&
+          (rec as any).supportedInputTypes.includes("IMAGE"));
       const isReasoning =
+        isReasoningFromCaps ||
         id.includes("thinking") ||
         id.includes("r1") ||
         id.includes("reasoning") ||

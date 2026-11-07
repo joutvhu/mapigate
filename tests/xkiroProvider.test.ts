@@ -126,3 +126,14 @@ test("xKiro Provider - Pricing and Capabilities Resolution", () => {
   assert.ok(r1Caps, "Capabilities for deepseek-r1");
   assert.equal(r1Caps.reasoning, true);
 });
+
+test("xKiro Provider - Model Probing Candidate URLs", async () => {
+  const { resolveCandidateUrls } = await import("../src/core/scanner/urlResolver.js");
+  const urlsFromBase = resolveCandidateUrls("https://api.xkiro.com/v1");
+  assert.ok(urlsFromBase.includes("https://api.xkiro.com/v1/models"));
+
+  // Even if validateUrl (https://api.xkiro.com/v1/usage) was passed, must resolve to /v1/models
+  const urlsFromUsage = resolveCandidateUrls("https://api.xkiro.com/v1/usage");
+  assert.ok(urlsFromUsage.includes("https://api.xkiro.com/v1/models"));
+  assert.ok(!urlsFromUsage.some((u) => u.includes("/v1/usage/models")));
+});

@@ -142,6 +142,10 @@ export function resolveCandidateUrls(
   } else if (lowerBase.endsWith("/responses")) {
     cleanBase = cleanBase.slice(0, cleanBase.length - "/responses".length).replace(/\/+$/, "");
     lowerBase = cleanBase.toLowerCase();
+  } else if (lowerBase.endsWith("/usage")) {
+    cleanBase = cleanBase.slice(0, cleanBase.length - "/usage".length).replace(/\/+$/, "");
+    lowerBase = cleanBase.toLowerCase();
+    add(`${cleanBase}/models`);
   }
 
   // 3. Ollama special endpoints

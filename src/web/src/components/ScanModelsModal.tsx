@@ -44,7 +44,12 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
 
   const resolveInitialBaseUrl = useCallback(() => {
     if (provider.id === "xiaomi-tokenplan" || provider.id === "xmtp") {
-      if (provider.validateUrl) return provider.validateUrl;
+      if (
+        provider.validateUrl &&
+        (provider.validateUrl.includes("/models") || provider.validateUrl.includes("/tags"))
+      ) {
+        return provider.validateUrl;
+      }
       if (!provider.baseUrl || provider.baseUrl.includes("xiaomimimo.com")) {
         return "https://token-plan-sgp.xiaomimimo.com/v1/models";
       }
@@ -52,7 +57,14 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
     if (provider.id === "kiro") {
       return provider.validateUrl || "https://codewhisperer.us-east-1.amazonaws.com";
     }
-    return provider.validateUrl || provider.baseUrl || "";
+    // Only use validateUrl if it explicitly points to a models/tags discovery endpoint
+    if (
+      provider.validateUrl &&
+      (provider.validateUrl.includes("/models") || provider.validateUrl.includes("/tags"))
+    ) {
+      return provider.validateUrl;
+    }
+    return provider.baseUrl || "";
   }, [provider.id, provider.baseUrl, provider.validateUrl]);
 
   // Collapsible manual overrides (Endpoint only - credentials are taken automatically from configured accounts)
@@ -236,7 +248,13 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
               <div className="flex flex-wrap items-center gap-1.5 text-amber-300">
                 <span className="material-symbols-outlined text-amber-400 text-[15px]">warning</span>
                 <span className="text-amber-400/90 font-medium">
-                  {failedAccounts.length === 1 ? "1 account failed to authenticate:" : `${failedAccounts.length} accounts failed to authenticate:`}
+                  {failedAccounts.length === 1
+                    ? (failedAccounts[0]?.error?.toLowerCase().includes("auth")
+                        ? "1 account failed to authenticate:"
+                        : "1 account failed to scan:")
+                    : (failedAccounts.every((a) => a.error?.toLowerCase().includes("auth"))
+                        ? `${failedAccounts.length} accounts failed to authenticate:`
+                        : `${failedAccounts.length} accounts failed to scan:`)}
                 </span>
                 {failedAccounts.map((acc) => (
                   <span
