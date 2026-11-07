@@ -37,6 +37,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
     targetPath: string | null;
   } | null>(null);
   const [isUpdatingAutostart, setIsUpdatingAutostart] = useState(false);
+  const [logRetentionDays, setLogRetentionDays] = useState<number>(10);
+  const [isSavingRetention, setIsSavingRetention] = useState<boolean>(false);
+  const [retentionSaved, setRetentionSaved] = useState<boolean>(false);
 
   const handleOpenRestart = onRestartClick || (() => setIsRestartOpenInternal(true));
 
@@ -55,6 +58,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
       .then((data) => {
         if (data && typeof data.enabled === "boolean") {
           setAutostartInfo(data);
+        }
+      })
+      .catch(() => {});
+
+    fetch("/api/settings/logging")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.logRetentionDays === "number") {
+          setLogRetentionDays(data.logRetentionDays);
         }
       })
       .catch(() => {});
@@ -78,6 +90,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
       // ignore
     } finally {
       setIsUpdatingAutostart(false);
+    }
+  };
+
+  const handleUpdateRetention = async (days: number) => {
+    setLogRetentionDays(days);
+    setIsSavingRetention(true);
+    setRetentionSaved(false);
+    try {
+      const res = await fetch("/api/settings/logging", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logRetentionDays: days }),
+      });
+      if (res.ok) {
+        setRetentionSaved(true);
+        setTimeout(() => setRetentionSaved(false), 2000);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsSavingRetention(false);
     }
   };
 
@@ -325,6 +358,70 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
 
       {/* Configuration Backup & Migration Card */}
       <BackupCard />
+
+      {/* Data Retention & Storage Policy Card */}
+      <div className="rt-card p-6 space-y-4 border border-[#1E293B]">
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#1E293B]">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">database</span>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Usage & Request Log Retention</h3>
+              <p className="text-xs text-slate-400">Configure how long detailed request payloads and debug logs are kept</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {retentionSaved && (
+              <span className="text-[11px] font-semibold text-emerald-400 animate-rt-fade-in flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                Saved
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 text-xs text-slate-400 leading-relaxed">
+          <p>
+            Mapigate stores data in 3 tiers to maximize performance and prevent SQLite database bloat:
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-slate-400 text-[11px]">
+            <li><strong className="text-white">Tier 1 (Detailed Request Payloads):</strong> Kept according to the retention window below for debugging and inspection.</li>
+            <li><strong className="text-white">Tier 2 (Daily Usage Analytics):</strong> Compact daily rollups by model, provider, account, and API key kept for 365+ days.</li>
+            <li><strong className="text-white">Tier 3 (All-Time Totals):</strong> Total tokens saved, aggregate request counts, and cost metrics kept permanently.</li>
+          </ul>
+
+          <div className="pt-2">
+            <label className="text-slate-300 font-semibold block text-xs mb-2">
+              Detailed Request Log Retention Period:
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { label: "7 Days", value: 7 },
+                { label: "10 Days (Default)", value: 10 },
+                { label: "30 Days", value: 30 },
+                { label: "90 Days", value: 90 },
+                { label: "Keep All (No Auto-Prune)", value: 0 },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={isSavingRetention}
+                  onClick={() => handleUpdateRetention(opt.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    logRetentionDays === opt.value
+                      ? "bg-blue-600 text-white shadow-xs border border-blue-500"
+                      : "bg-[#0A0D14] border border-[#1E293B] text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Gateway Server Control Card */}
       <div className="rt-card p-6 space-y-4 border border-[#1E293B]">

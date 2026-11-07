@@ -34,6 +34,7 @@ import { ProviderRepository } from "../storage/repositories/providerRepo.js";
 import { tokenScheduler } from "../core/scheduler/tokenScheduler.js";
 import { PidFileManager } from "../cli/daemon/pidFile.js";
 import { SettingsRepository } from "../storage/repositories/settingsRepo.js";
+import { UsageRepository } from "../storage/repositories/usageRepo.js";
 import { isHostPatternMatch, DEFAULT_ALLOWED_HOSTS } from "../shared/utils/security.js";
 import { getRegistryProvider } from "../providers/core/metadataRegistry.js";
 
@@ -558,6 +559,13 @@ if (!isTest) {
       // Best-effort
     }
     logger.info("SERVER", `[${APP_NAME} v${APP_VERSION}] Gateway running at http://${host}:${port}`);
+
+    // Backfill historical logs into daily_usage_stats if needed
+    try {
+      UsageRepository.backfillDailyStats();
+    } catch (err) {
+      logger.warn("USAGE", "Failed to backfill daily usage stats:", err);
+    }
     try {
       const dnsStatus = MitmRepository.getAllToolDnsStatus();
       logger.info("MITM", "Inspecting tool-level DNS isolation on boot:", dnsStatus);

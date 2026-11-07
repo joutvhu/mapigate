@@ -446,4 +446,24 @@ export class SettingsRepository {
     this.setSetting("observabilityMode", valid);
     return valid;
   }
+
+  // --- Request Logs Retention Settings ---
+
+  public static getLogRetentionDays(): number {
+    const fromEnv = Number(process.env.MAPIGATE_LOG_RETENTION_DAYS);
+    if (!isNaN(fromEnv) && fromEnv >= 0) {
+      return fromEnv;
+    }
+    const raw = this.getSetting<number>("logRetentionDays");
+    if (typeof raw === "number" && raw >= 0) {
+      return raw;
+    }
+    return 10; // Default 10 days
+  }
+
+  public static setLogRetentionDays(days: number): number {
+    const normalized = typeof days === "number" && days >= 0 ? Math.floor(days) : 10;
+    this.setSetting("logRetentionDays", normalized);
+    return normalized;
+  }
 }

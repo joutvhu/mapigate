@@ -277,3 +277,20 @@ test("requestDetailsRepo - supports configurable retention ceiling via settings 
   SettingsRepository.setSetting("maxRequestDetails", null);
 });
 
+test("usageRepo - daily_usage_stats rollup and 90d period support", () => {
+  assert.equal(SettingsRepository.getLogRetentionDays(), 10, "Default log retention should be 10 days");
+  SettingsRepository.setLogRetentionDays(30);
+  assert.equal(SettingsRepository.getLogRetentionDays(), 30);
+  SettingsRepository.setLogRetentionDays(10);
+
+  // Trigger backfillDailyStats
+  UsageRepository.backfillDailyStats();
+
+  const stats90d = UsageRepository.getUsageStats("90d");
+  assert.ok(stats90d);
+  assert.ok(typeof stats90d.totalRequests === "number");
+
+  const chart90d = UsageRepository.getChartData("90d");
+  assert.equal(chart90d.length, 90, "Chart data for 90d should have 90 buckets");
+});
+

@@ -64,6 +64,7 @@ settingsRouter.get("/logging", (_req, res) => {
     res.json({
       logLevel: logger.getLevelName(),
       availableLevels: ["trace", "debug", "info", "warn", "error"],
+      logRetentionDays: SettingsRepository.getLogRetentionDays(),
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to fetch logging settings" });
@@ -73,15 +74,27 @@ settingsRouter.get("/logging", (_req, res) => {
 // PUT /api/settings/logging - Update logging settings
 settingsRouter.put("/logging", (req, res) => {
   try {
-    const { logLevel } = req.body || {};
+    const { logLevel, logRetentionDays } = req.body || {};
+    let updatedLevel = logger.getLevelName();
+
     if (logLevel && typeof logLevel === "string") {
       const parsed = parseLogLevel(logLevel);
       logger.setLevel(parsed);
-      const name = logger.getLevelName();
-      SettingsRepository.setLogLevel(name);
-      return res.json({ logLevel: name });
+      updatedLevel = logger.getLevelName();
+      SettingsRepository.setLogLevel(updatedLevel);
     }
-    res.status(400).json({ error: "Missing or invalid 'logLevel' property" });
+
+    if (logRetentionDays !== undefined) {
+      const days = Number(logRetentionDays);
+      if (!isNaN(days) && days >= 0) {
+        SettingsRepository.setLogRetentionDays(days);
+      }
+    }
+
+    return res.json({
+      logLevel: updatedLevel,
+      logRetentionDays: SettingsRepository.getLogRetentionDays(),
+    });
   } catch (error: any) {
     res.status(400).json({ error: error.message || "Failed to update logging settings" });
   }
@@ -239,10 +252,12 @@ settingsRouter.get("/", (_req, res) => {
     const capacityAdapter = SettingsRepository.getCapacityAdapterSettings();
     const endpoint = SettingsRepository.getEndpointSettings();
     const tokenSaver = SettingsRepository.getTokenSaverSettings();
+    const logRetentionDays = SettingsRepository.getLogRetentionDays();
     res.json({
       capacityAdapter,
       endpoint,
       tokenSaver,
+      logRetentionDays,
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Failed to fetch settings" });
@@ -277,8 +292,14 @@ settingsRouter.patch("/", (req, res) => {
     if (body.tokenSaver) {
       SettingsRepository.setTokenSaverSettings(body.tokenSaver);
     }
+    if (body.logRetentionDays !== undefined) {
+      const days = Number(body.logRetentionDays);
+      if (!isNaN(days) && days >= 0) {
+        SettingsRepository.setLogRetentionDays(days);
+      }
+    }
     for (const [key, val] of Object.entries(body)) {
-      if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver") {
+      if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver" && key !== "logRetentionDays") {
         if (!isAllowedSettingKey(key)) {
           continue;
         }
@@ -288,10 +309,12 @@ settingsRouter.patch("/", (req, res) => {
     const capacityAdapter = SettingsRepository.getCapacityAdapterSettings();
     const endpoint = SettingsRepository.getEndpointSettings();
     const tokenSaver = SettingsRepository.getTokenSaverSettings();
+    const logRetentionDays = SettingsRepository.getLogRetentionDays();
     res.json({
       capacityAdapter,
       endpoint,
       tokenSaver,
+      logRetentionDays,
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message || "Failed to update settings" });
@@ -311,8 +334,14 @@ settingsRouter.put("/", (req, res) => {
     if (body.tokenSaver) {
       SettingsRepository.setTokenSaverSettings(body.tokenSaver);
     }
+    if (body.logRetentionDays !== undefined) {
+      const days = Number(body.logRetentionDays);
+      if (!isNaN(days) && days >= 0) {
+        SettingsRepository.setLogRetentionDays(days);
+      }
+    }
     for (const [key, val] of Object.entries(body)) {
-      if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver") {
+      if (key !== "capacityAdapter" && key !== "endpoint" && key !== "tokenSaver" && key !== "logRetentionDays") {
         if (!isAllowedSettingKey(key)) {
           continue;
         }
@@ -322,10 +351,12 @@ settingsRouter.put("/", (req, res) => {
     const capacityAdapter = SettingsRepository.getCapacityAdapterSettings();
     const endpoint = SettingsRepository.getEndpointSettings();
     const tokenSaver = SettingsRepository.getTokenSaverSettings();
+    const logRetentionDays = SettingsRepository.getLogRetentionDays();
     res.json({
       capacityAdapter,
       endpoint,
       tokenSaver,
+      logRetentionDays,
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message || "Failed to update settings" });

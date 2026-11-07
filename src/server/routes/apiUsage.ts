@@ -4,7 +4,7 @@ import { RequestDetailsRepository } from "../../storage/repositories/requestDeta
 
 export const usageRouter = Router();
 
-const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d", "all"]);
+const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d", "90d", "all"]);
 
 // GET /api/usage/stats?period=today|24h|7d|30d|60d|all
 usageRouter.get("/stats", (req: Request, res: Response) => {
@@ -100,6 +100,9 @@ usageRouter.get("/stream", (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
 
+  const rawPeriod = String(req.query.period || "7d").toLowerCase();
+  const period = VALID_PERIODS.has(rawPeriod) ? rawPeriod : "7d";
+
   let isClosed = false;
   let cachedStats: any = null;
 
@@ -115,7 +118,7 @@ usageRouter.get("/stream", (req: Request, res: Response) => {
   const handleUpdate = () => {
     if (isClosed) return;
     try {
-      const stats = UsageRepository.getUsageStats("7d");
+      const stats = UsageRepository.getUsageStats(period);
       cachedStats = stats;
       sendEvent("stats", stats);
     } catch {}
@@ -131,7 +134,7 @@ usageRouter.get("/stream", (req: Request, res: Response) => {
 
   // Push immediate initial stats
   try {
-    cachedStats = UsageRepository.getUsageStats("7d");
+    cachedStats = UsageRepository.getUsageStats(period);
     sendEvent("stats", cachedStats);
   } catch {}
 

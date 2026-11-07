@@ -58,6 +58,57 @@ function purgeStalePending(): void {
 }
 
 export class UsageRepository {
+  /**
+   * Backfills existing request_logs into daily_usage_stats if not already rolled up.
+   * Safe to call on boot or lazily.
+   */
+  public static backfillDailyStats(): void {
+    const db = getDatabase();
+    try {
+      db.run(`
+        INSERT INTO daily_usage_stats (
+          date, provider_id, actual_model, account_id, account_name,
+          api_key_id, api_key_name, requests, prompt_tokens,
+          completion_tokens, cached_tokens, tokens_saved_by_rtk, cost, last_used
+        )
+        SELECT 
+          strftime('%Y-%m-%d', datetime(timestamp / 1000, 'unixepoch', 'localtime')) as date,
+          provider_id,
+          actual_model,
+          COALESCE(account_id, '') as account_id,
+          COALESCE(account_name, '') as account_name,
+          COALESCE(api_key_id, '') as api_key_id,
+          COALESCE(api_key_name, '') as api_key_name,
+          COUNT(*) as requests,
+          SUM(prompt_tokens) as prompt_tokens,
+          SUM(completion_tokens) as completion_tokens,
+          SUM(cached_tokens) as cached_tokens,
+          SUM(tokens_saved_by_rtk) as tokens_saved_by_rtk,
+          SUM(cost) as cost,
+          MAX(timestamp) as last_used
+        FROM request_logs
+        GROUP BY 
+          strftime('%Y-%m-%d', datetime(timestamp / 1000, 'unixepoch', 'localtime')),
+          provider_id,
+          actual_model,
+          COALESCE(account_id, ''),
+          COALESCE(api_key_id, '')
+        ON CONFLICT(date, provider_id, actual_model, account_id, api_key_id) DO UPDATE SET
+          requests = excluded.requests,
+          prompt_tokens = excluded.prompt_tokens,
+          completion_tokens = excluded.completion_tokens,
+          cached_tokens = excluded.cached_tokens,
+          tokens_saved_by_rtk = excluded.tokens_saved_by_rtk,
+          cost = excluded.cost,
+          account_name = CASE WHEN excluded.account_name != '' THEN excluded.account_name ELSE daily_usage_stats.account_name END,
+          api_key_name = CASE WHEN excluded.api_key_name != '' THEN excluded.api_key_name ELSE daily_usage_stats.api_key_name END,
+          last_used = MAX(daily_usage_stats.last_used, excluded.last_used)
+      `);
+    } catch {
+      // Best effort backfill
+    }
+  }
+
   public static startPendingRequest(info: {
     id: string;
     model: string;
@@ -135,36 +186,70 @@ export class UsageRepository {
         return now - 30 * 24 * 60 * 60 * 1000;
       case "60d":
         return now - 60 * 24 * 60 * 60 * 1000;
+      case "90d":
+        return now - 90 * 24 * 60 * 60 * 1000;
       case "all":
       default:
         return 0;
     }
   }
 
+  public static getPeriodStartDateString(period: string): string {
+    if (period === "all") return "";
+    const ts = this.getPeriodStartTimestamp(period);
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
   public static getUsageStats(period: string = "7d"): UsageStatsResult {
     const db = getDatabase();
     const startTs = this.getPeriodStartTimestamp(period);
+    const startDateStr = this.getPeriodStartDateString(period);
+
+    // If period is beyond recent retention (e.g. 30d, 60d, 90d, all), aggregate from daily_usage_stats if it has data
+    const hasDailyData = Boolean(db.get<{ c: number }>("SELECT 1 as c FROM daily_usage_stats LIMIT 1"));
+    const useDailyRollup = hasDailyData && (period === "30d" || period === "60d" || period === "90d" || period === "all");
 
     // 1. Overall Aggregation
-    const sumRow = db.get<{
-      count: number;
-      prompt: number;
-      completion: number;
-      cached: number;
-      cost: number;
-      saved: number;
-    }>(
-      `SELECT 
-        COUNT(*) as count,
-        COALESCE(SUM(prompt_tokens), 0) as prompt,
-        COALESCE(SUM(completion_tokens), 0) as completion,
-        COALESCE(SUM(cached_tokens), 0) as cached,
-        COALESCE(SUM(cost), 0) as cost,
-        COALESCE(SUM(tokens_saved_by_rtk), 0) as saved
-      FROM request_logs
-      WHERE timestamp >= ?`,
-      startTs
-    );
+    const sumRow = useDailyRollup
+      ? db.get<{
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          saved: number;
+        }>(
+          `SELECT 
+            COALESCE(SUM(requests), 0) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            COALESCE(SUM(tokens_saved_by_rtk), 0) as saved
+          FROM daily_usage_stats
+          ${startDateStr ? "WHERE date >= ?" : ""}`,
+          ...(startDateStr ? [startDateStr] : [])
+        )
+      : db.get<{
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          saved: number;
+        }>(
+          `SELECT 
+            COUNT(*) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            COALESCE(SUM(tokens_saved_by_rtk), 0) as saved
+          FROM request_logs
+          WHERE timestamp >= ?`,
+          startTs
+        );
 
     const totalRequests = Number(sumRow?.count || 0);
     const totalPromptTokens = Number(sumRow?.prompt || 0);
@@ -175,26 +260,47 @@ export class UsageRepository {
     const estimatedCostSavedUsd = Number(((totalTokensSaved / 1_000_000) * 3.0).toFixed(4));
 
     // 2. Breakdown by Provider
-    const provRows = db.all<{
-      provider_id: string;
-      count: number;
-      prompt: number;
-      completion: number;
-      cached: number;
-      cost: number;
-    }>(
-      `SELECT 
-        provider_id,
-        COUNT(*) as count,
-        COALESCE(SUM(prompt_tokens), 0) as prompt,
-        COALESCE(SUM(completion_tokens), 0) as completion,
-        COALESCE(SUM(cached_tokens), 0) as cached,
-        COALESCE(SUM(cost), 0) as cost
-      FROM request_logs
-      WHERE timestamp >= ?
-      GROUP BY provider_id`,
-      startTs
-    );
+    const provRows = useDailyRollup
+      ? db.all<{
+          provider_id: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+        }>(
+          `SELECT 
+            provider_id,
+            COALESCE(SUM(requests), 0) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost
+          FROM daily_usage_stats
+          ${startDateStr ? "WHERE date >= ?" : ""}
+          GROUP BY provider_id`,
+          ...(startDateStr ? [startDateStr] : [])
+        )
+      : db.all<{
+          provider_id: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+        }>(
+          `SELECT 
+            provider_id,
+            COUNT(*) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost
+          FROM request_logs
+          WHERE timestamp >= ?
+          GROUP BY provider_id`,
+          startTs
+        );
 
     const byProvider: Record<string, CounterBucket> = {};
     for (const r of provRows) {
@@ -209,30 +315,55 @@ export class UsageRepository {
     }
 
     // 3. Breakdown by Model
-    const modelRows = db.all<{
-      actual_model: string;
-      provider_id: string;
-      count: number;
-      prompt: number;
-      completion: number;
-      cached: number;
-      cost: number;
-      last_used: number;
-    }>(
-      `SELECT 
-        actual_model,
-        provider_id,
-        COUNT(*) as count,
-        COALESCE(SUM(prompt_tokens), 0) as prompt,
-        COALESCE(SUM(completion_tokens), 0) as completion,
-        COALESCE(SUM(cached_tokens), 0) as cached,
-        COALESCE(SUM(cost), 0) as cost,
-        MAX(timestamp) as last_used
-      FROM request_logs
-      WHERE timestamp >= ?
-      GROUP BY actual_model, provider_id`,
-      startTs
-    );
+    const modelRows = useDailyRollup
+      ? db.all<{
+          actual_model: string;
+          provider_id: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          last_used: number;
+        }>(
+          `SELECT 
+            actual_model,
+            provider_id,
+            COALESCE(SUM(requests), 0) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            MAX(last_used) as last_used
+          FROM daily_usage_stats
+          ${startDateStr ? "WHERE date >= ?" : ""}
+          GROUP BY actual_model, provider_id`,
+          ...(startDateStr ? [startDateStr] : [])
+        )
+      : db.all<{
+          actual_model: string;
+          provider_id: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          last_used: number;
+        }>(
+          `SELECT 
+            actual_model,
+            provider_id,
+            COUNT(*) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            MAX(timestamp) as last_used
+          FROM request_logs
+          WHERE timestamp >= ?
+          GROUP BY actual_model, provider_id`,
+          startTs
+        );
 
     const byModel: Record<string, ModelCounterBucket> = {};
     for (const r of modelRows) {
@@ -251,34 +382,63 @@ export class UsageRepository {
     }
 
     // 4. Breakdown by Account
-    const acctRows = db.all<{
-      account_id: string;
-      account_name: string;
-      actual_model: string;
-      provider_id: string;
-      count: number;
-      prompt: number;
-      completion: number;
-      cached: number;
-      cost: number;
-      last_used: number;
-    }>(
-      `SELECT 
-        account_id,
-        account_name,
-        actual_model,
-        provider_id,
-        COUNT(*) as count,
-        COALESCE(SUM(prompt_tokens), 0) as prompt,
-        COALESCE(SUM(completion_tokens), 0) as completion,
-        COALESCE(SUM(cached_tokens), 0) as cached,
-        COALESCE(SUM(cost), 0) as cost,
-        MAX(timestamp) as last_used
-      FROM request_logs
-      WHERE timestamp >= ?
-      GROUP BY account_id, actual_model, provider_id`,
-      startTs
-    );
+    const acctRows = useDailyRollup
+      ? db.all<{
+          account_id: string;
+          account_name: string;
+          actual_model: string;
+          provider_id: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          last_used: number;
+        }>(
+          `SELECT 
+            account_id,
+            account_name,
+            actual_model,
+            provider_id,
+            COALESCE(SUM(requests), 0) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            MAX(last_used) as last_used
+          FROM daily_usage_stats
+          ${startDateStr ? "WHERE date >= ?" : ""}
+          GROUP BY account_id, actual_model, provider_id`,
+          ...(startDateStr ? [startDateStr] : [])
+        )
+      : db.all<{
+          account_id: string;
+          account_name: string;
+          actual_model: string;
+          provider_id: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          last_used: number;
+        }>(
+          `SELECT 
+            account_id,
+            account_name,
+            actual_model,
+            provider_id,
+            COUNT(*) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            MAX(timestamp) as last_used
+          FROM request_logs
+          WHERE timestamp >= ?
+          GROUP BY account_id, actual_model, provider_id`,
+          startTs
+        );
 
     const byAccount: Record<string, AccountCounterBucket> = {};
     for (const r of acctRows) {
@@ -301,30 +461,55 @@ export class UsageRepository {
     }
 
     // 5. Breakdown by API Key
-    const apiKeyRows = db.all<{
-      api_key_id: string;
-      api_key_name: string;
-      count: number;
-      prompt: number;
-      completion: number;
-      cached: number;
-      cost: number;
-      last_used: number;
-    }>(
-      `SELECT 
-        COALESCE(api_key_id, 'no_key') as api_key_id,
-        COALESCE(api_key_name, 'Direct / Public') as api_key_name,
-        COUNT(*) as count,
-        COALESCE(SUM(prompt_tokens), 0) as prompt,
-        COALESCE(SUM(completion_tokens), 0) as completion,
-        COALESCE(SUM(cached_tokens), 0) as cached,
-        COALESCE(SUM(cost), 0) as cost,
-        MAX(timestamp) as last_used
-      FROM request_logs
-      WHERE timestamp >= ?
-      GROUP BY api_key_id, api_key_name`,
-      startTs
-    );
+    const apiKeyRows = useDailyRollup
+      ? db.all<{
+          api_key_id: string;
+          api_key_name: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          last_used: number;
+        }>(
+          `SELECT 
+            COALESCE(api_key_id, 'no_key') as api_key_id,
+            COALESCE(api_key_name, 'Direct / Public') as api_key_name,
+            COALESCE(SUM(requests), 0) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            MAX(last_used) as last_used
+          FROM daily_usage_stats
+          ${startDateStr ? "WHERE date >= ?" : ""}
+          GROUP BY api_key_id, api_key_name`,
+          ...(startDateStr ? [startDateStr] : [])
+        )
+      : db.all<{
+          api_key_id: string;
+          api_key_name: string;
+          count: number;
+          prompt: number;
+          completion: number;
+          cached: number;
+          cost: number;
+          last_used: number;
+        }>(
+          `SELECT 
+            COALESCE(api_key_id, 'no_key') as api_key_id,
+            COALESCE(api_key_name, 'Direct / Public') as api_key_name,
+            COUNT(*) as count,
+            COALESCE(SUM(prompt_tokens), 0) as prompt,
+            COALESCE(SUM(completion_tokens), 0) as completion,
+            COALESCE(SUM(cached_tokens), 0) as cached,
+            COALESCE(SUM(cost), 0) as cost,
+            MAX(timestamp) as last_used
+          FROM request_logs
+          WHERE timestamp >= ?
+          GROUP BY api_key_id, api_key_name`,
+          startTs
+        );
 
     const byApiKey: Record<string, ApiKeyCounterBucket> = {};
     for (const r of apiKeyRows) {
@@ -499,13 +684,21 @@ export class UsageRepository {
       return buckets;
     }
 
-    // Daily buckets for 7d, 30d, 60d, all
-    const bucketDays = period === "7d" ? 7 : period === "30d" ? 30 : period === "60d" ? 60 : 30;
+    // Daily buckets for 7d, 30d, 60d, 90d, all
+    const bucketDays =
+      period === "7d" ? 7 :
+      period === "30d" ? 30 :
+      period === "60d" ? 60 :
+      period === "90d" ? 90 : 30;
 
     let startTime = now - (bucketDays - 1) * 86400000;
     if (period === "all") {
       const minRow = db.get<{ min_ts: number }>("SELECT MIN(timestamp) as min_ts FROM request_logs");
-      if (minRow?.min_ts) {
+      const minDaily = db.get<{ min_date: string }>("SELECT MIN(date) as min_date FROM daily_usage_stats");
+      if (minDaily?.min_date) {
+        const dMin = new Date(minDaily.min_date).getTime();
+        startTime = minRow?.min_ts ? Math.min(Number(minRow.min_ts), dMin) : dMin;
+      } else if (minRow?.min_ts) {
         startTime = Number(minRow.min_ts);
       }
     }
@@ -517,7 +710,7 @@ export class UsageRepository {
     today.setHours(0, 0, 0, 0);
 
     const dayDiff = Math.max(1, Math.round((today.getTime() - startDay.getTime()) / 86400000) + 1);
-    const count = period === "all" ? Math.min(dayDiff, 90) : bucketDays;
+    const count = period === "all" ? Math.min(dayDiff, 365) : bucketDays;
 
     const buckets: ChartDataPoint[] = [];
     const dateKeyMap = new Map<string, number>();
@@ -538,26 +731,55 @@ export class UsageRepository {
     }
 
     const minTs = today.getTime() - (count - 1) * 86400000;
-    const rows = db.all<{
-      timestamp: number;
-      prompt: number;
-      completion: number;
-      cost: number;
-    }>(
-      `SELECT timestamp, prompt_tokens as prompt, completion_tokens as completion, cost
-      FROM request_logs
-      WHERE timestamp >= ?`,
-      minTs
-    );
+    const minDateStr = `${new Date(minTs).getFullYear()}-${String(new Date(minTs).getMonth() + 1).padStart(2, "0")}-${String(new Date(minTs).getDate()).padStart(2, "0")}`;
 
-    for (const r of rows) {
-      const d = new Date(Number(r.timestamp));
-      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const idx = dateKeyMap.get(dateKey);
-      if (idx !== undefined && idx >= 0 && idx < buckets.length) {
-        buckets[idx].tokens += Number(r.prompt || 0) + Number(r.completion || 0);
-        buckets[idx].requests += 1;
-        buckets[idx].cost += Number(r.cost || 0);
+    // Prefer aggregating from daily_usage_stats when available, fallback/merge from request_logs
+    const hasDaily = Boolean(db.get<{ c: number }>("SELECT 1 as c FROM daily_usage_stats LIMIT 1"));
+    if (hasDaily && (period === "30d" || period === "60d" || period === "90d" || period === "all")) {
+      const dailyRows = db.all<{
+        date: string;
+        prompt_tokens: number;
+        completion_tokens: number;
+        requests: number;
+        cost: number;
+      }>(
+        `SELECT date, SUM(prompt_tokens) as prompt_tokens, SUM(completion_tokens) as completion_tokens, SUM(requests) as requests, SUM(cost) as cost
+        FROM daily_usage_stats
+        WHERE date >= ?
+        GROUP BY date`,
+        minDateStr
+      );
+
+      for (const r of dailyRows) {
+        const idx = dateKeyMap.get(r.date);
+        if (idx !== undefined && idx >= 0 && idx < buckets.length) {
+          buckets[idx].tokens += Number(r.prompt_tokens || 0) + Number(r.completion_tokens || 0);
+          buckets[idx].requests += Number(r.requests || 0);
+          buckets[idx].cost += Number(r.cost || 0);
+        }
+      }
+    } else {
+      const rows = db.all<{
+        timestamp: number;
+        prompt: number;
+        completion: number;
+        cost: number;
+      }>(
+        `SELECT timestamp, prompt_tokens as prompt, completion_tokens as completion, cost
+        FROM request_logs
+        WHERE timestamp >= ?`,
+        minTs
+      );
+
+      for (const r of rows) {
+        const d = new Date(Number(r.timestamp));
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const idx = dateKeyMap.get(dateKey);
+        if (idx !== undefined && idx >= 0 && idx < buckets.length) {
+          buckets[idx].tokens += Number(r.prompt || 0) + Number(r.completion || 0);
+          buckets[idx].requests += 1;
+          buckets[idx].cost += Number(r.cost || 0);
+        }
       }
     }
 

@@ -76,9 +76,10 @@ export const UsageTab: React.FC = () => {
     const connectSSE = () => {
       try {
         const token = AuthService.getToken();
+        const baseStream = `/api/usage/stream?period=${encodeURIComponent(period)}`;
         const streamUrl = token
-          ? `/api/usage/stream?token=${encodeURIComponent(token)}`
-          : "/api/usage/stream";
+          ? `${baseStream}&token=${encodeURIComponent(token)}`
+          : baseStream;
         sse = new EventSource(streamUrl);
         eventSourceRef.current = sse;
 
@@ -121,7 +122,7 @@ export const UsageTab: React.FC = () => {
       if (sse) sse.close();
       eventSourceRef.current = null;
     };
-  }, []);
+  }, [period]);
 
   const providerNames = Object.keys(stats?.byProvider || {});
 
@@ -172,7 +173,7 @@ export const UsageTab: React.FC = () => {
           {/* Period selector */}
           {viewMode === "overview" && (
             <div className="bg-[#151C2C] p-1 rounded-xl border border-[#243048] flex items-center text-xs">
-              {(["today", "24h", "7d", "30d", "60d", "all"] as const).map((p) => (
+              {(["today", "24h", "7d", "30d", "60d", "90d", "all"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}

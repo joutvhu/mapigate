@@ -350,6 +350,28 @@ function initSchema(db: DatabaseDriver) {
       PRIMARY KEY (scope, key)
     );
 
+    CREATE TABLE IF NOT EXISTS daily_usage_stats (
+      date TEXT NOT NULL,
+      provider_id TEXT NOT NULL,
+      actual_model TEXT NOT NULL,
+      account_id TEXT NOT NULL DEFAULT '',
+      account_name TEXT NOT NULL DEFAULT '',
+      api_key_id TEXT NOT NULL DEFAULT '',
+      api_key_name TEXT NOT NULL DEFAULT '',
+      requests INTEGER NOT NULL DEFAULT 0,
+      prompt_tokens INTEGER NOT NULL DEFAULT 0,
+      completion_tokens INTEGER NOT NULL DEFAULT 0,
+      cached_tokens INTEGER NOT NULL DEFAULT 0,
+      tokens_saved_by_rtk INTEGER NOT NULL DEFAULT 0,
+      cost REAL NOT NULL DEFAULT 0,
+      last_used INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (date, provider_id, actual_model, account_id, api_key_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_daily_usage_date ON daily_usage_stats(date);
+    CREATE INDEX IF NOT EXISTS idx_daily_usage_provider ON daily_usage_stats(provider_id);
+    CREATE INDEX IF NOT EXISTS idx_daily_usage_model ON daily_usage_stats(actual_model);
+
     CREATE INDEX IF NOT EXISTS idx_request_logs_timestamp ON request_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_request_logs_provider ON request_logs(provider_id);
     CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_id ON request_logs(api_key_id);

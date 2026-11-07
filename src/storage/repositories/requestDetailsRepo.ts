@@ -117,6 +117,14 @@ export function flushRequestDetailsBuffer(): void {
     }
 
     // Retention prune if table count exceeds limit
+    const retentionDays = SettingsRepository.getLogRetentionDays();
+    if (retentionDays > 0) {
+      try {
+        const cutoffIso = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+        db.run("DELETE FROM request_details WHERE timestamp < ?", cutoffIso);
+      } catch {}
+    }
+
     const maxRecords = getMaxRecords();
     const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM request_details");
     const totalCount = countRow?.count || 0;
