@@ -463,6 +463,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       });
       setHeadersSavedMsg(`Saved ${nextModels.length} models for ${provider.name}.`);
       invalidateAvailableModelsCache();
+      loadProviderDetails();
       setTimeout(() => setHeadersSavedMsg(null), 3000);
     } catch {
       // Fail-open

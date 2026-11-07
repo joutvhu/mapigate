@@ -66,6 +66,15 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         setNoAccountsConfigured(false);
         // Default: select all discovered models
         setSelectedIds(new Set(result.models.map((m) => m.id)));
+
+        // Automatically merge newly discovered models into provider if auto-scan discovered them
+        if (result.models.length > 0) {
+          const discoveredIds = result.models.map((m) => m.id);
+          const hasNew = discoveredIds.some((id) => !existingModels.includes(id));
+          if (hasNew) {
+            onApplyModels(discoveredIds, "merge");
+          }
+        }
       } else {
         setScannedModels([]);
         setEndpointUrl(null);

@@ -441,6 +441,29 @@ providerRouter.post("/:id/scan-models", async (req, res) => {
       res.status(isAuth ? 401 : 400).json(result);
       return;
     }
+
+    // Automatically persist discovered models to provider in SQLite so they survive reloads
+    if (result.models && result.models.length > 0) {
+      try {
+        const prov = ProviderRepository.ensureProviderExists(providerId);
+        const existingSet = new Set(Array.isArray(prov.models) ? prov.models : []);
+        let hasNew = false;
+        for (const m of result.models) {
+          if (!existingSet.has(m.id)) {
+            existingSet.add(m.id);
+            hasNew = true;
+          }
+        }
+        if (hasNew) {
+          prov.models = Array.from(existingSet);
+          prov.updatedAt = Date.now();
+          ProviderRepository.saveProvider(prov);
+        }
+      } catch {
+        // Fail-open
+      }
+    }
+
     res.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
