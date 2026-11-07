@@ -73,6 +73,7 @@ export interface ProviderRegistryItem {
   baseUrl: string;
   baseUrls?: string[];
   validateUrl?: string;
+  modelsUrl?: string;
   format: "openai" | "claude" | "antigravity" | "kiro" | "vertex" | "grok-web" | "ollama" | string;
   defaultHeaders: Record<string, string>;
   thinkingMode?: string;

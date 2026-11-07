@@ -155,8 +155,10 @@ export function resolveCandidateUrls(
     add(`${cleanBase}/models`);
   }
 
-  // 4. Registry validateUrl fallback if it points to /models or /api/tags
-  if (registryItem?.validateUrl) {
+  // 4. Registry modelsUrl or validateUrl fallback if it points to /models or /api/tags
+  if (registryItem?.modelsUrl) {
+    add(registryItem.modelsUrl.trim());
+  } else if (registryItem?.validateUrl) {
     const vUrl = registryItem.validateUrl.trim();
     const isExternalXiaomiBypass =
       isTokenPlan && !lowerBase.includes("xiaomimimo.com") && vUrl.toLowerCase().includes("xiaomimimo.com");

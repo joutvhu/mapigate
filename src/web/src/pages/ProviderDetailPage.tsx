@@ -1503,7 +1503,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           id: provider.id,
           name: provider.name,
           baseUrl: baseUrlOverride || provider.baseUrl || registryItem?.baseUrl,
-          validateUrl: provider.validateUrl || registryItem?.validateUrl,
+          modelsUrl: (provider as any).modelsUrl || registryItem?.modelsUrl,
           image: provider.image,
           color: registryItem?.color || provider.color,
           iconBg: registryItem?.iconBg || provider.iconBg,

@@ -41,7 +41,7 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       dbProvider = ProviderRepository.getProviderById(providerId);
 
       if (!baseUrl) {
-        baseUrl = dbProvider?.baseUrl || registryItem?.baseUrl;
+        baseUrl = dbProvider?.modelsUrl || registryItem?.modelsUrl || dbProvider?.baseUrl || registryItem?.baseUrl;
       }
 
       if (!format) {

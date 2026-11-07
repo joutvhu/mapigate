@@ -11,7 +11,7 @@ export interface ScanModelsModalProps {
     id: string;
     name: string;
     baseUrl?: string;
-    validateUrl?: string;
+    modelsUrl?: string;
     image?: string;
     color?: string;
     iconBg?: string;
@@ -42,34 +42,11 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const resolveInitialBaseUrl = useCallback(() => {
-    if (provider.id === "xiaomi-tokenplan" || provider.id === "xmtp") {
-      if (
-        provider.validateUrl &&
-        (provider.validateUrl.includes("/models") || provider.validateUrl.includes("/tags"))
-      ) {
-        return provider.validateUrl;
-      }
-      if (!provider.baseUrl || provider.baseUrl.includes("xiaomimimo.com")) {
-        return "https://token-plan-sgp.xiaomimimo.com/v1/models";
-      }
-    }
-    if (provider.id === "kiro") {
-      return provider.validateUrl || "https://codewhisperer.us-east-1.amazonaws.com";
-    }
-    // Only use validateUrl if it explicitly points to a models/tags discovery endpoint
-    if (
-      provider.validateUrl &&
-      (provider.validateUrl.includes("/models") || provider.validateUrl.includes("/tags"))
-    ) {
-      return provider.validateUrl;
-    }
-    return provider.baseUrl || "";
-  }, [provider.id, provider.baseUrl, provider.validateUrl]);
+  const initialBaseUrl = provider.modelsUrl || provider.baseUrl || "";
 
   // Collapsible manual overrides (Endpoint only - credentials are taken automatically from configured accounts)
   const [showOverrides, setShowOverrides] = useState(false);
-  const [customBaseUrl, setCustomBaseUrl] = useState(resolveInitialBaseUrl());
+  const [customBaseUrl, setCustomBaseUrl] = useState(initialBaseUrl);
 
   const triggerScan = useCallback(async (forcedBaseUrl?: string) => {
     setIsScanning(true);
@@ -110,7 +87,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   // Auto scan on initial open using stored accounts
   useEffect(() => {
     if (isOpen) {
-      const initialUrl = resolveInitialBaseUrl();
+      const initialUrl = provider.modelsUrl || provider.baseUrl || "";
       setCustomBaseUrl(initialUrl);
       setSearchQuery("");
       setShowOverrides(false);
@@ -127,7 +104,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
       setFailedAccounts([]);
       setNoAccountsConfigured(false);
     }
-  }, [isOpen, provider.id, provider.baseUrl, triggerScan]);
+  }, [isOpen, provider.id, provider.baseUrl, provider.modelsUrl, triggerScan]);
 
   const filteredModels = useMemo(() => {
     if (!searchQuery.trim()) return scannedModels;
