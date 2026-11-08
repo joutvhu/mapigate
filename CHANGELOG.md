@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.127] - 2026-11-09
+
+### Features
+
+#### Anthropic & Capabilities
+- **Dynamic Max Tokens Adjustment**: Dynamically resolved model context and max output token ceiling based on model capabilities, clamping Anthropic parameters to safe boundaries.
+
+#### MITM Interceptor
+- **Proxy Process Management & Port Utilities**: Added MITM proxy manager and port conflict resolution utilities for robust daemon startup and recovery.
+
+### Fixes
+
+#### Proxy & Streaming
+- **Streaming Timeout Ceiling**: Extended upstream timeout ceiling to 30 minutes for streaming requests to prevent mid-stream aborts on long-context model generations.
+
+#### Tool Call Rescue
+- **Xiaomi MiMo Dialect Enhancements**: Improved streaming and responses tool call rescue, handling edge-case function syntax in Xiaomi MiMo output streams.
+
 ## [0.5.123] - 2026-11-08
 
 ### Features
