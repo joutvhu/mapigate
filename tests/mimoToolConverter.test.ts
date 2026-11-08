@@ -90,3 +90,67 @@ test("MimoProvider - transformResponseChunk handles streaming splits", () => {
   });
   assert.equal(r3.choices[0].delta.content, "\nFinished.");
 });
+
+test("XiaomiTokenplanProvider - rescues pure XML <function=...> without <tool_call> wrapper", () => {
+  const provider = new XiaomiTokenplanProvider();
+  const context = {
+    targetModel: "mimo-v2.6-flash",
+    clientFormat: "openai",
+    targetFormat: "openai",
+    body: {
+      tools: [
+        { type: "function", function: { name: "read_file" } },
+      ],
+    },
+  } as ProviderRequestContext;
+
+  const chunk = {
+    choices: [
+      {
+        delta: {
+          content: '<function=read_file><parameter=path>src/index.ts</parameter></function>',
+        },
+      },
+    ],
+  };
+
+  const res = provider.transformResponseChunk(chunk, context);
+  assert.ok(res.choices[0].delta.tool_calls);
+  assert.equal(res.choices[0].delta.tool_calls[0].function.name, "read_file");
+  assert.deepEqual(JSON.parse(res.choices[0].delta.tool_calls[0].function.arguments), {
+    path: "src/index.ts",
+  });
+});
+
+test("XiaomiTokenplanProvider - transformResponseBody rescues non-streaming XML tool call", () => {
+  const provider = new XiaomiTokenplanProvider();
+  const context = {
+    targetModel: "mimo-v2.6-flash",
+    clientFormat: "openai",
+    targetFormat: "openai",
+    body: {
+      tools: [{ type: "function", function: { name: "read_file" } }],
+    },
+  } as ProviderRequestContext;
+
+  const body = {
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: "Đang đọc file:\n<function=read_file><parameter=path>app.py</parameter></function>",
+        },
+        finish_reason: "stop",
+      },
+    ],
+  };
+
+  const res = provider.transformResponseBody(body, context);
+  assert.equal(res.choices[0].finish_reason, "tool_calls");
+  assert.ok(res.choices[0].message.tool_calls);
+  assert.equal(res.choices[0].message.tool_calls[0].function.name, "read_file");
+  assert.deepEqual(JSON.parse(res.choices[0].message.tool_calls[0].function.arguments), {
+    path: "app.py",
+  });
+  assert.equal(res.choices[0].message.content, "Đang đọc file:");
+});

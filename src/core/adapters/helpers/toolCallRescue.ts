@@ -289,7 +289,13 @@ export function parseAnyToolBlock(
   toolNames?: Set<string>
 ): RescuedToolCall | null {
   if (!raw || typeof raw !== "string") return null;
-  const trimmed = raw.trim();
+  let trimmed = raw.trim();
+
+  // Strip wrapping <tool_call>...</tool_call> if present
+  const toolCallMatch = /^<tool_call>([\s\S]*?)<\/tool_call>$/i.exec(trimmed);
+  if (toolCallMatch) {
+    trimmed = toolCallMatch[1].trim();
+  }
 
   // 1. JSON object format: {"name": ..., "arguments"|"parameters": ...}
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
