@@ -31,14 +31,23 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   onSuccess,
   onClose,
 }) => {
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const systemInfo = useSystemInfo((s) => s.info);
   const effectivePort = systemInfo?.port || DEFAULT_PORT;
+  const effectivePortRef = useRef(effectivePort);
+  effectivePortRef.current = effectivePort;
 
   const regProvider = getRegistryProvider(providerId);
   const availableRegions = regProvider?.regions || [];
   const [selectedRegion, setSelectedRegion] = useState<string>(
     regProvider?.defaultRegion || (availableRegions.length > 0 ? availableRegions[0].id : "")
   );
+  const selectedRegionRef = useRef(selectedRegion);
+  selectedRegionRef.current = selectedRegion;
 
   const [authUrl, setAuthUrl] = useState("");
   const [redirectUri, setRedirectUri] = useState(`http://localhost:${effectivePort}/callback`);
@@ -57,6 +66,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
   const callbackHandledRef = useRef(false);
   const codeVerifierRef = useRef<string | undefined>(undefined);
   const stateRef = useRef<string | undefined>(undefined);
+  // Incremented on every new flow and on unmount; stale async flows bail out when it changes.
+  const flowIdRef = useRef(0);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -85,7 +96,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
             redirectUri,
             codeVerifier: codeVerifierRef.current,
             state: stateRef.current,
-            region: selectedRegion || undefined,
+            region: selectedRegionRef.current || undefined,
           }),
         });
 
@@ -100,8 +111,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           localStorage.removeItem("oauth_callback");
         } catch {}
         setTimeout(() => {
-          onSuccess();
-          onClose();
+          onSuccessRef.current();
+          onCloseRef.current();
         }, 1200);
       } catch (err: any) {
         callbackHandledRef.current = false;
@@ -109,11 +120,13 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         setErrorMessage(err.message || "Failed to exchange authorization token");
       }
     },
-    [providerId, redirectUri, onSuccess, onClose, stopPolling, selectedRegion]
+    [providerId, redirectUri, stopPolling]
   );
 
   const loadOAuth = useCallback(
     async (regionOverride?: string) => {
+      const flowId = ++flowIdRef.current;
+      const isStale = () => flowId !== flowIdRef.current;
       callbackHandledRef.current = false;
       stopPolling();
       setStatus("loading");
@@ -125,13 +138,13 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       codeVerifierRef.current = undefined;
       stateRef.current = undefined;
 
-      const currentRegion = regionOverride !== undefined ? regionOverride : selectedRegion;
+      const currentRegion = regionOverride !== undefined ? regionOverride : selectedRegionRef.current;
       const regionParam = currentRegion ? `&region=${encodeURIComponent(currentRegion)}` : "";
       const regionDeviceParam = currentRegion ? `?region=${encodeURIComponent(currentRegion)}` : "";
 
       const currentRedirect =
         window.location.port === "5173"
-          ? `http://localhost:${effectivePort}/callback`
+          ? `http://localhost:${effectivePortRef.current}/callback`
           : `${window.location.origin}/callback`;
       setRedirectUri(currentRedirect);
 
@@ -140,6 +153,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           `/api/oauth/${providerId}/authorize?redirect_uri=${encodeURIComponent(currentRedirect)}${regionParam}`
         );
         const data = await res.json().catch(() => ({}));
+        if (isStale()) return;
 
         if (!res.ok || data.error) {
           throw new Error(data.error || `Authorization error (HTTP ${res.status})`);
@@ -151,6 +165,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 
           const dRes = await fetch(`/api/oauth/${providerId}/device-code${regionDeviceParam}`);
           const dData = await dRes.json().catch(() => ({}));
+          if (isStale()) return;
           if (!dRes.ok || !dData.device_code) {
             throw new Error(dData.error || "Failed to initiate device code flow");
           }
@@ -167,9 +182,11 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           let isPollingActive = true;
 
           const schedulePoll = (delaySec: number) => {
+            // A stale flow must not touch pollIntervalRef: it now belongs to the newer flow.
+            if (isStale()) return;
             if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current as any);
             pollIntervalRef.current = setTimeout(async () => {
-              if (!isPollingActive) return;
+              if (!isPollingActive || isStale()) return;
               try {
                 const pollRes = await fetch(`/api/oauth/${providerId}/poll`, {
                   method: "POST",
@@ -189,13 +206,14 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
                   }),
                 });
                 const pollData = await pollRes.json();
+                if (isStale()) return;
                 if (pollData.ok && pollData.success) {
                   isPollingActive = false;
                   stopPolling();
                   setStatus("success");
                   setTimeout(() => {
-                    onSuccess();
-                    onClose();
+                    onSuccessRef.current();
+                    onCloseRef.current();
                   }, 1200);
                   return;
                 }
@@ -269,6 +287,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 
       throw new Error("No authorization URL returned from provider");
     } catch (err: any) {
+      if (isStale()) return;
       if (providerId === "antigravity" && DEFAULT_ANTIGRAVITY_AUTH_URL) {
         setAuthUrl(DEFAULT_ANTIGRAVITY_AUTH_URL);
         setStatus("waiting");
@@ -284,20 +303,23 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
         setErrorMessage(err.message || "Failed to initialize authorization endpoint");
       }
     }
-  }, [providerId, stopPolling, onSuccess, onClose, selectedRegion, effectivePort]);
+  }, [providerId, stopPolling]);
 
   useEffect(() => {
     if (!isOpen) {
       stopPolling();
       setStatus("loading");
       setErrorMessage(null);
+      setIsDeviceCode(false);
+      setDeviceData(null);
       return;
     }
     loadOAuth();
     return () => {
+      flowIdRef.current++;
       stopPolling();
     };
-  }, [isOpen, loadOAuth, stopPolling]);
+  }, [isOpen, providerId, loadOAuth, stopPolling]);
 
   // Listen for callback across postMessage, BroadcastChannel, and localStorage
   useEffect(() => {
@@ -314,8 +336,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           localStorage.removeItem("oauth_callback");
         } catch {}
         setTimeout(() => {
-          onSuccess();
-          onClose();
+          onSuccessRef.current();
+          onCloseRef.current();
         }, 1200);
         return;
       }
@@ -446,6 +468,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
               value={selectedRegion}
               onChange={(val) => {
                 setSelectedRegion(val);
+                selectedRegionRef.current = val;
                 loadOAuth(val);
               }}
               options={availableRegions.map((r) => ({
