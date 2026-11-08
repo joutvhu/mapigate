@@ -50,8 +50,7 @@ export const metadata: ProviderRegistryItem = {
     { "value": "claude", "label": "Anthropic API (/anthropic/v1/messages) - Recommended" },
     { "value": "openai", "label": "OpenAI API (/v1/chat/completions)" }
   ],
-  "hasProviderSpecificData": true
-,
+  "hasProviderSpecificData": true,
   models
 };
 

@@ -6,11 +6,55 @@ import {
 import { rescueInlineToolCalls } from "../helpers/toolCallRescue.js";
 import { normalizeToolParameters } from "../helpers/toolSchemaNormalize.js";
 import { convertOpenAiContentToAnthropic } from "./imageUtils.js";
+import { getCapabilitiesForModel } from "../../capabilities/index.js";
+
+export const DEFAULT_MAX_TOKENS = 64000;
+export const DEFAULT_MIN_TOKENS = 32000;
+
+/**
+ * Adjust max_tokens based on request context and model ceiling.
+ * Parity with 9router:
+ * - Default maxTokens: 64,000 (when client does not pass max_tokens)
+ * - Tool calling floor: auto-raise to at least 32,000 to prevent truncated tool args
+ * - Thinking buffer: ensure max_tokens > thinking.budget_tokens + 1024
+ * - Clamped at model capability maxOutput ceiling
+ */
+export function adjustMaxTokens(
+  body: any,
+  ceiling: number = DEFAULT_MAX_TOKENS
+): number {
+  let maxTokens = body.max_tokens ?? body.max_completion_tokens ?? DEFAULT_MAX_TOKENS;
+
+  // Auto-increase for tool calling to prevent truncated arguments (min never above ceiling)
+  if (body.tools && Array.isArray(body.tools) && body.tools.length > 0) {
+    if (maxTokens < DEFAULT_MIN_TOKENS) {
+      maxTokens = Math.min(DEFAULT_MIN_TOKENS, ceiling);
+    }
+  }
+
+  // Ensure max_tokens > thinking.budget_tokens (Claude API requirement)
+  if (body.thinking?.budget_tokens && maxTokens <= body.thinking.budget_tokens) {
+    maxTokens = body.thinking.budget_tokens + 1024;
+  }
+
+  // Never exceed the ceiling
+  if (maxTokens > ceiling) maxTokens = ceiling;
+
+  if (body.thinking?.budget_tokens && body.thinking.budget_tokens >= maxTokens) {
+    body.thinking.budget_tokens = Math.max(1024, maxTokens - 1024);
+  }
+
+  return maxTokens;
+}
 
 /**
  * Translates OpenAI /v1/chat/completions payload to Anthropic /v1/messages payload
  */
-export function translateOpenAiToAnthropic(openAiBody: any): any {
+export function translateOpenAiToAnthropic(
+  openAiBody: any,
+  modelOverride?: string,
+  providerId?: string | null
+): any {
   let systemPrompt = "";
   let systemCacheControl: any = undefined;
   const anthropicMessages: any[] = [];
@@ -230,12 +274,16 @@ export function translateOpenAiToAnthropic(openAiBody: any): any {
     ];
   }
 
+  const targetModel = modelOverride || openAiBody?.model;
+  const caps = getCapabilitiesForModel(providerId, targetModel);
+  const ceiling = caps?.maxOutput > 0 ? caps.maxOutput : DEFAULT_MAX_TOKENS;
+
   const result: any = {
     model: openAiBody.model,
     messages: anthropicMessages,
     system: formattedSystem,
     tools: tools && tools.length > 0 ? tools : undefined,
-    max_tokens: openAiBody.max_tokens || 4096,
+    max_tokens: adjustMaxTokens(openAiBody, ceiling),
     temperature: openAiBody.temperature,
     stream: Boolean(openAiBody.stream),
   };

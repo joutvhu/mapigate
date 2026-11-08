@@ -783,3 +783,60 @@ test("AnthropicAdapter - anthropicToOpenAi extracts image blocks from tool_resul
   assert.ok(hasTag, "User turn must identify tool result source for image");
 });
 
+
+test("AnthropicAdapter - openAiToAnthropic dynamically scales max_tokens with model capability ceiling and 9router defaults", () => {
+  // 1. Default fallback is 64000 when client specifies no max_tokens
+  const defaultReq = {
+    model: "claude-3-7-sonnet",
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const defaultOut = AnthropicAdapter.openAiToAnthropic(defaultReq);
+  assert.equal(defaultOut.max_tokens, 64000);
+
+  // 2. Models with high output ceiling like MiMo allow large output (131072)
+  const mimoReq = {
+    model: "mimo-v2.6-flash",
+    messages: [{ role: "user", content: "hi" }],
+    max_tokens: 100000,
+  };
+  const mimoOut = AnthropicAdapter.openAiToAnthropic(mimoReq, "mimo-v2.6-flash", "xiaomi-tokenplan");
+  assert.equal(mimoOut.max_tokens, 100000);
+
+  // 3. Tool floor: if tools present and client sends low max_tokens, floor at 32000
+  const toolReq = {
+    model: "claude-3-7-sonnet",
+    messages: [{ role: "user", content: "search code" }],
+    tools: [
+      {
+        type: "function",
+        function: { name: "search", parameters: { type: "object" } },
+      },
+    ],
+    max_tokens: 1000,
+  };
+  const toolOut = AnthropicAdapter.openAiToAnthropic(toolReq);
+  assert.equal(toolOut.max_tokens, 32000);
+
+  // 4. Thinking budget reconciliation for high-ceiling model (e.g. MiMo = 131072)
+  const thinkingReq = {
+    model: "mimo-v2.6-flash",
+    messages: [{ role: "user", content: "think" }],
+    thinking: { budget_tokens: 64000 },
+    max_tokens: 64000,
+  };
+  const thinkingOut = AnthropicAdapter.openAiToAnthropic(thinkingReq, "mimo-v2.6-flash", "xiaomi-tokenplan");
+  assert.equal(thinkingOut.max_tokens, 65024);
+
+  // 5. Older Claude model limits clamping (Anthropic rejects > model ceiling)
+  const sonnet35Out = AnthropicAdapter.openAiToAnthropic({
+    model: "claude-3-5-sonnet-20241022",
+    messages: [{ role: "user", content: "hi" }],
+  });
+  assert.equal(sonnet35Out.max_tokens, 8192);
+
+  const opus3Out = AnthropicAdapter.openAiToAnthropic({
+    model: "claude-3-opus-20240229",
+    messages: [{ role: "user", content: "hi" }],
+  });
+  assert.equal(opus3Out.max_tokens, 4096);
+});

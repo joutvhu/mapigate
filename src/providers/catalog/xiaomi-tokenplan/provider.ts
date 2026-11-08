@@ -33,7 +33,11 @@ export class XiaomiTokenplanProvider extends OpenAiCompatibleProvider {
         return { ...context.body, model: context.targetModel };
       }
       return {
-        ...AnthropicAdapter.openAiToAnthropic(context.body),
+        ...AnthropicAdapter.openAiToAnthropic(
+          context.body,
+          context.targetModel,
+          context.provider?.id || this.id
+        ),
         model: context.targetModel,
       };
     }

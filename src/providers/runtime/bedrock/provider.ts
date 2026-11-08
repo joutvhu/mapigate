@@ -21,7 +21,11 @@ export class BedrockProvider extends BaseProvider {
   public override transformRequestBody(context: ProviderRequestContext): any {
     let body = context.body;
     if (context.clientFormat === "openai") {
-      body = AnthropicAdapter.openAiToAnthropic(body);
+      body = AnthropicAdapter.openAiToAnthropic(
+        body,
+        context.targetModel,
+        context.provider?.id || this.id
+      );
     } else {
       body = { ...body };
     }
