@@ -1,11 +1,10 @@
-import type { ScannedModel, ScanModelsResult, ScanModelsOptions } from "../../shared/types/index.js";
-import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { getRegistryProvider, type ProviderRegistryItem } from "../../shared/constants/providerRegistry.js";
-import { getCapabilitiesForModel } from "../capabilities/index.js";
-import { ensureFreshCredentials } from "../usage/tokenHelper.js";
 import { ProviderRegistry } from "../../providers/core/registry.js";
-import { resolveCandidateUrls } from "./urlResolver.js";
+import { getRegistryProvider, type ProviderRegistryItem } from "../../shared/constants/providerRegistry.js";
+import type { ScanModelsOptions, ScanModelsResult, ScannedModel } from "../../shared/types/index.js";
 import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
+import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { ensureFreshCredentials } from "../usage/tokenHelper.js";
+import { resolveCandidateUrls } from "./urlResolver.js";
 
 export { resolveCandidateUrls } from "./urlResolver.js";
 
@@ -228,10 +227,15 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
       };
     }
 
-    // Graceful fallback to static catalog models for Kiro / Amazon Q if available
+    // Graceful fallback to static catalog models for Kiro / Amazon Q / Gemini CLI if available
     if (
       modelsById.size === 0 &&
-      (providerId === "kiro" || providerId === "amazon-q" || registryItem?.id === "kiro" || registryItem?.id === "amazon-q") &&
+      (providerId === "kiro" ||
+        providerId === "amazon-q" ||
+        providerId === "gemini-cli" ||
+        registryItem?.id === "kiro" ||
+        registryItem?.id === "amazon-q" ||
+        registryItem?.id === "gemini-cli") &&
       registryItem?.models?.length
     ) {
       for (const m of registryItem.models) {

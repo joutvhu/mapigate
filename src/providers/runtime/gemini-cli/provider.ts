@@ -139,7 +139,12 @@ export class GeminiCliProvider extends OpenAiCompatibleProvider {
             return {
               success: true,
               endpointUrl: ep.url,
-              count: 1,
+              models: metadata.models.map((m) => ({
+                id: m.id,
+                name: m.name,
+                contextLength: m.contextLength,
+              })),
+              count: metadata.models.length,
             };
           }
         }
