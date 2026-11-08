@@ -6,25 +6,85 @@ import { promisify } from "node:util";
 import { HOST_REWRITE } from "../../shared/constants/mitmToolHosts.js";
 import { serverLifecycle } from "../../server/lifecycle.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
+import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
 import { DEFAULT_BASE_URL } from "../../shared/constants/index.js";
 
 export const DEFAULT_ROUTER_BASE = DEFAULT_BASE_URL;
-export const ROUTER_BASE = String(process.env.MAPIGATE_BASE_URL || DEFAULT_ROUTER_BASE)
-  .trim()
-  .replace(/\/+$/, "");
 
-export function getRouterBaseUrl(): string {
+export interface MitmRouterTarget {
+  baseUrl: string;
+  authHeader: string;
+  isRemote: boolean;
+}
+
+export function getRouterTarget(): MitmRouterTarget {
   if (process.env.MAPIGATE_BASE_URL) {
-    return process.env.MAPIGATE_BASE_URL.trim().replace(/\/+$/, "");
+    const baseUrl = process.env.MAPIGATE_BASE_URL.trim().replace(/\/+$/, "");
+    const apiKey = process.env.ROUTER_API_KEY ? process.env.ROUTER_API_KEY.trim() : "";
+    return {
+      baseUrl,
+      authHeader: apiKey ? `Bearer ${apiKey}` : "",
+      isRemote: true,
+    };
   }
+
+  try {
+    const configured = MitmRepository.getRouterTarget();
+    if (configured.baseUrl) {
+      const apiKey = process.env.ROUTER_API_KEY ? process.env.ROUTER_API_KEY.trim() : (configured.apiKey || "");
+      let authHeader = apiKey ? `Bearer ${apiKey}` : "";
+
+      // Only fall back to local gateway key if target is local
+      if (!authHeader && !configured.isRemote) {
+        try {
+          const activeKey = SettingsRepository.getGatewayApiKeys().find((k) => k.isActive)?.key;
+          if (activeKey) {
+            authHeader = `Bearer ${activeKey}`;
+          }
+        } catch {}
+      }
+
+      return {
+        baseUrl: configured.baseUrl,
+        authHeader,
+        isRemote: configured.isRemote,
+      };
+    }
+  } catch {}
+
+  // Fallback to local gateway
   try {
     const port = serverLifecycle.getPort();
     const host = serverLifecycle.getHost() || "127.0.0.1";
     const cleanHost = host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
-    return `http://${cleanHost}:${port}`;
+    const baseUrl = `http://${cleanHost}:${port}`;
+
+    let authHeader = process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY.trim()}` : "";
+    if (!authHeader) {
+      try {
+        const activeKey = SettingsRepository.getGatewayApiKeys().find((k) => k.isActive)?.key;
+        if (activeKey) {
+          authHeader = `Bearer ${activeKey}`;
+        }
+      } catch {}
+    }
+
+    return {
+      baseUrl,
+      authHeader,
+      isRemote: false,
+    };
   } catch {
-    return DEFAULT_ROUTER_BASE;
+    return {
+      baseUrl: DEFAULT_ROUTER_BASE,
+      authHeader: process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY.trim()}` : "",
+      isRemote: false,
+    };
   }
+}
+
+export function getRouterBaseUrl(): string {
+  return getRouterTarget().baseUrl;
 }
 
 const STRIP_HEADERS = new Set([
@@ -221,16 +281,7 @@ export async function fetchRouter(
     }
   }
 
-  const baseUrl = getRouterBaseUrl();
-  let authHeader = process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY}` : "";
-  if (!authHeader) {
-    try {
-      const activeKey = SettingsRepository.getGatewayApiKeys().find((k) => k.isActive)?.key;
-      if (activeKey) {
-        authHeader = `Bearer ${activeKey}`;
-      }
-    } catch {}
-  }
+  const { baseUrl, authHeader } = getRouterTarget();
 
   const response = await fetch(`${baseUrl}${path}`, {
     method: "POST",

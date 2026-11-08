@@ -147,6 +147,23 @@ export const MitmTab: React.FC = () => {
 
   const [comboNames, setComboNames] = useState<Set<string>>(new Set());
 
+  // Router Target Configuration
+  const [targetUrlInput, setTargetUrlInput] = useState("");
+  const [targetApiKeyInput, setTargetApiKeyInput] = useState("");
+  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+  const [testingTarget, setTestingTarget] = useState(false);
+  const [savingTarget, setSavingTarget] = useState(false);
+  const [targetTestResult, setTargetTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [targetSaveMsg, setTargetSaveMsg] = useState<{ success: boolean; message: string } | null>(null);
+  const [remoteModels, setRemoteModels] = useState<AvailableModelItem[]>([]);
+
+  // Computed state: remote if custom URL is provided and not pointing to loopback
+  const isTargetRemote = useMemo(() => {
+    const trimmed = targetUrlInput.trim().toLowerCase();
+    if (!trimmed) return false;
+    return !trimmed.includes("127.0.0.1") && !trimmed.includes("localhost") && !trimmed.includes("0.0.0.0");
+  }, [targetUrlInput]);
+
   useEffect(() => {
     fetch("/api/combos")
       .then((r) => (r.ok ? r.json() : []))
@@ -192,6 +209,98 @@ export const MitmTab: React.FC = () => {
         useMitmStatus.getState().fetchStatus();
       })
       .catch(() => {});
+
+    fetch("/api/mitm/router-target")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((target) => {
+        if (!target) return;
+        setTargetUrlInput(target.baseUrl || "");
+        setHasStoredApiKey(Boolean(target.hasApiKey));
+        if (target.isRemote && target.baseUrl) {
+          fetchRemoteModelsList();
+        }
+      })
+      .catch(() => {});
+  };
+
+  const fetchRemoteModelsList = () => {
+    fetch("/api/mitm/router-target/models")
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((data) => {
+        const list = (data.models || []).map((m: any) => ({
+          id: m.id,
+          value: m.id,
+          name: m.name || m.id,
+          providerId: m.provider || "remote",
+          providerName: m.provider || "Remote Gateway",
+          hasConnectedAccount: true,
+          accountsCount: 1,
+          caps: { vision: true, reasoning: true, audio: false },
+          contextLength: 128000,
+        }));
+        setRemoteModels(list);
+      })
+      .catch(() => {});
+  };
+
+  const handleTestTargetConnection = async () => {
+    setTestingTarget(true);
+    setTargetTestResult(null);
+    try {
+      const res = await fetch("/api/mitm/router-target/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: targetUrlInput.trim(),
+          apiKey: targetApiKeyInput.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      setTargetTestResult({
+        success: Boolean(data.success),
+        message: data.message || (data.success ? "Connection successful" : "Connection failed"),
+      });
+      if (data.success && isTargetRemote) {
+        fetchRemoteModelsList();
+      }
+    } catch (e: any) {
+      setTargetTestResult({
+        success: false,
+        message: e?.message || "Test request failed",
+      });
+    } finally {
+      setTestingTarget(false);
+    }
+  };
+
+  const handleSaveTarget = async () => {
+    if (serverRunning) return;
+    setSavingTarget(true);
+    setTargetSaveMsg(null);
+    try {
+      const res = await fetch("/api/mitm/router-target", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: targetUrlInput.trim(),
+          apiKey: targetApiKeyInput !== "" ? targetApiKeyInput.trim() : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTargetSaveMsg({ success: true, message: "Target configuration saved!" });
+        setHasStoredApiKey(Boolean(data.hasApiKey));
+        setTargetApiKeyInput("");
+        loadStatus();
+      } else {
+        setTargetSaveMsg({ success: false, message: data.error || "Failed to save target" });
+      }
+    } catch (e: any) {
+      setTargetSaveMsg({ success: false, message: e?.message || "Failed to save target" });
+    } finally {
+      setSavingTarget(false);
+      setTimeout(() => setTargetSaveMsg(null), 3000);
+    }
   };
 
   const loadToolData = () => {
@@ -588,7 +697,7 @@ export const MitmTab: React.FC = () => {
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-1 text-xs">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-slate-300">Mapigate Local Endpoint:</span>
+            <span className="font-semibold text-slate-300">Active Gateway Endpoint:</span>
             <code className="text-blue-400 font-mono bg-[#0A0D14] px-3 py-1.5 rounded-lg border border-[#1E293B]">
               {localEndpoint}
             </code>
@@ -597,6 +706,106 @@ export const MitmTab: React.FC = () => {
           <span className="text-[11px] text-slate-400 italic">
             Enable DNS per tool below to activate redirection
           </span>
+        </div>
+
+        {/* Router Target Configuration (Local vs Remote Gateway) */}
+        <div className="pt-3 border-t border-[#1E293B]">
+          <div className="p-3.5 bg-[#0A0D14] rounded-xl border border-[#1E293B] space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-cyan-400">hub</span>
+                <span className="text-xs font-bold text-white">Target Gateway</span>
+                {isTargetRemote ? (
+                  <span className="rt-badge rt-badge--info">Remote Machine</span>
+                ) : (
+                  <span className="rt-badge rt-badge--success">Local Machine</span>
+                )}
+              </div>
+              {serverRunning && (
+                <span className="text-[11px] text-amber-400/90 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">lock</span>
+                  Stop server to edit target configuration
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11.5px] text-slate-400 leading-relaxed">
+              Specify where intercepted prompts are forwarded. Leave URL blank to route to this machine&apos;s local Mapigate Gateway, or enter another IP/URL to delegate requests to a remote machine.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                  Gateway Base URL
+                </label>
+                <input
+                  type="text"
+                  placeholder={`Leave blank for local (${localEndpoint})`}
+                  value={targetUrlInput}
+                  disabled={serverRunning}
+                  onChange={(e) => setTargetUrlInput(e.target.value)}
+                  className="w-full bg-[#141B2D] border border-[#1E293B] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                  Gateway API Key {hasStoredApiKey && !targetApiKeyInput && "(Configured ✓)"}
+                </label>
+                <input
+                  type="password"
+                  disabled={serverRunning}
+                  placeholder={hasStoredApiKey ? "•••••••••••• (Leave blank to keep)" : "Optional (Required if Target requires key)"}
+                  value={targetApiKeyInput}
+                  onChange={(e) => setTargetApiKeyInput(e.target.value)}
+                  className="w-full bg-[#141B2D] border border-[#1E293B] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <div className="text-xs">
+                {targetTestResult && (
+                  <span className={`inline-flex items-center gap-1 text-[11.5px] ${targetTestResult.success ? "text-emerald-400" : "text-rose-400"}`}>
+                    <span className="material-symbols-outlined text-[15px]">
+                      {targetTestResult.success ? "check_circle" : "cancel"}
+                    </span>
+                    {targetTestResult.message}
+                  </span>
+                )}
+                {targetSaveMsg && (
+                  <span className={`inline-flex items-center gap-1 text-[11.5px] ${targetSaveMsg.success ? "text-emerald-400" : "text-rose-400"}`}>
+                    <span className="material-symbols-outlined text-[15px]">
+                      {targetSaveMsg.success ? "check" : "error"}
+                    </span>
+                    {targetSaveMsg.message}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={testingTarget}
+                  onClick={handleTestTargetConnection}
+                  className="rt-btn rt-btn--secondary text-xs py-1 px-3 flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[15px]">network_check</span>
+                  {testingTarget ? "Testing..." : "Test Connection"}
+                </button>
+                <button
+                  type="button"
+                  disabled={savingTarget || serverRunning}
+                  title={serverRunning ? "Stop MITM server before editing target configuration" : undefined}
+                  onClick={handleSaveTarget}
+                  className="rt-btn rt-btn--primary text-xs py-1 px-3.5 flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined text-[15px]">save</span>
+                  {savingTarget ? "Saving..." : "Save Target"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Advanced / Custom Port Configuration */}
@@ -1132,7 +1341,8 @@ export const MitmTab: React.FC = () => {
                                           value={targetInput}
                                           onChange={setTargetInput}
                                           onEnter={() => handleUpdateMapping(tool.id)}
-                                          placeholder="Search connected model..."
+                                          placeholder="Search model or type ID..."
+                                          fetchCustomModels={isTargetRemote && remoteModels.length > 0 ? () => Promise.resolve(remoteModels) : undefined}
                                           className="bg-[#080B11] border border-blue-500/60 focus:border-blue-400 rounded-lg px-2.5 py-1 text-xs text-white font-mono w-full focus:outline-none"
                                           autoFocus
                                         />
@@ -1260,7 +1470,8 @@ export const MitmTab: React.FC = () => {
                 <ModelAutocompleteInput
                   value={newTargetModel}
                   onChange={setNewTargetModel}
-                  placeholder="Search connected model..."
+                  placeholder="Search model or type ID..."
+                  fetchCustomModels={isTargetRemote && remoteModels.length > 0 ? () => Promise.resolve(remoteModels) : undefined}
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   Supports slash / formats, e.g. provider/model-name.

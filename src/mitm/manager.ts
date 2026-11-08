@@ -47,6 +47,8 @@ export class MitmManager {
 
     const liveDns = this.checkLiveDns();
     const orphanedDns = !serverStatus.running && Object.values(liveDns).some(Boolean);
+    const target = MitmRepository.getRouterTarget();
+    const routerBaseUrl = target.baseUrl || getMapigateBaseUrl();
 
     return {
       running: serverStatus.running,
@@ -59,7 +61,9 @@ export class MitmManager {
       uninstallCommands,
       dnsStatus: liveDns,
       orphanedDns,
-      routerBaseUrl: getMapigateBaseUrl(),
+      routerBaseUrl,
+      isRemoteRouter: target.isRemote,
+      hasRouterApiKey: Boolean(target.apiKey),
     };
   }
 

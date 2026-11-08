@@ -20,6 +20,7 @@ import {
   getDefaultMappings,
 } from "../../mitm/toolsHelper.js";
 import { ToolMappingRepository } from "./toolMappingRepo.js";
+import { CryptoVault } from "../crypto/vault.js";
 
 export { TOOL_DEFAULT_HOSTS, getDefaultMappings };
 
@@ -159,6 +160,59 @@ export class MitmRepository {
 
   public static deleteMapping(ide: string, sourceModel: string): void {
     ToolMappingRepository.deleteMapping(ide, sourceModel);
+  }
+
+  public static getRouterTarget(): { baseUrl: string; apiKey?: string; isRemote: boolean } {
+    const db = getDatabase();
+    let url = "";
+    let apiKey = "";
+
+    try {
+      const urlRow = db.get<{ value?: string }>("SELECT value FROM settings WHERE key = 'mitm_router_base_url'");
+      if (urlRow?.value) {
+        url = urlRow.value.trim().replace(/\/+$/, "");
+      }
+    } catch {}
+
+    try {
+      const keyRow = db.get<{ value?: string }>("SELECT value FROM settings WHERE key = 'mitm_router_api_key'");
+      if (keyRow?.value) {
+        apiKey = CryptoVault.decrypt(keyRow.value) || "";
+      }
+    } catch {}
+
+    const isRemote = Boolean(url && !url.includes("127.0.0.1") && !url.includes("localhost") && !url.includes("0.0.0.0"));
+    return {
+      baseUrl: url,
+      apiKey: apiKey || undefined,
+      isRemote,
+    };
+  }
+
+  public static setRouterTarget(target: { baseUrl?: string; apiKey?: string | null }): void {
+    const db = getDatabase();
+
+    if (target.baseUrl !== undefined) {
+      const cleanUrl = (target.baseUrl || "").trim().replace(/\/+$/, "");
+      db.run(
+        `INSERT INTO settings (key, value) VALUES ('mitm_router_base_url', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        cleanUrl
+      );
+    }
+
+    if (target.apiKey !== undefined) {
+      if (target.apiKey === null || target.apiKey === "") {
+        db.run("DELETE FROM settings WHERE key = 'mitm_router_api_key'");
+      } else {
+        const encrypted = CryptoVault.encrypt(target.apiKey.trim());
+        db.run(
+          `INSERT INTO settings (key, value) VALUES ('mitm_router_api_key', ?)
+           ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          encrypted
+        );
+      }
+    }
   }
 }
 

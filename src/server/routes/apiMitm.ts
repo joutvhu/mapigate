@@ -15,11 +15,73 @@ import {
   PortConflictError,
   type PortOwnerInfo,
 } from "../../mitm/portConflict.js";
+import {
+  getCurrentRouterTarget,
+  testRouterTargetConnection,
+  fetchRemoteModels,
+} from "./mitmRouterTargetHelper.js";
 
 import { getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
 import { serverLifecycle } from "../lifecycle.js";
 
 export const mitmRouter = Router();
+
+// GET MITM router target
+mitmRouter.get("/router-target", (_req, res) => {
+  res.json(getCurrentRouterTarget());
+});
+
+// PUT MITM router target
+mitmRouter.put("/router-target", async (req, res) => {
+  const status = await mitmManager.getStatus();
+  if (status.running) {
+    res.status(400).json({ error: "Cannot modify router target while MITM server is running. Please stop the server first." });
+    return;
+  }
+
+  const { baseUrl, apiKey } = req.body || {};
+
+  if (baseUrl !== undefined && typeof baseUrl !== "string") {
+    res.status(400).json({ error: "baseUrl must be a string" });
+    return;
+  }
+
+  if (baseUrl) {
+    try {
+      const parsed = new URL(baseUrl.trim());
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        res.status(400).json({ error: "URL protocol must be http: or https:" });
+        return;
+      }
+    } catch {
+      res.status(400).json({ error: "Invalid URL format" });
+      return;
+    }
+  }
+
+  MitmRepository.setRouterTarget({
+    baseUrl: baseUrl !== undefined ? baseUrl : undefined,
+    apiKey: apiKey !== undefined ? apiKey : undefined,
+  });
+
+  res.json({
+    success: true,
+    ...getCurrentRouterTarget(),
+  });
+});
+
+// POST test MITM router target connection
+mitmRouter.post("/router-target/test", async (req, res) => {
+  const { baseUrl, apiKey } = req.body || {};
+  const result = await testRouterTargetConnection(baseUrl, apiKey);
+  res.json(result);
+});
+
+// GET remote models when configured
+mitmRouter.get("/router-target/models", async (_req, res) => {
+  const models = await fetchRemoteModels();
+  res.json({ models });
+});
 
 // GET MITM status
 mitmRouter.get("/status", async (_req, res) => {

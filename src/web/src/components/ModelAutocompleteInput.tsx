@@ -31,6 +31,7 @@ export interface ModelAutocompleteInputProps {
   disabled?: boolean;
   excludeValues?: string[];
   allowCombos?: boolean;
+  fetchCustomModels?: () => Promise<AvailableModelItem[]>;
 }
 
 let cachedModelsPromise: Promise<AvailableModelItem[]> | null = null;
@@ -87,6 +88,7 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
   disabled = false,
   excludeValues,
   allowCombos = true,
+  fetchCustomModels,
 }) => {
   const [models, setModels] = useState<AvailableModelItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -115,7 +117,8 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
   useEffect(() => {
     let isMounted = true;
     const fetchModels = () => {
-      getAvailableModelsCached()
+      const promise = fetchCustomModels ? fetchCustomModels() : getAvailableModelsCached();
+      promise
         .then((data) => {
           if (isMounted) setModels(data);
         })
@@ -136,7 +139,7 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
       isMounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [fetchCustomModels]);
 
   useEffect(() => {
     setFilterConnected(connectedOnly);
