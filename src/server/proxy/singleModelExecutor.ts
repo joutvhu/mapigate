@@ -270,7 +270,13 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     }
 
     const upstreamTimeoutMs = Number(process.env.MAPIGATE_UPSTREAM_TIMEOUT_MS) || 180_000;
-    const timeoutSignal = AbortSignal.timeout(upstreamTimeoutMs);
+    const isStreaming = upstreamBody?.stream !== false && !isPanel;
+    // Streaming generations with large contexts (e.g. 100k+ tokens) can take many minutes.
+    // Use a generous ceiling (30 minutes) for streaming so active token streams aren't aborted mid-sentence at 180s.
+    const effectiveTimeoutMs = isStreaming
+      ? Math.max(upstreamTimeoutMs, 1_800_000)
+      : upstreamTimeoutMs;
+    const timeoutSignal = AbortSignal.timeout(effectiveTimeoutMs);
     const combinedSignal = (AbortSignal as any).any
       ? (AbortSignal as any).any([abortController.signal, timeoutSignal])
       : abortController.signal;
