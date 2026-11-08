@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.123] - 2026-11-08
+
+### Features
+
+#### MITM Interceptor
+- **Configurable Remote Router Target**: Added persistent configuration for custom router target base URL and API key forwarding.
+- **Dynamic Target Resolution**: Updated MITM proxy request handlers to resolve target dynamically with auth header support.
+- **Remote Model Fetching & Connectivity Probes**: Added API endpoints to retrieve, update, test connectivity, and fetch remote models from external routers.
+- **MITM Dashboard Controls**: Added UI settings in MITM tab to configure, test, and view router target remote status and authentication state.
+
+### Fixes
+
+#### OAuth Modal
+- **State Stabilization & Race Condition Prevention**: Tracked callbacks, region, and effective port in refs to prevent stale closures.
+- **Flow ID Tracking**: Added generation counter (`flowIdRef`) to discard obsolete responses from async flows and polling intervals.
+- **Device Code Cleanup**: Cleaned up device code state upon modal close to prevent stale UI during re-initialization.
+
 ## [0.5.120] - 2026-11-07
 
 ### Features
