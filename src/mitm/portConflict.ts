@@ -9,6 +9,7 @@ export interface PortOwnerInfo {
   commandLine?: string;
   isSystemProcess?: boolean;
   remediationHint?: string;
+  isTransient?: boolean;
 }
 
 export class PortConflictError extends Error {
@@ -150,6 +151,13 @@ function inspectPortOwnerNetstat(port: number): Promise<{ pid?: number; processN
  * Inspect the process currently occupying the given TCP port.
  */
 export async function inspectPortOwner(port: number): Promise<PortOwnerInfo> {
+  // Fast path: Probe whether the port is free to bind on 0.0.0.0.
+  // If the socket binds successfully, no process is listening or blocking the port.
+  const isFree = await checkPortFree(port);
+  if (isFree) {
+    return { port, inUse: false };
+  }
+
   const isWin = process.platform === "win32";
 
   if (isWin) {
@@ -165,6 +173,8 @@ if ($c) {
     InUse = $true
     Pid = [int]$c.OwningProcess
     ProcessName = if ($p) { [string]$p.ProcessName } else { "" }
+    State = [string]$c.State
+    ProcessExists = [bool]$p
   } | ConvertTo-Json -Compress
 } else {
   @{ InUse = $false } | ConvertTo-Json -Compress
@@ -187,8 +197,12 @@ if ($c) {
           const parsed = JSON.parse(psOutput);
           if (parsed.InUse) {
             const pid: number = parsed.Pid;
-            const isTimeWait = pid === 0;
-            let processName: string = isTimeWait
+            const state: string = parsed.State || "";
+            const processExists = parsed.ProcessExists !== false;
+            const isTransientState = ["TimeWait", "FinWait1", "FinWait2", "CloseWait", "Closing", "LastAck"].includes(state);
+            const isDeadProcess = !processExists && pid > 4;
+            const isTimeWait = pid === 0 || isTransientState || isDeadProcess;
+            const processName: string = isTimeWait
               ? "Idle (TIME_WAIT)"
               : parsed.ProcessName || (pid <= 4 ? "System" : "unknown");
             const isSystemProcess = !isTimeWait && isProtectedSystemProcess(pid, processName);
@@ -201,10 +215,11 @@ if ($c) {
             return {
               port,
               inUse: true,
-              pid,
+              pid: isTimeWait && isDeadProcess ? 0 : pid,
               processName,
               isSystemProcess,
               remediationHint: hint,
+              isTransient: isTimeWait,
             };
           }
         } catch {
@@ -237,24 +252,19 @@ if ($c) {
         processName,
         isSystemProcess,
         remediationHint: hint,
+        isTransient: isTimeWait,
       };
     }
 
-    // Verify if socket is actually free
-    const isFree = await checkPortFree(port);
-    if (!isFree) {
-      // Port in use but PID couldn't be resolved (likely elevated system driver HTTP.sys)
-      return {
-        port,
-        inUse: true,
-        pid: 4,
-        processName: "System",
-        isSystemProcess: true,
-        remediationHint: SYSTEM_REMEDIATION_HINT,
-      };
-    }
-
-    return { port, inUse: false };
+    // Port in use but PID couldn't be resolved (likely elevated system driver HTTP.sys)
+    return {
+      port,
+      inUse: true,
+      pid: 4,
+      processName: "System",
+      isSystemProcess: true,
+      remediationHint: SYSTEM_REMEDIATION_HINT,
+    };
   }
 
   // POSIX (Linux/macOS)
@@ -333,14 +343,24 @@ export async function killProcessByPid(
 
   if (isWin) {
     await new Promise<void>((resolve, reject) => {
-      exec(`taskkill /F /PID ${pid}`, { windowsHide: true }, (err) => {
+      exec(`taskkill /F /PID ${pid}`, { windowsHide: true }, (err, _stdout, stderr) => {
         if (!err) return resolve();
+        const errStr = `${err.message} ${stderr || ""}`.toLowerCase();
+        if (errStr.includes("not found")) {
+          // Process has already terminated
+          return resolve();
+        }
         // Fallback to PowerShell Stop-Process
         exec(
           `powershell -NoProfile -NonInteractive -Command "Stop-Process -Id ${pid} -Force"`,
           { windowsHide: true },
-          (psErr) => {
+          (psErr, _psOut, psStderr) => {
             if (!psErr) return resolve();
+            const psErrStr = `${psErr.message} ${psStderr || ""}`.toLowerCase();
+            if (psErrStr.includes("cannot find") || psErrStr.includes("not found")) {
+              // Process has already terminated
+              return resolve();
+            }
             reject(new Error(`Failed to terminate PID ${pid}: ${err.message}`));
           }
         );

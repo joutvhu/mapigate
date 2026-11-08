@@ -1504,7 +1504,7 @@ export const MitmTab: React.FC = () => {
         maxWidthClass="max-w-md"
       >
         {portConflict && (() => {
-          const isTimeWait = portConflict.pid === 0 || Boolean(portConflict.processName?.toLowerCase().includes("idle"));
+          const isTimeWait = Boolean(portConflict.isTransient) || portConflict.pid === 0 || Boolean(portConflict.processName?.toLowerCase().includes("idle"));
 
           return (
           <div className="space-y-4">

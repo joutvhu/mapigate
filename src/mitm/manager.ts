@@ -86,7 +86,7 @@ export class MitmManager {
       // Pre-flight check: is port already occupied?
       const portOwner = await inspectPortOwner(targetPort);
       if (portOwner.inUse) {
-        const isTimeWait = portOwner.pid === 0 || Boolean(portOwner.processName?.toLowerCase().includes("idle"));
+        const isTimeWait = Boolean(portOwner.isTransient) || portOwner.pid === 0 || Boolean(portOwner.processName?.toLowerCase().includes("idle"));
         if (portOwner.pid === process.pid || isTimeWait) {
           // Port is held by this Mapigate process or in transient TCP TIME_WAIT from a recent restart.
           // Polling to let socket release cleanly.
