@@ -59,6 +59,8 @@ export function normalizeKiroToolSpecs(tools: any[]): any[] {
   return specs;
 }
 
+import { resolveDefaultProfileArn } from "./quota.js";
+
 export function buildKiroPayload(
   body: any,
   targetModel: string,
@@ -284,7 +286,7 @@ export function buildKiroPayload(
   };
 
   const psd = (account?.providerSpecificData || {}) as Record<string, any>;
-  const profileArn = (psd.profileArn || "").trim();
+  const profileArn = (psd.profileArn || "").trim() || (account ? resolveDefaultProfileArn(psd.authMethod) : "");
 
   const payload: any = {
     conversationState: {

@@ -123,8 +123,8 @@ export async function getKiroUsage(
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
-              "x-amz-user-agent": "aws-sdk-js/1.0.0 KiroIDE",
-              "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
+              "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
+              "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
               ...apiKeyHeaders,
               ...externalIdpHeaders,
             },
@@ -166,8 +166,8 @@ export async function getKiroUsage(
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
-            "x-amz-user-agent": "aws-sdk-js/1.0.0 KiroIDE",
-            "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
+            "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
+            "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
             ...apiKeyHeaders,
             ...externalIdpHeaders,
           },

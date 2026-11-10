@@ -63,7 +63,10 @@ export class KiroProvider extends OpenAiCompatibleProvider {
       return `https://q.${region}.amazonaws.com/generateAssistantResponse`;
     }
 
-    return super.buildUrl(context);
+    const provBase = (context.provider?.baseUrl || "").trim();
+    if (provBase) return provBase;
+
+    return `https://runtime.${region}.kiro.dev/generateAssistantResponse`;
   }
 
   public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
@@ -103,8 +106,8 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const reqHeaders: Record<string, string> = {
       ...(context.customHeaders || {}),
       "x-amz-target": "AmazonCodeWhispererService.ListAvailableModels",
-      "x-amz-user-agent": "aws-sdk-js/1.0.0 KiroIDE",
-      "user-agent": "aws-sdk-js/1.0.0 KiroIDE",
+      "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
+      "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
       "Content-Type": "application/x-amz-json-1.0",
       "Accept": "application/json",
     };

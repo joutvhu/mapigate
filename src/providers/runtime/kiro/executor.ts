@@ -13,6 +13,7 @@ import { extractTokenFromAccount } from "../../core/base/tokenExtractor.js";
 import { buildKiroPayload } from "./converter.js";
 import { normalizeKiroUpstreamModelId } from "./models.js";
 import { refreshKiroToken } from "./auth.js";
+import { resolveDefaultProfileArn } from "./quota.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
 
@@ -74,8 +75,8 @@ export async function executeKiro(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/vnd.amazon.eventstream",
-    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE",
-    "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE",
+    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
+    "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
     "x-amzn-kiro-agent-mode": "spec",
     "x-amzn-codewhisperer-machine-id": "kiro-desktop",
     ...provCustomHeaders,
@@ -92,20 +93,22 @@ export async function executeKiro(
     headers["TokenType"] = "EXTERNAL_IDP";
   }
 
-  if (profileArn) {
-    headers["x-amzn-codewhisperer-profile-arn"] = profileArn;
+  const effectiveProfileArn = profileArn || resolveDefaultProfileArn(authMethod);
+  if (effectiveProfileArn) {
+    headers["x-amzn-codewhisperer-profile-arn"] = effectiveProfileArn;
   }
 
   // 3. Resolve Target Endpoint URL
   const accountBase = (psd.baseUrl || "").trim();
-  let targetUrl = accountBase;
+  const providerBase = (context.provider?.baseUrl || "").trim();
+  let targetUrl = accountBase || providerBase;
   if (!targetUrl) {
     if (authMethod === "external_idp") {
       targetUrl = `https://codewhisperer.${region}.amazonaws.com/generateAssistantResponse`;
     } else if (authMethod === "api-key" || authMethod === "api_key") {
       targetUrl = `https://q.${region}.amazonaws.com/generateAssistantResponse`;
     } else {
-      targetUrl = `https://codewhisperer.${region}.amazonaws.com/generateAssistantResponse`;
+      targetUrl = `https://runtime.${region}.kiro.dev/generateAssistantResponse`;
     }
   }
 
