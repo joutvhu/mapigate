@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.130] - 2026-11-11
+
+### Features
+
+#### MITM Interceptor
+- **Kiro Permission Classifier Model Support**: Added support for internal virtual model `permission-classifier` (used by Kiro's "Approve for Me" auto-permission feature) across Kiro MITM handler config, model dictionary, and routing tests.
+
+#### Model Scanner
+- **Gemini CLI Discovery & Catalog Fallback**: Added static catalog fallback in model scanner and mapped discovered model metadata directly in Gemini CLI runtime.
+
+### Fixes
+
+#### Adapters & Protocols
+- **Developer Role & Structured System Content**: Supported `developer` role alongside `system` messages in Anthropic adapter and Antigravity executor via `extractPlainTextContent` utility, preventing developer messages from leaking into conversation contents.
+
 ## [0.5.127] - 2026-11-09
 
 ### Features

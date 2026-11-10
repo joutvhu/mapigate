@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blueviolet.svg)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.127-orange.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.5.130-orange.svg)](package.json)
 
 [**What is Mapigate?**](#-what-is-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-151) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**Token Saver**](#-feature-1-token-saver-modular-token-optimization) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
 
