@@ -1431,5 +1431,65 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
         global.fetch = originalFetch;
       }
     });
+
+    it("merges system and developer messages with array content into systemInstruction without leaking into contents", async () => {
+      const originalFetch = global.fetch;
+      let capturedBody: any = null;
+
+      global.fetch = async (_url: any, init: any) => {
+        capturedBody = JSON.parse(init.body);
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "text/event-stream" } }
+        ) as any;
+      };
+
+      const mockContext: any = {
+        req: { headers: {} },
+        body: {
+          model: "ag/gemini-3.8-flash",
+          messages: [
+            {
+              role: "developer",
+              content: [{ type: "text", text: "Developer rule 1" }],
+            },
+            {
+              role: "system",
+              content: [{ type: "input_text", text: "System rule 2" }],
+            },
+            { role: "user", content: "Hi" },
+          ],
+          stream: true,
+        },
+        res: { setHeader: () => {}, flushHeaders: () => {}, write: () => {}, end: () => {} },
+        account: {
+          id: "test-acc-1",
+          rawApiKey: JSON.stringify({ access_token: "mock-token", project_id: "test-proj" }),
+        },
+        targetModel: "ag/gemini-3.8-flash",
+        clientFormat: "responses",
+        requestId: `test-dev-sys-${Date.now()}`,
+        startTime: Date.now(),
+      };
+
+      try {
+        const provider = new AntigravityProvider();
+        await executeAntigravity(mockContext, provider);
+
+        assert.equal(
+          capturedBody.request?.systemInstruction?.parts?.[0]?.text,
+          "Developer rule 1\n\nSystem rule 2"
+        );
+        assert.equal(capturedBody.request?.contents?.length, 1);
+        assert.equal(capturedBody.request?.contents?.[0]?.role, "user");
+        assert.equal(capturedBody.request?.contents?.[0]?.parts?.[0]?.text, "Hi");
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
   });
 });

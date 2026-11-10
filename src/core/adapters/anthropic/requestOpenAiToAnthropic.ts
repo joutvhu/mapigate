@@ -7,6 +7,7 @@ import { rescueInlineToolCalls } from "../helpers/toolCallRescue.js";
 import { normalizeToolParameters } from "../helpers/toolSchemaNormalize.js";
 import { convertOpenAiContentToAnthropic } from "./imageUtils.js";
 import { getCapabilitiesForModel } from "../../capabilities/index.js";
+import { extractPlainTextContent } from "../../../shared/utils/extractText.js";
 
 export const DEFAULT_MAX_TOKENS = 64000;
 export const DEFAULT_MIN_TOKENS = 32000;
@@ -63,9 +64,11 @@ export function translateOpenAiToAnthropic(
 
   if (Array.isArray(openAiBody.messages)) {
     for (const msg of openAiBody.messages) {
-      if (msg.role === "system") {
-        const sysText = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content || "");
-        systemPrompt = systemPrompt ? `${systemPrompt}\n${sysText}` : sysText;
+      if (msg.role === "system" || msg.role === "developer") {
+        const sysText = extractPlainTextContent(msg.content);
+        if (sysText) {
+          systemPrompt = systemPrompt ? `${systemPrompt}\n${sysText}` : sysText;
+        }
         if (msg.cache_control) {
           systemCacheControl = msg.cache_control;
         }

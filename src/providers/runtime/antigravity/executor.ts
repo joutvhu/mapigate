@@ -40,6 +40,7 @@ import {
   getGeminiThoughtSignatureSync,
 } from "./thoughtSignatureStore.js";
 import { sanitizeToolArguments } from "../../../shared/utils/toolArgsSanitizer.js";
+import { extractPlainTextContent } from "../../../shared/utils/extractText.js";
 
 interface AntigravityAccountCredentials {
   accessToken: string;
@@ -168,11 +169,24 @@ export async function executeAntigravity(
   const messages: any[] = rawMessages;
   let systemText: string | undefined;
 
-  const systemMsg = messages.find((m) => m.role === "system");
-  if (systemMsg) {
-    systemText = typeof systemMsg.content === "string" ? systemMsg.content : JSON.stringify(systemMsg.content);
-  } else if (typeof body.system === "string") {
-    systemText = body.system;
+  const systemParts: string[] = [];
+  for (const m of messages) {
+    if (m && (m.role === "system" || m.role === "developer")) {
+      const txt = extractPlainTextContent(m.content);
+      if (txt) systemParts.push(txt);
+    }
+  }
+  if (systemParts.length > 0) {
+    systemText = systemParts.join("\n\n");
+  } else if (body.system != null) {
+    const sys = extractPlainTextContent(body.system);
+    if (sys) systemText = sys;
+  } else if (Array.isArray(body.systemInstruction?.parts)) {
+    const sys = body.systemInstruction.parts
+      .map((p: any) => (typeof p?.text === "string" ? p.text : ""))
+      .filter(Boolean)
+      .join("\n\n");
+    if (sys) systemText = sys;
   }
   if (systemText) {
     for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
@@ -205,7 +219,7 @@ export async function executeAntigravity(
 
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
-    if (m.role === "system") continue;
+    if (m.role === "system" || m.role === "developer") continue;
 
     if (m.role === "user") {
       const parts = convertOpenAIContentToParts(m.content);
