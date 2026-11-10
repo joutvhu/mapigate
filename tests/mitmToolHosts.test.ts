@@ -189,6 +189,7 @@ describe("MITM Tool Hosts and Routing Alignment", () => {
     const kiroDefaults = getDefaultMappings("kiro");
     assert.ok(kiroDefaults.some((m) => m.sourceModel === "auto"));
     assert.ok(kiroDefaults.some((m) => m.sourceModel === "simple-task"));
+    assert.ok(kiroDefaults.some((m) => m.sourceModel === "permission-classifier"));
     assert.ok(kiroDefaults.some((m) => m.sourceModel === "gpt-5.6-sol"));
 
     const copilotDefaults = getDefaultMappings("copilot");

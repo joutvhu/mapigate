@@ -254,6 +254,7 @@ export const STANDARD_MODELS: Record<string, string> = {
   // ── Common MITM / Agent Modes ──
   "auto": "Auto (Agent Mode)",
   "simple-task": "Simple Task",
+  "permission-classifier": "Permission Classifier",
   "gpt-oss-120b": "GPT-OSS 120B",
 };
 

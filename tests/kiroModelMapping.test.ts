@@ -40,6 +40,7 @@ describe("Kiro Model Mapping & Slug Normalization", () => {
       "kimi-k3",
       "glm-5",
       "simple-task",
+      "permission-classifier",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
@@ -104,6 +105,7 @@ describe("Kiro Model Mapping & Slug Normalization", () => {
     // Unmapped model (targetModel = "") returns null (safe passthrough)
     assert.equal(resolveModelMapping("kiro", "claude-haiku-4.5"), null);
     assert.equal(resolveModelMapping("kiro", "simple-task"), null);
+    assert.equal(resolveModelMapping("kiro", "permission-classifier"), null);
     assert.equal(resolveModelMapping("kiro", "unknown-random-model"), null);
   });
 

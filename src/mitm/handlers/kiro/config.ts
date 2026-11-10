@@ -95,6 +95,7 @@ export const toolConfig: MitmToolConfig = {
     "kimi-k3",
     "glm-5",
     "simple-task",
+    "permission-classifier",
     "gpt-5.6-sol",
     "gpt-5.6-terra",
     "gpt-5.6-luna",
