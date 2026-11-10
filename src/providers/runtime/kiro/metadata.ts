@@ -28,7 +28,7 @@ export const metadata: ProviderRegistryItem = {
     "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse",
     "https://q.us-east-1.amazonaws.com/generateAssistantResponse"
   ],
-  "validateUrl": "https://codewhisperer.us-east-1.amazonaws.com",
+  "validateUrl": "https://management.us-east-1.kiro.dev",
   "format": "kiro",
   "defaultHeaders": {
     "Content-Type": "application/json",

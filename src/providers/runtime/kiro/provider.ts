@@ -122,6 +122,7 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     }
 
     const candidateUrls = [
+      `https://management.${region}.kiro.dev`,
       `https://codewhisperer.${region}.amazonaws.com`,
       `https://q.${region}.amazonaws.com`,
     ];
