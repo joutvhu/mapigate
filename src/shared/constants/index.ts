@@ -57,11 +57,11 @@ export function isTestEnvironment(): boolean {
     return true;
   }
 
-  if (Boolean(process.env.NODE_TEST_CONTEXT)) {
+  if (process.env.NODE_TEST_CONTEXT) {
     return true;
   }
 
-  if (Boolean(process.env.MAPIGATE_DATA_DIR?.includes("test"))) {
+  if (process.env.MAPIGATE_DATA_DIR?.includes("test")) {
     return true;
   }
 

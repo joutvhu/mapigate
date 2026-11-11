@@ -46,9 +46,17 @@ export default function App() {
       hasCallbackParams);
 
   if (isCallbackRoute) {
-    return <CallbackPage />;
+    return (
+      <Suspense fallback={<TabLoadingFallback />}>
+        <CallbackPage />
+      </Suspense>
+    );
   }
 
+  return <MainApp />;
+}
+
+function MainApp() {
   const isChecking = useAuth((s) => s.isChecking);
   const isLocked = useAuth((s) => s.isLocked);
   const checkAuth = useAuth((s) => s.checkAuth);

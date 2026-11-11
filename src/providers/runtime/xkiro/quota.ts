@@ -59,7 +59,11 @@ export function parseXKiroUsageData(data: any): RawProviderQuotaResult {
     const limit = Number(ft.limit_per_day);
     if (Number.isFinite(limit) && limit > 0) {
       const used = Number(ft.used_today) || 0;
-      const remaining = Number(ft.remaining) !== undefined ? Number(ft.remaining) : Math.max(0, limit - used);
+      const parsedRemaining = Number(ft.remaining);
+      const remaining =
+        ft.remaining !== undefined && ft.remaining !== null && Number.isFinite(parsedRemaining)
+          ? parsedRemaining
+          : Math.max(0, limit - used);
       const remainingPercentage = Math.max(0, Math.min(100, Math.round((remaining / limit) * 100)));
 
       const now = new Date();

@@ -106,16 +106,9 @@ export async function pipeSseStream(
   };
 
   // 1. Read and verify initial chunk before committing HTTP headers to client
-  let firstReadDone = false;
-  let firstReadValue: Uint8Array | undefined;
-
-  try {
-    const firstRead = await reader.read();
-    firstReadDone = firstRead.done;
-    firstReadValue = firstRead.value;
-  } catch (err) {
-    throw err;
-  }
+  const firstRead = await reader.read();
+  const firstReadDone = firstRead.done;
+  const firstReadValue = firstRead.value;
 
   if (firstReadDone && !firstReadValue) {
     throw new Error("Upstream stream ended immediately without sending any data");

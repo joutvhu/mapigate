@@ -23,7 +23,6 @@ interface ConsoleLogBufferState {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var _consoleLogBufferState: ConsoleLogBufferState | undefined;
 }
 
@@ -90,7 +89,7 @@ export function parseRawLineToStructured(line: string, fallbackLevel: LogLevel =
   const timeMatch = cleanLine.match(/^\[(\d{2}:\d{2}:\d{2})\]\s*/);
   let rest = timeMatch ? cleanLine.slice(timeMatch[0].length) : cleanLine;
 
-  const tagMatch = rest.match(/^([🟢🔵🟣🟡🟠🔴⚪🟤📥▶⚙🔀🔑🔄🌊📊❌✔⚠️💥📤🛠️])\s*/u);
+  const tagMatch = rest.match(/^(🟢|🔵|🟣|🟡|🟠|🔴|⚪|🟤|📥|▶|⚙|🔀|🔑|🔄|🌊|📊|❌|✔|⚠️|💥|📤|🛠️)\s*/u);
   const reqTag = tagMatch ? tagMatch[1] : undefined;
   if (tagMatch) rest = rest.slice(tagMatch[0].length);
 
