@@ -116,13 +116,18 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   }, [isOpen, provider.id, provider.baseUrl, provider.modelsUrl, triggerScan]);
 
   const filteredModels = useMemo(() => {
-    if (!searchQuery.trim()) return scannedModels;
-    const q = searchQuery.toLowerCase();
-    return scannedModels.filter(
-      (m) =>
-        m.id.toLowerCase().includes(q) ||
-        (m.name && m.name.toLowerCase().includes(q)) ||
-        (m.description && m.description.toLowerCase().includes(q))
+    let list = scannedModels;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = scannedModels.filter(
+        (m) =>
+          m.id.toLowerCase().includes(q) ||
+          (m.name && m.name.toLowerCase().includes(q)) ||
+          (m.description && m.description.toLowerCase().includes(q))
+      );
+    }
+    return [...list].sort((a, b) =>
+      (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
     );
   }, [scannedModels, searchQuery]);
 

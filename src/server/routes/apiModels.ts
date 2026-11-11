@@ -109,7 +109,10 @@ modelRouter.get("/available", (req, res) => {
 
     // Include active combos
     const allCombos = ComboRepository.getAllCombos();
-    for (const combo of allCombos) {
+    const sortedCombos = [...allCombos].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+    for (const combo of sortedCombos) {
       if (!combo.isActive) continue;
 
       let comboHasConnected = false;
@@ -186,9 +189,18 @@ modelRouter.get("/available", (req, res) => {
     }
 
     // 1. Prioritize models configured in SQLite (dbProviders)
-    for (const p of dbProviders) {
-      const pModels = Array.isArray(p.models) ? p.models : [];
-      if (pModels.length === 0) continue;
+    const sortedDbProviders = [...dbProviders].sort((a, b) =>
+      (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
+    );
+    for (const p of sortedDbProviders) {
+      const pModelsRaw = Array.isArray(p.models) ? p.models : [];
+      if (pModelsRaw.length === 0) continue;
+
+      const pModels = [...pModelsRaw].sort((a, b) => {
+        const aName = typeof a === "string" ? a : ((a as any).name || (a as any).id);
+        const bName = typeof b === "string" ? b : ((b as any).name || (b as any).id);
+        return aName.localeCompare(bName, undefined, { sensitivity: "base" });
+      });
 
       const accountsCount = getProviderAccountsCount(p.id);
       const hasConnectedAccount = accountsCount > 0;
@@ -247,7 +259,10 @@ modelRouter.get("/available", (req, res) => {
     }
 
     // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models
-    for (const provider of Object.values(PROVIDER_REGISTRY)) {
+    const sortedStaticProviders = Object.values(PROVIDER_REGISTRY).sort((a, b) =>
+      (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
+    );
+    for (const provider of sortedStaticProviders) {
       if (!provider || !provider.models) continue;
       if (hasDbConfiguredModels(provider.id, provider)) {
         continue;
@@ -260,7 +275,10 @@ modelRouter.get("/available", (req, res) => {
         continue;
       }
 
-      for (const model of provider.models) {
+      const sortedModels = [...provider.models].sort((a, b) =>
+        (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
+      );
+      for (const model of sortedModels) {
         const val = model.id.startsWith(`${provider.id}/`) ? model.id : `${provider.id}/${model.id}`;
         if (seenValues.has(val)) continue;
         seenValues.add(val);

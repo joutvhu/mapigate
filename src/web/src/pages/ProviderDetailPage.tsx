@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { isOAuthProvider, type ProviderItem } from "../constants/providersData";
 import { getRegistryProvider, type RegistryModel } from "../../../shared/constants/providerRegistry";
 import { OAuthModal } from "../components/OAuthModal";
@@ -34,6 +34,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
   const [connections, setConnections] = useState<ConnectionItem[]>([]);
   const [models, setModels] = useState<string[]>([]);
+  const sortedModels = useMemo(() => {
+    return [...models].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }, [models]);
   const [catalogModels, setCatalogModels] = useState<RegistryModel[]>(registryItem?.models || []);
   const [providerStrategy, setProviderStrategy] = useState<string | null>(null);
   const [providerStickyLimit, setProviderStickyLimit] = useState<string>("1");
@@ -1331,7 +1334,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
 
         {/* Models Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {models.map((modelId) => {
+          {sortedModels.map((modelId) => {
             const catModel = catalogModels.find((m) => m.id === modelId);
             const isCopied = copiedModelId === modelId;
             return (
@@ -1580,8 +1583,9 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                 No specific models registered for this account yet.
               </div>
             ) : (
-              viewingAccountModels?.models
+              [...(viewingAccountModels?.models || [])]
                 .filter((m) => !modelFilterQuery || m.toLowerCase().includes(modelFilterQuery.toLowerCase()))
+                .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
                 .map((m) => (
                   <div
                     key={m}

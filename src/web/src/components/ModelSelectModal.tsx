@@ -411,9 +411,8 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   // Distinct providers list
   const providerOptions = useMemo(() => {
     const map = new Map<string, string>();
-    if (allowCombos !== false && combos.length > 0) {
-      map.set("combo", "Combos");
-    }
+    const hasCombos = allowCombos !== false && combos.length > 0;
+
     for (const m of allModels) {
       if (connectedOnly && hasConnectedAccounts && !connectedProviderIds.has(m.providerId)) {
         continue;
@@ -422,7 +421,15 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         map.set(m.providerId, m.providerName);
       }
     }
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+
+    const sortedProviders = Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
+    if (hasCombos) {
+      return [{ id: "combo", name: "Combos" }, ...sortedProviders];
+    }
+    return sortedProviders;
   }, [allModels, connectedOnly, hasConnectedAccounts, connectedProviderIds, allowCombos, combos]);
 
   // Filter combos by search query (hidden if modality filter active)
@@ -436,8 +443,11 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         !excludeSet.has(c.name.toLowerCase()) &&
         !excludeSet.has(`combo/${c.name}`.toLowerCase())
     );
-    if (!q) return pool;
-    return pool.filter(
+    const sortedPool = [...pool].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+    if (!q) return sortedPool;
+    return sortedPool.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         (c.strategy && c.strategy.toLowerCase().includes(q)) ||
@@ -551,14 +561,22 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       }
     }
 
+    // Sort models inside each provider alphabetically by name / id
+    const groupsWithSortedModels = Array.from(map.values()).map((group) => ({
+      ...group,
+      models: [...group.models].sort((a, b) =>
+        (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
+      ),
+    }));
+
     // Sort groups: providers with selected models first, then connected providers, then alphabetical
-    return Array.from(map.values()).sort((a, b) => {
+    return groupsWithSortedModels.sort((a, b) => {
       if (a.selectedCount > 0 && b.selectedCount === 0) return -1;
       if (b.selectedCount > 0 && a.selectedCount === 0) return 1;
       const aConn = connectedProviderIds.has(a.providerId) ? 1 : 0;
       const bConn = connectedProviderIds.has(b.providerId) ? 1 : 0;
       if (aConn !== bConn) return bConn - aConn;
-      return a.providerName.localeCompare(b.providerName);
+      return a.providerName.localeCompare(b.providerName, undefined, { sensitivity: "base" });
     });
   }, [filteredModels, selectedModels, selectedModel, connectedProviderIds]);
 

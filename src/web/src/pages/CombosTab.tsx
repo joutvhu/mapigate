@@ -45,8 +45,11 @@ export const CombosTab: React.FC = () => {
 
   const filteredCombos = useMemo(() => {
     const q = comboSearchQuery.trim().toLowerCase();
-    if (!q) return combos;
-    return combos.filter((c) => {
+    const sorted = [...combos].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+    if (!q) return sorted;
+    return sorted.filter((c) => {
       if (c.name.toLowerCase().includes(q)) return true;
       if (c.strategy.toLowerCase().includes(q)) return true;
       if (c.models && c.models.some((m) => m.toLowerCase().includes(q))) return true;
