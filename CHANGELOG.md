@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.136] - 2026-11-11
+
+### Features
+
+#### Providers (CommandCode & OpenCode Go)
+- **CommandCode Execution & CLI Auto-Import**: Added full CommandCode streaming execution (`converter`, `headers`, `ndjson`, `executor`) supporting OpenAI, Anthropic, and Responses formats, credential probing, and local auth auto-import from `~/.commandcode/auth.json` with generic `supportsAutoImport` UI integration in `AddAccountModal`.
+- **OpenCode Go Multi-Transport & Quota**: Updated OpenCode Go endpoints to `opencode.ai/inference/go`, added `/responses` execution and `/messages` transport routing (`resolveTargetFormat`), added Rolling/Weekly/Monthly quota tracking, and added `claude-haiku-5-5` model.
+- **SenseNova Catalog Expansion**: Added `sensenova-6.8-flash`, `sensenova-6.8-flash-lite`, `deepseek-flash`, `deepseek-v4-flash`, `glm-5.3`, `glm-5.2`, and `kimi-k3` models.
+
+#### Adapters & Proxy Networking
+- **Anthropic Cache Control Preservation**: Added `preserveCacheControl` support in Anthropic-to-OpenAI translation driven by `shouldPreserveCacheControl`, retaining `cache_control` blocks in system prompts and text content.
+- **Stale Socket Replay & DPI-Safe TLS**: Added `UndiciAgent` direct/public DNS keep-alive pooling with Happy Eyeballs (`autoSelectFamily`), `X25519` TLS curve configuration, and automatic fresh-socket retry on stale socket errors.
+
+### Fixes
+
+#### Providers & Proxy Execution
+- **Kiro Regional Endpoint Guard**: Constrained `q`, `runtime`, `management`, and `codewhisperer` URLs to supported service regions via `resolveKiroServiceRegion`.
+- **CodeBuddy Prompt Sanitization**: Extended `sanitizePromptForCodeBuddy` to `developer` roles and structured content, executing sanitization after protocol translation.
+- **OpenCode Tool Concealment**: Mapped `terminal`-matched tool names to `run_command` and updated `retargetToolChoice` to honor mapped aliases.
+- **Antigravity Remote Image MIME**: Inferred remote image MIME types from URL extensions (`remoteImageMimeType`) instead of sending `image/*`.
+- **Non-Streaming `stream_options` Cleanup**: Removed `stream_options` when `stream === false` and enabled fresh-socket retry on HTTP 502 account failover.
+
+### Documentation
+- **Code of Conduct**: Added Contributor Covenant Code of Conduct (`CODE_OF_CONDUCT.md`).
+
 ## [0.5.133] - 2026-11-11
 
 ### Fixes
