@@ -33,6 +33,8 @@
     "test": "node --import tsx/esm --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "bump": "npm version patch --no-git-tag-version && npm install",
     "bump:patch": "npm version patch --no-git-tag-version && npm install",
     "bump:minor": "npm version minor --no-git-tag-version && npm install",
@@ -63,6 +65,7 @@
     "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
@@ -73,6 +76,10 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "cross-env": "^7.0.3",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
     "lucide-react": "^0.475.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -81,6 +88,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
+    "typescript-eslint": "^8.72.2",
     "vite": "^6.1.0",
     "zustand": "^5.0.3"
   },
