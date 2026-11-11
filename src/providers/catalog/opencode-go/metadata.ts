@@ -2,6 +2,7 @@ import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
 
 export const metadata: ProviderRegistryItem = {
+  quotaOrder: ["Rolling", "Weekly", "Monthly"],
   "id": "opencode-go",
   "name": "OpenCode Go",
   "alias": "opencode-go",

@@ -88,6 +88,8 @@ export interface ProviderRegistryItem {
   oauth?: ProviderOAuthConfig;
   models: RegistryModel[];
   passthroughModels?: boolean;
+  supportsAutoImport?: boolean;
+  autoImportHint?: string;
   quotaOrder?: string[];
 }
 
@@ -164,6 +166,7 @@ export interface IProvider {
     context: ProviderRequestContext,
     dispatchSingleModel: SingleModelHandler
   ): Promise<ModelCallResult>;
+  shouldExecute?(context: ProviderRequestContext): boolean;
 
   streamResponse?(
     upstreamRes: globalThis.Response,

@@ -23,6 +23,8 @@ interface AddAccountModalProps {
     isLocal?: boolean;
     defaultBaseUrl?: string;
     noAuth?: boolean;
+    supportsAutoImport?: boolean;
+    autoImportHint?: string;
   };
   existingNames?: string[];
   onClose: () => void;
@@ -115,6 +117,8 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoImporting, setAutoImporting] = useState(false);
+  const [autoImportError, setAutoImportError] = useState<string | null>(null);
 
   const resetForm = useCallback(() => {
     setMode("single");
@@ -151,6 +155,8 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
     setValidationError(null);
     setSaving(false);
     setError(null);
+    setAutoImporting(false);
+    setAutoImportError(null);
   }, [provider.defaultBaseUrl, provider.defaultRegion, availableRegions, pId]);
 
   useEffect(() => {
@@ -158,6 +164,30 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
       resetForm();
     }
   }, [isOpen, resetForm]);
+
+  const handleAutoImport = async () => {
+    setAutoImporting(true);
+    setAutoImportError(null);
+    try {
+      const res = await fetch(`/api/oauth/${encodeURIComponent(provider.id)}/auto-import`);
+      const data = await res.json();
+      const importedKey = data.apiKey || data.accessToken;
+      if (data.found && importedKey) {
+        setApiKey(importedKey);
+        if (!accountName.trim()) {
+          setAccountName(data.userName || data.keyName || data.email || `${provider.name} CLI`);
+        }
+        setValidationResult(null);
+        setValidationError(null);
+      } else {
+        setAutoImportError(data.error || `Could not find ${provider.name} CLI credentials`);
+      }
+    } catch {
+      setAutoImportError(`Failed to auto-import from ${provider.name} CLI`);
+    } finally {
+      setAutoImporting(false);
+    }
+  };
 
   const handleClose = () => {
     resetForm();
@@ -525,6 +555,29 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Generic CLI Credential Auto-Import Banner */}
+            {provider.supportsAutoImport && !isNoApiKey && (
+              <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-blue-200">{provider.name} CLI Auto-Import</div>
+                  <div className="text-[11px] text-slate-400">
+                    {provider.autoImportHint || `Import local credentials for ${provider.name}`}
+                  </div>
+                  {autoImportError && (
+                    <div className="text-[11px] text-red-400 mt-1 whitespace-pre-line">{autoImportError}</div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoImport}
+                  disabled={autoImporting || saving}
+                  className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 cursor-pointer shrink-0 disabled:opacity-50"
+                >
+                  {autoImporting ? "Importing..." : "Import from CLI"}
+                </button>
+              </div>
+            )}
 
             {/* Zero-Auth Free or Local Provider Notice */}
             {isNoApiKey && (

@@ -192,7 +192,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       apiKeyId, apiKeyName,
     };
 
-    if (provider.execute && provider.id !== "combo") {
+    if (provider.execute && provider.id !== "combo" && (!provider.shouldExecute || provider.shouldExecute(context))) {
       const dispatchSingleModel: SingleModelHandler = async (mBody: any, mStr: string, isP: boolean = false) => {
         return executeSingleModel({ ...options, body: mBody, modelStr: mStr, isPanel: isP });
       };

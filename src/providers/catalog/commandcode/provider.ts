@@ -1,12 +1,24 @@
-import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
-import type { ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
-import { metadata } from "./metadata.js";
 import crypto from "node:crypto";
+import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
+import type {
+  ModelCallResult,
+  ProviderProbeContext,
+  ProviderProbeResult,
+  ProviderRequestContext,
+} from "../../core/types.js";
+import { metadata } from "./metadata.js";
+import { executeCommandCode } from "./executor.js";
+import { buildCommandCodeHeaders } from "./headers.js";
+import { buildCommandCodePayload } from "./converter.js";
 
 export class CommandcodeProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
-  public override readonly defaultFormat = metadata.format || "openai";
+  public override readonly defaultFormat = metadata.format || "commandcode";
+
+  public async execute(context: ProviderRequestContext): Promise<ModelCallResult> {
+    return await executeCommandCode(context);
+  }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
     const token = (context.apiKey || context.account?.rawApiKey || "").trim();
@@ -19,44 +31,24 @@ export class CommandcodeProvider extends OpenAiCompatibleProvider {
 
     const timeoutMs = context.timeoutMs || 8000;
     const url = "https://api.commandcode.ai/alpha/generate";
-
-    const body = {
-      threadId: crypto.randomUUID(),
-      memory: "",
-      config: {
-        workingDir: process.cwd(),
-        date: new Date().toISOString().slice(0, 10),
-        environment: process.platform,
-        structure: [],
-        isGitRepo: false,
-        currentBranch: "",
-        mainBranch: "",
-        gitStatus: "",
-        recentCommits: [],
-      },
-      params: {
-        model: "claude-3-5-sonnet-20241022",
-        messages: [{ role: "user", content: [{ type: "text", text: "ping" }] }],
-        stream: true,
+    const body = buildCommandCodePayload(
+      "deepseek/deepseek-v4-pro",
+      {
+        messages: [{ role: "user", content: "ping" }],
         max_tokens: 1,
       },
-    };
+      crypto.randomUUID()
+    );
 
     try {
       const res = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
-          "User-Agent": "cli",
-          "x-session-id": crypto.randomUUID(),
-          "x-command-code-version": "1.88.5",
-          "x-cli-environment": "production",
-          "x-cli-surface": "cli",
-          "x-taste-learning": "false",
-          Accept: "text/event-stream",
-          ...(context.customHeaders || {}),
-        },
+        headers: buildCommandCodeHeaders({
+          apiKey: token,
+          sessionId: body.threadId,
+          accept: "text/event-stream",
+          customHeaders: context.customHeaders,
+        }),
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
       });

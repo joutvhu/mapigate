@@ -1421,6 +1421,8 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
             isLocal: (registryItem as any)?.isLocal,
             defaultBaseUrl: (registryItem as any)?.defaultBaseUrl || registryItem?.baseUrl,
             noAuth: (registryItem as any)?.noAuth,
+            supportsAutoImport: (registryItem as any)?.supportsAutoImport,
+            autoImportHint: (registryItem as any)?.autoImportHint,
           }}
           existingNames={connections.map((c) => c.name)}
           onClose={() => setShowAddModal(false)}

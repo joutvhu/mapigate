@@ -18,6 +18,8 @@ export interface ProviderItem {
   requiresApiKey?: boolean;
   isLocal?: boolean;
   noAuth?: boolean;
+  supportsAutoImport?: boolean;
+  autoImportHint?: string;
 }
 
 const registryList = Object.values(PROVIDER_REGISTRY).filter(
@@ -120,6 +122,8 @@ export const FREE_TIER_PROVIDERS_LIST: ProviderItem[] = registryList
     requiresApiKey: p.requiresApiKey,
     isLocal: p.isLocal,
     noAuth: p.noAuth,
+    supportsAutoImport: p.supportsAutoImport,
+    autoImportHint: p.autoImportHint,
   }));
 
 // Priority 2: OAuth & Managed IDE Providers (excluding those already in Free Tier)
@@ -143,6 +147,8 @@ export const OAUTH_PROVIDERS_LIST: ProviderItem[] = registryList
     requiresApiKey: p.requiresApiKey,
     isLocal: p.isLocal,
     noAuth: p.noAuth,
+    supportsAutoImport: p.supportsAutoImport,
+    autoImportHint: p.autoImportHint,
   }));
 
 // Priority 3: Direct API Key Providers (excluding Free Tier and OAuth)
@@ -166,6 +172,8 @@ export const API_KEY_PROVIDERS_LIST: ProviderItem[] = registryList
     requiresApiKey: p.requiresApiKey,
     isLocal: p.isLocal,
     noAuth: p.noAuth,
+    supportsAutoImport: p.supportsAutoImport,
+    autoImportHint: p.autoImportHint,
   }));
 
 export interface CliToolItem {

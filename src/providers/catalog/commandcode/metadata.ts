@@ -33,6 +33,8 @@ export const metadata: ProviderRegistryItem = {
   },
   "thinkingMode": "auto",
   "passthroughModels": true,
+  "supportsAutoImport": true,
+  "autoImportHint": "Import API key directly from ~/.commandcode/auth.json",
   models
 };
 
