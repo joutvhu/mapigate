@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.133] - 2026-11-11
+
+### Fixes
+
+#### Providers (Kiro Runtime)
+- **Runtime Endpoints & Candidate URLs**: Updated default target endpoint to `runtime.${region}.kiro.dev` and validation URL to `management.us-east-1.kiro.dev` with regional management URL candidate fallback.
+- **Profile ARN & Base URL Resolution**: Added automatic fallback to default profile ARN based on authentication method when not explicitly configured, and supported provider `baseUrl` override across executor and provider runtime.
+- **User-Agent Header Alignment**: Synchronized User-Agent and `x-amz-user-agent` headers across executor, provider metadata, and quota calls to match KiroIDE 1.4.154.
+
+#### Models & UI Sorting
+- **Alphabetical Model, Provider & Combo Ordering**: Alphabetically sorted combos, providers, and models across `/api/models/available` API endpoint, Model Select Modal, Model Scanner Modal, Combos Tab, and Provider Detail Page.
+
 ## [0.5.130] - 2026-11-11
 
 ### Features
