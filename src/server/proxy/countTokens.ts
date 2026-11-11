@@ -2,7 +2,6 @@ import type { Request, Response } from "express";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
-import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
 import { resolveTargetModelAndProvider } from "./executorHelpers.js";

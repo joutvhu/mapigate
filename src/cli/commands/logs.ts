@@ -22,7 +22,6 @@ function lineMatchesLevel(line: string, minLevel: LogLevel): boolean {
   if (minLevel === LogLevel.WARN) return isErr || isWarn;
   const isInfo = upper.includes("[INFO]") || line.includes("ℹ️") || line.includes("DONE") || line.includes("📥") || line.includes("▶") || line.includes("⚙") || line.includes("📊");
   if (minLevel === LogLevel.INFO) return isErr || isWarn || isInfo || (!upper.includes("[DEBUG]") && !line.includes("🔬"));
-  const isDebug = upper.includes("[DEBUG]") || line.includes("🔍");
   if (minLevel === LogLevel.DEBUG) return !line.includes("🔬") && !upper.includes("[TRACE]");
   return true;
 }

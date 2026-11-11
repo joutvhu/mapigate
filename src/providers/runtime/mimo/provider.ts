@@ -3,7 +3,6 @@ import type { ProviderRequestContext } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getMimoUsage } from "./quota.js";
 import {
-  rescueInlineToolCalls,
   createStreamToolCallRescuer,
 } from "../../../core/adapters/helpers/toolCallRescue.js";
 

@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { getDefaultDataDir, MAPIGATE_PID_FILE, isTestEnvironment } from "../../shared/constants/index.js";
 
 export class PidFileManager {

@@ -137,7 +137,7 @@ export async function importGithubToken(params: {
   const cleanToken = params.token.trim();
   let copilotToken = cleanToken;
   let copilotTokenExpiresAt = 0;
-  let accountName = params.name || "GitHub Copilot Key";
+  const accountName = params.name || "GitHub Copilot Key";
 
   try {
     const cpRes = await fetch("https://api.github.com/copilot_internal/v2/token", {

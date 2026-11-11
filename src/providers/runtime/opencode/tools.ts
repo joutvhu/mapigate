@@ -275,7 +275,7 @@ export function applyEnvFingerprint(body: any, flat: boolean, { claude = false }
 export function retargetToolChoice(
   body: any,
   map: Map<string, string>,
-  format: FingerprintFormat | boolean = "openai"
+  _format: FingerprintFormat | boolean = "openai"
 ): void {
   if (!body || typeof body !== "object" || !map?.size) return;
   const choice = body.tool_choice;

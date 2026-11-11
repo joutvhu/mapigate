@@ -476,7 +476,7 @@ function parseXmlDialect(
     matches.push(m[1]);
   }
   for (const inner of matches) {
-    let call = parseAnyToolBlock(inner, toolNames);
+    const call = parseAnyToolBlock(inner, toolNames);
     if (call) calls.push(call);
     else parsedAll = false;
   }

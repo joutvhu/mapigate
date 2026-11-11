@@ -1,8 +1,6 @@
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import https from "node:https";
-import dns from "node:dns";
 import zlib from "node:zlib";
-import { promisify } from "node:util";
 import { HOST_REWRITE } from "../../shared/constants/mitmToolHosts.js";
 import { serverLifecycle } from "../../server/lifecycle.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";

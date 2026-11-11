@@ -164,7 +164,7 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
           prev.map((acc) => (acc.accountId === accountId ? { ...acc, isActive: !isActive } : acc))
         );
       }
-    } catch (err) {
+    } catch {
       setAccounts((prev) =>
         prev.map((acc) => (acc.accountId === accountId ? { ...acc, isActive: !isActive } : acc))
       );

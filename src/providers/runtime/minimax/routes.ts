@@ -16,7 +16,6 @@ import type {
 const minimaxPendingVerifiers = new Map<string, string>();
 
 export async function requestMinimaxDeviceCode(params?: DeviceCodeParams): Promise<DeviceCodeResult> {
-  const pId = (params?.provider || "minimax-code").toLowerCase();
   const region = params?.region || params?.extraData?.region;
   const isCn = region === "cn";
   const url = isCn

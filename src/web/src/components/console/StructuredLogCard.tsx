@@ -4,10 +4,7 @@ import { ToolIcon } from "../ui/ToolIcon.js";
 import {
   Clock,
   Zap,
-  Repeat,
-  Sparkles,
   ChevronRight,
-  AlertCircle,
   Wrench,
 } from "lucide-react";
 

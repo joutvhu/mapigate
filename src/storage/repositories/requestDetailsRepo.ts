@@ -20,7 +20,7 @@ const DEFAULT_BATCH_SIZE = 10;
 const DEFAULT_FLUSH_INTERVAL_MS = 3000;
 const MAX_JSON_SIZE = 1024 * 1024; // 1MB max per json payload to preserve full coding assistant payloads
 
-let writeBuffer: RequestDetail[] = [];
+const writeBuffer: RequestDetail[] = [];
 let flushTimer: NodeJS.Timeout | null = null;
 let isFlushing = false;
 

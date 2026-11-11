@@ -59,7 +59,7 @@ function normalizeTools(tools: any[]): any[] {
     const name = String(typeof tool.name === "string" ? tool.name : fn?.name || "").trim();
     if (!name) continue;
     const description = typeof tool.description === "string" ? tool.description : fn?.description;
-    let parameters =
+    const parameters =
       tool.parameters && typeof tool.parameters === "object" && !Array.isArray(tool.parameters)
         ? { ...tool.parameters }
         : fn?.parameters && typeof fn.parameters === "object" && !Array.isArray(fn.parameters)

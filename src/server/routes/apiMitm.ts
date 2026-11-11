@@ -13,7 +13,6 @@ import { TOOL_HOSTS, type MitmToolId } from "../../shared/constants/mitmToolHost
 import {
   inspectPortOwner,
   PortConflictError,
-  type PortOwnerInfo,
 } from "../../mitm/portConflict.js";
 import {
   getCurrentRouterTarget,
@@ -91,7 +90,7 @@ mitmRouter.get("/status", async (_req, res) => {
       ...status,
       augmentModels: MitmRepository.getAllToolAugmentModels(),
     });
-  } catch (error: any) {
+  } catch {
     res.json({
       running: MitmRepository.getMitmServerRunning(),
       certExists: true,

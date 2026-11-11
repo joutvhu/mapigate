@@ -77,7 +77,7 @@ export function resolveTargetModelAndProvider(modelStr: string): {
     targetModel = effective.slice(slash + 1);
 
     // Parse provider[tag] syntax, e.g. claude[pro] -> provider: claude, tag: pro
-    const tagMatch = rawProvider.match(/^([^\[\]]+)\[([^\[\]]+)\]$/);
+    const tagMatch = rawProvider.match(/^([^[\]]+)\[([^[\]]+)\]$/);
     if (tagMatch) {
       providerId = tagMatch[1];
       targetTag = tagMatch[2];

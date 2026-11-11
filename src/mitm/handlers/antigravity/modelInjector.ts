@@ -106,10 +106,10 @@ export function augmentAntigravityModelsPayload(
   }
 
   // Group helpers
-  let geminiGroup = primarySort.groups.find((g: any) =>
+  const geminiGroup = primarySort.groups.find((g: any) =>
     /gemini/i.test(g.displayName || g.display_name || "")
   );
-  let claudeGroup = primarySort.groups.find((g: any) =>
+  const claudeGroup = primarySort.groups.find((g: any) =>
     /claude/i.test(g.displayName || g.display_name || "")
   );
   let mapigateGroup = primarySort.groups.find((g: any) =>

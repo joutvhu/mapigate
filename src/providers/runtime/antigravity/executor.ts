@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import type { ProviderRequestContext, ModelCallResult } from "../../core/types.js";
 import { executeUpstreamFetch } from "../../../server/proxy/proxyDispatcher.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
@@ -21,11 +20,8 @@ import {
   convertOpenAIContentToParts,
   tryParseJSON,
   mapFinishReason,
-  DEFAULT_THINKING_AG_SIGNATURE,
-  DEFAULT_THINKING_GEMINI_CLI_SIGNATURE,
   getDefaultThinkingSignature,
   createToolCallIdUniquifier,
-  sanitizeFunctionResponsePayload,
   toNumericSessionId,
   resolveSessionId,
   ANTIGRAVITY_PROMPT_REWRITES,
@@ -91,7 +87,7 @@ export async function executeAntigravity(
   const isStreaming = body.stream !== false && !isPanel;
 
   // 1. Resolve Account Credentials
-  let creds = resolveAccountCredentials(context);
+  const creds = resolveAccountCredentials(context);
   if (!creds || !creds.accessToken) {
     return {
       ok: false,

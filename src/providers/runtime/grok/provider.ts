@@ -59,7 +59,7 @@ export class GrokProvider extends OpenAiCompatibleProvider {
             authError: "Invalid or expired Grok token",
           };
         }
-      } catch (err: unknown) {
+      } catch {
         // Fall back to standard probe
       }
     }

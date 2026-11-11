@@ -134,7 +134,7 @@ export const UNSUPPORTED_SCHEMA_CONSTRAINTS = [
 
 export function sanitizeGeminiFunctionName(name?: string): string {
   if (!name) return "_unknown";
-  let sanitized = name.replace(/[^a-zA-Z0-9_.:\-]/g, "_");
+  let sanitized = name.replace(/[^a-zA-Z0-9_.:-]/g, "_");
   if (!/^[a-zA-Z_]/.test(sanitized)) {
     sanitized = "_" + sanitized;
   }

@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { ALL_TOOL_HANDLERS, resolveToolHandlers, ToolInspectionResult } from "./toolConfigs.js";
+import { resolveToolHandlers, ToolInspectionResult } from "./toolConfigs.js";
 import { maskKey } from "../ui/display.js";
 
 export interface ShowOptions {

@@ -38,7 +38,7 @@ export async function handleProxyRequest(
   }
 
   // Resolve client gateway API key if provided
-  let matchedKey = providedKey ? allKeys.find((k) => safeCompareKeys(k.key, providedKey)) : undefined;
+  const matchedKey = providedKey ? allKeys.find((k) => safeCompareKeys(k.key, providedKey)) : undefined;
 
   if (endpointSettings.requireApiKey) {
     const activeKeys = allKeys.filter((k) => k.isActive);

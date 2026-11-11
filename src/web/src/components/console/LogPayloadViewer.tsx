@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { RequestDetail } from "../../../../shared/types/index.js";
-import { Check, Copy, Code, ArrowUpRight, ArrowDownLeft, FileText, Database } from "lucide-react";
+import { Check, Copy, ArrowUpRight, ArrowDownLeft, FileText, Database } from "lucide-react";
 
 interface LogPayloadViewerProps {
   detail: RequestDetail | null;

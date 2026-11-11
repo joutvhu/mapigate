@@ -6,7 +6,6 @@ import { ModelRepository } from "./repositories/modelRepo.js";
 import { SettingsRepository } from "./repositories/settingsRepo.js";
 import { APP_NAME, APP_VERSION } from "../shared/constants/index.js";
 import { sanitizePsdForExport } from "../shared/utils/security.js";
-import type { ProviderConfig, ComboRecord } from "../shared/types/index.js";
 
 export interface BackupExportOptions {
   includeCredentials?: boolean;

@@ -8,9 +8,6 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-  Clock,
-  Terminal,
-  Cpu,
   X,
 } from "lucide-react";
 

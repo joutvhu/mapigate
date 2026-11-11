@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import type { ProviderRequestContext, ModelCallResult } from "../../core/types.js";
 import { executeUpstreamFetch } from "../../../server/proxy/proxyDispatcher.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";

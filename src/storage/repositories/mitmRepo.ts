@@ -1,8 +1,6 @@
-import { getDatabase, type DatabaseDriver } from "../database.js";
+import { getDatabase } from "../database.js";
 import {
-  TOOL_HOSTS,
   MITM_TOOLS,
-  formatToolDefaultHosts,
   invalidateCustomMitmHostsCache,
   registerCustomHostsProvider,
   parseHostnamesFromHostsEntries,

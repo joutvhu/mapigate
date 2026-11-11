@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
-  Code,
 } from "lucide-react";
 
 interface RequestDetailDrawerProps {

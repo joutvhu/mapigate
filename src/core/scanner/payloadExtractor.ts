@@ -99,7 +99,7 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
 
     if (typeof item === "object") {
       const rec = item as Record<string, unknown>;
-      let rawId = rec.id || rec.slug || rec.name || rec.model || rec.model_name || rec.code || rec.modelId;
+      const rawId = rec.id || rec.slug || rec.name || rec.model || rec.model_name || rec.code || rec.modelId;
       if (typeof rawId !== "string" && typeof rawId !== "number") continue;
       let id = String(rawId).trim();
       if (!id) continue;

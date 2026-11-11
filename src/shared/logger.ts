@@ -140,10 +140,10 @@ export function sanitizeMetadata(data: any, depth = 0, seen = new WeakSet()): an
   if (data === null || data === undefined) return data;
 
   if (typeof data === "string") {
-    if (/^Bearer\s+[A-Za-z0-9_\-\.]{8,}$/i.test(data)) {
+    if (/^Bearer\s+[A-Za-z0-9_.-]{8,}$/i.test(data)) {
       return `Bearer ${maskKey(data.slice(7).trim())}`;
     }
-    if (/^sk-[A-Za-z0-9_\-]{8,}$/i.test(data)) {
+    if (/^sk-[A-Za-z0-9_-]{8,}$/i.test(data)) {
       return maskKey(data);
     }
     return data;

@@ -1,5 +1,5 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../../../core/usage/types.js";
-import { parseResetTime, toFiniteNumber } from "../../../core/usage/utils.js";
+import { parseResetTime } from "../../../core/usage/utils.js";
 
 export const MINIMAX_URLS = {
   minimax: [

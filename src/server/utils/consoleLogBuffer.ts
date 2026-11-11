@@ -64,8 +64,8 @@ export function stripAnsi(str: string): string {
 /** Mask sensitive credentials, tokens, and keys in log text */
 export function maskSecretsInText(text: string): string {
   if (!text || typeof text !== "string") return text;
-  let result = text.replace(/Bearer\s+([A-Za-z0-9_\-\.]{8,})/gi, (_m, t) => `Bearer ${maskKey(t)}`);
-  result = result.replace(/sk-[A-Za-z0-9_\-]{8,}/g, (m) => maskKey(m));
+  let result = text.replace(/Bearer\s+([A-Za-z0-9_.-]{8,})/gi, (_m, t) => `Bearer ${maskKey(t)}`);
+  result = result.replace(/sk-[A-Za-z0-9_-]{8,}/g, (m) => maskKey(m));
   return result.replace(
     /"(password|secret|rawApiKey|client_secret|apiKey)"\s*:\s*"([^"]+)"/gi,
     (_m, f, val) => `"${f}":"${maskKey(val)}"`

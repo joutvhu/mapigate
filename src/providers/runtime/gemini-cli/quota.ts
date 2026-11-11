@@ -4,9 +4,7 @@ import {
   ANTIGRAVITY_IDE_VERSION,
   ANTIGRAVITY_USER_AGENT,
   ANTIGRAVITY_LOAD_PROJECT_URL,
-  ANTIGRAVITY_QUOTA_MODELS_URL,
   CLIENT_METADATA,
-  IMPORTANT_MODELS,
 } from "../antigravity/types.js";
 import { fetchAntigravityWeeklyQuota } from "../antigravity/weekly.js";
 import { getAntigravityUsage } from "../antigravity/quota.js";

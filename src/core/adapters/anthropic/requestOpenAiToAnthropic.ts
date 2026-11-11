@@ -132,7 +132,7 @@ export function translateOpenAiToAnthropic(
         const hasToolCalls = Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
 
         // Inline dialect rescue if no structured tool_calls present
-        let rescuedBlocks: any[] = [];
+        const rescuedBlocks: any[] = [];
         if (!hasToolCalls && textContent && toolNames.size > 0) {
           const rescue = rescueInlineToolCalls(textContent, toolNames);
           if (rescue.detected && rescue.calls && rescue.calls.length > 0) {

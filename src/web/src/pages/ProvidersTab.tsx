@@ -111,7 +111,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
 
     try {
       // 1. Ensure provider exists in backend or update its baseUrl if customBaseUrl is provided
-      let existing = backendProviders.find((p) => p.id === selectedProvider.id);
+      const existing = backendProviders.find((p) => p.id === selectedProvider.id);
       if (!existing || (customBaseUrl.trim() && customBaseUrl.trim() !== existing.baseUrl)) {
         const payload: Record<string, any> = {
           id: selectedProvider.id,

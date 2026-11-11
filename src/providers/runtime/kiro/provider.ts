@@ -99,7 +99,7 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const timeoutMs = context.timeoutMs || 8000;
     const region = context.region || context.account?.providerSpecificData?.region || "us-east-1";
 
-    let token = (context.apiKey || context.account?.providerSpecificData?.accessToken || context.account?.rawApiKey || "").trim();
+    const token = (context.apiKey || context.account?.providerSpecificData?.accessToken || context.account?.rawApiKey || "").trim();
     const profileArn = context.account?.providerSpecificData?.profileArn || resolveDefaultProfileArn(context.account?.providerSpecificData?.authMethod);
 
     // Enforce Coral JSON RPC headers (customHeaders must not override Content-Type or Accept)

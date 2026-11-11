@@ -5,7 +5,7 @@ import type {
   AccountCounterBucket,
   ApiKeyCounterBucket,
 } from "../../../../shared/types/index.js";
-import { Table, Layers, Key } from "lucide-react";
+import { Table, Layers } from "lucide-react";
 
 interface UsageTableProps {
   byProvider: Record<string, CounterBucket>;

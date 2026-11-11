@@ -5,7 +5,6 @@ import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core
 import { getMimoUsage } from "../../runtime/mimo/quota.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import {
-  rescueInlineToolCalls,
   createStreamToolCallRescuer,
 } from "../../../core/adapters/helpers/toolCallRescue.js";
 

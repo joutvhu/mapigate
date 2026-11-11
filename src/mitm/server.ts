@@ -19,7 +19,6 @@ import {
   MODEL_SYNONYMS,
   MODEL_PATTERNS,
   MODEL_NO_MAP,
-  type MitmToolId,
 } from "./config.js";
 import { removeAllDNSEntriesSync } from "./dns/dnsConfig.js";
 

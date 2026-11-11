@@ -16,7 +16,8 @@ export { extractModelsFromPayload } from "./payloadExtractor.js";
  */
 export async function scanProviderModels(options: ScanModelsOptions): Promise<ScanModelsResult> {
   try {
-    let { providerId, accountId, baseUrl, apiKey, customHeaders, format, timeoutMs = 8000, region, providerSpecificData } = options;
+    const { providerId, accountId, apiKey, timeoutMs = 8000, providerSpecificData } = options;
+    let { baseUrl, customHeaders, format, region } = options;
 
     let registryItem: ProviderRegistryItem | undefined;
     if (providerId) {

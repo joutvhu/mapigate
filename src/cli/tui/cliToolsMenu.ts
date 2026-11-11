@@ -1,7 +1,7 @@
 import { ApiClient } from "../client/apiClient.js";
 import { showMenuWithBack } from "../ui/menuHelper.js";
 import { prompt, confirm, pause } from "../ui/input.js";
-import { COLORS, showStatus, showBox } from "../ui/display.js";
+import { COLORS, showStatus } from "../ui/display.js";
 import { copyToClipboard } from "../ui/clipboard.js";
 import { CLI_TOOLS } from "../../shared/constants/cliTools.js";
 

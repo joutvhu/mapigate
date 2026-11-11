@@ -14,7 +14,6 @@ import {
   killProcessByPid,
   checkPortFree,
   PortConflictError,
-  type PortOwnerInfo,
 } from "./portConflict.js";
 import { getMapigateBaseUrl } from "../shared/constants/cliTools.js";
 

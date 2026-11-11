@@ -11,11 +11,9 @@ import { UsageRepository } from "../../storage/repositories/usageRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { ProviderRegistry } from "../../providers/core/registry.js";
 import { getRegistryProvider } from "../../providers/core/metadataRegistry.js";
-import { getCapabilitiesForModel } from "../../core/capabilities/index.js";
-import { stripHistoryForContext } from "../../core/router/capacityAdapter.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { handleNonStreamingResponse, handleStreamingResponse } from "./responseHandlers.js";
-import { logger, LogSymbol, maskKey, tagForSession } from "../../shared/logger.js";
+import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
 import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { sanitizeErrorMessage, sanitizeHeaders } from "../../shared/utils/errorSanitizer.js";
 import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js";
@@ -70,7 +68,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   } = options;
 
   const resolved = resolveTargetModelAndProvider(modelStr);
-  let targetModel = resolved.targetModel;
+  const targetModel = resolved.targetModel;
   const providerId = resolved.providerId;
   const targetTag = resolved.targetTag;
   const is1mContext = Boolean(optionIs1m || resolved.is1mContext);

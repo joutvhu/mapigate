@@ -36,6 +36,7 @@ export default defineConfig([
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
           destructuredArrayIgnorePattern: '^_',
+          ignoreRestSiblings: true,
         },
       ],
       'no-empty': ['warn', { allowEmptyCatch: true }],

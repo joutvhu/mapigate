@@ -15,11 +15,7 @@ import type {
   ResilienceSuccessOptions,
   ResilienceFailureOptions,
   ResilienceFailureResult,
-  CircuitState,
-  CircuitBreakerState,
   ProviderBreakerProfile,
-  CooldownEntry,
-  ModelLockoutEntry,
 } from "./types.js";
 
 export * from "./types.js";

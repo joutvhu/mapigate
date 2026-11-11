@@ -48,7 +48,7 @@ export class IflowProvider extends OpenAiCompatibleProvider {
             authError: "Invalid or expired iFlow token",
           };
         }
-      } catch (err: unknown) {
+      } catch {
         // Fall back to API key verification
       }
     }
