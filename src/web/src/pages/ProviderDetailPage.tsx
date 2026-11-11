@@ -1225,7 +1225,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               className="rt-btn rt-btn--secondary text-xs shrink-0"
             >
               <span className="material-symbols-outlined text-[15px]">add</span>
-              + add header
+              Add Header
             </button>
           </div>
         </div>

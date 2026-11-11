@@ -6,6 +6,7 @@ export const metadata: ProviderRegistryItem = {
   "name": "OpenRouter",
   "alias": "openrouter",
   "color": "#F97316",
+  "iconBg": "#03080a",
   "image": "/assets/providers/openrouter/icon.png",
   "website": "https://openrouter.ai",
   "notice": {
