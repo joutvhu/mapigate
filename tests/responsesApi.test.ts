@@ -261,6 +261,31 @@ describe("Responses API Adapter & Endpoints", () => {
       assert.equal(converted.max_tokens, 4096);
       assert.equal(converted.max_output_tokens, undefined);
     });
+
+    it("strips Kiro and Responses-only fields while preserving metadata for session routing", () => {
+      const kiroResponsesBody = {
+        model: "gemini/gemini-2.5-flash",
+        origin: "AI_EDITOR",
+        profileArn: "arn:aws:codewhisperer:us-east-1:123:profile/xyz",
+        metadata: { "kiro:conversation_id": "conv-xyz" },
+        previous_response_id: "resp_prev",
+        text: { format: { type: "text" } },
+        truncation: "auto",
+        background: false,
+        store: false,
+        input: [{ type: "message", role: "user", content: "Hi" }],
+      };
+
+      const converted = convertResponsesApiFormat(kiroResponsesBody);
+      assert.equal(converted.origin, undefined);
+      assert.equal(converted.profileArn, undefined);
+      assert.equal(converted.previous_response_id, undefined);
+      assert.equal(converted.text, undefined);
+      assert.equal(converted.truncation, undefined);
+      assert.equal(converted.background, undefined);
+      assert.equal(converted.store, undefined);
+      assert.deepEqual(converted.metadata, { "kiro:conversation_id": "conv-xyz" });
+    });
   });
 
   describe("Server endpoint /v1/responses", () => {

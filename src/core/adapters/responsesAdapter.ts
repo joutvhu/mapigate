@@ -198,6 +198,17 @@ export function convertResponsesApiFormat(body: any): any {
   delete result.prompt_cache_key;
   delete result.store;
   delete result.reasoning;
+  delete result.origin;
+  delete result.profileArn;
+  delete result.previous_response_id;
+  delete result.text;
+  delete result.truncation;
+  delete result.background;
+  delete result.max_tool_calls;
+  delete result.prompt_cache_retention;
+  delete result.safety_identifier;
+  delete result.conversation;
+  delete result.inferenceConfig;
 
   if (result.stream === undefined) {
     result.stream = true;

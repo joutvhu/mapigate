@@ -152,3 +152,71 @@ describe("Google Gemini (AI Studio) & Gemini CLI Providers Separation", () => {
     assert.ok(res.quotas.gemini_session);
     assert.equal(res.quotas.gemini_session.remainingPercentage, 95);
   });
+
+  it("gemini provider transformRequestBody strips unknown fields rejected by Google Protobuf JSON parser", () => {
+    const providerInstance = new GeminiProvider();
+    const transformed = providerInstance.transformRequestBody({
+      provider: { id: "gemini" },
+      account: { rawApiKey: "AIzaSyTest" },
+      targetModel: "gemini-2.5-pro",
+      clientFormat: "responses",
+      body: {
+        model: "gemini-4-carbon",
+        origin: "AI_EDITOR",
+        profileArn: "arn:aws:codewhisperer:us-east-1:123456:profile/abc",
+        metadata: { "kiro:conversation_id": "conv-123" },
+        store: false,
+        previous_response_id: "resp_123",
+        presence_penalty: 0.1,
+        frequency_penalty: 0.2,
+        parallel_tool_calls: true,
+        messages: [
+          {
+            role: "user",
+            content: "Hello",
+            id: "msg_123",
+            thinking_signature: "sig_abc",
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "read_file",
+              description: "Read a file",
+              strict: true,
+              parameters: {
+                type: "object",
+                properties: { path: { type: "string" } },
+              },
+            },
+          },
+        ],
+        tool_choice: "auto",
+        temperature: 0.2,
+        max_tokens: 4096,
+        stream: true,
+        reasoning_effort: "medium",
+      },
+    } as any);
+
+    assert.equal(transformed.model, "gemini-2.5-pro");
+    assert.equal(transformed.origin, undefined);
+    assert.equal(transformed.profileArn, undefined);
+    assert.equal(transformed.metadata, undefined);
+    assert.equal(transformed.store, undefined);
+    assert.equal(transformed.previous_response_id, undefined);
+    assert.equal(transformed.presence_penalty, undefined);
+    assert.equal(transformed.frequency_penalty, undefined);
+    assert.equal(transformed.parallel_tool_calls, undefined);
+
+    assert.deepEqual(transformed.messages, [{ role: "user", content: "Hello" }]);
+    assert.equal(transformed.tools.length, 1);
+    assert.equal(transformed.tools[0].function.name, "read_file");
+    assert.equal(transformed.tools[0].function.strict, undefined);
+    assert.equal(transformed.tool_choice, "auto");
+    assert.equal(transformed.temperature, 0.2);
+    assert.equal(transformed.max_tokens, 4096);
+    assert.equal(transformed.stream, true);
+    assert.equal(transformed.reasoning_effort, "medium");
+  });
