@@ -2,6 +2,7 @@ import { BaseProvider } from "./baseProvider.js";
 import type { ProviderRequestContext } from "../types.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { normalizeToolsToOpenAi } from "../../../core/adapters/helpers/toolSchemaNormalize.js";
+import { shouldPreserveCacheControl } from "../../../core/caching/cacheControlPolicy.js";
 
 export class OpenAiCompatibleProvider extends BaseProvider {
   public readonly id: string;
@@ -36,7 +37,12 @@ export class OpenAiCompatibleProvider extends BaseProvider {
   public override transformRequestBody(context: ProviderRequestContext): any {
     let body = context.body;
     if (context.clientFormat === "anthropic") {
-      body = AnthropicAdapter.anthropicToOpenAi(body);
+      const preserveCacheControl = shouldPreserveCacheControl(
+        context.provider?.id || this.id,
+        context.targetModel,
+        context.targetFormat || this.defaultFormat
+      );
+      body = AnthropicAdapter.anthropicToOpenAi(body, { preserveCacheControl });
     }
     const modelToUse = this.resolveUpstreamModelId(context);
     const converted: any = { ...body, model: modelToUse };

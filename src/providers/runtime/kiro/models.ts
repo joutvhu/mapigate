@@ -52,6 +52,22 @@ export const models: RegistryModel[] = [
 ];
 const ANTHROPIC_SNAPSHOT_SUFFIX = /-\d{8}$/;
 
+export const KIRO_SERVICE_REGIONS: Record<string, ReadonlySet<string>> = {
+  q: new Set(["us-east-1", "eu-central-1"]),
+  runtime: new Set(["us-east-1", "eu-central-1"]),
+  management: new Set(["us-east-1", "eu-central-1"]),
+  codewhisperer: new Set(["us-east-1"]),
+};
+
+export function resolveKiroServiceRegion(
+  service: keyof typeof KIRO_SERVICE_REGIONS | string,
+  requestedRegion?: string
+): string {
+  const clean = (requestedRegion || "us-east-1").trim() || "us-east-1";
+  const covered = KIRO_SERVICE_REGIONS[service];
+  return covered && covered.has(clean) ? clean : "us-east-1";
+}
+
 export function normalizeKiroUpstreamModelId(model?: string): string {
   if (typeof model !== "string" || !model) return model || "";
 

@@ -6,13 +6,28 @@ import { metadata } from "./metadata.js";
 import { getCodeBuddyUsage } from "./quota.js";
 
 const NEUTRAL_PROMPT = "You are a helpful AI assistant that helps with software engineering tasks.";
+const AGENT_IDENTITY_PATTERN =
+  /you are claude code|claude.?code.+official.+cli|anthropic.+official.+cli|anxthxropic.+official.+cli|you are (?:cursor|windsurf|cline|aider|continue|copilot|cody)|you are an? (?:ai )?(?:coding |code )?agent|cc_entrypoint\s*=\s*(?:cli|vscode|jetbrains|gui)|claude.?code.+issues|give feedback.+claude.?code|you are .{0,30}(?:powerful )?ai agent|orchestration capabilities|OhMyOpenCode|<agent-identity>|<Role>|<Behavior_Instructions>/i;
 
-function sanitizePromptForCodeBuddy(body: any): any {
+function extractSystemText(content: any): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part: any) => (typeof part === "string" ? part : part?.text || ""))
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
+}
+
+export function sanitizePromptForCodeBuddy(body: any): any {
   if (!body || typeof body !== "object") return body;
   const clone = { ...body };
   if (Array.isArray(clone.messages)) {
     clone.messages = clone.messages.map((msg: any) => {
-      if (msg.role === "system" && typeof msg.content === "string") {
+      if (!msg || (msg.role !== "system" && msg.role !== "developer")) return msg;
+      const text = extractSystemText(msg.content);
+      if (text && AGENT_IDENTITY_PATTERN.test(text)) {
         return { ...msg, content: NEUTRAL_PROMPT };
       }
       return msg;
@@ -52,10 +67,10 @@ export class CodebuddyProvider extends OpenAiCompatibleProvider {
   }
 
   public override transformRequestBody(context: ProviderRequestContext): any {
-    const sanitized = sanitizePromptForCodeBuddy(context.body);
-    const converted = super.transformRequestBody({ ...context, body: sanitized });
-    converted.model = context.targetModel;
-    return converted;
+    const converted = super.transformRequestBody(context);
+    const sanitized = sanitizePromptForCodeBuddy(converted);
+    sanitized.model = context.targetModel;
+    return sanitized;
   }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {

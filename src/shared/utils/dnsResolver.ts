@@ -6,6 +6,25 @@ import { Agent as UndiciAgent, fetch as undiciFetch } from "undici";
 const cachedTargetIPs: Record<string, { ip: string; ts: number }> = {};
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
+// ISP DPI (e.g. VN -> api.anthropic.com) RSTs Node's default TLS ClientHello curve
+// list; a single X25519 curve rewrites the fingerprint enough to pass.
+export const TLS_ECDH_CURVE = process.env.MAPIGATE_TLS_ECDH_CURVE || "X25519";
+
+// Happy Eyeballs (RFC 8305): race IPv4/IPv6 with a 250ms fallback window.
+export const EYEBALLS_CONNECT = {
+  autoSelectFamily: true,
+  autoSelectFamilyAttemptTimeout: 250,
+} as const;
+
+export const DEFAULT_KEEPALIVE_TIMEOUT_MS = 4 * 1000;
+export const FRESH_RETRY_KEEPALIVE_TIMEOUT_MS = 1;
+
+export function resolveKeepAliveTimeouts(): { keepAliveTimeout: number; keepAliveMaxTimeout: number } {
+  const raw = Number(process.env.MAPIGATE_FETCH_KEEPALIVE_TIMEOUT_MS);
+  const timeout = Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_KEEPALIVE_TIMEOUT_MS;
+  return { keepAliveTimeout: timeout, keepAliveMaxTimeout: timeout };
+}
+
 let publicResolver: dns.Resolver | null = null;
 let publicResolverAsync: ((hostname: string) => Promise<string[]>) | null = null;
 
@@ -39,37 +58,58 @@ export async function resolveTargetIP(hostname: string): Promise<string> {
 }
 
 let publicDnsAgentInstance: UndiciAgent | null = null;
+let publicDnsFreshAgentInstance: UndiciAgent | null = null;
+
+function createPublicDnsAgent(keepAliveTimeout: number, keepAliveMaxTimeout: number): UndiciAgent {
+  const { resolve4 } = getResolver();
+  return new UndiciAgent({
+    keepAliveTimeout,
+    keepAliveMaxTimeout,
+    connect: {
+      ...EYEBALLS_CONNECT,
+      ecdhCurve: TLS_ECDH_CURVE,
+      lookup: (hostname, opts, cb) => {
+        let callback = cb;
+        let options: any = opts;
+        if (typeof options === "function") {
+          callback = options;
+          options = {};
+        }
+        resolve4(hostname)
+          .then((ips) => {
+            if (options && options.all) {
+              callback(null, ips.map((ip) => ({ address: ip, family: 4 })) as any);
+            } else {
+              callback(null, ips[0] as any, 4);
+            }
+          })
+          .catch(() => {
+            dns.lookup(hostname, options, callback);
+          });
+      },
+    },
+  });
+}
 
 /**
  * Returns an undici Agent that resolves DNS via public resolvers,
- * completely avoiding local hosts file redirections (e.g. 127.0.0.1 for MITM tools).
+ * completely avoiding local hosts file redirections (e.g. 127.0.0.1 for MITM tools),
+ * with capped keep-alive TTL and DPI-safe TLS curve options.
  */
-export function getPublicDnsAgent(): UndiciAgent {
+export function getPublicDnsAgent(options?: { forceFreshSocket?: boolean }): UndiciAgent {
+  if (options?.forceFreshSocket) {
+    if (!publicDnsFreshAgentInstance) {
+      publicDnsFreshAgentInstance = createPublicDnsAgent(
+        FRESH_RETRY_KEEPALIVE_TIMEOUT_MS,
+        FRESH_RETRY_KEEPALIVE_TIMEOUT_MS
+      );
+    }
+    return publicDnsFreshAgentInstance;
+  }
+
   if (!publicDnsAgentInstance) {
-    const { resolve4 } = getResolver();
-    publicDnsAgentInstance = new UndiciAgent({
-      connect: {
-        lookup: (hostname, opts, cb) => {
-          let callback = cb;
-          let options: any = opts;
-          if (typeof options === "function") {
-            callback = options;
-            options = {};
-          }
-          resolve4(hostname)
-            .then((ips) => {
-              if (options && options.all) {
-                callback(null, ips.map((ip) => ({ address: ip, family: 4 })) as any);
-              } else {
-                callback(null, ips[0] as any, 4);
-              }
-            })
-            .catch(() => {
-              dns.lookup(hostname, options, callback);
-            });
-        },
-      },
-    });
+    const { keepAliveTimeout, keepAliveMaxTimeout } = resolveKeepAliveTimeouts();
+    publicDnsAgentInstance = createPublicDnsAgent(keepAliveTimeout, keepAliveMaxTimeout);
   }
   return publicDnsAgentInstance;
 }

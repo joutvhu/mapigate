@@ -555,6 +555,20 @@ export function cleanJSONSchemaForAntigravity(schema: any): any {
   return cleaned;
 }
 
+export function remoteImageMimeType(url: string): string {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname.toLowerCase();
+  } catch {
+    return "image/png";
+  }
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  if (pathname.endsWith(".gif")) return "image/gif";
+  if (pathname.endsWith(".bmp")) return "image/bmp";
+  return "image/png";
+}
+
 /**
  * Convert OpenAI content blocks (text or image_url) to Gemini parts
  */
@@ -581,8 +595,10 @@ export function convertOpenAIContentToParts(content: any): any[] {
           const data = url.substring(commaIdx + 1);
           parts.push({ inlineData: { mimeType: mime, data } });
         }
+      } else if (url.startsWith("http://") || url.startsWith("https://")) {
+        parts.push({ fileData: { fileUri: url, mimeType: remoteImageMimeType(url) } });
       } else {
-        parts.push({ fileData: { fileUri: url, mimeType: "image/*" } });
+        parts.push({ fileData: { fileUri: url, mimeType: remoteImageMimeType(url) } });
       }
     }
   }

@@ -9,7 +9,7 @@ import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor
 import { executeKiro } from "./executor.js";
 import { refreshKiroToken } from "./auth.js";
 
-import { normalizeKiroUpstreamModelId } from "./models.js";
+import { normalizeKiroUpstreamModelId, resolveKiroServiceRegion } from "./models.js";
 export { normalizeKiroUpstreamModelId };
 
 export class KiroProvider extends OpenAiCompatibleProvider {
@@ -57,16 +57,16 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const region = psd.region || "us-east-1";
 
     if (authMethod === "external_idp") {
-      return `https://codewhisperer.${region}.amazonaws.com/generateAssistantResponse`;
+      return `https://codewhisperer.${resolveKiroServiceRegion("codewhisperer", region)}.amazonaws.com/generateAssistantResponse`;
     }
     if (authMethod === "api-key" || authMethod === "api_key") {
-      return `https://q.${region}.amazonaws.com/generateAssistantResponse`;
+      return `https://q.${resolveKiroServiceRegion("q", region)}.amazonaws.com/generateAssistantResponse`;
     }
 
     const provBase = (context.provider?.baseUrl || "").trim();
     if (provBase) return provBase;
 
-    return `https://runtime.${region}.kiro.dev/generateAssistantResponse`;
+    return `https://runtime.${resolveKiroServiceRegion("runtime", region)}.kiro.dev/generateAssistantResponse`;
   }
 
   public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
@@ -122,9 +122,9 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     }
 
     const candidateUrls = [
-      `https://management.${region}.kiro.dev`,
-      `https://codewhisperer.${region}.amazonaws.com`,
-      `https://q.${region}.amazonaws.com`,
+      `https://management.${resolveKiroServiceRegion("management", region)}.kiro.dev`,
+      `https://codewhisperer.${resolveKiroServiceRegion("codewhisperer", region)}.amazonaws.com`,
+      `https://q.${resolveKiroServiceRegion("q", region)}.amazonaws.com`,
     ];
 
     let lastError: string | undefined;

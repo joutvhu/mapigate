@@ -17,11 +17,12 @@ export const metadata: ProviderRegistryItem = {
     "apiKeyUrl": "https://opencode.ai/auth"
   },
   "category": "apikey",
-  "baseUrl": "https://opencode.ai/zen/go/v1/chat/completions",
+  "baseUrl": "https://opencode.ai/inference/go/openai/v1/chat/completions",
   "baseUrls": [
-    "https://opencode.ai/zen/go/v1/chat/completions"
+    "https://opencode.ai/inference/go/openai/v1/chat/completions"
   ],
   "validateUrl": "",
+  "modelsUrl": "https://opencode.ai/inference/go/v1/models",
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",

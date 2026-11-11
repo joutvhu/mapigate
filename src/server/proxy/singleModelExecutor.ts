@@ -113,13 +113,18 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
   const adjustedBody = body;
   const prefixHash = extractConversationPrefixHash(adjustedBody);
 
-  let targetFormat = providerConfig.format || provider.defaultFormat || "openai";
+  let targetFormat =
+    provider.resolveTargetFormat?.(targetModel, clientFormat) ||
+    providerConfig.format ||
+    provider.defaultFormat ||
+    "openai";
   if (provider.id === "opencode" || provider.id === "oc") {
     targetFormat = targetModel.includes("union-alpha") ? "claude" : "openai";
   }
 
   const triedAccountIds = new Set<string>();
   let lastFailureResult: ModelCallResult | undefined;
+  let forceFreshNextAttempt = false;
 
   const targetProviderId = providerConfig.id || provider.id;
   const sessionId = extractSessionId(req, body);
@@ -238,6 +243,8 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     if (!isPanel) {
       if (targetFormat === "openai" && upstreamBody && upstreamBody.stream !== false) {
         upstreamBody.stream_options = { ...(upstreamBody.stream_options || {}), include_usage: true };
+      } else if (upstreamBody && upstreamBody.stream === false) {
+        delete upstreamBody.stream_options;
       }
     } else {
       upstreamBody.stream = false;
@@ -286,7 +293,9 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       headers: outgoingHeaders,
       body: JSON.stringify(upstreamBody),
       signal: combinedSignal,
+      ...(forceFreshNextAttempt ? { forceFreshSocket: true } : {}),
     };
+    forceFreshNextAttempt = false;
 
     if (logger.isDebugEnabled()) {
       const accLabel = account?.name || account?.id ? `account: '${account?.name || account?.id}'` : "no account";
@@ -450,6 +459,9 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         upstreamRes.status === 404;
 
       if (shouldFailover && account) {
+        if (upstreamRes.status === 502) {
+          forceFreshNextAttempt = true;
+        }
         const cdMs = resFailure.cooldownMs || (resFailure.rateLimited ? 60_000 : 5000);
         if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined, sessionId)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };

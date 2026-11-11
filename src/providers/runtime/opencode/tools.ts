@@ -54,6 +54,16 @@ export function withFingerprintDefinition(tool: any, key: string, isClaude = fal
     : { ...tool, name: key, description, parameters };
 }
 
+export const GATED_TOOL_NAME_RE = /terminal/i;
+const GATED_TOOL_ALIAS = "run_command";
+
+function withToolName(tool: any, alias: string): any {
+  const fn = chatFunctionOf(tool);
+  return fn
+    ? { ...tool, function: { ...fn, name: alias } }
+    : { ...tool, name: alias };
+}
+
 export function concealFingerprintToolNames(
   tools: any[],
   isClaude = false
@@ -72,6 +82,17 @@ export function concealFingerprintToolNames(
     }
 
     const current = toolNameOf(tool);
+    if (GATED_TOOL_NAME_RE.test(current)) {
+      let alias = GATED_TOOL_ALIAS;
+      for (let i = 2; taken.has(alias); i++) {
+        alias = `${GATED_TOOL_ALIAS}${i}`;
+      }
+      taken.add(alias);
+      map.set(alias, current);
+      out.push(withToolName(tool, alias));
+      continue;
+    }
+
     const key = fingerprintToolKey(current);
     if (!key) {
       out.push(tool);
@@ -103,12 +124,7 @@ export function concealFingerprintToolNames(
     taken.add(alias);
     map.set(alias, current);
 
-    const fn = chatFunctionOf(tool);
-    if (fn) {
-      out.push({ ...tool, function: { ...fn, name: alias } });
-    } else {
-      out.push({ ...tool, name: alias });
-    }
+    out.push(withToolName(tool, alias));
   }
   return { tools: out, map };
 }
@@ -265,23 +281,32 @@ export function retargetToolChoice(
   const choice = body.tool_choice;
   if (!choice || typeof choice !== "object" || Array.isArray(choice)) return;
 
+  const resolveAlias = (name: string): string | null => {
+    const key = fingerprintToolKey(name);
+    if (key && map.has(key)) return key;
+    for (const [alias, orig] of map.entries()) {
+      if (orig === name) return alias;
+    }
+    return null;
+  };
+
   if (choice.type === "tool" && typeof choice.name === "string") {
-    const key = fingerprintToolKey(choice.name);
-    if (key && map.has(key)) choice.name = key;
+    const target = resolveAlias(choice.name);
+    if (target) choice.name = target;
     return;
   }
 
   if (typeof choice.name === "string") {
-    const key = fingerprintToolKey(choice.name);
-    if (key && map.has(key)) body.tool_choice = { ...choice, name: key };
+    const target = resolveAlias(choice.name);
+    if (target) body.tool_choice = { ...choice, name: target };
     return;
   }
 
   const fn = choice.function;
   if (fn && typeof fn === "object" && !Array.isArray(fn) && typeof fn.name === "string") {
-    const key = fingerprintToolKey(fn.name);
-    if (key && map.has(key)) {
-      body.tool_choice = { ...choice, function: { ...fn, name: key } };
+    const target = resolveAlias(fn.name);
+    if (target) {
+      body.tool_choice = { ...choice, function: { ...fn, name: target } };
     }
   }
 }

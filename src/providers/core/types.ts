@@ -158,6 +158,7 @@ export interface IProvider {
   buildUrl(context: ProviderRequestContext): string;
   buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> | Record<string, string>;
   transformRequestBody(context: ProviderRequestContext): any;
+  resolveTargetFormat?(targetModel: string, clientFormat: string): string | undefined;
 
   execute?(
     context: ProviderRequestContext,

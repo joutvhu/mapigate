@@ -6,6 +6,7 @@ import { registerRoutes as reg_claude } from "../runtime/claude/routes.js";
 import { registerRoutes as reg_cline } from "../runtime/cline/routes.js";
 import { registerRoutes as reg_codebuddy } from "../runtime/codebuddy/routes.js";
 import { registerRoutes as reg_codex } from "../runtime/codex/routes.js";
+import { registerRoutes as reg_commandcode } from "../catalog/commandcode/routes.js";
 import { registerRoutes as reg_cursor } from "../runtime/cursor/routes.js";
 import { registerRoutes as reg_gemini_cli } from "../runtime/gemini-cli/routes.js";
 import { registerRoutes as reg_github } from "../runtime/github/routes.js";
@@ -29,6 +30,7 @@ export function registerAllProviderRoutes(router: Router): void {
   reg_cline(router);
   reg_codebuddy(router);
   reg_codex(router);
+  reg_commandcode(router);
   reg_cursor(router);
   reg_gemini_cli(router);
   reg_github(router);

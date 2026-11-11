@@ -50,7 +50,7 @@ export class CommandcodeProvider extends OpenAiCompatibleProvider {
           Authorization: token.startsWith("Bearer ") ? token : `Bearer ${token}`,
           "User-Agent": "cli",
           "x-session-id": crypto.randomUUID(),
-          "x-command-code-version": "1.88.0",
+          "x-command-code-version": "1.88.5",
           "x-cli-environment": "production",
           "x-cli-surface": "cli",
           "x-taste-learning": "false",

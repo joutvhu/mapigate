@@ -1,21 +1,57 @@
 import { convertAnthropicImageToOpenAi } from "./imageUtils.js";
 
+export interface AnthropicToOpenAiOptions {
+  preserveCacheControl?: boolean;
+}
+
 /**
  * Translates Anthropic /v1/messages request payload to OpenAI /v1/chat/completions payload
  */
-export function translateAnthropicToOpenAi(anthropicBody: any): any {
+export function translateAnthropicToOpenAi(
+  anthropicBody: any,
+  opts: AnthropicToOpenAiOptions = {}
+): any {
+  const preserveCacheControl = Boolean(opts?.preserveCacheControl);
   const messages: any[] = [];
 
   // 1. Top-level system prompt
   if (anthropicBody.system) {
-    const sysContent =
-      typeof anthropicBody.system === "string"
-        ? anthropicBody.system
-        : Array.isArray(anthropicBody.system)
-        ? anthropicBody.system.map((s: any) => s.text || "").join("\n")
-        : "";
-    if (sysContent) {
-      messages.push({ role: "system", content: sysContent });
+    if (
+      preserveCacheControl &&
+      Array.isArray(anthropicBody.system) &&
+      anthropicBody.system.some((s: any) => s?.cache_control)
+    ) {
+      const systemParts: any[] = [];
+      for (const s of anthropicBody.system) {
+        const text = s?.text || "";
+        if (text) {
+          systemParts.push({
+            type: "text",
+            text,
+            ...(s.cache_control ? { cache_control: s.cache_control } : {}),
+          });
+        } else if (s?.cache_control && systemParts.length > 0) {
+          systemParts[systemParts.length - 1].cache_control = s.cache_control;
+        }
+      }
+      if (systemParts.length > 0) {
+        const content = systemParts.some((p) => p.cache_control)
+          ? systemParts
+          : systemParts.map((p) => p.text).join("\n");
+        if (Array.isArray(content) ? content.length > 0 : content) {
+          messages.push({ role: "system", content });
+        }
+      }
+    } else {
+      const sysContent =
+        typeof anthropicBody.system === "string"
+          ? anthropicBody.system
+          : Array.isArray(anthropicBody.system)
+          ? anthropicBody.system.map((s: any) => s.text || "").join("\n")
+          : "";
+      if (sysContent) {
+        messages.push({ role: "system", content: sysContent });
+      }
     }
   }
 
@@ -39,6 +75,8 @@ export function translateAnthropicToOpenAi(anthropicBody: any): any {
 
       if (Array.isArray(msg.content)) {
         let textAccumulator = "";
+        const textBlocks: Array<{ type: "text"; text: string; cache_control?: any }> = [];
+        let hasTextCacheControl = false;
         let reasoningAccumulator = "";
         let thinkingSignature: string | undefined = undefined;
         let redactedThinking: string | undefined = undefined;
@@ -48,6 +86,18 @@ export function translateAnthropicToOpenAi(anthropicBody: any): any {
         for (const block of msg.content) {
           if (block.type === "text") {
             textAccumulator += (block.text || "") + "\n";
+            if (preserveCacheControl && block.cache_control) {
+              hasTextCacheControl = true;
+            }
+            if (block.text) {
+              textBlocks.push({
+                type: "text",
+                text: block.text,
+                ...(preserveCacheControl && block.cache_control
+                  ? { cache_control: block.cache_control }
+                  : {}),
+              });
+            }
           } else if (block.type === "thinking") {
             if (block.thinking) {
               reasoningAccumulator += (block.thinking || "") + "\n";
@@ -115,12 +165,16 @@ export function translateAnthropicToOpenAi(anthropicBody: any): any {
 
         if (hasText || hasReasoning || hasToolCalls || redactedThinking || hasImages) {
           let finalContent: any = textAccumulator.trim() || null;
-          if (hasImages) {
+          if (hasImages || (preserveCacheControl && hasTextCacheControl && textBlocks.length > 0)) {
             finalContent = [];
-            if (textAccumulator.trim()) {
+            if (preserveCacheControl && hasTextCacheControl && textBlocks.length > 0) {
+              finalContent.push(...textBlocks);
+            } else if (textAccumulator.trim()) {
               finalContent.push({ type: "text", text: textAccumulator.trim() });
             }
-            finalContent.push(...imageBlocks);
+            if (hasImages) {
+              finalContent.push(...imageBlocks);
+            }
           }
 
           const outMsg: any = { role, content: finalContent };

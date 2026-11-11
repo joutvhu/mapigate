@@ -53,6 +53,10 @@ export abstract class BaseProvider implements IProvider {
   public defaultBaseUrl?: string;
   public readonly streamType: "sse" | "eventstream" | "custom" = "sse";
 
+  public resolveTargetFormat(_targetModel: string, _clientFormat: string): string | undefined {
+    return undefined;
+  }
+
   public resolveUpstreamModelId(context: ProviderRequestContext): string {
     const targetModel = context.targetModel || "";
     if (!targetModel) return targetModel;

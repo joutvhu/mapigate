@@ -11,7 +11,7 @@ import {
 import { decodeEventStreamChunk } from "../bedrock/eventStream.js";
 import { extractTokenFromAccount } from "../../core/base/tokenExtractor.js";
 import { buildKiroPayload } from "./converter.js";
-import { normalizeKiroUpstreamModelId } from "./models.js";
+import { normalizeKiroUpstreamModelId, resolveKiroServiceRegion } from "./models.js";
 import { refreshKiroToken } from "./auth.js";
 import { resolveDefaultProfileArn } from "./quota.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
@@ -104,11 +104,14 @@ export async function executeKiro(
   let targetUrl = accountBase || providerBase;
   if (!targetUrl) {
     if (authMethod === "external_idp") {
-      targetUrl = `https://codewhisperer.${region}.amazonaws.com/generateAssistantResponse`;
+      const cwRegion = resolveKiroServiceRegion("codewhisperer", region);
+      targetUrl = `https://codewhisperer.${cwRegion}.amazonaws.com/generateAssistantResponse`;
     } else if (authMethod === "api-key" || authMethod === "api_key") {
-      targetUrl = `https://q.${region}.amazonaws.com/generateAssistantResponse`;
+      const qRegion = resolveKiroServiceRegion("q", region);
+      targetUrl = `https://q.${qRegion}.amazonaws.com/generateAssistantResponse`;
     } else {
-      targetUrl = `https://runtime.${region}.kiro.dev/generateAssistantResponse`;
+      const runtimeRegion = resolveKiroServiceRegion("runtime", region);
+      targetUrl = `https://runtime.${runtimeRegion}.kiro.dev/generateAssistantResponse`;
     }
   }
 

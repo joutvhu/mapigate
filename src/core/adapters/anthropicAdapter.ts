@@ -47,8 +47,11 @@ export class AnthropicAdapter {
   /**
    * Convert Anthropic /v1/messages payload to OpenAI /v1/chat/completions payload
    */
-  public static anthropicToOpenAi(anthropicBody: any): any {
-    return translateAnthropicToOpenAi(anthropicBody);
+  public static anthropicToOpenAi(
+    anthropicBody: any,
+    opts?: { preserveCacheControl?: boolean }
+  ): any {
+    return translateAnthropicToOpenAi(anthropicBody, opts);
   }
 
   /**

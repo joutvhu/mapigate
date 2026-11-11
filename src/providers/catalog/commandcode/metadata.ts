@@ -26,13 +26,13 @@ export const metadata: ProviderRegistryItem = {
   "format": "commandcode",
   "defaultHeaders": {
     "User-Agent": "cli",
-    "x-command-code-version": "1.88.0",
+    "x-command-code-version": "1.88.5",
     "x-cli-environment": "production",
     "x-cli-surface": "cli",
     "x-taste-learning": "false"
   },
-  "thinkingMode": "auto"
-,
+  "thinkingMode": "auto",
+  "passthroughModels": true,
   models
 };
 

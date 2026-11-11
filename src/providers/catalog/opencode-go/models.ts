@@ -44,4 +44,5 @@ export const models: RegistryModel[] = [
   {"id":"gpt-6-luna","name":"GPT 6 Luna","isDefault":false},
   {"id":"muse-spark-1.2-contributor","name":"Muse Spark 1.2 Contributor","isDefault":false},
   {"id":"muse-spark-1.3-contributor","name":"Muse Spark 1.3 Contributor","isDefault":false},
+  {"id":"claude-haiku-5-5","name":"Claude Haiku 5.5","isDefault":false},
 ];
