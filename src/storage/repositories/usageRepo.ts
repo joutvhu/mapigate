@@ -76,12 +76,12 @@ export class UsageRepository {
         )
         SELECT 
           strftime('%Y-%m-%d', datetime(timestamp / 1000, 'unixepoch', 'localtime')) as date,
-          provider_id,
-          actual_model,
+          COALESCE(NULLIF(provider_id, ''), 'unknown') as provider_id,
+          COALESCE(NULLIF(actual_model, ''), NULLIF(requested_model, ''), 'unknown') as actual_model,
           COALESCE(account_id, '') as account_id,
-          COALESCE(account_name, '') as account_name,
+          MAX(COALESCE(account_name, '')) as account_name,
           COALESCE(api_key_id, '') as api_key_id,
-          COALESCE(api_key_name, '') as api_key_name,
+          MAX(COALESCE(api_key_name, '')) as api_key_name,
           COUNT(*) as requests,
           SUM(prompt_tokens) as prompt_tokens,
           SUM(completion_tokens) as completion_tokens,
@@ -93,17 +93,17 @@ export class UsageRepository {
         WHERE (prompt_tokens + completion_tokens) > 0
         GROUP BY 
           strftime('%Y-%m-%d', datetime(timestamp / 1000, 'unixepoch', 'localtime')),
-          provider_id,
-          actual_model,
+          COALESCE(NULLIF(provider_id, ''), 'unknown'),
+          COALESCE(NULLIF(actual_model, ''), NULLIF(requested_model, ''), 'unknown'),
           COALESCE(account_id, ''),
           COALESCE(api_key_id, '')
         ON CONFLICT(date, provider_id, actual_model, account_id, api_key_id) DO UPDATE SET
-          requests = excluded.requests,
-          prompt_tokens = excluded.prompt_tokens,
-          completion_tokens = excluded.completion_tokens,
-          cached_tokens = excluded.cached_tokens,
-          tokens_saved_by_rtk = excluded.tokens_saved_by_rtk,
-          cost = excluded.cost,
+          requests = MAX(daily_usage_stats.requests, excluded.requests),
+          prompt_tokens = MAX(daily_usage_stats.prompt_tokens, excluded.prompt_tokens),
+          completion_tokens = MAX(daily_usage_stats.completion_tokens, excluded.completion_tokens),
+          cached_tokens = MAX(daily_usage_stats.cached_tokens, excluded.cached_tokens),
+          tokens_saved_by_rtk = MAX(daily_usage_stats.tokens_saved_by_rtk, excluded.tokens_saved_by_rtk),
+          cost = MAX(daily_usage_stats.cost, excluded.cost),
           account_name = CASE WHEN excluded.account_name != '' THEN excluded.account_name ELSE daily_usage_stats.account_name END,
           api_key_name = CASE WHEN excluded.api_key_name != '' THEN excluded.api_key_name ELSE daily_usage_stats.api_key_name END,
           last_used = MAX(daily_usage_stats.last_used, excluded.last_used)
@@ -176,22 +176,25 @@ export class UsageRepository {
 
   public static getPeriodStartTimestamp(period: string): number {
     const now = Date.now();
+    const getDaysAgoMidnight = (days: number): number => {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      d.setDate(d.getDate() - (days - 1));
+      return d.getTime();
+    };
     switch (period) {
-      case "today": {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
-        return d.getTime();
-      }
+      case "today":
+        return getDaysAgoMidnight(1);
       case "24h":
         return now - 24 * 60 * 60 * 1000;
       case "7d":
-        return now - 7 * 24 * 60 * 60 * 1000;
+        return getDaysAgoMidnight(7);
       case "30d":
-        return now - 30 * 24 * 60 * 60 * 1000;
+        return getDaysAgoMidnight(30);
       case "60d":
-        return now - 60 * 24 * 60 * 60 * 1000;
+        return getDaysAgoMidnight(60);
       case "90d":
-        return now - 90 * 24 * 60 * 60 * 1000;
+        return getDaysAgoMidnight(90);
       case "all":
       default:
         return 0;
@@ -309,13 +312,22 @@ export class UsageRepository {
     const byProvider: Record<string, CounterBucket> = {};
     for (const r of provRows) {
       const pid = r.provider_id || "unknown";
-      byProvider[pid] = {
-        requests: Number(r.count || 0),
-        promptTokens: Number(r.prompt || 0),
-        completionTokens: Number(r.completion || 0),
-        cachedTokens: Number(r.cached || 0),
-        cost: Number((r.cost || 0).toFixed(4)),
-      };
+      const existing = byProvider[pid];
+      if (existing) {
+        existing.requests += Number(r.count || 0);
+        existing.promptTokens += Number(r.prompt || 0);
+        existing.completionTokens += Number(r.completion || 0);
+        existing.cachedTokens += Number(r.cached || 0);
+        existing.cost = Number((existing.cost + Number(r.cost || 0)).toFixed(4));
+      } else {
+        byProvider[pid] = {
+          requests: Number(r.count || 0),
+          promptTokens: Number(r.prompt || 0),
+          completionTokens: Number(r.completion || 0),
+          cachedTokens: Number(r.cached || 0),
+          cost: Number((r.cost || 0).toFixed(4)),
+        };
+      }
     }
 
     // 3. Breakdown by Model
@@ -373,16 +385,29 @@ export class UsageRepository {
     for (const r of modelRows) {
       const modelName = r.actual_model || "unknown";
       const key = r.provider_id ? `${modelName} (${r.provider_id})` : modelName;
-      byModel[key] = {
-        requests: Number(r.count || 0),
-        promptTokens: Number(r.prompt || 0),
-        completionTokens: Number(r.completion || 0),
-        cachedTokens: Number(r.cached || 0),
-        cost: Number((r.cost || 0).toFixed(4)),
-        rawModel: modelName,
-        provider: r.provider_id || undefined,
-        lastUsed: r.last_used ? new Date(r.last_used).toISOString() : undefined,
-      };
+      const isoLastUsed = r.last_used ? new Date(r.last_used).toISOString() : undefined;
+      const existing = byModel[key];
+      if (existing) {
+        existing.requests += Number(r.count || 0);
+        existing.promptTokens += Number(r.prompt || 0);
+        existing.completionTokens += Number(r.completion || 0);
+        existing.cachedTokens += Number(r.cached || 0);
+        existing.cost = Number((existing.cost + Number(r.cost || 0)).toFixed(4));
+        if (isoLastUsed && (!existing.lastUsed || isoLastUsed > existing.lastUsed)) {
+          existing.lastUsed = isoLastUsed;
+        }
+      } else {
+        byModel[key] = {
+          requests: Number(r.count || 0),
+          promptTokens: Number(r.prompt || 0),
+          completionTokens: Number(r.completion || 0),
+          cachedTokens: Number(r.cached || 0),
+          cost: Number((r.cost || 0).toFixed(4)),
+          rawModel: modelName,
+          provider: r.provider_id || undefined,
+          lastUsed: isoLastUsed,
+        };
+      }
     }
 
     // 4. Breakdown by Account
@@ -401,7 +426,7 @@ export class UsageRepository {
         }>(
           `SELECT 
             account_id,
-            account_name,
+            MAX(NULLIF(account_name, '')) as account_name,
             actual_model,
             provider_id,
             COALESCE(SUM(requests), 0) as count,
@@ -429,7 +454,7 @@ export class UsageRepository {
         }>(
           `SELECT 
             account_id,
-            account_name,
+            MAX(NULLIF(account_name, '')) as account_name,
             actual_model,
             provider_id,
             COUNT(*) as count,
@@ -449,19 +474,34 @@ export class UsageRepository {
       const aid = r.account_id || "default";
       const aname = r.account_name || `Account ${aid.slice(0, 8)}`;
       const modelName = r.actual_model || "unknown";
-      const key = `${modelName} (${r.provider_id || "unknown"} - ${aname})`;
-      byAccount[key] = {
-        requests: Number(r.count || 0),
-        promptTokens: Number(r.prompt || 0),
-        completionTokens: Number(r.completion || 0),
-        cachedTokens: Number(r.cached || 0),
-        cost: Number((r.cost || 0).toFixed(4)),
-        rawModel: modelName,
-        provider: r.provider_id || undefined,
-        accountId: r.account_id || undefined,
-        accountName: aname,
-        lastUsed: r.last_used ? new Date(r.last_used).toISOString() : undefined,
-      };
+      const key = r.account_id
+        ? `${modelName} (${r.provider_id || "unknown"} - ${aname} [${aid}])`
+        : `${modelName} (${r.provider_id || "unknown"} - ${aname})`;
+      const isoLastUsed = r.last_used ? new Date(r.last_used).toISOString() : undefined;
+      const existing = byAccount[key];
+      if (existing) {
+        existing.requests += Number(r.count || 0);
+        existing.promptTokens += Number(r.prompt || 0);
+        existing.completionTokens += Number(r.completion || 0);
+        existing.cachedTokens += Number(r.cached || 0);
+        existing.cost = Number((existing.cost + Number(r.cost || 0)).toFixed(4));
+        if (isoLastUsed && (!existing.lastUsed || isoLastUsed > existing.lastUsed)) {
+          existing.lastUsed = isoLastUsed;
+        }
+      } else {
+        byAccount[key] = {
+          requests: Number(r.count || 0),
+          promptTokens: Number(r.prompt || 0),
+          completionTokens: Number(r.completion || 0),
+          cachedTokens: Number(r.cached || 0),
+          cost: Number((r.cost || 0).toFixed(4)),
+          rawModel: modelName,
+          provider: r.provider_id || undefined,
+          accountId: r.account_id || undefined,
+          accountName: aname,
+          lastUsed: isoLastUsed,
+        };
+      }
     }
 
     // 5. Breakdown by API Key
@@ -477,8 +517,8 @@ export class UsageRepository {
           last_used: number;
         }>(
           `SELECT 
-            COALESCE(api_key_id, 'no_key') as api_key_id,
-            COALESCE(api_key_name, 'Direct / Public') as api_key_name,
+            COALESCE(NULLIF(api_key_id, ''), 'no_key') as api_key_id,
+            COALESCE(MAX(NULLIF(api_key_name, '')), 'Direct / Public') as api_key_name,
             COALESCE(SUM(requests), 0) as count,
             COALESCE(SUM(prompt_tokens), 0) as prompt,
             COALESCE(SUM(completion_tokens), 0) as completion,
@@ -487,7 +527,7 @@ export class UsageRepository {
             MAX(last_used) as last_used
           FROM daily_usage_stats
           ${startDateStr ? "WHERE date >= ?" : ""}
-          GROUP BY api_key_id, api_key_name`,
+          GROUP BY COALESCE(NULLIF(api_key_id, ''), 'no_key')`,
           ...(startDateStr ? [startDateStr] : [])
         )
       : db.all<{
@@ -501,8 +541,8 @@ export class UsageRepository {
           last_used: number;
         }>(
           `SELECT 
-            COALESCE(api_key_id, 'no_key') as api_key_id,
-            COALESCE(api_key_name, 'Direct / Public') as api_key_name,
+            COALESCE(NULLIF(api_key_id, ''), 'no_key') as api_key_id,
+            COALESCE(MAX(NULLIF(api_key_name, '')), 'Direct / Public') as api_key_name,
             COUNT(*) as count,
             COALESCE(SUM(prompt_tokens), 0) as prompt,
             COALESCE(SUM(completion_tokens), 0) as completion,
@@ -511,7 +551,7 @@ export class UsageRepository {
             MAX(timestamp) as last_used
           FROM request_logs
           WHERE timestamp >= ?
-          GROUP BY api_key_id, api_key_name`,
+          GROUP BY COALESCE(NULLIF(api_key_id, ''), 'no_key')`,
           startTs
         );
 
@@ -519,16 +559,32 @@ export class UsageRepository {
     for (const r of apiKeyRows) {
       const kid = r.api_key_id || "no_key";
       const kname = r.api_key_name || (kid === "no_key" ? "Direct / Public" : `Key ${kid.slice(0, 8)}`);
-      byApiKey[kid] = {
-        requests: Number(r.count || 0),
-        promptTokens: Number(r.prompt || 0),
-        completionTokens: Number(r.completion || 0),
-        cachedTokens: Number(r.cached || 0),
-        cost: Number((r.cost || 0).toFixed(4)),
-        apiKeyId: kid,
-        apiKeyName: kname,
-        lastUsed: r.last_used ? new Date(r.last_used).toISOString() : undefined,
-      };
+      const isoLastUsed = r.last_used ? new Date(r.last_used).toISOString() : undefined;
+      const existing = byApiKey[kid];
+      if (existing) {
+        existing.requests += Number(r.count || 0);
+        existing.promptTokens += Number(r.prompt || 0);
+        existing.completionTokens += Number(r.completion || 0);
+        existing.cachedTokens += Number(r.cached || 0);
+        existing.cost = Number((existing.cost + Number(r.cost || 0)).toFixed(4));
+        if (kname && existing.apiKeyName === "Direct / Public") {
+          existing.apiKeyName = kname;
+        }
+        if (isoLastUsed && (!existing.lastUsed || isoLastUsed > existing.lastUsed)) {
+          existing.lastUsed = isoLastUsed;
+        }
+      } else {
+        byApiKey[kid] = {
+          requests: Number(r.count || 0),
+          promptTokens: Number(r.prompt || 0),
+          completionTokens: Number(r.completion || 0),
+          cachedTokens: Number(r.cached || 0),
+          cost: Number((r.cost || 0).toFixed(4)),
+          apiKeyId: kid,
+          apiKeyName: kname,
+          lastUsed: isoLastUsed,
+        };
+      }
     }
 
     // 6. Recent Requests (20 entries)
@@ -700,7 +756,8 @@ export class UsageRepository {
       const minRow = db.get<{ min_ts: number }>("SELECT MIN(timestamp) as min_ts FROM request_logs");
       const minDaily = db.get<{ min_date: string }>("SELECT MIN(date) as min_date FROM daily_usage_stats");
       if (minDaily?.min_date) {
-        const dMin = new Date(minDaily.min_date).getTime();
+        const [y, m, d] = minDaily.min_date.split("-").map(Number);
+        const dMin = y && m && d ? new Date(y, m - 1, d).getTime() : new Date(minDaily.min_date).getTime();
         startTime = minRow?.min_ts ? Math.min(Number(minRow.min_ts), dMin) : dMin;
       } else if (minRow?.min_ts) {
         startTime = Number(minRow.min_ts);
@@ -714,13 +771,13 @@ export class UsageRepository {
     today.setHours(0, 0, 0, 0);
 
     const dayDiff = Math.max(1, Math.round((today.getTime() - startDay.getTime()) / 86400000) + 1);
-    const count = period === "all" ? Math.min(dayDiff, 365) : bucketDays;
+    const count = period === "all" ? dayDiff : bucketDays;
 
     const buckets: ChartDataPoint[] = [];
     const dateKeyMap = new Map<string, number>();
 
     for (let i = count - 1; i >= 0; i--) {
-      const d = new Date(today.getTime() - i * 86400000);
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       const idx = buckets.length;
@@ -734,8 +791,9 @@ export class UsageRepository {
       dateKeyMap.set(dateKey, idx);
     }
 
-    const minTs = today.getTime() - (count - 1) * 86400000;
-    const minDateStr = `${new Date(minTs).getFullYear()}-${String(new Date(minTs).getMonth() + 1).padStart(2, "0")}-${String(new Date(minTs).getDate()).padStart(2, "0")}`;
+    const minDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (count - 1));
+    const minTs = minDay.getTime();
+    const minDateStr = `${minDay.getFullYear()}-${String(minDay.getMonth() + 1).padStart(2, "0")}-${String(minDay.getDate()).padStart(2, "0")}`;
 
     // Prefer aggregating from daily_usage_stats when available, fallback/merge from request_logs
     const hasDaily = Boolean(db.get<{ c: number }>("SELECT 1 as c FROM daily_usage_stats LIMIT 1"));

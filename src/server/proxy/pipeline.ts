@@ -19,6 +19,7 @@ import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import { resolveTargetModelAndProvider } from "./executorHelpers.js";
+import { extractUsageTokens } from "../../core/usage/tokenExtractor.js";
 import crypto from "node:crypto";
 
 export function formatProxyErrorResponse(
@@ -301,10 +302,15 @@ export async function runProxyPipeline(
         let promptTokens = 0;
         let completionTokens = 0;
         let cachedTokens = 0;
-        if (typeof respData === "object" && respData !== null && respData.usage) {
-          promptTokens = respData.usage.prompt_tokens ?? respData.usage.input_tokens ?? 0;
-          completionTokens = respData.usage.completion_tokens ?? respData.usage.output_tokens ?? 0;
-          cachedTokens = respData.usage.prompt_tokens_details?.cached_tokens ?? 0;
+        let cacheCreationTokens = 0;
+        let reasoningTokens = 0;
+        if (typeof respData === "object" && respData !== null && (respData.usage || respData.usageMetadata)) {
+          const extracted = extractUsageTokens(respData);
+          promptTokens = extracted.promptTokens;
+          completionTokens = extracted.completionTokens;
+          cachedTokens = extracted.cachedTokens;
+          cacheCreationTokens = extracted.cacheCreationTokens;
+          reasoningTokens = extracted.reasoningTokens;
         }
 
         ResponseLogger.logSuccess({
@@ -320,8 +326,8 @@ export async function runProxyPipeline(
           promptTokens,
           completionTokens,
           cachedTokens,
-          cacheCreationTokens: 0,
-          reasoningTokens: 0,
+          cacheCreationTokens,
+          reasoningTokens,
           tokensSavedByRtk: rtkStats.tokensSaved,
           is1mContext,
           requestHeaders: req.headers as Record<string, string>,

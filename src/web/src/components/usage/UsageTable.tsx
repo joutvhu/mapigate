@@ -58,17 +58,36 @@ export const UsageTable: React.FC<UsageTableProps> = ({
       lastUsed: d.lastUsed,
     }));
   } else if (groupBy === "account") {
-    tableData = Object.entries(byAccount || {}).map(([id, d]) => ({
-      id,
-      name: d.accountName || d.accountId || id,
-      sublabel: d.rawModel ? `${d.rawModel} (${d.provider || "default"})` : undefined,
-      requests: d.requests || 0,
-      promptTokens: d.promptTokens || 0,
-      cachedTokens: d.cachedTokens || 0,
-      completionTokens: d.completionTokens || 0,
-      cost: d.cost || 0,
-      lastUsed: d.lastUsed,
-    }));
+    const accountEntries = Object.entries(byAccount || {});
+    const nameCounts = new Map<string, number>();
+    for (const [id, d] of accountEntries) {
+      if ((d.promptTokens || 0) + (d.completionTokens || 0) <= 0) continue;
+      const sig = `${d.accountName || d.accountId || id}::${d.rawModel || ""}::${d.provider || ""}`;
+      nameCounts.set(sig, (nameCounts.get(sig) || 0) + 1);
+    }
+
+    tableData = accountEntries.map(([id, d]) => {
+      const displayName = d.accountName || d.accountId || id;
+      const sig = `${displayName}::${d.rawModel || ""}::${d.provider || ""}`;
+      const hasCollision = (nameCounts.get(sig) || 0) > 1;
+      const baseSublabel = d.rawModel ? `${d.rawModel} (${d.provider || "default"})` : undefined;
+      const sublabel =
+        hasCollision && d.accountId
+          ? [baseSublabel, d.accountId].filter(Boolean).join(" · ")
+          : baseSublabel;
+
+      return {
+        id,
+        name: displayName,
+        sublabel,
+        requests: d.requests || 0,
+        promptTokens: d.promptTokens || 0,
+        cachedTokens: d.cachedTokens || 0,
+        completionTokens: d.completionTokens || 0,
+        cost: d.cost || 0,
+        lastUsed: d.lastUsed,
+      };
+    });
   } else {
     tableData = Object.entries(byApiKey || {}).map(([id, d]) => ({
       id,

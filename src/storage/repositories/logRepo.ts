@@ -1,12 +1,11 @@
 import { getDatabase } from "../database.js";
-import { SettingsRepository } from "./settingsRepo.js";
 import type { RequestUsageLog, TokenStatsSummary } from "../../shared/types/index.js";
 
 export class LogRepository {
   public static saveLog(log: RequestUsageLog): void {
     const db = getDatabase();
-    db.run(
-      `INSERT OR REPLACE INTO request_logs (
+    const insertResult = db.run(
+      `INSERT OR IGNORE INTO request_logs (
         id, timestamp, client_tool, requested_model, actual_model,
         provider_id, prompt_tokens, completion_tokens, tokens_saved_by_rtk,
         cached_tokens, cache_creation_tokens, cost, account_id, account_name,
@@ -33,9 +32,9 @@ export class LogRepository {
       log.errorMessage || null
     );
 
-    // Roll up into daily_usage_stats for perpetual history (only for requests with actual token usage)
+    // Roll up into daily_usage_stats only when this log ID was newly inserted (prevents double-counting on duplicate calls)
     const hasTokens = (log.promptTokens || 0) + (log.completionTokens || 0) > 0;
-    if (hasTokens) {
+    if (insertResult.changes > 0 && hasTokens) {
       try {
         const d = new Date(log.timestamp);
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -78,29 +77,6 @@ export class LogRepository {
         );
       } catch {
         // Best effort rollup
-      }
-    }
-
-    // Periodic retention prune (1 in 50 writes) to keep database lean and prevent unbounded table growth
-    if (Math.random() < 0.02) {
-      try {
-        const retentionDays = SettingsRepository.getLogRetentionDays();
-        if (retentionDays > 0) {
-          const cutoffTs = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
-          db.run("DELETE FROM request_logs WHERE timestamp < ?", cutoffTs);
-        }
-
-        const maxLogs = Number(process.env.MAPIGATE_MAX_LOGS) || 20000;
-        const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM request_logs");
-        if (countRow && countRow.count > maxLogs) {
-          const excess = countRow.count - maxLogs;
-          db.run(
-            "DELETE FROM request_logs WHERE id IN (SELECT id FROM request_logs ORDER BY timestamp ASC LIMIT ?)",
-            excess
-          );
-        }
-      } catch {
-        // Best effort
       }
     }
   }

@@ -294,3 +294,112 @@ test("usageRepo - daily_usage_stats rollup and 90d period support", () => {
   assert.equal(chart90d.length, 90, "Chart data for 90d should have 90 buckets");
 });
 
+
+test("tokenExtractor - extracts Responses API without double-counting cachedTokens", async () => {
+  const { extractUsageTokens } = await import("../src/core/usage/tokenExtractor.js");
+
+  // OpenAI Responses API: input_tokens (1000) already includes cached_tokens (800)
+  const responsesRes = extractUsageTokens({
+    usage: {
+      input_tokens: 1000,
+      output_tokens: 200,
+      input_tokens_details: { cached_tokens: 800 },
+      output_tokens_details: { reasoning_tokens: 50 },
+    },
+  });
+  assert.equal(responsesRes.promptTokens, 1000);
+  assert.equal(responsesRes.cachedTokens, 800);
+  assert.equal(responsesRes.completionTokens, 200);
+  assert.equal(responsesRes.reasoningTokens, 50);
+
+  // Anthropic Messages API: input_tokens (100) excludes cache_read (500) and cache_creation (200)
+  const anthropicRes = extractUsageTokens({
+    usage: {
+      input_tokens: 100,
+      output_tokens: 50,
+      cache_read_input_tokens: 500,
+      cache_creation_input_tokens: 200,
+    },
+  });
+  assert.equal(anthropicRes.promptTokens, 800);
+  assert.equal(anthropicRes.cachedTokens, 500);
+  assert.equal(anthropicRes.cacheCreationTokens, 200);
+  assert.equal(anthropicRes.completionTokens, 50);
+});
+
+test("usageRepo - backfill preserves higher daily_usage_stats and deduplicates saveLog", async () => {
+  const { getDatabase } = await import("../src/storage/database.js");
+  const db = getDatabase();
+  const uniqueSuffix = Date.now();
+  const prov = `test_rollup_${uniqueSuffix}`;
+  const model = `model_${uniqueSuffix}`;
+  const logId = `dup-log-${uniqueSuffix}`;
+
+  const logEntry = {
+    id: logId,
+    timestamp: Date.now(),
+    clientTool: "cursor",
+    requestedModel: model,
+    actualModel: model,
+    providerId: prov,
+    promptTokens: 500,
+    completionTokens: 100,
+    tokensSavedByRtk: 50,
+    cachedTokens: 0,
+    cost: 0.01,
+    accountId: "acc_1",
+    accountName: "shared@example.com",
+    durationMs: 100,
+    status: "success" as const,
+  };
+
+  // Calling saveLog twice with the same ID must not double-increment daily_usage_stats
+  LogRepository.saveLog(logEntry);
+  LogRepository.saveLog(logEntry);
+
+  const d = new Date(logEntry.timestamp);
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const rowAfterDup = db.get<{ requests: number; prompt_tokens: number }>(
+    "SELECT requests, prompt_tokens FROM daily_usage_stats WHERE date = ? AND provider_id = ? AND actual_model = ?",
+    dateStr,
+    prov,
+    model
+  );
+  assert.equal(rowAfterDup?.requests, 1);
+  assert.equal(rowAfterDup?.prompt_tokens, 500);
+
+  // Simulate an older DB where daily_usage_stats has higher totals than pruned request_logs
+  db.run(
+    "UPDATE daily_usage_stats SET requests = 10, prompt_tokens = 5000 WHERE date = ? AND provider_id = ? AND actual_model = ?",
+    dateStr,
+    prov,
+    model
+  );
+  UsageRepository.backfillDailyStats();
+
+  const rowAfterBackfill = db.get<{ requests: number; prompt_tokens: number }>(
+    "SELECT requests, prompt_tokens FROM daily_usage_stats WHERE date = ? AND provider_id = ? AND actual_model = ?",
+    dateStr,
+    prov,
+    model
+  );
+  assert.equal(rowAfterBackfill?.requests, 10);
+  assert.equal(rowAfterBackfill?.prompt_tokens, 5000);
+
+  // Two different accountIds sharing the same accountName must both appear in byAccount
+  LogRepository.saveLog({
+    ...logEntry,
+    id: `acc2-log-${uniqueSuffix}`,
+    accountId: "acc_2",
+    accountName: "shared@example.com",
+  });
+  const stats = UsageRepository.getUsageStats("7d");
+  const matchingAccountEntries = Object.values(stats.byAccount).filter(
+    (b) => b.provider === prov && b.rawModel === model
+  );
+  assert.equal(matchingAccountEntries.length, 2);
+
+  // Cleanup test rows
+  db.run("DELETE FROM request_logs WHERE provider_id = ?", prov);
+  db.run("DELETE FROM daily_usage_stats WHERE provider_id = ?", prov);
+});

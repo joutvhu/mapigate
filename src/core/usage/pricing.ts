@@ -264,9 +264,12 @@ export function calculateCostFromTokens(
   if (cacheCreationTokens > 0) {
     cost += cacheCreationTokens * ((pricing.cache_creation ?? pricing.input) / 1_000_000);
   }
-  cost += outputTokens * (pricing.output / 1_000_000);
-  if (reasoningTokens > 0) {
-    cost += reasoningTokens * ((pricing.reasoning ?? pricing.output) / 1_000_000);
+  const nonReasoningOutput = pricing.reasoning
+    ? Math.max(0, outputTokens - reasoningTokens)
+    : outputTokens;
+  cost += nonReasoningOutput * (pricing.output / 1_000_000);
+  if (reasoningTokens > 0 && pricing.reasoning) {
+    cost += reasoningTokens * (pricing.reasoning / 1_000_000);
   }
 
   return Number(cost.toFixed(6));
