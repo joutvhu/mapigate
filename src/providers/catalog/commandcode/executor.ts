@@ -9,13 +9,14 @@ import {
 } from "../../../core/adapters/responsesAdapter.js";
 import { extractSessionId } from "../../../server/proxy/executorHelpers.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
+import { SettingsRepository } from "../../../storage/repositories/settingsRepo.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
 import { buildCommandCodeHeaders } from "./headers.js";
 import {
+  CommandCodeUpstreamError,
   buildCommandCodePayload,
   commandCodeLineToOpenAiChunks,
   createCommandCodeStreamState,
-  parseCommandCodeError,
 } from "./converter.js";
 
 const DEFAULT_COMMAND_CODE_URL = "https://api.commandcode.ai/alpha/generate";
@@ -56,8 +57,54 @@ async function fetchWithRetry(
   return { errorResult: { ok: false, status: 503, error: "CommandCode upstream unavailable" } };
 }
 
+function recordCommandCodeSuccess(
+  context: ProviderRequestContext,
+  targetModel: string,
+  usage: any,
+  text: string,
+  clientResponse: { status: number; headers: Record<string, string>; body: any }
+): void {
+  const { req, startTime, requestId, reqTag = "CMC" } = context;
+  const durationMs = Date.now() - startTime;
+  const promptTokens = usage?.prompt_tokens || context.rtkStats?.compressedTokens || 0;
+  const completionTokens = usage?.completion_tokens || Math.ceil(text.length / 4);
+  const cachedTokens = usage?.prompt_tokens_details?.cached_tokens || 0;
+  const cacheCreationTokens = usage?.cache_creation_input_tokens || 0;
+  const calculatedCost = ResponseLogger.logSuccess({
+    requestId,
+    startTime,
+    durationMs,
+    clientTool: context.clientTool || "generic",
+    rawModel: context.rawModel || targetModel,
+    targetModel,
+    providerId: "commandcode",
+    accountId: context.account?.id,
+    accountName: context.account?.name,
+    apiKeyId: context.apiKeyId,
+    apiKeyName: context.apiKeyName,
+    promptTokens,
+    completionTokens,
+    cachedTokens,
+    cacheCreationTokens,
+    reasoningTokens: 0,
+    tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
+    is1mContext: context.is1mContext,
+    requestHeaders: (req?.headers as Record<string, string>) || {},
+    requestBody: req?.body,
+    clientResponse,
+  });
+  const doneMsg = formatDoneLine({
+    durationMs,
+    promptTokens,
+    completionTokens,
+    tokensSaved: context.rtkStats?.tokensSaved || 0,
+    cost: calculatedCost,
+  });
+  logger.line(reqTag, LogSymbol.SUCCESS, `commandcode/${targetModel} · ${doneMsg}`);
+}
+
 export async function executeCommandCode(context: ProviderRequestContext): Promise<ModelCallResult> {
-  const { req, res, clientFormat, isPanel, startTime, requestId, reqTag = "CMC" } = context;
+  const { req, res, clientFormat, isPanel, requestId } = context;
   if (!res) {
     return { ok: false, status: 500, error: "Response object is required for CommandCode execution" };
   }
@@ -67,6 +114,12 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
   const openAiBody = clientFormat === "anthropic" ? AnthropicAdapter.anthropicToOpenAi(rawBody) : rawBody;
   const isStreaming = rawBody.stream !== false && !isPanel;
 
+  const globalSettings = SettingsRepository.getEndpointSettings();
+  const mergedCustomHeaders: Record<string, string> = {
+    ...(globalSettings.customHeaders || {}),
+    ...(context.provider?.customHeaders || {}),
+  };
+
   const sessionId = extractSessionId(req, rawBody);
   const payload = buildCommandCodePayload(targetModel, openAiBody, sessionId);
   const apiKey = (context.account?.rawApiKey || "").trim();
@@ -74,14 +127,14 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
     apiKey,
     sessionId: payload.threadId,
     accept: "text/event-stream",
-    customHeaders: context.provider?.customHeaders,
+    customHeaders: mergedCustomHeaders,
   });
 
   const targetUrl =
     (context.account?.providerSpecificData?.baseUrl || "").trim() ||
     (context.provider?.baseUrl || "").trim() ||
     DEFAULT_COMMAND_CODE_URL;
-  const effectiveProxy = (context.provider?.proxyUrl || "").trim();
+  const effectiveProxy = (context.provider?.proxyUrl || "").trim() || (globalSettings.proxyUrl || "").trim();
 
   const abortController = new AbortController();
   const onClientClose = () => abortController.abort();
@@ -121,13 +174,7 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
           res.write(
             `event: message_start\ndata: ${JSON.stringify({
               type: "message_start",
-              message: {
-                id: `msg_${requestId}`,
-                type: "message",
-                role: "assistant",
-                model: targetModel,
-                content: [],
-              },
+              message: { id: `msg_${requestId}`, type: "message", role: "assistant", model: targetModel, content: [] },
             })}\n\n`
           );
         }
@@ -161,19 +208,7 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
           const lines = buffer.split("\n");
           buffer = lines.pop() || "";
           for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) continue;
-            if (!headersSent) {
-              try {
-                const parsed = JSON.parse(trimmed.startsWith("data:") ? trimmed.slice(5).trim() : trimmed);
-                if (parsed?.type === "error") {
-                  const { statusCode, message } = parseCommandCodeError(parsed);
-                  return { ok: false, status: statusCode, error: `[CommandCode error: ${message}]` };
-                }
-              } catch {}
-            }
-            const chunks = commandCodeLineToOpenAiChunks(trimmed, state);
-            for (const c of chunks) {
+            for (const c of commandCodeLineToOpenAiChunks(line, state)) {
               if (c.choices?.[0]?.delta?.content) contentText += c.choices[0].delta.content;
               if (c.usage) lastUsage = c.usage;
               writeChunk(c);
@@ -188,9 +223,9 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
           }
         }
       } catch (err: any) {
-        if (!headersSent) {
-          return { ok: false, status: 502, error: err?.message || "CommandCode stream error" };
-        }
+        const status = err instanceof CommandCodeUpstreamError ? err.statusCode : 502;
+        if (headersSent && !res.writableEnded && !res.destroyed) res.end();
+        return { ok: false, status, error: err?.message || "CommandCode stream error" };
       }
 
       if (!res.writableEnded && !res.destroyed) {
@@ -208,50 +243,15 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
         res.end();
       }
 
-      const durationMs = Date.now() - startTime;
-      const promptTokens = lastUsage?.prompt_tokens || context.rtkStats?.compressedTokens || 0;
-      const completionTokens = lastUsage?.completion_tokens || Math.ceil(contentText.length / 4);
-      const cachedTokens = lastUsage?.prompt_tokens_details?.cached_tokens || 0;
-      const cacheCreationTokens = lastUsage?.cache_creation_input_tokens || 0;
-      const calculatedCost = ResponseLogger.logSuccess({
-        requestId,
-        startTime,
-        durationMs,
-        clientTool: context.clientTool || "generic",
-        rawModel: context.rawModel || targetModel,
-        targetModel,
-        providerId: "commandcode",
-        accountId: context.account?.id,
-        accountName: context.account?.name,
-        apiKeyId: context.apiKeyId,
-        apiKeyName: context.apiKeyName,
-        promptTokens,
-        completionTokens,
-        cachedTokens,
-        cacheCreationTokens,
-        reasoningTokens: 0,
-        tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
-        is1mContext: context.is1mContext,
-        requestHeaders: req?.headers as Record<string, string>,
-        requestBody: req?.body,
-        clientResponse: {
-          status: 200,
-          headers: { "content-type": "text/event-stream" },
-          body: { text: "Stream completed" },
-        },
+      recordCommandCodeSuccess(context, targetModel, lastUsage, contentText, {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: { text: "Stream completed" },
       });
-      const doneMsg = formatDoneLine({
-        durationMs,
-        promptTokens,
-        completionTokens,
-        tokensSaved: context.rtkStats?.tokensSaved || 0,
-        cost: calculatedCost,
-      });
-      logger.line(reqTag, LogSymbol.SUCCESS, `commandcode/${targetModel} · ${doneMsg}`);
-      return { ok: true, status: 200, modelUsed: targetModel, text: contentText };
+      return { ok: true, status: 200, logged: true, modelUsed: targetModel, text: contentText };
     }
 
-    // Non-streaming: buffer NDJSON lines and assemble OpenAI response
+    // Non-streaming / isPanel
     let buffer = "";
     let fullText = "";
     let reasoningText = "";
@@ -259,37 +259,8 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
     let finishReason = "stop";
     let usage: any = undefined;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-      for (const line of lines) {
-        for (const c of commandCodeLineToOpenAiChunks(line, state)) {
-          const d = c.choices?.[0]?.delta;
-          if (d?.content) fullText += d.content;
-          if (d?.reasoning_content) reasoningText += d.reasoning_content;
-          if (Array.isArray(d?.tool_calls)) {
-            for (const tc of d.tool_calls) {
-              const existing = toolCallsByIndex.get(tc.index) || {
-                id: tc.id || `call_${tc.index}`,
-                type: "function" as const,
-                function: { name: tc.function?.name || "", arguments: "" },
-              };
-              if (tc.id) existing.id = tc.id;
-              if (tc.function?.name) existing.function.name = tc.function.name;
-              if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
-              toolCallsByIndex.set(tc.index, existing);
-            }
-          }
-          if (c.choices?.[0]?.finish_reason) finishReason = c.choices[0].finish_reason;
-          if (c.usage) usage = c.usage;
-        }
-      }
-    }
-    if (buffer.trim()) {
-      for (const c of commandCodeLineToOpenAiChunks(buffer.trim(), state)) {
+    const consumeLine = (line: string) => {
+      for (const c of commandCodeLineToOpenAiChunks(line, state)) {
         const d = c.choices?.[0]?.delta;
         if (d?.content) fullText += d.content;
         if (d?.reasoning_content) reasoningText += d.reasoning_content;
@@ -309,6 +280,21 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
         if (c.choices?.[0]?.finish_reason) finishReason = c.choices[0].finish_reason;
         if (c.usage) usage = c.usage;
       }
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) consumeLine(line);
+      }
+      if (buffer.trim()) consumeLine(buffer.trim());
+    } catch (err: any) {
+      const status = err instanceof CommandCodeUpstreamError ? err.statusCode : 502;
+      return { ok: false, status, error: err?.message || "CommandCode upstream error" };
     }
 
     const openAiResp: any = {
@@ -329,59 +315,24 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
       ...(usage ? { usage } : {}),
     };
 
-    if (clientFormat === "anthropic") {
-      res.status(200).json(AnthropicAdapter.openAiResponseToAnthropic(openAiResp));
-    } else if (clientFormat === "responses") {
-      res.status(200).json(convertOpenAiResponseToResponsesApi(openAiResp));
-    } else {
-      res.status(200).json(openAiResp);
+    if (isPanel) {
+      return { ok: true, status: 200, json: openAiResp, text: fullText, logged: false, modelUsed: targetModel };
     }
 
-    const durationMs = Date.now() - startTime;
-    const promptTokens = usage?.prompt_tokens || context.rtkStats?.compressedTokens || 0;
-    const completionTokens = usage?.completion_tokens || Math.ceil(fullText.length / 4);
-    const calculatedCost = ResponseLogger.logSuccess({
-      requestId,
-      startTime,
-      durationMs,
-      clientTool: context.clientTool || "generic",
-      rawModel: context.rawModel || targetModel,
-      targetModel,
-      providerId: "commandcode",
-      accountId: context.account?.id,
-      accountName: context.account?.name,
-      apiKeyId: context.apiKeyId,
-      apiKeyName: context.apiKeyName,
-      promptTokens,
-      completionTokens,
-      cachedTokens: usage?.prompt_tokens_details?.cached_tokens || 0,
-      cacheCreationTokens: usage?.cache_creation_input_tokens || 0,
-      reasoningTokens: 0,
-      tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
-      is1mContext: context.is1mContext,
-      requestHeaders: req?.headers as Record<string, string>,
-      requestBody: req?.body,
-      clientResponse: {
-        status: 200,
-        headers: { "content-type": "application/json" },
-        body: openAiResp,
-      },
-    });
-    const doneMsg = formatDoneLine({
-      durationMs,
-      promptTokens,
-      completionTokens,
-      tokensSaved: context.rtkStats?.tokensSaved || 0,
-      cost: calculatedCost,
-    });
-    logger.line(reqTag, LogSymbol.SUCCESS, `commandcode/${targetModel} · ${doneMsg}`);
+    const outBody =
+      clientFormat === "anthropic"
+        ? AnthropicAdapter.openAiResponseToAnthropic(openAiResp)
+        : clientFormat === "responses"
+        ? convertOpenAiResponseToResponsesApi(openAiResp)
+        : openAiResp;
 
-    return {
-      ok: true,
+    res.status(200).json(outBody);
+    recordCommandCodeSuccess(context, targetModel, usage, fullText, {
       status: 200,
-      modelUsed: targetModel,
-      text: fullText,
-    };
+      headers: { "content-type": "application/json" },
+      body: outBody,
+    });
+    return { ok: true, status: 200, json: outBody, text: fullText, logged: true, modelUsed: targetModel };
   } finally {
     if (typeof res?.removeListener === "function") res.removeListener("close", onClientClose);
   }

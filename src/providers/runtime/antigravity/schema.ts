@@ -595,8 +595,6 @@ export function convertOpenAIContentToParts(content: any): any[] {
           const data = url.substring(commaIdx + 1);
           parts.push({ inlineData: { mimeType: mime, data } });
         }
-      } else if (url.startsWith("http://") || url.startsWith("https://")) {
-        parts.push({ fileData: { fileUri: url, mimeType: remoteImageMimeType(url) } });
       } else {
         parts.push({ fileData: { fileUri: url, mimeType: remoteImageMimeType(url) } });
       }

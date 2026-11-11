@@ -114,6 +114,17 @@ export function getPublicDnsAgent(options?: { forceFreshSocket?: boolean }): Und
   return publicDnsAgentInstance;
 }
 
+export function clearPublicDnsAgents(): void {
+  for (const agent of [publicDnsAgentInstance, publicDnsFreshAgentInstance]) {
+    try {
+      agent?.destroy?.();
+      agent?.close?.();
+    } catch {}
+  }
+  publicDnsAgentInstance = null;
+  publicDnsFreshAgentInstance = null;
+}
+
 /**
  * Fetch wrapper that automatically uses the public DNS dispatcher to bypass local loopback.
  */

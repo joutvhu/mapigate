@@ -3,6 +3,7 @@ import {
   EYEBALLS_CONNECT,
   FRESH_RETRY_KEEPALIVE_TIMEOUT_MS,
   TLS_ECDH_CURVE,
+  clearPublicDnsAgents,
   getPublicDnsAgent,
   resolveKeepAliveTimeouts,
 } from "../../shared/utils/dnsResolver.js";
@@ -179,6 +180,10 @@ async function performSingleUpstreamFetch(
   return (await (undiciFetch as any)(url, { ...fetchOpts, dispatcher: directDispatcher })) as globalThis.Response;
 }
 
+function isReplayableBody(body: unknown): boolean {
+  return body == null || typeof body === "string" || ArrayBuffer.isView(body) || body instanceof ArrayBuffer;
+}
+
 export async function executeUpstreamFetch(
   url: string,
   options: UpstreamFetchOptions,
@@ -188,7 +193,13 @@ export async function executeUpstreamFetch(
   try {
     return await performSingleUpstreamFetch(url, options, proxyUrl, forceFresh);
   } catch (err: any) {
-    if (!forceFresh && !options?.dispatcher && isFreshSocketReplayEnabled() && isStaleSocketError(err)) {
+    if (
+      !forceFresh &&
+      !options?.dispatcher &&
+      isReplayableBody(options?.body) &&
+      isFreshSocketReplayEnabled() &&
+      isStaleSocketError(err)
+    ) {
       return await performSingleUpstreamFetch(url, options, proxyUrl, true);
     }
     throw err;
@@ -211,4 +222,5 @@ export function clearProxyDispatchers(): void {
     } catch {}
   }
   directDispatchers.clear();
+  clearPublicDnsAgents();
 }
