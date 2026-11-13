@@ -114,6 +114,33 @@ test("pricing - resolves known and pattern-matched model pricing", () => {
   assert.equal(gpt6Sol.output, 10.0);
   assert.equal(gpt6Sol.cached, 0.1);
 
+  // Dynamic suffix stripping tests
+  const haikuSnapshot = getPricingForModel("anthropic", "claude-3-5-haiku-20241022");
+  assert.ok(haikuSnapshot);
+  assert.equal(haikuSnapshot.input, 0.80);
+  assert.equal(haikuSnapshot.output, 4.00);
+
+  const sonnetBetaSnapshot = getPricingForModel("anthropic", "anthropic/claude-3-7-sonnet-20250219:beta");
+  assert.ok(sonnetBetaSnapshot);
+  assert.equal(sonnetBetaSnapshot.input, 3.0);
+  assert.equal(sonnetBetaSnapshot.output, 15.0);
+
+  const gpt4oSnapshot = getPricingForModel("openai", "openai/gpt-4o-2024-08-06");
+  assert.ok(gpt4oSnapshot);
+  assert.equal(gpt4oSnapshot.input, 2.5);
+
+  const gemini4CarbonTier = getPricingForModel("google", "google/gemini-4-carbon-high");
+  assert.ok(gemini4CarbonTier);
+  assert.equal(gemini4CarbonTier.input, 2.0);
+
+  const gemini4HydrogenTier = getPricingForModel("antigravity", "antigravity/gemini-4-hydrogen-medium");
+  assert.ok(gemini4HydrogenTier);
+  assert.equal(gemini4HydrogenTier.input, 1.50);
+
+  const volcengineR1 = getPricingForModel("volcengine", "volcengine/deepseek-r1");
+  assert.ok(volcengineR1);
+  assert.equal(volcengineR1.input, 0.55);
+
   const gpt6Terra = getPricingForModel("openai", "gpt-6.1-terra");
   assert.ok(gpt6Terra);
   assert.equal(gpt6Terra.input, 1.0);

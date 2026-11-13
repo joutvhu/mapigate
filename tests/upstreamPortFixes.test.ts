@@ -71,6 +71,14 @@ describe("Upstream 9router Port Fixes", () => {
       assert.ok(modelIds.includes("gemini-4-argon-high"));
       assert.ok(modelIds.includes("gemini-4-argon-medium"));
       assert.ok(modelIds.includes("gemini-4-argon-low"));
+      assert.ok(modelIds.includes("gemini-4-carbon-high"));
+      assert.ok(modelIds.includes("gemini-4-carbon-medium"));
+      assert.ok(modelIds.includes("gemini-4-carbon-low"));
+      assert.ok(modelIds.includes("gemini-4-carbon"));
+      assert.ok(modelIds.includes("gemini-4-hydrogen-high"));
+      assert.ok(modelIds.includes("gemini-4-hydrogen-medium"));
+      assert.ok(modelIds.includes("gemini-4-hydrogen-low"));
+      assert.ok(modelIds.includes("gemini-4-hydrogen"));
     });
   });
 
