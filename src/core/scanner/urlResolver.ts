@@ -84,6 +84,24 @@ export function resolveCandidateUrls(
     return candidates;
   }
 
+  // IteraCompute endpoint resolution (strictly scoped to /v1/models, root /models is 404)
+  const isIteraCompute =
+    providerId === "iteracompute" ||
+    providerId === "itera" ||
+    registryItem?.id === "iteracompute" ||
+    registryItem?.alias === "iteracompute" ||
+    lowerBase.includes("iteracompute.com");
+
+  if (isIteraCompute) {
+    add("https://api.iteracompute.com/v1/models");
+    if (cleanBase.endsWith("/v1")) {
+      add(`${cleanBase}/models`);
+    } else {
+      add(`${cleanBase}/v1/models`);
+    }
+    return candidates;
+  }
+
   // OpenCode Free discovery endpoint - strictly scoped to OpenCode Free, excluding paid opencode-go and opencode-zen
   const isOpenCodeFree =
     (providerId === "opencode" ||

@@ -342,11 +342,13 @@ export abstract class BaseProvider implements IProvider {
           let errDetail = res.statusText;
           try {
             const errJson: any = await res.json();
-            if (errJson?.message || errJson?.error?.message) {
-              errDetail = errJson?.message || errJson?.error?.message;
+            if (errJson?.message || errJson?.error?.message || errJson?.detail) {
+              errDetail = errJson?.message || errJson?.error?.message || errJson?.detail;
             }
           } catch {}
-          lastError = `Endpoint ${url} returned HTTP ${res.status}: ${errDetail}`;
+          if (!(res.status === 404 && lastError && (lastError.includes("HTTP 5") || lastError.includes("HTTP 401") || lastError.includes("HTTP 403")))) {
+            lastError = `Endpoint ${url} returned HTTP ${res.status}: ${errDetail}`;
+          }
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

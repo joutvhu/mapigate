@@ -5,7 +5,9 @@ import path from "node:path";
 import { PROVIDER_REGISTRY } from "../src/providers/core/metadataRegistry.js";
 import { ProviderRegistry } from "../src/providers/core/registry.js";
 
-test("New Free Tier Providers - IteraCompute metadata and registry verification", () => {
+import { resolveCandidateUrls } from "../src/core/scanner/urlResolver.js";
+
+test("New Free Tier Providers - IteraCompute metadata and registry verification", async () => {
   const itera = PROVIDER_REGISTRY["iteracompute"];
   assert.ok(itera, "iteracompute must exist in PROVIDER_REGISTRY");
   assert.equal(itera.name, "IteraCompute");
@@ -20,6 +22,22 @@ test("New Free Tier Providers - IteraCompute metadata and registry verification"
   assert.ok(runtimeInstance, "ProviderRegistry must resolve iteracompute instance");
   assert.equal(runtimeInstance.id, "iteracompute");
   assert.equal(runtimeInstance.supportsQuota(), true, "IteraCompute must support quota tracking");
+
+  // Verify candidate URLs resolution never includes 404 root /models
+  const candidates = resolveCandidateUrls("https://api.iteracompute.com/v1", "openai", "iteracompute", itera);
+  assert.ok(candidates.includes("https://api.iteracompute.com/v1/models"));
+  assert.ok(!candidates.includes("https://api.iteracompute.com/models"), "Must not include root /models for IteraCompute");
+
+  // Test probeModels on 503 fallback
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => new Response(JSON.stringify({ detail: "provider catalog unavailable" }), { status: 503 });
+    const probeRes = await (runtimeInstance as any).probeModels({ apiKey: "test-itera-key" });
+    assert.equal(probeRes?.success, true, "Must gracefully fallback on 503 catalog unavailable");
+    assert.ok(probeRes?.models?.length > 0);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });
 
 test("New Free Tier Providers - Onomeo metadata and registry verification", () => {
