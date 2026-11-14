@@ -9,6 +9,7 @@ import type {
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { metadata } from "./metadata.js";
 import { getZedUsage } from "./quota.js";
+import { getModelsForZedPlan } from "./models.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import {
   createResponsesStreamState,
@@ -21,7 +22,15 @@ const llmTokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 function normalizeZedProvider(model: string): string {
   const m = String(model || "").toLowerCase();
-  if (m.includes("claude")) return "anthropic";
+  if (
+    m.includes("claude") ||
+    m.includes("fable") ||
+    m.includes("opus") ||
+    m.includes("sonnet") ||
+    m.includes("haiku")
+  ) {
+    return "anthropic";
+  }
   if (m.includes("gemini")) return "google";
   if (m.includes("grok") || m.includes("xai")) return "x_ai";
   return "open_ai";
@@ -98,27 +107,68 @@ export class ZedProvider extends OpenAiCompatibleProvider {
         signal: AbortSignal.timeout(timeoutMs),
       });
 
-      if (res.ok || res.status === 200) {
-        return {
-          success: true,
-          endpointUrl: "https://cloud.zed.dev",
-          models: metadata.models.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
-          count: metadata.models.length,
-        };
-      }
-
-      if (res.status === 401 || res.status === 403) {
+      if (!res.ok && res.status !== 200) {
+        if (res.status === 401 || res.status === 403) {
+          return {
+            success: false,
+            error: `Authentication failed (HTTP ${res.status}): Invalid or expired Zed token`,
+            authError: "Invalid or expired Zed token",
+          };
+        }
+        const errText = await res.text().catch(() => "");
         return {
           success: false,
-          error: `Authentication failed (HTTP ${res.status}): Invalid or expired Zed token`,
-          authError: "Invalid or expired Zed token",
+          error: `Endpoint returned HTTP ${res.status}: ${errText.slice(0, 100)}`,
         };
       }
 
-      const errText = await res.text().catch(() => "");
+      // Query dynamic models from Zed Cloud using LLM token (same mechanism as Zed editor)
+      try {
+        const llmToken = await fetchZedLlmToken({
+          userId,
+          accessToken: token,
+          systemId: psd.systemId,
+          organizationId: psd.organizationId,
+        });
+
+        const modelsRes = await fetch("https://cloud.zed.dev/models", {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${llmToken}`,
+            "x-zed-client-supports-x-ai": "true",
+          },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+
+        if (modelsRes.ok) {
+          const data: any = await modelsRes.json().catch(() => ({}));
+          if (Array.isArray(data.models) && data.models.length > 0) {
+            const dynamicModels = data.models.map((m: any) => ({
+              id: m.id,
+              name: m.display_name || m.name || m.id,
+              contextLength: m.max_token_count || 200000,
+            }));
+            return {
+              success: true,
+              endpointUrl: "https://cloud.zed.dev/models",
+              models: dynamicModels,
+              count: dynamicModels.length,
+            };
+          }
+        }
+      } catch {}
+
+      // Fallback: If /models query fails or returns empty, use plan-aware model resolution
+      const data: any = await res.json().catch(() => ({}));
+      const orgId = psd.organizationId || data?.default_organization_id;
+      const orgPlan = (orgId && data?.plans_by_organization?.[orgId]) || data?.plan?.plan_v3 || data?.plan?.plan;
+      const availableModels = getModelsForZedPlan(orgPlan);
+
       return {
-        success: false,
-        error: `Endpoint returned HTTP ${res.status}: ${errText.slice(0, 100)}`,
+        success: true,
+        endpointUrl: "https://cloud.zed.dev",
+        models: availableModels.map((m) => ({ id: m.id, name: m.name, contextLength: m.contextLength })),
+        count: availableModels.length,
       };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

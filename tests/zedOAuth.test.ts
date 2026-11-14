@@ -115,8 +115,8 @@ test("ZedProvider - probeModels verifies credentials via /client/users/me", asyn
   try {
     globalThis.fetch = async (input: any, init?: any) => {
       const url = String(input);
-      sentAuthHeader = init?.headers?.Authorization || "";
       if (url.includes("/client/users/me")) {
+        sentAuthHeader = init?.headers?.Authorization || "";
         return new Response(
           JSON.stringify({ name: "Active Zed User", email: "user@zed.dev" }),
           { status: 200, headers: { "Content-Type": "application/json" } }
@@ -136,7 +136,119 @@ test("ZedProvider - probeModels verifies credentials via /client/users/me", asyn
     assert.equal(res?.success, true);
     assert.equal(sentAuthHeader, "user_789 decrypted_token_xyz");
     assert.ok((res?.count || 0) > 0);
+    assert.ok(res?.models?.some((m) => m.id === "gpt-6-luna"));
   } finally {
     globalThis.fetch = origFetch;
   }
 });
+
+test("ZedProvider - probeModels filters models by plan (Pro Trial -> gpt-6-luna only)", async () => {
+  const { ZedProvider } = await import("../src/providers/runtime/zed/provider.js");
+  const provider = new ZedProvider();
+
+  const origFetch = globalThis.fetch;
+  let sentAuthHeader = "";
+  try {
+    globalThis.fetch = async (input: any, init?: any) => {
+      const url = String(input);
+      if (url.includes("/client/users/me")) {
+        sentAuthHeader = init?.headers?.Authorization || "";
+        return new Response(
+          JSON.stringify({
+            name: "Active Zed User",
+            email: "user@zed.dev",
+            plan: { plan_v3: "zed_pro_trial" },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await provider.probeModels({
+      apiKey: "decrypted_token_xyz",
+      providerSpecificData: {
+        userId: "user_789",
+        systemId: "sys_123",
+      },
+    } as any);
+
+    assert.equal(res?.success, true);
+    assert.equal(sentAuthHeader, "user_789 decrypted_token_xyz");
+    assert.equal(res?.count, 1);
+    assert.equal(res?.models?.[0]?.id, "gpt-6-luna");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("ZedProvider - probeModels fetches dynamic models from /models via LLM token", async () => {
+  const { ZedProvider } = await import("../src/providers/runtime/zed/provider.js");
+  const provider = new ZedProvider();
+
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input: any) => {
+      const url = String(input);
+      if (url.includes("/client/users/me")) {
+        return new Response(
+          JSON.stringify({
+            name: "Active Zed User",
+            email: "user@zed.dev",
+            plan: { plan_v3: "zed_pro" },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("/client/llm_tokens")) {
+        return new Response(
+          JSON.stringify({ token: "dynamic_jwt_token_123" }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.endsWith("/models")) {
+        return new Response(
+          JSON.stringify({
+            models: [
+              {
+                id: "gpt-6-luna",
+                display_name: "GPT-6 Luna",
+                provider: "open_ai",
+                max_token_count: 400000,
+              },
+              {
+                id: "claude-sonnet-5.5",
+                display_name: "Claude Sonnet 5.5",
+                provider: "anthropic",
+                max_token_count: 1000000,
+              },
+            ],
+            default_model: "gpt-6-luna",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const res = await provider.probeModels({
+      apiKey: "decrypted_token_xyz",
+      providerSpecificData: {
+        userId: "user_789",
+        systemId: "sys_123",
+      },
+    } as any);
+
+    assert.equal(res?.success, true);
+    assert.equal(res?.count, 2);
+    assert.equal(res?.models?.[0]?.id, "gpt-6-luna");
+    assert.equal(res?.models?.[0]?.name, "GPT-6 Luna");
+    assert.equal(res?.models?.[0]?.contextLength, 400000);
+    assert.equal(res?.models?.[1]?.id, "claude-sonnet-5.5");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+
+
