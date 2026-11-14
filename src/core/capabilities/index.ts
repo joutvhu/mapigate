@@ -55,10 +55,11 @@ export function getCapabilitiesForModel(provider?: string | null, model?: string
 
   const baseModel = model.includes("/") ? model.split("/").pop()! : model;
   const inferredProvider = (!provider && model.includes("/")) ? model.split("/")[0] : provider;
+  const cleanProvider = inferredProvider ? inferredProvider.replace(/\[.*?\]$/, "") : null;
 
   // 1. Primary Source of Truth: Provider Metadata Registry
-  if (inferredProvider) {
-    const regProvider = getRegistryProvider(inferredProvider);
+  if (cleanProvider) {
+    const regProvider = getRegistryProvider(cleanProvider);
     if (regProvider?.models) {
       const match = regProvider.models.find(
         (m) =>
@@ -97,8 +98,8 @@ export function getCapabilitiesForModel(provider?: string | null, model?: string
   }
 
   // 2. Provider-specific runtime override
-  if (inferredProvider && PROVIDER_CAPABILITIES[inferredProvider]) {
-    const pCaps = PROVIDER_CAPABILITIES[inferredProvider];
+  if (cleanProvider && PROVIDER_CAPABILITIES[cleanProvider]) {
+    const pCaps = PROVIDER_CAPABILITIES[cleanProvider];
     if (pCaps[model]) return { ...DEFAULT_CAPABILITIES, ...pCaps[model] };
     if (pCaps[baseModel]) return { ...DEFAULT_CAPABILITIES, ...pCaps[baseModel] };
   }

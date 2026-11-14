@@ -80,8 +80,9 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
     setDraft(model);
   }, [model]);
 
-  const commit = () => {
-    const trimmed = draft.trim();
+  const commit = (customVal?: string) => {
+    const target = typeof customVal === "string" ? customVal : draft;
+    const trimmed = target.trim();
     if (trimmed && trimmed !== model) {
       onEdit(trimmed);
     } else {
@@ -143,7 +144,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
                 autoFocus
                 value={draft}
                 onChange={(val) => setDraft(val)}
-                onEnter={commit}
+                onEnter={(val) => commit(val)}
                 placeholder="e.g. anthropic/claude-3-7-sonnet"
                 excludeValues={excludeValues}
                 allowCombos={false}
@@ -365,9 +366,9 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     }
   };
 
-  const handleAddQuickModel = (e?: React.FormEvent) => {
+  const handleAddQuickModel = (e?: React.FormEvent, customVal?: string) => {
     if (e) e.preventDefault();
-    const val = quickInputModel.trim();
+    const val = (typeof customVal === "string" ? customVal : quickInputModel).trim();
     if (!val) return;
 
     if (isCircularReference(val)) {
@@ -587,7 +588,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                     placeholder="Or search/type model ID (e.g. anthropic/claude-3-7-sonnet)..."
                     value={quickInputModel}
                     onChange={setQuickInputModel}
-                    onEnter={() => handleAddQuickModel()}
+                    onEnter={(val) => handleAddQuickModel(undefined, val)}
                     excludeValues={excludedComboValues}
                     allowCombos={false}
                     className="w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl px-3 py-1.5 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500"
@@ -644,15 +645,6 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
           initialSelectedModels={models}
           excludeModelIds={excludedComboValues}
           allowCombos={false}
-          onSelect={(m) => {
-            if (!models.includes(m.value)) {
-              setModels((prev) => [...prev, m.value]);
-              setModelsError("");
-            }
-          }}
-          onDeselect={(m) => {
-            setModels((prev) => prev.filter((val) => val !== m.value));
-          }}
           onConfirm={(picked) => {
             setModels(picked);
             if (picked.length > 0) setModelsError("");

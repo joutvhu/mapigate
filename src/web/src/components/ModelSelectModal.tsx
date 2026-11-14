@@ -29,6 +29,7 @@ import {
 import {
   getAvailableModelsCached,
   onAvailableModelsCacheInvalidated,
+  matchesModelQuery,
   type AvailableModelItem,
 } from "./ModelAutocompleteInput.js";
 
@@ -340,10 +341,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         providerName: m.providerName || m.providerId,
         caps: {
           ...caps,
-          vision: Boolean(m.caps?.vision ?? caps.vision),
-          reasoning: Boolean(m.caps?.reasoning ?? caps.reasoning),
-          audioInput: Boolean(m.caps?.audio ?? caps.audioInput),
-          audioOutput: Boolean(m.caps?.audio ?? caps.audioOutput),
+          vision: Boolean(m.caps?.vision || caps.vision),
+          reasoning: Boolean(m.caps?.reasoning || caps.reasoning),
+          audioInput: Boolean(m.caps?.audio || caps.audioInput),
+          audioOutput: Boolean(m.caps?.audio || caps.audioOutput),
         },
         contextLength: m.contextLength || caps.contextWindow,
         kind: "llm",
@@ -351,19 +352,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       });
     }
 
-    // 2. For providers that have NO configured models in availableModels (i.e. zero DB models),
-    // fall back to static PROVIDER_REGISTRY presets so unconfigured providers can still be browsed
+    // 2. Fall back to static PROVIDER_REGISTRY presets for models not already in availableModels
     for (const [providerId, provider] of Object.entries(PROVIDER_REGISTRY)) {
       if (!provider || !provider.models) continue;
       const alias = provider.alias || provider.id || providerId;
-
-      if (
-        providersWithConfiguredModels.has(providerId) ||
-        providersWithConfiguredModels.has(alias) ||
-        (provider.aliases && provider.aliases.some((a) => providersWithConfiguredModels.has(a)))
-      ) {
-        continue;
-      }
 
       for (const m of provider.models) {
         const val = m.id.includes("/") ? m.id : `${alias}/${m.id}`;
@@ -452,12 +444,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
     );
     if (!q) return sortedPool;
-    return sortedPool.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (c.strategy && c.strategy.toLowerCase().includes(q)) ||
-        c.models.some((m) => m.toLowerCase().includes(q))
-    );
+    return sortedPool.filter((c) => {
+      const fullSearch = `${c.name} ${c.id} ${c.strategy || ""} ${c.models.join(" ")}`;
+      return matchesModelQuery(fullSearch, q);
+    });
   }, [combos, searchQuery, activeModalityFilter, kindFilter, allowCombos, excludeSet]);
 
   // Filtered available models
@@ -465,9 +455,9 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     if (selectedProvider === "combo") return [];
 
     return allModels.filter((item) => {
-      // Exclude filtered IDs
+      // Exclude filtered IDs (only match item.id if it's a combo to avoid hiding upstream models sharing the combo's name)
       if (
-        excludeSet.has(item.id.toLowerCase()) ||
+        (item.providerId === "combo" && excludeSet.has(item.id.toLowerCase())) ||
         excludeSet.has(item.value.toLowerCase())
       ) {
         return false;
@@ -505,13 +495,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       )
         return false;
 
-      // Search query
+      // Search query with flexible token-based matching
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesName = item.name.toLowerCase().includes(q);
-        const matchesVal = item.value.toLowerCase().includes(q);
-        const matchesProvider = item.providerName.toLowerCase().includes(q);
-        if (!matchesName && !matchesVal && !matchesProvider) return false;
+        const fullSearchString = `${item.name} ${item.id} ${item.value} ${item.providerName} ${item.providerId}`;
+        if (!matchesModelQuery(fullSearchString, searchQuery)) return false;
       }
 
       return true;

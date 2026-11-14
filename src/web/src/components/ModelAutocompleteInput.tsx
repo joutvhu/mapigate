@@ -23,7 +23,7 @@ export interface AvailableModelItem {
 export interface ModelAutocompleteInputProps {
   value: string;
   onChange: (value: string) => void;
-  onEnter?: () => void;
+  onEnter?: (selectedVal?: string) => void;
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
@@ -32,6 +32,21 @@ export interface ModelAutocompleteInputProps {
   excludeValues?: string[];
   allowCombos?: boolean;
   fetchCustomModels?: () => Promise<AvailableModelItem[]>;
+}
+
+export function matchesModelQuery(searchText: string, query: string): boolean {
+  if (!query.trim()) return true;
+  const q = query.toLowerCase().trim();
+  const rawTarget = searchText.toLowerCase();
+  if (rawTarget.includes(q)) return true;
+
+  const tokens = q.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+
+  const normalizedTarget = rawTarget.replace(/[-_./]/g, " ");
+  return tokens.every(
+    (tok) => rawTarget.includes(tok) || normalizedTarget.includes(tok)
+  );
 }
 
 let cachedModelsPromise: Promise<AvailableModelItem[]> | null = null;
@@ -174,7 +189,9 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
     }
     if (excludeSet.size > 0) {
       pool = pool.filter(
-        (m) => !excludeSet.has(m.value.toLowerCase()) && !excludeSet.has(m.id.toLowerCase())
+        (m) =>
+          !excludeSet.has(m.value.toLowerCase()) &&
+          !(m.isCombo && excludeSet.has(m.id.toLowerCase()))
       );
     }
 
@@ -187,22 +204,12 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
     }
 
     const matches = pool.filter((m) => {
-      const matchBasic =
-        m.value.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        m.name.toLowerCase().includes(q) ||
-        m.providerName.toLowerCase().includes(q) ||
-        m.providerId.toLowerCase().includes(q);
-
-      if (matchBasic) return true;
-
-      // If combo, also search strategy and bundled model names
+      let fullSearchString = `${m.name} ${m.id} ${m.value} ${m.providerName} ${m.providerId}`;
       if (m.isCombo) {
-        if (m.strategy && m.strategy.toLowerCase().includes(q)) return true;
-        if (m.models && m.models.some((sub) => sub.toLowerCase().includes(q))) return true;
+        if (m.strategy) fullSearchString += ` ${m.strategy}`;
+        if (m.models) fullSearchString += ` ${m.models.join(" ")}`;
       }
-
-      return false;
+      return matchesModelQuery(fullSearchString, q);
     });
 
     // Sort: exact matches or prefixes first
@@ -264,12 +271,12 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
         onChange(selected.value);
         setIsOpen(false);
         setHighlightIndex(-1);
-        if (onEnter) onEnter();
+        if (onEnter) onEnter(selected.value);
       } else {
         setIsOpen(false);
         if (onEnter) {
           e.preventDefault();
-          onEnter();
+          onEnter(value);
         }
       }
     } else if (e.key === "Escape") {
