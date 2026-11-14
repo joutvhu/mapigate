@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.141] - 2026-11-14
+
+### Features
+
+#### Providers & Model Catalog (IteraCompute & Antigravity)
+- **IteraCompute Candidate URL Resolution & Catalog Expansion**: Scoped model scanner discovery strictly to `/v1/models` to prevent root 404 errors, updated provider metadata with platform documentation, and expanded model catalog with Auto model, updated context lengths, and new model IDs.
+- **Antigravity Client Version & Models**: Bumped Antigravity IDE version and User-Agent to `2.31.2` (`antigravity/hub/2.31.2 darwin/arm64`), synchronized headers across `gemini-cli` and Antigravity runtime modules, and registered `gemini-4-hydrogen` across tiers and capability dictionary.
+
+#### Usage Analytics & Pricing
+- **Dynamic Model Candidate Resolution**: Implemented `extractModelPricingCandidates` to normalize model identifiers by stripping vendor prefixes, bracket tags, and suffix metadata (dates, tiers, modes), supporting dot vs dash version aliases and deduplicating `MODEL_PRICING` entries.
+- **Token Extraction & Cost Calculation Normalization**: Refined token extraction for Responses API without double-counting cached tokens, and enhanced usage analytics and cost calculations.
+
+### Fixes
+
+#### Models & Routing
+- **Combo Account Resolution & Modal Filter Defaults**: Stripped account tags from provider IDs when resolving combo account counts, added fallback to configured database providers, utilized `getProviderAccountsCount` helper, and defaulted `connectedOnly` to false in `ModelSelectModal` while preserving toggle states across cache revalidations.
+
+#### Adapters & Protocols
+- **Gemini Request Payload Sanitization**: Sanitized request payloads and stripped unsupported fields in Gemini AI Studio provider and Responses API adapter.
+
+### Maintenance & Quality
+
+#### Linting & Code Quality
+- **ESLint Flat Configuration**: Migrated to ESLint flat config with TypeScript and React support, resolved unused variables, redundant imports, and const violations across codebase, and promoted rules to errors.
+
+#### UI & Styling
+- **OpenRouter Asset & UI Tuning**: Updated OpenRouter icon background, header button label, and removed redundant assets.
+
 ## [0.5.136] - 2026-11-11
 
 ### Features
