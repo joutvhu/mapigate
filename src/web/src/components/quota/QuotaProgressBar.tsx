@@ -22,6 +22,28 @@ function formatUsageAmount(
   const isToken = lowerLabel.includes("token");
   const isCredit = lowerLabel.includes("credit") || (isKiro && !lowerLabel.includes("request"));
 
+  // Currency / Dollar / CNY
+  const isDollar =
+    lowerLabel.includes("$") ||
+    lowerLabel.includes("dollar") ||
+    lowerLabel.includes("usd");
+  const isCny =
+    lowerLabel.includes("cny") ||
+    lowerLabel.includes("rmb") ||
+    lowerLabel.includes("¥");
+
+  if (isDollar) {
+    const fmt = (n: number) =>
+      `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return total > 0 ? `${fmt(used)} / ${fmt(total)}` : fmt(used);
+  }
+
+  if (isCny) {
+    const fmt = (n: number) =>
+      `¥${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return total > 0 ? `${fmt(used)} / ${fmt(total)}` : fmt(used);
+  }
+
   if (isToken) {
     if (total >= 1_000_000_000) {
       const totalStr = `${(total / 1_000_000_000).toFixed(1)}B`;
@@ -55,16 +77,47 @@ function formatUsageAmount(
     return `${used.toLocaleString()} ${unit}`;
   }
 
+  // Points (e.g. CodeBuddy points, Qoder points)
+  if (lowerLabel.includes("point") || lowerLabel.includes("pts")) {
+    const unit = total === 1 ? "pt" : "pts";
+    return total > 0
+      ? `${used.toLocaleString()} / ${total.toLocaleString()} ${unit}`
+      : `${used.toLocaleString()} ${unit}`;
+  }
+
+  // Autocomplete / Completion
+  if (lowerLabel.includes("autocomplete") || lowerLabel.includes("completion")) {
+    return total > 0
+      ? `${used.toLocaleString()} / ${total.toLocaleString()}`
+      : `${used.toLocaleString()}`;
+  }
+
   // Pure percentage-based quota (e.g. Codex Session 0-100%, DeepSeek Balance 0-100%)
   if (total === 100 && !lowerLabel.includes("req")) {
     return `${used}% used`;
   }
 
-  if (total > 0) {
-    return `${used.toLocaleString()} / ${total.toLocaleString()} reqs`;
+  // Only append 'reqs' if label explicitly relates to requests/calls/sessions/turns
+  const isRequest =
+    lowerLabel.includes("req") ||
+    lowerLabel.includes("call") ||
+    lowerLabel.includes("interaction") ||
+    lowerLabel.includes("turn") ||
+    lowerLabel.includes("prompt") ||
+    lowerLabel.includes("session") ||
+    lowerLabel.includes("window") ||
+    lowerLabel.includes("chat");
+
+  if (isRequest) {
+    return total > 0
+      ? `${used.toLocaleString()} / ${total.toLocaleString()} reqs`
+      : `${used.toLocaleString()} reqs`;
   }
 
-  return `${used.toLocaleString()} reqs`;
+  // Generic counts without misleading units
+  return total > 0
+    ? `${used.toLocaleString()} / ${total.toLocaleString()}`
+    : `${used.toLocaleString()}`;
 }
 
 export const QuotaProgressBar: React.FC<QuotaProgressBarProps> = ({

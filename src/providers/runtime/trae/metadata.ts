@@ -42,6 +42,7 @@ export const metadata: ProviderRegistryItem = {
       encoding: "json",
     },
   },
+  quotaOrder: ["Dollar Usage", "Autocomplete", "Fast Requests"],
   models,
 };
 

@@ -6,7 +6,9 @@ import type {
   ProviderProbeContext,
   ProviderProbeResult,
 } from "../../core/types.js";
+import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { metadata } from "./metadata.js";
+import { getTraeUsage } from "./quota.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import {
   createResponsesStreamState,
@@ -43,6 +45,14 @@ export class TraeProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
+
+  public override supportsQuota(): boolean {
+    return true;
+  }
+
+  public async fetchQuota(context: ProviderUsageContext): Promise<RawProviderQuotaResult> {
+    return await getTraeUsage(context.account.rawApiKey, context.account.providerSpecificData);
+  }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
     const token = (context.account?.rawApiKey || context.apiKey || "").trim();

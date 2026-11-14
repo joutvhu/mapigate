@@ -133,6 +133,11 @@ const FALLBACK_QUOTA_ORDER_MAP: Record<string, string[]> = {
     "Monthly Tokens",
     "Weekly Quota",
   ],
+  trae: [
+    "Dollar Usage",
+    "Autocomplete",
+    "Fast Requests",
+  ],
 };
 
 /**
