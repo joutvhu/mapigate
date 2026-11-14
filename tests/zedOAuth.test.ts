@@ -250,5 +250,69 @@ test("ZedProvider - probeModels fetches dynamic models from /models via LLM toke
   }
 });
 
+test("Zed quota - getZedUsage resolves organization-specific plan and quotas", async () => {
+  const { getZedUsage } = await import("../src/providers/runtime/zed/quota.js");
+
+  const origFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (input: any) => {
+      const url = String(input);
+      if (url.includes("/client/users/me")) {
+        return new Response(
+          JSON.stringify({
+            organizations: [
+              { id: "org_personal", name: "Personal Org", is_personal: true },
+              { id: "org_work", name: "Acme Corp", is_personal: false },
+            ],
+            plans_by_organization: {
+              org_personal: "zed_pro_trial",
+              org_work: "zed_business",
+            },
+            plan: {
+              plan_v3: "zed_pro_trial",
+              subscription_period: { ended_at: "2026-11-28T11:14:57.000Z" },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      if (url.includes("/billing/usage")) {
+        return new Response(
+          JSON.stringify({
+            token_spend: {
+              spend_in_cents: 150,
+              limit_in_cents: 500,
+            },
+            edit_predictions: { used: 12, limit: "unlimited" },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    // Test 1: resolving personal org with Token Spend
+    const usagePersonal = await getZedUsage("test_token", {
+      userId: "123",
+      organizationId: "org_personal",
+    });
+    assert.equal(usagePersonal.plan, "Zed Pro Trial (Personal Org)");
+    assert.equal(usagePersonal.quotas?.["Token Spend"]?.used, 1.5);
+    assert.equal(usagePersonal.quotas?.["Token Spend"]?.total, 5);
+    assert.equal(usagePersonal.quotas?.["Token Spend"]?.unit, "USD");
+    assert.equal(usagePersonal.quotas?.["Edit Predictions"], undefined);
+
+    // Test 2: resolving work org (different plan: business)
+    const usageWork = await getZedUsage("test_token", {
+      userId: "123",
+      organizationId: "org_work",
+    });
+    assert.equal(usageWork.plan, "Zed Business (Acme Corp)");
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+
 
 

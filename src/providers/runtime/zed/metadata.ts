@@ -10,7 +10,7 @@ export const metadata: ProviderRegistryItem = {
   image: "/assets/providers/zed/icon.png",
   website: "https://zed.dev",
   notice: {
-    signupUrl: "https://zed.dev/native_app_signin",
+    signupUrl: "https://dashboard.zed.dev",
   },
   category: "oauth",
   authType: "oauth",

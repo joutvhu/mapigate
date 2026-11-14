@@ -133,6 +133,7 @@ export const zedOAuthHandler: ProviderOAuthHandler = {
     let accountName = "Zed User";
     let email: string | undefined;
     let organizationId = "";
+    let orgList: { id: string; name: string; isPersonal: boolean }[] = [];
 
     try {
       const userRes = await fetch("https://cloud.zed.dev/client/users/me", {
@@ -149,6 +150,11 @@ export const zedOAuthHandler: ProviderOAuthHandler = {
         const orgs = u?.organizations || [];
         const personalOrg = orgs.find((o: any) => o?.is_personal) || orgs[0];
         organizationId = personalOrg?.id || u?.default_organization_id || "";
+        orgList = orgs.map((o: any) => ({
+          id: String(o?.id || ""),
+          name: String(o?.name || ""),
+          isPersonal: Boolean(o?.is_personal),
+        }));
       }
     } catch {}
 
@@ -164,6 +170,7 @@ export const zedOAuthHandler: ProviderOAuthHandler = {
         userId,
         systemId,
         organizationId,
+        organizations: orgList,
         email,
       },
     });
