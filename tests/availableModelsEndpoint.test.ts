@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import app from "../src/server/index.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
+import { ComboRepository } from "../src/storage/repositories/comboRepo.js";
 import { PROVIDER_REGISTRY } from "../src/shared/constants/providerRegistry.js";
 
 test("Integration - GET /api/models/available with connected accounts filter", async () => {
@@ -165,6 +166,70 @@ test("Integration - Configured provider models take precedence over static prese
   } finally {
     try {
       ProviderRepository.deleteProvider(customProvId);
+    } catch {
+      // Ignore cleanup error
+    }
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("Integration - Active combo with tagged provider model resolves hasConnectedAccount=true in available models", async () => {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const address = server.address() as { port: number };
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const testProviderId = "test_tagged_combo_prov";
+  const testAccountId = "acc_tagged_combo_" + Date.now();
+  const comboName = "test-tagged-combo-" + Date.now();
+
+  try {
+    ProviderRepository.saveProvider({
+      id: testProviderId,
+      name: "Test Tagged Provider",
+      baseUrl: "https://api.test.com/v1",
+      format: "openai",
+      models: ["model-x"],
+      isActive: true,
+    });
+
+    ProviderRepository.addAccount({
+      id: testAccountId,
+      providerId: testProviderId,
+      name: "Work Account",
+      tag: "work",
+      rawApiKey: "sk-test-sample-key",
+    });
+
+    ComboRepository.saveCombo({
+      name: comboName,
+      models: [`${testProviderId}[work]/model-x`],
+      strategy: "round-robin",
+    });
+
+    // 1. Check /api/models/available without connectedOnly
+    const res = await fetch(`${baseUrl}/api/models/available`);
+    assert.equal(res.status, 200);
+    const allModels = (await res.json()) as any[];
+
+    const comboItem = allModels.find((m) => m.name === comboName);
+    assert.ok(comboItem, "Combo should exist in available models");
+    assert.equal(comboItem.hasConnectedAccount, true, "Combo with tagged account must have hasConnectedAccount=true");
+    assert.ok(comboItem.accountsCount >= 1, "Combo accountsCount must be >= 1");
+
+    // 2. Check /api/models/available?connectedOnly=true - combo MUST be included
+    const resConnected = await fetch(`${baseUrl}/api/models/available?connectedOnly=true`);
+    assert.equal(resConnected.status, 200);
+    const connectedModels = (await resConnected.json()) as any[];
+
+    const connectedCombo = connectedModels.find((m) => m.name === comboName);
+    assert.ok(connectedCombo, "Combo with tagged account MUST be present when connectedOnly=true");
+  } finally {
+    try {
+      const existing = ComboRepository.getComboByName(comboName);
+      if (existing) ComboRepository.deleteCombo(existing.id);
+      ProviderRepository.deleteAccount(testAccountId);
+      ProviderRepository.deleteProvider(testProviderId);
     } catch {
       // Ignore cleanup error
     }

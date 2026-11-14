@@ -273,23 +273,28 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     if (!isOpen) return;
     let isCancelled = false;
 
-    const fetchAvailable = () => {
+    const fetchAvailable = (isInitial = false) => {
       getAvailableModelsCached()
         .then((data) => {
           if (!isCancelled) {
             setAvailableModels(data);
-            const hasConnected = data.some((m) => m.hasConnectedAccount);
-            setConnectedOnly(hasConnected);
+            if (isInitial) {
+              const hasConnected = data.some((m) => m.hasConnectedAccount);
+              // When picking models for combo creation (allowCombos === false), default to showing all models
+              // so newly scanned or unconfigured providers remain immediately accessible.
+              const defaultConnected = allowCombos === false ? false : hasConnected;
+              setConnectedOnly(defaultConnected);
+            }
           }
         })
         .catch(() => {});
     };
 
-    fetchAvailable();
+    fetchAvailable(true);
 
     const unsubscribe = onAvailableModelsCacheInvalidated(() => {
       if (!isCancelled) {
-        fetchAvailable();
+        fetchAvailable(false);
       }
     });
 
@@ -297,7 +302,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       isCancelled = true;
       unsubscribe();
     };
-  }, [isOpen]);
+  }, [isOpen, allowCombos]);
 
   const connectedProviderIds = useMemo(() => {
     const set = new Set<string>();

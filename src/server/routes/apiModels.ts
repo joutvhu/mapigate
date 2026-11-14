@@ -124,29 +124,35 @@ modelRouter.get("/available", (req, res) => {
         if (slash !== -1) {
           pId = m.slice(0, slash);
         } else {
+          // Check static PROVIDER_REGISTRY presets
           for (const prov of Object.values(PROVIDER_REGISTRY)) {
             if (prov?.models?.some((pm) => pm.id === m)) {
               pId = prov.id;
               break;
             }
           }
-        }
-
-        if (pId) {
-          let count = activeCounts.get(pId) || 0;
-          const regProv = PROVIDER_REGISTRY[pId];
-          if (regProv) {
-            if (regProv.alias && regProv.alias !== regProv.id) {
-              count += activeCounts.get(regProv.alias) || 0;
-            }
-            if (regProv.aliases) {
-              for (const a of regProv.aliases) {
-                if (a !== regProv.id && a !== regProv.alias) {
-                  count += activeCounts.get(a) || 0;
+          // Check configured dbProviders if not in static registry
+          if (!pId) {
+            for (const dbP of dbProviders) {
+              if (Array.isArray(dbP.models)) {
+                const hasModel = dbP.models.some((dm) => {
+                  const id = typeof dm === "string" ? dm : (dm as any)?.id;
+                  return id === m || id === `${dbP.id}/${m}`;
+                });
+                if (hasModel) {
+                  pId = dbP.id;
+                  break;
                 }
               }
             }
           }
+        }
+
+        // Strip account tag if present (e.g. claude[pro] -> claude)
+        const cleanPId = pId.replace(/\[.*\]$/, "");
+
+        if (cleanPId) {
+          const count = getProviderAccountsCount(cleanPId);
           if (count > 0) {
             comboHasConnected = true;
             comboAccountsCount += count;
