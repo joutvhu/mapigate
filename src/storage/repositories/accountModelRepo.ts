@@ -133,4 +133,18 @@ export class AccountModelRepository {
 
     return { supported, unscanned, unsupported };
   }
+
+  /**
+   * Gets all distinct model IDs supported across multiple accounts.
+   */
+  public static getModelsForAccounts(accountIds: string[]): string[] {
+    if (!accountIds || accountIds.length === 0) return [];
+    const db = getDatabase();
+    const placeholders = accountIds.map(() => "?").join(",");
+    const rows = db.all<{ model_id: string }>(
+      `SELECT DISTINCT model_id FROM account_supported_models WHERE account_id IN (${placeholders}) ORDER BY model_id ASC`,
+      ...accountIds
+    );
+    return rows.map((r) => r.model_id);
+  }
 }

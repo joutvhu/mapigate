@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "../../core/capabilities/index.js";
@@ -44,6 +45,32 @@ modelRouter.get("/available", (req, res) => {
       dbProviders.map((p) => [p.id, p])
     );
 
+    const providerAccountIdsMap = new Map<string, string[]>();
+    for (const acc of accounts) {
+      if (acc.isActive) {
+        let list = providerAccountIdsMap.get(acc.providerId);
+        if (!list) {
+          list = [];
+          providerAccountIdsMap.set(acc.providerId, list);
+        }
+        list.push(acc.id);
+      }
+    }
+
+    const getScannedAccountModelsForProvider = (pId: string, regItem?: any): string[] => {
+      const candidates = new Set<string>([pId]);
+      if (regItem?.alias) candidates.add(regItem.alias);
+      if (Array.isArray(regItem?.aliases)) {
+        for (const a of regItem.aliases) candidates.add(a);
+      }
+      const accIds: string[] = [];
+      for (const id of candidates) {
+        const ids = providerAccountIdsMap.get(id);
+        if (ids) accIds.push(...ids);
+      }
+      return accIds.length > 0 ? AccountModelRepository.getModelsForAccounts(accIds) : [];
+    };
+
     const hasDbConfiguredModels = (pId: string, regItem?: any): boolean => {
       const candidates = new Set<string>([pId]);
       if (regItem?.alias) candidates.add(regItem.alias);
@@ -56,7 +83,8 @@ modelRouter.get("/available", (req, res) => {
           return true;
         }
       }
-      return false;
+      const scanned = getScannedAccountModelsForProvider(pId, regItem);
+      return scanned.length > 0;
     };
 
     const getProviderAccountsCount = (pId: string): number => {
@@ -194,12 +222,55 @@ modelRouter.get("/available", (req, res) => {
       });
     }
 
-    // 1. Prioritize models configured in SQLite (dbProviders)
-    const sortedDbProviders = [...dbProviders].sort((a, b) =>
+    // 1. Prioritize models configured in SQLite (dbProviders) and account scanned models
+    const dbProviderIdSet = new Set(dbProviders.map((p) => p.id));
+    const allProvidersToProcess = [...dbProviders];
+    for (const [pId, accIds] of providerAccountIdsMap.entries()) {
+      if (!dbProviderIdSet.has(pId)) {
+        const reg = PROVIDER_REGISTRY[pId] || getRegistryProvider(pId);
+        const scanned = AccountModelRepository.getModelsForAccounts(accIds);
+        if (scanned.length > 0) {
+          allProvidersToProcess.push({
+            id: pId,
+            name: reg?.name || pId,
+            baseUrl: reg?.baseUrl || "",
+            format: (reg?.format || "openai") as any,
+            isActive: true,
+            priority: 10,
+            models: scanned,
+            customHeaders: {},
+            thinkingMode: "auto",
+            strategy: null,
+            stickyLimit: 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+          dbProviderIdSet.add(pId);
+        }
+      }
+    }
+
+    const sortedDbProviders = allProvidersToProcess.sort((a, b) =>
       (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
     );
     for (const p of sortedDbProviders) {
-      const pModelsRaw = Array.isArray(p.models) ? p.models : [];
+      const reg = PROVIDER_REGISTRY[p.id] || getRegistryProvider(p.id);
+      let pModelsRaw = Array.isArray(p.models) ? [...p.models] : [];
+
+      // Merge scanned models from active accounts if any
+      const scannedModels = getScannedAccountModelsForProvider(p.id, reg);
+      if (scannedModels.length > 0) {
+        const existingSet = new Set(
+          pModelsRaw.map((m) => (typeof m === "string" ? m : (m as any).id))
+        );
+        for (const sm of scannedModels) {
+          if (!existingSet.has(sm)) {
+            pModelsRaw.push(sm);
+            existingSet.add(sm);
+          }
+        }
+      }
+
       if (pModelsRaw.length === 0) continue;
 
       const pModels = [...pModelsRaw].sort((a, b) => {
@@ -412,10 +483,37 @@ export function handleOpenAiModelsList(_req: any, res: any) {
     }
 
     const seen = new Set<string>();
+    const accounts = ProviderRepository.getAllAccounts();
     const dbProviders = ProviderRepository.getAllProviders();
     const dbProviderMap = new Map<string, (typeof dbProviders)[0]>(
       dbProviders.map((p) => [p.id, p])
     );
+
+    const providerAccountIdsMap = new Map<string, string[]>();
+    for (const acc of accounts) {
+      if (acc.isActive) {
+        let list = providerAccountIdsMap.get(acc.providerId);
+        if (!list) {
+          list = [];
+          providerAccountIdsMap.set(acc.providerId, list);
+        }
+        list.push(acc.id);
+      }
+    }
+
+    const getScannedAccountModelsForProvider = (pId: string, regItem?: any): string[] => {
+      const candidates = new Set<string>([pId]);
+      if (regItem?.alias) candidates.add(regItem.alias);
+      if (Array.isArray(regItem?.aliases)) {
+        for (const a of regItem.aliases) candidates.add(a);
+      }
+      const accIds: string[] = [];
+      for (const id of candidates) {
+        const ids = providerAccountIdsMap.get(id);
+        if (ids) accIds.push(...ids);
+      }
+      return accIds.length > 0 ? AccountModelRepository.getModelsForAccounts(accIds) : [];
+    };
 
     const hasDbConfiguredModels = (pId: string, regItem?: any): boolean => {
       const candidates = new Set<string>([pId]);
@@ -429,12 +527,54 @@ export function handleOpenAiModelsList(_req: any, res: any) {
           return true;
         }
       }
-      return false;
+      const scanned = getScannedAccountModelsForProvider(pId, regItem);
+      return scanned.length > 0;
     };
 
-    // 1. Prioritize models configured in SQLite (dbProviders)
-    for (const p of dbProviders) {
-      const pModels = Array.isArray(p.models) ? p.models : [];
+    // 1. Prioritize models configured in SQLite (dbProviders) and account scanned models
+    const dbProviderIdSet = new Set(dbProviders.map((p) => p.id));
+    const allProvidersToProcess = [...dbProviders];
+    for (const [pId, accIds] of providerAccountIdsMap.entries()) {
+      if (!dbProviderIdSet.has(pId)) {
+        const reg = PROVIDER_REGISTRY[pId] || getRegistryProvider(pId);
+        const scanned = AccountModelRepository.getModelsForAccounts(accIds);
+        if (scanned.length > 0) {
+          allProvidersToProcess.push({
+            id: pId,
+            name: reg?.name || pId,
+            baseUrl: reg?.baseUrl || "",
+            format: (reg?.format || "openai") as any,
+            isActive: true,
+            priority: 10,
+            models: scanned,
+            customHeaders: {},
+            thinkingMode: "auto",
+            strategy: null,
+            stickyLimit: 1,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+          dbProviderIdSet.add(pId);
+        }
+      }
+    }
+
+    for (const p of allProvidersToProcess) {
+      const reg = PROVIDER_REGISTRY[p.id] || getRegistryProvider(p.id);
+      let pModels = Array.isArray(p.models) ? [...p.models] : [];
+      const scannedModels = getScannedAccountModelsForProvider(p.id, reg);
+      if (scannedModels.length > 0) {
+        const existingSet = new Set(
+          pModels.map((m) => (typeof m === "string" ? m : (m as any).id))
+        );
+        for (const sm of scannedModels) {
+          if (!existingSet.has(sm)) {
+            pModels.push(sm);
+            existingSet.add(sm);
+          }
+        }
+      }
+
       for (const m of pModels) {
         const mId = typeof m === "string" ? m : (m as any).id;
         const id = mId.startsWith(`${p.id}/`) ? mId : `${p.id}/${mId}`;

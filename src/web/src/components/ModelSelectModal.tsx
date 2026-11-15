@@ -357,6 +357,16 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       if (!provider || !provider.models) continue;
       const alias = provider.alias || provider.id || providerId;
 
+      // Skip static presets if provider already has configured / scanned models from availableModels
+      const isConfigured =
+        providersWithConfiguredModels.has(providerId) ||
+        providersWithConfiguredModels.has(alias) ||
+        Boolean(provider.aliases && provider.aliases.some((a) => providersWithConfiguredModels.has(a)));
+
+      if (isConfigured) {
+        continue;
+      }
+
       for (const m of provider.models) {
         const val = m.id.includes("/") ? m.id : `${alias}/${m.id}`;
         if (seen.has(val)) continue;

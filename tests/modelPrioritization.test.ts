@@ -4,6 +4,7 @@ import http from "node:http";
 import express from "express";
 import { modelRouter, handleOpenAiModelsList } from "../src/server/routes/apiModels.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
+import { AccountModelRepository } from "../src/storage/repositories/accountModelRepo.js";
 import { PROVIDER_REGISTRY } from "../src/shared/constants/providerRegistry.js";
 
 describe("Model Prioritization - Scanned & DB Models", () => {
@@ -88,5 +89,43 @@ describe("Model Prioritization - Scanned & DB Models", () => {
       (m) => m.id === "xkiro/claude-3-7-sonnet-20250219-custom-scanned"
     );
     assert.ok(foundCustom, "Scanned model must be exposed in /v1/models");
+  });
+
+  test("GET /api/models/available incorporates scanned account models and suppresses registry presets", async () => {
+    const pId = `test-scanned-acc-${Date.now()}`;
+    const accId = `acc-scan-${Date.now()}`;
+    const scannedModels = ["custom-model-alpha", "custom-model-beta"];
+
+    ProviderRepository.saveProvider({
+      id: pId,
+      name: "Scanned Provider Test",
+      baseUrl: "https://api.example.com/v1",
+      format: "openai",
+      isActive: true,
+      priority: 5,
+      models: [], // empty DB models
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    ProviderRepository.addAccount({
+      id: accId,
+      providerId: pId,
+      name: "Account With Scanned Models",
+      rawApiKey: "key-xyz",
+    });
+
+    AccountModelRepository.setAccountModels(accId, scannedModels);
+
+    const res = await fetch(`http://127.0.0.1:${serverPort}/api/models/available?connectedOnly=true`);
+    assert.equal(res.status, 200);
+    const models = (await res.json()) as any[];
+
+    const provModels = models.filter((m) => m.providerId === pId);
+    assert.equal(provModels.length, 2);
+    assert.equal(provModels[0].id, "custom-model-alpha");
+    assert.equal(provModels[1].id, "custom-model-beta");
+    assert.equal(provModels[0].value, `${pId}/custom-model-alpha`);
+    assert.equal(provModels[1].value, `${pId}/custom-model-beta`);
   });
 });
