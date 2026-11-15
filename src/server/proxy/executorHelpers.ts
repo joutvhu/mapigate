@@ -3,6 +3,7 @@ import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { logger, LogSymbol } from "../../shared/logger.js";
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 export function tryFailover(
   providerId: string,
@@ -103,6 +104,18 @@ export function resolveTargetModelAndProvider(modelStr: string): {
     );
     if (exactMatch) {
       providerId = exactMatch.id;
+    } else {
+      const targetCompareKey = normalizeModelCompareKey(targetLower);
+      const normalizedMatch = activeProviders.find((p) =>
+        Array.isArray(p.models) && p.models.some((m) => normalizeModelCompareKey(m) === targetCompareKey)
+      );
+      if (normalizedMatch) {
+        providerId = normalizedMatch.id;
+        const canonical = normalizedMatch.models?.find((m) => normalizeModelCompareKey(m) === targetCompareKey);
+        if (canonical) {
+          targetModel = canonical;
+        }
+      }
     }
 
     // 2. Try matching by well-known model prefix patterns to active providers
@@ -140,5 +153,21 @@ export function resolveTargetModelAndProvider(modelStr: string): {
       providerId = activeProviders[0]?.id;
     }
   }
+
+  // Canonical targetModel resolution for known provider (Strict exact first, then dot/dash canonical)
+  if (providerId) {
+    const prov = ProviderRepository.getProviderById(providerId);
+    if (prov && Array.isArray(prov.models) && prov.models.length > 0) {
+      const hasExact = prov.models.some((m) => m.toLowerCase() === targetModel.toLowerCase());
+      if (!hasExact) {
+        const targetCompareKey = normalizeModelCompareKey(targetModel);
+        const canonical = prov.models.find((m) => normalizeModelCompareKey(m) === targetCompareKey);
+        if (canonical) {
+          targetModel = canonical;
+        }
+      }
+    }
+  }
+
   return { targetModel, providerId, targetTag, is1mContext: Boolean(is1mContext) };
 }

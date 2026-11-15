@@ -1,4 +1,5 @@
 import { getDatabase } from "../database.js";
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 export interface AccountModelClassification {
   supported: Set<string>;
@@ -117,11 +118,13 @@ export class AccountModelRepository {
       set.add(r.model_id.toLowerCase());
     }
 
+    const targetKey = normalizeModelCompareKey(cleanTarget);
+
     for (const id of accountIds) {
       const set = accountModelsMap.get(id);
       if (!set || set.size === 0) {
         unscanned.add(id);
-      } else if (set.has(cleanTarget)) {
+      } else if (set.has(cleanTarget) || Array.from(set).some((m) => normalizeModelCompareKey(m) === targetKey)) {
         supported.add(id);
       } else {
         unsupported.add(id);

@@ -1,5 +1,8 @@
 import { MITM_TOOLS } from "./handlers/generated/toolsConfig.js";
 import type { MitmHttpRequestLike, MitmToolUiConfig } from "./types.js";
+import { normalizeModelCompareKey, areModelNamesEquivalent } from "../shared/utils/modelUtils.js";
+
+export { normalizeModelCompareKey, areModelNamesEquivalent };
 
 export const TOOL_HOSTS: Record<string, string[]> = Object.fromEntries(
   MITM_TOOLS.map((t) => [t.id, t.hosts])

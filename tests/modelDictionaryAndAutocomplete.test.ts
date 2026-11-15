@@ -59,7 +59,9 @@ test("ModelDictionary - high-end & flagship models (Gemini 4, Fable, Kimi K3, Mi
 
   // Kimi K3 series
   assert.equal(resolveModelDisplayName("kimi-k3.1-pro"), "Kimi K3.1 Pro");
+  assert.equal(resolveModelDisplayName("kimi-k3-1-pro"), "Kimi K3.1 Pro");
   assert.equal(resolveModelDisplayName("kimi-k3.1"), "Kimi K3.1");
+  assert.equal(resolveModelDisplayName("kimi-k3-1"), "Kimi K3.1");
   assert.equal(resolveModelDisplayName("kimi-k3"), "Kimi K3");
   assert.equal(resolveModelDisplayName("kimi-k3-eco"), "Kimi K3 (Eco)");
   assert.equal(resolveModelDisplayName("kimi-for-coding"), "Kimi For Coding");
@@ -67,8 +69,10 @@ test("ModelDictionary - high-end & flagship models (Gemini 4, Fable, Kimi K3, Mi
 
   // Xiaomi MiMo & ByteDance Doubao
   assert.equal(resolveModelDisplayName("mimo-v2.6"), "MiMo V2.6");
+  assert.equal(resolveModelDisplayName("mimo-v2-6"), "MiMo V2.6");
   assert.equal(resolveModelDisplayName("mimo-omni"), "MiMo Omni");
   assert.equal(resolveModelDisplayName("doubao-seed-2.1-turbo"), "Doubao Seed 2.1 Turbo");
+  assert.equal(resolveModelDisplayName("doubao-seed-2-1-turbo"), "Doubao Seed 2.1 Turbo");
 });
 
 test("ModelDictionary - new generation models resolution (GPT-6, GPT-5, GLM-5, DeepSeek V4)", () => {

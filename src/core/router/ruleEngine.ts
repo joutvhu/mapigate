@@ -1,4 +1,5 @@
 import type { ModelMappingRule } from "../../shared/types/index.js";
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 const CONTEXT_MARKER = /\[1m\]$/i;
 
@@ -45,7 +46,16 @@ export class RuleEngine {
   public resolveModel(rawModel: string): { model: string; rule?: ModelMappingRule; is1mContext: boolean } {
     const { model: strippedModel, is1mContext } = stripModelContextMarker(rawModel);
     const cleanModel = (strippedModel || rawModel).replace(/\[\d+[mk]?\]$/i, "").trim();
-    const rule = this.rules.get(cleanModel);
+    let rule = this.rules.get(cleanModel);
+    if (!rule) {
+      const cleanKey = normalizeModelCompareKey(cleanModel);
+      for (const [alias, r] of this.rules.entries()) {
+        if (normalizeModelCompareKey(alias) === cleanKey) {
+          rule = r;
+          break;
+        }
+      }
+    }
 
     return {
       model: rule ? rule.targetModel : cleanModel,

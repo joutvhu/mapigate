@@ -1,4 +1,5 @@
 // Pricing rates for AI models in $/1M tokens
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 export interface ModelPricingRates {
   input: number;
@@ -61,22 +62,38 @@ export function extractModelPricingCandidates(model: string): string[] {
     }
   }
 
-  // 4. Dot vs Dash version variants
+  // 4. Dot vs Dash version variants (universal for any model: e.g. k3-1 <-> k3.1, 3-5 <-> 3.5, 4-5 <-> 4.5)
   const variants: string[] = [];
   for (const c of candidates) {
-    // claude-3-5-xxx <-> claude-3.5-xxx
-    const dot1 = c.replace(/claude-(\d+)-(\d+)/g, "claude-$1.$2");
-    if (dot1 !== c && !candidates.includes(dot1)) variants.push(dot1);
+    // Replace dash between numbers with dot: e.g. "kimi-k3-1-pro" -> "kimi-k3.1-pro"
+    const dashToDotNum = c.replace(/(\d+)-(\d+)/g, "$1.$2");
+    if (dashToDotNum !== c && !candidates.includes(dashToDotNum) && !variants.includes(dashToDotNum)) {
+      variants.push(dashToDotNum);
+    }
 
-    const dash1 = c.replace(/claude-(\d+)\.(\d+)/g, "claude-$1-$2");
-    if (dash1 !== c && !candidates.includes(dash1)) variants.push(dash1);
+    // Replace dot between numbers with dash: e.g. "kimi-k3.1-pro" -> "kimi-k3-1-pro"
+    const dotToDashNum = c.replace(/(\d+)\.(\d+)/g, "$1-$2");
+    if (dotToDashNum !== c && !candidates.includes(dotToDashNum) && !variants.includes(dotToDashNum)) {
+      variants.push(dotToDashNum);
+    }
 
-    // claude-(opus|sonnet|haiku)-(\d+)-(\d+) <-> claude-$1-$2.$3
+    // Claude specific pattern variants (claude-(opus|sonnet|haiku)-X-Y)
     const dot2 = c.replace(/claude-(opus|sonnet|haiku)-(\d+)-(\d+)/g, "claude-$1-$2.$3");
-    if (dot2 !== c && !candidates.includes(dot2)) variants.push(dot2);
+    if (dot2 !== c && !candidates.includes(dot2) && !variants.includes(dot2)) variants.push(dot2);
 
     const dash2 = c.replace(/claude-(opus|sonnet|haiku)-(\d+)\.(\d+)/g, "claude-$1-$2-$3");
-    if (dash2 !== c && !candidates.includes(dash2)) variants.push(dash2);
+    if (dash2 !== c && !candidates.includes(dash2) && !variants.includes(dash2)) variants.push(dash2);
+
+    // Also strip single-word brand prefixes (e.g. "kimi-k3.1-pro" -> "k3.1-pro")
+    if (c.includes("-")) {
+      const parts = c.split("-");
+      if (parts.length > 1) {
+        const withoutPrefix = parts.slice(1).join("-");
+        if (withoutPrefix && !candidates.includes(withoutPrefix) && !variants.includes(withoutPrefix)) {
+          variants.push(withoutPrefix);
+        }
+      }
+    }
   }
 
   return [...candidates, ...variants];
@@ -211,10 +228,10 @@ export const PATTERN_PRICING: Array<{ pattern: RegExp; pricing: ModelPricingRate
   { pattern: /(argon|carbon)/i,          pricing: { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.00  } },
   { pattern: /gemini-4-hydrogen/i,       pricing: { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 1.50  } },
   { pattern: /hydrogen/i,                pricing: { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 1.50  } },
-  { pattern: /k3\.1.*highspeed/i, pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 4.00  } },
+  { pattern: /k3[.-]1.*highspeed/i, pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 4.00  } },
   { pattern: /kimi.*highspeed/i,  pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 4.00  } },
-  { pattern: /k3\.1/i,            pricing: { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.00  } },
-  { pattern: /kimi.*k3\.1/i,      pricing: { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.00  } },
+  { pattern: /k3[.-]1/i,            pricing: { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.00  } },
+  { pattern: /kimi.*k3[.-]1/i,      pricing: { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.00  } },
   { pattern: /kimi.*k3/i,         pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  } },
   { pattern: /^k3$/i,             pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  } },
   { pattern: /kimi/i,             pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.00  } },
@@ -223,11 +240,11 @@ export const PATTERN_PRICING: Array<{ pattern: RegExp; pricing: ModelPricingRate
   { pattern: /mimo/i,             pricing: { input: 0.14,  output: 0.28,  cached: 0.0028, reasoning: 0.28,  cache_creation: 0.14  } },
   { pattern: /codex/i,            pricing: { input: 1.75,  output: 14.00, cached: 0.175, reasoning: 14.00,  cache_creation: 1.75  } },
   { pattern: /claude-.*(fable|mythos)/i, pricing: { input: 10.00, output: 50.00, cached: 1.00,  reasoning: 50.00,  cache_creation: 12.50 } },
-  { pattern: /claude-.*opus-5\.5/i, pricing: { input: 4.00,  output: 20.00, cached: 0.40,  reasoning: 20.00,  cache_creation: 5.00  } },
+  { pattern: /claude-.*opus-5[.-]5/i, pricing: { input: 4.00,  output: 20.00, cached: 0.40,  reasoning: 20.00,  cache_creation: 5.00  } },
   { pattern: /claude-.*opus/i,    pricing: { input: 5.00,  output: 25.00, cached: 0.50,  reasoning: 25.00,  cache_creation: 6.25  } },
   { pattern: /claude-.*sonnet-5/i, pricing: { input: 2.00,  output: 10.00, cached: 0.20,  reasoning: 10.00,  cache_creation: 2.50  } },
   { pattern: /claude-.*sonnet/i,  pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  } },
-  { pattern: /claude-.*haiku-5\.5/i, pricing: { input: 0.10, output: 0.50, cached: 0.01,  reasoning: 0.50,   cache_creation: 0.125 } },
+  { pattern: /claude-.*haiku-5[.-]5/i, pricing: { input: 0.10, output: 0.50, cached: 0.01,  reasoning: 0.50,   cache_creation: 0.125 } },
   { pattern: /claude-.*haiku/i,   pricing: { input: 0.80,  output: 4.00,  cached: 0.08,  reasoning: 4.00,   cache_creation: 1.00  } },
   { pattern: /claude/i,           pricing: { input: 3.00,  output: 15.00, cached: 0.30,  reasoning: 15.00,  cache_creation: 3.75  } },
   { pattern: /gemini-.*flash/i,   pricing: { input: 0.30,  output: 2.50,  cached: 0.03,  reasoning: 3.75,   cache_creation: 0.30  } },
@@ -239,23 +256,32 @@ export const PATTERN_PRICING: Array<{ pattern: RegExp; pricing: ModelPricingRate
   { pattern: /deepseek/i,         pricing: { input: 0.14,  output: 0.28,  cached: 0.014, reasoning: 0.28,   cache_creation: 0.14  } },
   { pattern: /gpt-6.*terra/i,     pricing: { input: 1.00,  output: 5.00,  cached: 0.05,  reasoning: 5.00,   cache_creation: 1.00  } },
   { pattern: /gpt-6/i,            pricing: { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.00  } },
-  { pattern: /gpt-5\.6-luna/i,    pricing: { input: 0.20,  output: 1.20,  cached: 0.02,  reasoning: 1.20,   cache_creation: 0.20  } },
-  { pattern: /gpt-5\.6-terra/i,   pricing: { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.00  } },
-  { pattern: /gpt-5\.6-sol/i,     pricing: { input: 4.00,  output: 20.00, cached: 0.40,  reasoning: 20.00,  cache_creation: 4.00  } },
-  { pattern: /gpt-5\.5/i,         pricing: { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 5.00  } },
-  { pattern: /gpt-5\.4/i,         pricing: { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  } },
+  { pattern: /gpt-5[.-]6-luna/i,    pricing: { input: 0.20,  output: 1.20,  cached: 0.02,  reasoning: 1.20,   cache_creation: 0.20  } },
+  { pattern: /gpt-5[.-]6-terra/i,   pricing: { input: 2.00,  output: 12.00, cached: 0.20,  reasoning: 12.00,  cache_creation: 2.00  } },
+  { pattern: /gpt-5[.-]6-sol/i,     pricing: { input: 4.00,  output: 20.00, cached: 0.40,  reasoning: 20.00,  cache_creation: 4.00  } },
+  { pattern: /gpt-5[.-]5/i,         pricing: { input: 5.00,  output: 30.00, cached: 0.50,  reasoning: 30.00,  cache_creation: 5.00  } },
+  { pattern: /gpt-5[.-]4/i,         pricing: { input: 2.50,  output: 15.00, cached: 0.25,  reasoning: 15.00,  cache_creation: 2.50  } },
   { pattern: /gpt-4o/i,           pricing: { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  } },
   { pattern: /gpt-5/i,            pricing: { input: 1.25,  output: 10.00, cached: 0.625, reasoning: 10.00,  cache_creation: 1.25  } },
   { pattern: /gpt-4/i,            pricing: { input: 2.50,  output: 10.00, cached: 1.25,  reasoning: 15.00,  cache_creation: 2.50  } },
   { pattern: /o1/i,               pricing: { input: 15.00, output: 60.00, cached: 7.50,  reasoning: 90.00,  cache_creation: 15.00 } },
   { pattern: /o3/i,               pricing: { input: 1.10,  output: 4.40,  cached: 0.55,  reasoning: 4.40,   cache_creation: 1.10  } },
   { pattern: /qwen.*turbo/i,      pricing: { input: 0.05,  output: 0.20,  cached: 0.01,  reasoning: 0.20,   cache_creation: 0.05  } },
-  { pattern: /qwen.*(3\.8|3)-max/i, pricing: { input: 2.00,  output: 6.00,  cached: 0.40,  reasoning: 6.00,   cache_creation: 2.00  } },
+  { pattern: /qwen.*(3[.-]8|3)-max/i, pricing: { input: 2.00,  output: 6.00,  cached: 0.40,  reasoning: 6.00,   cache_creation: 2.00  } },
   { pattern: /qwen.*max/i,         pricing: { input: 1.60,  output: 6.40,  cached: 0.40,  reasoning: 6.40,   cache_creation: 1.60  } },
   { pattern: /qwen.*plus/i,        pricing: { input: 0.40,  output: 1.20,  cached: 0.10,  reasoning: 1.20,   cache_creation: 0.40  } },
   { pattern: /qwen.*coder.*7b/i,   pricing: { input: 0.03,  output: 0.10,  cached: 0.005, reasoning: 0.10,   cache_creation: 0.03  } },
   { pattern: /qwen/i,             pricing: { input: 0.40,  output: 1.20,  cached: 0.10,  reasoning: 1.20,   cache_creation: 0.40  } },
 ];
+
+// Normalized index of model pricing for fast O(1) dot/dash lookups
+const NORMALIZED_MODEL_PRICING = new Map<string, ModelPricingRates>();
+for (const [key, rates] of Object.entries(MODEL_PRICING)) {
+  const normKey = normalizeModelCompareKey(key);
+  if (!NORMALIZED_MODEL_PRICING.has(normKey)) {
+    NORMALIZED_MODEL_PRICING.set(normKey, rates);
+  }
+}
 
 export function getPricingForModel(provider?: string, model?: string): ModelPricingRates | null {
   if (!model) return null;
@@ -263,7 +289,7 @@ export function getPricingForModel(provider?: string, model?: string): ModelPric
 
   const candidates = extractModelPricingCandidates(model);
 
-  // 1. Direct match in MODEL_PRICING
+  // 1. Direct exact match in MODEL_PRICING (O(1))
   for (const cand of candidates) {
     if (MODEL_PRICING[cand]) return MODEL_PRICING[cand];
   }
@@ -271,7 +297,13 @@ export function getPricingForModel(provider?: string, model?: string): ModelPric
   // Also check original raw model
   if (MODEL_PRICING[model]) return MODEL_PRICING[model];
 
-  // 2. Pattern matching across original model and stripped candidates
+  // 2. Normalized dot/dash comparison with MODEL_PRICING keys (O(1))
+  for (const cand of candidates) {
+    const rates = NORMALIZED_MODEL_PRICING.get(normalizeModelCompareKey(cand));
+    if (rates) return rates;
+  }
+
+  // 3. Pattern matching across original model and stripped candidates
   for (const { pattern, pricing } of PATTERN_PRICING) {
     if (pattern.test(model)) return pricing;
     for (const cand of candidates) {

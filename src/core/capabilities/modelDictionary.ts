@@ -6,6 +6,8 @@
  * as well as tags (:free, -preview, -beta) and date versions from the model ID.
  */
 
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
+
 export const STANDARD_MODELS: Record<string, string> = {
   // ── Claude (Anthropic) ──
   "claude-fable-5-1": "Claude Fable 5.1",
@@ -321,17 +323,35 @@ export function formatModelDisplayNameFallback(modelId: string): string {
     .join(" ");
 }
 
+const NORMALIZED_STANDARD_MODELS = new Map<string, string>();
+let lastCatalogSize = 0;
+
+function ensureNormalizedIndex(): Map<string, string> {
+  const currentSize = Object.keys(STANDARD_MODELS).length;
+  if (NORMALIZED_STANDARD_MODELS.size === 0 || lastCatalogSize !== currentSize) {
+    NORMALIZED_STANDARD_MODELS.clear();
+    for (const [id, name] of Object.entries(STANDARD_MODELS)) {
+      const normKey = normalizeModelCompareKey(id);
+      if (!NORMALIZED_STANDARD_MODELS.has(normKey)) {
+        NORMALIZED_STANDARD_MODELS.set(normKey, name);
+      }
+    }
+    lastCatalogSize = currentSize;
+  }
+  return NORMALIZED_STANDARD_MODELS;
+}
+
 function lookupStandardModel(key: string): string | undefined {
   if (!key) return undefined;
   if (STANDARD_MODELS[key]) return STANDARD_MODELS[key];
   const lower = key.toLowerCase();
   if (STANDARD_MODELS[lower]) return STANDARD_MODELS[lower];
 
-  // Try dot-to-dash or dash-to-dot variant
-  const dotToDash = lower.replace(/\./g, "-");
-  if (STANDARD_MODELS[dotToDash]) return STANDARD_MODELS[dotToDash];
-  const dashToDot = lower.replace(/-/g, ".");
-  if (STANDARD_MODELS[dashToDot]) return STANDARD_MODELS[dashToDot];
+  // Try normalized dot/dash equivalent (e.g. "kimi-k3-1-pro" <-> "kimi-k3.1-pro")
+  const index = ensureNormalizedIndex();
+  const normKey = normalizeModelCompareKey(lower);
+  const normalizedMatch = index.get(normKey);
+  if (normalizedMatch) return normalizedMatch;
 
   return undefined;
 }

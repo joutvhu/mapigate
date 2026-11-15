@@ -25,6 +25,7 @@ import {
   getRegistryProvider,
   getAllRegistryProviders,
 } from "../../providers/core/metadataRegistry.js";
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 export * from "./types.js";
 export * from "./constants.js";
@@ -58,6 +59,7 @@ export function getCapabilitiesForModel(provider?: string | null, model?: string
   const cleanProvider = inferredProvider ? inferredProvider.replace(/\[.*?\]$/, "") : null;
 
   // 1. Primary Source of Truth: Provider Metadata Registry
+  const targetKey = normalizeModelCompareKey(baseModel);
   if (cleanProvider) {
     const regProvider = getRegistryProvider(cleanProvider);
     if (regProvider?.models) {
@@ -65,7 +67,9 @@ export function getCapabilitiesForModel(provider?: string | null, model?: string
         (m) =>
           m.id === model ||
           m.id === baseModel ||
-          (m.upstreamModelId && (m.upstreamModelId === model || m.upstreamModelId === baseModel))
+          (m.upstreamModelId && (m.upstreamModelId === model || m.upstreamModelId === baseModel)) ||
+          normalizeModelCompareKey(m.id) === targetKey ||
+          (m.upstreamModelId && normalizeModelCompareKey(m.upstreamModelId) === targetKey)
       );
       if (match?.capabilities) {
         const normalized = normalizeModelCapabilities(match.capabilities);
@@ -84,7 +88,9 @@ export function getCapabilitiesForModel(provider?: string | null, model?: string
         (m) =>
           m.id === model ||
           m.id === baseModel ||
-          (m.upstreamModelId && (m.upstreamModelId === model || m.upstreamModelId === baseModel))
+          (m.upstreamModelId && (m.upstreamModelId === model || m.upstreamModelId === baseModel)) ||
+          normalizeModelCompareKey(m.id) === targetKey ||
+          (m.upstreamModelId && normalizeModelCompareKey(m.upstreamModelId) === targetKey)
       );
       if (match?.capabilities) {
         const normalized = normalizeModelCapabilities(match.capabilities);

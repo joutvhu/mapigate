@@ -2,6 +2,7 @@ import { getDatabase } from "../database.js";
 import { getDefaultMappings as getMitmDefaultMappings } from "../../mitm/toolsHelper.js";
 import { CLI_TOOLS } from "../../shared/constants/cliTools.js";
 import { ComboRepository } from "./comboRepo.js";
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 export interface ToolMapping {
   toolId: string;
@@ -318,6 +319,7 @@ export class ToolMappingRepository {
     if (!raw) return null;
 
     const db = getDatabase();
+    const compareKey = normalizeModelCompareKey(raw);
 
     // 1. Check specific tool mapping in database
     if (tid && tid !== "global" && tid !== "unknown") {
@@ -328,6 +330,19 @@ export class ToolMappingRepository {
       );
       if (toolRow && toolRow.target_model && toolRow.target_model.trim().length > 0) {
         return toolRow.target_model.trim();
+      }
+
+      // Dot/dash interchangeable fallback (e.g. "kimi-k3-1-pro" <-> "kimi-k3.1-pro")
+      const toolRows = db.all<any>(
+        "SELECT source_model, target_model FROM tool_mappings WHERE tool_id = ?",
+        tid
+      );
+      for (const r of toolRows) {
+        if (r.target_model && r.target_model.trim().length > 0) {
+          if (normalizeModelCompareKey(r.source_model) === compareKey) {
+            return r.target_model.trim();
+          }
+        }
       }
     }
 
@@ -344,6 +359,19 @@ export class ToolMappingRepository {
       return null;
     }
 
+    // Dot/dash interchangeable fallback for global mappings
+    const globalRows = db.all<any>(
+      "SELECT source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
+    );
+    for (const r of globalRows) {
+      if (normalizeModelCompareKey(r.source_model) === compareKey) {
+        if (r.target_model && r.target_model.trim().length > 0) {
+          return r.target_model.trim();
+        }
+        return null;
+      }
+    }
+
     // 3. Check any other tool mapping in database (universal fallback only when tool is unknown/unspecified)
     if (!tid || tid === "unknown") {
       const anyRow = db.get<any>(
@@ -352,6 +380,17 @@ export class ToolMappingRepository {
       );
       if (anyRow && anyRow.target_model && anyRow.target_model.trim().length > 0) {
         return anyRow.target_model.trim();
+      }
+
+      const allRows = db.all<any>(
+        "SELECT source_model, target_model FROM tool_mappings"
+      );
+      for (const r of allRows) {
+        if (r.target_model && r.target_model.trim().length > 0) {
+          if (normalizeModelCompareKey(r.source_model) === compareKey) {
+            return r.target_model.trim();
+          }
+        }
       }
     }
 

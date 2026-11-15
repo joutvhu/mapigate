@@ -16,6 +16,7 @@ import {
   isModelDiscoveryRequest,
   extractModel,
   normalizeModelSlug,
+  normalizeModelCompareKey,
   MODEL_SYNONYMS,
   MODEL_PATTERNS,
   MODEL_NO_MAP,
@@ -64,16 +65,19 @@ export function resolveModelMapping(tool: string, incomingModel?: string | null)
 
   const rawNormalized = incomingModel.replace(/^models\//, "").trim();
   const incomingSlug = normalizeModelSlug(incomingModel);
+  const incomingKey = normalizeModelCompareKey(incomingModel);
 
   const toolSynonyms = MODEL_SYNONYMS[tool] || {};
   const synonymTarget =
     toolSynonyms[rawNormalized] ||
     toolSynonyms[rawNormalized.toLowerCase()] ||
     toolSynonyms[incomingSlug] ||
+    toolSynonyms[incomingKey] ||
     rawNormalized;
   const synonymSlug = normalizeModelSlug(synonymTarget);
+  const synonymKey = normalizeModelCompareKey(synonymTarget);
 
-  // 1. Exact match with synonym or normalized or slug
+  // 1. Exact match (Strict First) with synonym, normalized ID, or slug
   for (const m of mappings) {
     const mLower = m.sourceModel.toLowerCase();
     const mSlug = normalizeModelSlug(m.sourceModel);
@@ -87,13 +91,24 @@ export function resolveModelMapping(tool: string, incomingModel?: string | null)
     }
   }
 
+  // 2. Auto-detect fallback: dot/dash interchangeable comparison (e.g. "kimi-k3-1-pro" <-> "kimi-k3.1-pro")
+  for (const m of mappings) {
+    const mKey = normalizeModelCompareKey(m.sourceModel);
+    if (mKey === incomingKey || mKey === synonymKey) {
+      return m.targetModel.trim() || null;
+    }
+  }
+
   // 2. Prefix match
   for (const m of mappings) {
     const mSlug = normalizeModelSlug(m.sourceModel);
+    const mKey = normalizeModelCompareKey(m.sourceModel);
     const mLower = m.sourceModel.toLowerCase();
     if (
       incomingSlug.startsWith(mSlug) ||
       synonymSlug.startsWith(mSlug) ||
+      incomingKey.startsWith(mKey) ||
+      synonymKey.startsWith(mKey) ||
       mLower.startsWith(rawNormalized.toLowerCase())
     ) {
       return m.targetModel.trim() || null;
@@ -103,12 +118,14 @@ export function resolveModelMapping(tool: string, incomingModel?: string | null)
   // 3. Pattern match (catches renamed or generic flash/opus variants)
   const patterns = MODEL_PATTERNS[tool] || [];
   for (const { match, alias } of patterns) {
-    if (match.test(rawNormalized) || match.test(synonymTarget) || match.test(incomingSlug)) {
+    if (match.test(rawNormalized) || match.test(synonymTarget) || match.test(incomingSlug) || match.test(incomingKey)) {
       const aliasSlug = normalizeModelSlug(alias);
+      const aliasKey = normalizeModelCompareKey(alias);
       const patternMapped = mappings.find(
         (m) =>
           m.sourceModel.toLowerCase() === alias.toLowerCase() ||
-          normalizeModelSlug(m.sourceModel) === aliasSlug
+          normalizeModelSlug(m.sourceModel) === aliasSlug ||
+          normalizeModelCompareKey(m.sourceModel) === aliasKey
       );
       if (patternMapped) return patternMapped.targetModel.trim() || null;
     }
