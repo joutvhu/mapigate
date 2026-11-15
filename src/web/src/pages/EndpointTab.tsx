@@ -21,6 +21,7 @@ interface GatewayApiKey {
   isActive: boolean;
   createdAt: number;
   lastUsedAt?: number;
+  isSystem?: boolean;
 }
 
 interface HeaderRow {
@@ -787,7 +788,14 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
                     >
                       {/* Name */}
                       <td className="py-3.5 px-3 font-semibold text-white">
-                        {k.name}
+                        <div className="flex items-center gap-2">
+                          <span>{k.name}</span>
+                          {k.isSystem && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-medium">
+                              System
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Token */}
@@ -843,10 +851,11 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
 
                       {/* Status Toggle */}
                       <td className="py-3.5 px-3 text-center">
-                        <label className="relative inline-flex items-center cursor-pointer">
+                        <label className={`relative inline-flex items-center ${k.isSystem ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                           <input
                             type="checkbox"
                             checked={k.isActive}
+                            disabled={k.isSystem}
                             onChange={() => handleToggleKeyActive(k)}
                             className="sr-only peer"
                           />
@@ -856,16 +865,22 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
 
                       {/* Delete Action */}
                       <td className="py-3.5 px-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setKeyToDelete(k)}
-                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Delete API key"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">
-                            delete
+                        {k.isSystem ? (
+                          <span className="text-[11px] text-slate-500 italic pr-2">
+                            Protected
                           </span>
-                        </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setKeyToDelete(k)}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Delete API key"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">
+                              delete
+                            </span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

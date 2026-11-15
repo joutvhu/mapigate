@@ -73,6 +73,7 @@ export interface GatewayApiKey {
   isActive: boolean;
   createdAt: number;
   lastUsedAt?: number;
+  isSystem?: boolean;
 }
 
 export interface MasterPasswordConfig {
@@ -242,6 +243,9 @@ export class SettingsRepository {
 
   // --- Client Gateway API Keys Management ---
 
+  public static readonly MITM_KEY_ID = "key_mitm_default";
+  public static readonly MITM_KEY_NAME = "MITM Interceptor";
+
   public static getGatewayApiKeys(): GatewayApiKey[] {
     const raw = this.getSetting<any>("gatewayApiKeys");
     if (!Array.isArray(raw)) {
@@ -254,7 +258,40 @@ export class SettingsRepository {
       isActive: k.isActive !== false,
       createdAt: Number(k.createdAt) || Date.now(),
       lastUsedAt: k.lastUsedAt ? Number(k.lastUsedAt) : undefined,
+      isSystem: Boolean(k.isSystem || k.id === this.MITM_KEY_ID),
     }));
+  }
+
+  public static getOrCreateMitmApiKey(): GatewayApiKey {
+    const keys = this.getGatewayApiKeys();
+    const existing = keys.find((k) => k.id === this.MITM_KEY_ID || k.name === this.MITM_KEY_NAME);
+    if (existing) {
+      let needsSave = false;
+      if (!existing.isActive) {
+        existing.isActive = true;
+        needsSave = true;
+      }
+      if (!existing.isSystem) {
+        existing.isSystem = true;
+        needsSave = true;
+      }
+      if (needsSave) {
+        this.setSetting("gatewayApiKeys", keys);
+      }
+      return existing;
+    }
+
+    const newKey: GatewayApiKey = {
+      id: this.MITM_KEY_ID,
+      key: "sk-rt-" + randomBytes(24).toString("hex"),
+      name: this.MITM_KEY_NAME,
+      isActive: true,
+      createdAt: Date.now(),
+      isSystem: true,
+    };
+    keys.push(newKey);
+    this.setSetting("gatewayApiKeys", keys);
+    return newKey;
   }
 
   public static createGatewayApiKey(name?: string): GatewayApiKey {
@@ -275,6 +312,10 @@ export class SettingsRepository {
 
   public static deleteGatewayApiKey(id: string): boolean {
     const keys = this.getGatewayApiKeys();
+    const target = keys.find((k) => k.id === id || k.key === id);
+    if (target?.isSystem || target?.id === this.MITM_KEY_ID) {
+      return false;
+    }
     const initialLen = keys.length;
     const filtered = keys.filter((k) => k.id !== id && k.key !== id);
     if (filtered.length !== initialLen) {
@@ -288,6 +329,10 @@ export class SettingsRepository {
     const keys = this.getGatewayApiKeys();
     const index = keys.findIndex((k) => k.id === id || k.key === id);
     if (index === -1) return undefined;
+    if (keys[index].isSystem || keys[index].id === this.MITM_KEY_ID) {
+      // System keys remain active to ensure internal subsystems stay operational
+      return keys[index];
+    }
     keys[index].isActive = !keys[index].isActive;
     this.setSetting("gatewayApiKeys", keys);
     return keys[index];

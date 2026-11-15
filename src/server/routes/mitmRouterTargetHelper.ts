@@ -1,4 +1,5 @@
 import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
+import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
 import { serverLifecycle } from "../lifecycle.js";
 
@@ -32,7 +33,7 @@ export async function testRouterTargetConnection(
 ): Promise<{ success: boolean; message: string; modelCount?: number; latencyMs?: number }> {
   const current = MitmRepository.getRouterTarget();
   const urlToTest = (targetUrl !== undefined ? targetUrl : current.baseUrl) || "";
-  const keyToUse = apiKey !== undefined ? apiKey : (current.apiKey || "");
+  let keyToUse = apiKey !== undefined ? apiKey : (current.apiKey || "");
 
   let defaultLocal = "";
   try {
@@ -41,6 +42,18 @@ export async function testRouterTargetConnection(
     defaultLocal = getMapigateBaseUrl();
   }
   const cleanUrl = (urlToTest.trim() || defaultLocal).replace(/\/+$/, "");
+
+  if (!keyToUse) {
+    const isLocal = !urlToTest || urlToTest.includes("127.0.0.1") || urlToTest.includes("localhost") || urlToTest.includes("0.0.0.0");
+    if (isLocal) {
+      try {
+        const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
+        if (mitmKey?.key && mitmKey.isActive) {
+          keyToUse = mitmKey.key;
+        }
+      } catch {}
+    }
+  }
 
   const start = Date.now();
   try {

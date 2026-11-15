@@ -32,12 +32,12 @@ export function getRouterTarget(): MitmRouterTarget {
       const apiKey = process.env.ROUTER_API_KEY ? process.env.ROUTER_API_KEY.trim() : (configured.apiKey || "");
       let authHeader = apiKey ? `Bearer ${apiKey}` : "";
 
-      // Only fall back to local gateway key if target is local
+      // Dedicated MITM key for local gateway when no explicit key configured
       if (!authHeader && !configured.isRemote) {
         try {
-          const activeKey = SettingsRepository.getGatewayApiKeys().find((k) => k.isActive)?.key;
-          if (activeKey) {
-            authHeader = `Bearer ${activeKey}`;
+          const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
+          if (mitmKey?.key && mitmKey.isActive) {
+            authHeader = `Bearer ${mitmKey.key}`;
           }
         } catch {}
       }
@@ -60,9 +60,9 @@ export function getRouterTarget(): MitmRouterTarget {
     let authHeader = process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY.trim()}` : "";
     if (!authHeader) {
       try {
-        const activeKey = SettingsRepository.getGatewayApiKeys().find((k) => k.isActive)?.key;
-        if (activeKey) {
-          authHeader = `Bearer ${activeKey}`;
+        const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
+        if (mitmKey?.key && mitmKey.isActive) {
+          authHeader = `Bearer ${mitmKey.key}`;
         }
       } catch {}
     }
@@ -73,9 +73,18 @@ export function getRouterTarget(): MitmRouterTarget {
       isRemote: false,
     };
   } catch {
+    let authHeader = process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY.trim()}` : "";
+    if (!authHeader) {
+      try {
+        const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
+        if (mitmKey?.key && mitmKey.isActive) {
+          authHeader = `Bearer ${mitmKey.key}`;
+        }
+      } catch {}
+    }
     return {
       baseUrl: DEFAULT_ROUTER_BASE,
-      authHeader: process.env.ROUTER_API_KEY ? `Bearer ${process.env.ROUTER_API_KEY.trim()}` : "",
+      authHeader,
       isRemote: false,
     };
   }

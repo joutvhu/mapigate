@@ -755,7 +755,13 @@ export const MitmTab: React.FC = () => {
                 <input
                   type="password"
                   disabled={serverRunning}
-                  placeholder={hasStoredApiKey ? "•••••••••••• (Leave blank to keep)" : "Optional (Required if Target requires key)"}
+                  placeholder={
+                    hasStoredApiKey
+                      ? "•••••••••••• (Leave blank to keep)"
+                      : isTargetRemote
+                      ? "Optional (Required if Target requires key)"
+                      : "Optional (Dedicated MITM key used by default)"
+                  }
                   value={targetApiKeyInput}
                   onChange={(e) => setTargetApiKeyInput(e.target.value)}
                   className="w-full bg-[#141B2D] border border-[#1E293B] rounded-lg px-2.5 py-1.5 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"

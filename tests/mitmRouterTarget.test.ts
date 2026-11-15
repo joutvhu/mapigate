@@ -1,6 +1,7 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { MitmRepository } from "../src/storage/repositories/mitmRepo.js";
+import { SettingsRepository } from "../src/storage/repositories/settingsRepo.js";
 import { getRouterTarget, getRouterBaseUrl } from "../src/mitm/handlers/base.js";
 
 describe("MITM Router Target Configuration", () => {
@@ -19,6 +20,30 @@ describe("MITM Router Target Configuration", () => {
     const runtimeTarget = getRouterTarget();
     assert.equal(runtimeTarget.isRemote, false);
     assert.match(runtimeTarget.baseUrl, /^http:\/\/(127\.0\.0\.1|localhost):\d+$/);
+    assert.match(runtimeTarget.authHeader, /^Bearer sk-rt-/);
+  });
+
+  it("uses dedicated MITM key and never steals existing user gateway API keys", () => {
+    // 1. Create a regular user key first
+    const userKey = SettingsRepository.createGatewayApiKey("Developer Personal Key");
+    assert.ok(userKey.key);
+
+    // 2. Ensure target has no custom key
+    MitmRepository.setRouterTarget({ baseUrl: "", apiKey: "" });
+
+    // 3. Resolve runtime target
+    const runtimeTarget = getRouterTarget();
+    const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
+
+    // Must NEVER steal userKey!
+    assert.notEqual(runtimeTarget.authHeader, `Bearer ${userKey.key}`);
+    assert.equal(runtimeTarget.authHeader, `Bearer ${mitmKey.key}`);
+    assert.equal(mitmKey.id, SettingsRepository.MITM_KEY_ID);
+    assert.equal(mitmKey.name, SettingsRepository.MITM_KEY_NAME);
+    assert.equal(mitmKey.isSystem, true);
+
+    // System key cannot be deleted
+    assert.equal(SettingsRepository.deleteGatewayApiKey(SettingsRepository.MITM_KEY_ID), false);
   });
 
   it("saves and retrieves remote router base URL and encrypted API key", () => {
