@@ -33,6 +33,7 @@ import { metadata as claude } from "../../runtime/claude/metadata.js";
 import { metadata as cline } from "../../runtime/cline/metadata.js";
 import { metadata as cloudflare } from "../../runtime/cloudflare/metadata.js";
 import { metadata as clova_studio } from "../../catalog/clova-studio/metadata.js";
+import { metadata as coarena } from "../../catalog/coarena/metadata.js";
 import { metadata as codebuddy } from "../../runtime/codebuddy/metadata.js";
 import { metadata as codex } from "../../runtime/codex/metadata.js";
 import { metadata as cohere } from "../../catalog/cohere/metadata.js";
@@ -40,7 +41,6 @@ import { metadata as combo } from "../../composite/combo/metadata.js";
 import { metadata as commandcode } from "../../catalog/commandcode/metadata.js";
 import { metadata as coze } from "../../catalog/coze/metadata.js";
 import { metadata as cursor } from "../../runtime/cursor/metadata.js";
-import { metadata as cursor_api } from "../../runtime/cursor-api/metadata.js";
 
 export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "360ai": p_360ai,
@@ -75,6 +75,7 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "cline": cline,
   "cloudflare": cloudflare,
   "clova-studio": clova_studio,
+  "coarena": coarena,
   "codebuddy": codebuddy,
   "codex": codex,
   "cohere": cohere,
@@ -82,5 +83,4 @@ export const metadataChunk1: Record<string, ProviderRegistryItem> = {
   "commandcode": commandcode,
   "coze": coze,
   "cursor": cursor,
-  "cursor-api": cursor_api,
 };
