@@ -637,7 +637,9 @@ providerRouter.post("/", (req, res) => {
     baseUrl: body.baseUrl || existing?.baseUrl,
     format: body.format || existing?.format || "openai",
     isActive: body.isActive !== undefined ? Boolean(body.isActive) : (existing ? existing.isActive : true),
-    priority: Number(body.priority) || existing?.priority || 10,
+    priority: body.priority !== undefined && !isNaN(Number(body.priority))
+      ? Number(body.priority)
+      : (existing?.priority ?? 10),
     models: Array.isArray(body.models) ? body.models : (existing?.models || []),
     customHeaders: body.customHeaders !== undefined ? body.customHeaders : (existing?.customHeaders || {}),
     proxyUrl: body.proxyUrl !== undefined ? (body.proxyUrl || undefined) : existing?.proxyUrl,
