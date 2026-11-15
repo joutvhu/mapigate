@@ -2,6 +2,7 @@ import { stripModelContextMarker, RuleEngine } from "../../core/router/ruleEngin
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import { logger, LogSymbol } from "../../shared/logger.js";
 import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
@@ -60,6 +61,15 @@ export function extractSessionId(req?: any, body?: any): string | undefined {
   return undefined;
 }
 
+function isKnownProviderOrAlias(pName: string): boolean {
+  if (!pName) return false;
+  const pLower = pName.toLowerCase().trim();
+  if (PROVIDER_REGISTRY[pLower] || getRegistryProvider(pLower)) return true;
+  const dbProv = ProviderRepository.getProviderById(pLower);
+  if (dbProv) return true;
+  return false;
+}
+
 export function resolveTargetModelAndProvider(modelStr: string): {
   targetModel: string;
   providerId?: string;
@@ -75,15 +85,26 @@ export function resolveTargetModelAndProvider(modelStr: string): {
   if (effective.includes("/")) {
     const slash = effective.indexOf("/");
     const rawProvider = effective.slice(0, slash);
-    targetModel = effective.slice(slash + 1);
+    const candidateModel = effective.slice(slash + 1);
 
     // Parse provider[tag] syntax, e.g. claude[pro] -> provider: claude, tag: pro
+    let candidateProviderId = rawProvider;
+    let candidateTag: string | undefined;
     const tagMatch = rawProvider.match(/^([^[\]]+)\[([^[\]]+)\]$/);
     if (tagMatch) {
-      providerId = tagMatch[1];
-      targetTag = tagMatch[2];
+      candidateProviderId = tagMatch[1];
+      candidateTag = tagMatch[2];
+    }
+
+    // Only treat the prefix as a provider if candidateProviderId matches a known registered or DB provider
+    if (isKnownProviderOrAlias(candidateProviderId)) {
+      providerId = candidateProviderId;
+      targetTag = candidateTag;
+      targetModel = candidateModel;
     } else {
-      providerId = rawProvider;
+      // The slash is part of the model name itself (e.g. "coarena/gpt-6-luna", "z-ai/glm-5.3-flash")
+      targetModel = effective;
+      providerId = undefined;
     }
   } else {
     const rules = ModelRepository.getAllRules();

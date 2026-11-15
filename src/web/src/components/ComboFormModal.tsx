@@ -177,8 +177,8 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
             onClick={() => setEditing(true)}
             title="Click to edit model ID inline"
           >
-            <span className="truncate" title={id}>
-              {id}
+            <span className="truncate" title={model}>
+              {model}
             </span>
             <span className="material-symbols-outlined text-[13px] text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">
               edit
@@ -186,7 +186,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
           </div>
         )}
 
-        {!editing && <CapacityBadges model={id} size="xs" />}
+        {!editing && <CapacityBadges model={model} size="xs" />}
       </div>
 
       <div className="flex items-center gap-1 shrink-0">

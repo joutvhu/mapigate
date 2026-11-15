@@ -20,6 +20,29 @@ describe("Account Models & Tagging Capabilities", () => {
     assert.equal(res2.providerId, "openai");
     assert.equal(res2.targetTag, undefined);
     assert.equal(res2.targetModel, "gpt-4o");
+
+    // Multi-slash model where provider is known (e.g. iteracompute/openai/gpt-6-luna)
+    const res3 = resolveTargetModelAndProvider("iteracompute/openai/gpt-6-luna");
+    assert.equal(res3.providerId, "iteracompute");
+    assert.equal(res3.targetModel, "openai/gpt-6-luna");
+
+    // Model ID with slash where prefix is NOT a provider (e.g. z-ai/glm-5.3-flash)
+    // Save provider with this model so it resolves dynamically
+    ProviderRepository.saveProvider({
+      id: "prov-aggregator-test",
+      name: "Aggregator Test",
+      baseUrl: "https://api.aggregator.com",
+      format: "openai",
+      isActive: true,
+      priority: 1,
+      models: ["z-ai/glm-5.3-flash"],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    const res4 = resolveTargetModelAndProvider("z-ai/glm-5.3-flash");
+    assert.equal(res4.providerId, "prov-aggregator-test");
+    assert.equal(res4.targetModel, "z-ai/glm-5.3-flash");
   });
 
   it("filters accounts by targetTag correctly", () => {

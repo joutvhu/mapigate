@@ -368,7 +368,12 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       }
 
       for (const m of provider.models) {
-        const val = m.id.includes("/") ? m.id : `${alias}/${m.id}`;
+        const val =
+          m.id.startsWith(`${alias}/`) ||
+          m.id.startsWith(`${providerId}/`) ||
+          Boolean(provider.uiAlias && m.id.startsWith(`${provider.uiAlias}/`))
+            ? m.id
+            : `${alias}/${m.id}`;
         if (seen.has(val)) continue;
         seen.add(val);
 
