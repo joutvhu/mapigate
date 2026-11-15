@@ -378,3 +378,26 @@ test("Unit - deleted core provider is not resurrected on subsequent boots once s
   );
 });
 
+test("Unit - provider strategy and stickyLimit persist across syncs and alias lookups", () => {
+  const providerId = "github";
+  ProviderRepository.ensureProviderExists(providerId);
+
+  // User configures strategy
+  ProviderRepository.updateProviderStrategy(providerId, "sequential", 5);
+
+  // Check alias lookup also resolves strategy
+  const copilotConfig = ProviderRepository.getProviderById("copilot");
+  assert.ok(copilotConfig);
+  assert.equal(copilotConfig.strategy, "sequential");
+  assert.equal(copilotConfig.stickyLimit, 5);
+
+  // Server reboot occurs
+  ProviderRepository.syncRegistryDefaults();
+
+  const afterSync = ProviderRepository.getProviderById(providerId);
+  assert.ok(afterSync);
+  assert.equal(afterSync.strategy, "sequential", "Strategy must persist across syncs");
+  assert.equal(afterSync.stickyLimit, 5, "Sticky limit must persist across syncs");
+});
+
+

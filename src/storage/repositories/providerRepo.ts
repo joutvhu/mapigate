@@ -28,24 +28,32 @@ export class ProviderRepository {
 
   public static getProviderById(id: string): ProviderConfig | undefined {
     const db = getDatabase();
-    const r = db.get<any>("SELECT * FROM providers WHERE id = ?", id);
-    if (!r) return undefined;
-    return {
-      id: r.id,
-      name: r.name,
-      baseUrl: r.base_url,
-      format: r.format,
-      isActive: Boolean(r.is_active),
-      priority: r.priority,
-      models: JSON.parse(r.models || "[]"),
-      customHeaders: JSON.parse(r.custom_headers || "{}"),
-      proxyUrl: r.proxy_url || undefined,
-      thinkingMode: r.thinking_mode || "auto",
-      strategy: r.strategy || null,
-      stickyLimit: r.sticky_limit != null ? Number(r.sticky_limit) : 1,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    };
+    const cleanId = (id || "").trim();
+    if (!cleanId) return undefined;
+    const r = db.get<any>("SELECT * FROM providers WHERE id = ?", cleanId);
+    if (r) {
+      return {
+        id: r.id,
+        name: r.name,
+        baseUrl: r.base_url,
+        format: r.format,
+        isActive: Boolean(r.is_active),
+        priority: r.priority,
+        models: JSON.parse(r.models || "[]"),
+        customHeaders: JSON.parse(r.custom_headers || "{}"),
+        proxyUrl: r.proxy_url || undefined,
+        thinkingMode: r.thinking_mode || "auto",
+        strategy: r.strategy || null,
+        stickyLimit: r.sticky_limit != null ? Number(r.sticky_limit) : 1,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    }
+    const reg = getRegistryProvider(cleanId);
+    if (reg && reg.id !== cleanId) {
+      return this.getProviderById(reg.id);
+    }
+    return undefined;
   }
 
   public static getProviderWithDefaults(id: string): (ProviderConfig & {
@@ -143,6 +151,9 @@ export class ProviderRepository {
 
   public static saveProvider(provider: ProviderConfig): void {
     const db = getDatabase();
+    const reg = getRegistryProvider(provider.id);
+    const targetId = reg?.id || provider.id;
+
     db.run(
       `INSERT INTO providers (id, name, base_url, format, is_active, priority, models, custom_headers, proxy_url, thinking_mode, strategy, sticky_limit, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -159,7 +170,7 @@ export class ProviderRepository {
          strategy = excluded.strategy,
          sticky_limit = excluded.sticky_limit,
          updated_at = excluded.updated_at`,
-      provider.id,
+      targetId,
       provider.name,
       provider.baseUrl,
       provider.format,

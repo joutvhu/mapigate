@@ -586,7 +586,9 @@ providerRouter.put("/:id/strategy", (req, res) => {
   const { strategy, stickyLimit } = req.body;
   const strat = strategy || null;
   const sticky = stickyLimit != null ? Number(stickyLimit) : null;
-  ProviderRepository.updateProviderStrategy(req.params.id, strat, sticky);
+  const reg = getRegistryProvider(req.params.id);
+  const targetId = reg ? reg.id : req.params.id;
+  ProviderRepository.updateProviderStrategy(targetId, strat, sticky);
   res.json({ success: true, strategy: strat, stickyLimit: sticky });
 });
 
@@ -622,23 +624,27 @@ providerRouter.post("/", (req, res) => {
     return;
   }
 
-  const id = body.id || `prov_${crypto.randomUUID().slice(0, 8)}`;
+  const rawId = body.id || `prov_${crypto.randomUUID().slice(0, 8)}`;
+  const reg = getRegistryProvider(rawId);
+  const id = reg ? reg.id : rawId;
   const now = Date.now();
+
+  const existing = ProviderRepository.getProviderById(id);
 
   const provider = {
     id,
-    name: body.name,
-    baseUrl: body.baseUrl,
-    format: body.format || "openai",
-    isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
-    priority: Number(body.priority) || 10,
-    models: Array.isArray(body.models) ? body.models : [],
-    customHeaders: body.customHeaders || {},
-    proxyUrl: body.proxyUrl || undefined,
-    thinkingMode: body.thinkingMode || "auto",
-    strategy: body.strategy || null,
-    stickyLimit: body.stickyLimit != null ? Number(body.stickyLimit) : 1,
-    createdAt: body.createdAt || now,
+    name: body.name || existing?.name,
+    baseUrl: body.baseUrl || existing?.baseUrl,
+    format: body.format || existing?.format || "openai",
+    isActive: body.isActive !== undefined ? Boolean(body.isActive) : (existing ? existing.isActive : true),
+    priority: Number(body.priority) || existing?.priority || 10,
+    models: Array.isArray(body.models) ? body.models : (existing?.models || []),
+    customHeaders: body.customHeaders !== undefined ? body.customHeaders : (existing?.customHeaders || {}),
+    proxyUrl: body.proxyUrl !== undefined ? (body.proxyUrl || undefined) : existing?.proxyUrl,
+    thinkingMode: body.thinkingMode || existing?.thinkingMode || "auto",
+    strategy: body.strategy !== undefined ? (body.strategy || null) : (existing?.strategy || null),
+    stickyLimit: body.stickyLimit !== undefined ? (body.stickyLimit != null ? Number(body.stickyLimit) : 1) : (existing?.stickyLimit ?? 1),
+    createdAt: existing?.createdAt || body.createdAt || now,
     updatedAt: now,
   };
 
