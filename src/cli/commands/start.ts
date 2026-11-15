@@ -27,8 +27,18 @@ export interface StartOptions {
 }
 
 export async function runStart(options: StartOptions = {}): Promise<void> {
-  const port = Number(options.port) || DEFAULT_PORT;
-  const host = options.host || DEFAULT_HOST;
+  let targetPort = options.port ? Number(options.port) : undefined;
+  let targetHost = options.host;
+  if (!targetPort || !targetHost) {
+    try {
+      const { SettingsRepository } = await import("../../storage/repositories/settingsRepo.js");
+      const dbSettings = SettingsRepository.getEndpointSettings();
+      if (!targetPort && dbSettings.port) targetPort = dbSettings.port;
+      if (!targetHost && dbSettings.host) targetHost = dbSettings.host;
+    } catch {}
+  }
+  const port = targetPort || DEFAULT_PORT;
+  const host = targetHost || DEFAULT_HOST;
   const webUrl = `http://${host === "0.0.0.0" ? "localhost" : host}:${port}`;
 
   if (options.daemon) {

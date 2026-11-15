@@ -286,3 +286,95 @@ test("Unit - user can explicitly disable/omit a default header and it is not sen
     "Default header should be restored when disable override is cleared"
   );
 });
+
+test("Unit - single-default-header provider override is strictly preserved across syncs", () => {
+  const providerId = "mistral";
+  const reg = getRegistryProvider(providerId)!;
+  assert.equal(Object.keys(reg.defaultHeaders).length, 1, "Mistral should have exactly 1 default header");
+
+  // User customizes the sole default header
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: "Mistral Custom",
+    baseUrl: reg.baseUrl,
+    format: reg.format as any,
+    isActive: true,
+    priority: 10,
+    models: reg.models.map((m) => m.id),
+    customHeaders: {
+      "content-type": "application/vnd.custom+json",
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  // Server reboot occurs
+  ProviderRepository.syncRegistryDefaults();
+
+  const inDb = ProviderRepository.getProviderById(providerId);
+  assert.ok(inDb);
+  assert.equal(
+    inDb.customHeaders?.["content-type"],
+    "application/vnd.custom+json",
+    "Single-default-header provider override must NOT be wiped by legacy snapshot cleaner"
+  );
+
+  const withDefaults = ProviderRepository.getProviderWithDefaults(providerId);
+  assert.ok(withDefaults);
+  assert.equal(
+    withDefaults.customHeaders["content-type"],
+    "application/vnd.custom+json"
+  );
+});
+
+test("Unit - user-selected supported format is preserved across syncs", () => {
+  const providerId = "xiaomi-tokenplan";
+  const reg = getRegistryProvider(providerId)!;
+  assert.ok(reg.supportedFormats && reg.supportedFormats.length > 1, "xiaomi-tokenplan must support multiple formats");
+
+  // User sets format to 'openai' (default in reg is 'claude')
+  assert.equal(reg.format, "claude");
+  ProviderRepository.saveProvider({
+    id: providerId,
+    name: reg.name,
+    baseUrl: reg.baseUrl,
+    format: "openai" as any,
+    isActive: true,
+    priority: 10,
+    models: reg.models.map((m) => m.id),
+    customHeaders: {},
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  // Server reboot occurs
+  ProviderRepository.syncRegistryDefaults();
+
+  const inDb = ProviderRepository.getProviderById(providerId);
+  assert.ok(inDb);
+  assert.equal(
+    inDb.format,
+    "openai",
+    "User-selected format from supportedFormats must NOT be reset to default format"
+  );
+});
+
+test("Unit - deleted core provider is not resurrected on subsequent boots once seeded", () => {
+  // Ensure initial seed has run
+  ProviderRepository.seedDefaultProviders();
+
+  // User deletes 'gemini'
+  ProviderRepository.deleteProvider("gemini");
+  assert.equal(ProviderRepository.getProviderById("gemini"), undefined);
+
+  // Subsequent server restart occurs
+  ProviderRepository.seedDefaultProviders();
+
+  // Gemini must NOT be resurrected!
+  assert.equal(
+    ProviderRepository.getProviderById("gemini"),
+    undefined,
+    "Deleted core provider must remain deleted across reboots"
+  );
+});
+

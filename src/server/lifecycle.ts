@@ -196,8 +196,8 @@ export class ServerLifecycle {
         dbSettings = SettingsRepository.getEndpointSettings();
       } catch {}
 
-      const port = Number(process.env.PORT) || dbSettings?.port || DEFAULT_PORT;
-      const host = process.env.HOST || dbSettings?.host || DEFAULT_HOST;
+      const port = dbSettings?.port || Number(process.env.PORT) || DEFAULT_PORT;
+      const host = dbSettings?.host || process.env.HOST || DEFAULT_HOST;
       const { cmd, args, shell } = ProcessManager.resolveSpawnCommand();
 
       const dataDir = getDefaultDataDir();

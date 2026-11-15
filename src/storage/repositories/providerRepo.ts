@@ -255,8 +255,13 @@ export class ProviderRepository {
 
       let changed = false;
 
-      // Sync protocol format if registry has updated format in metadata.ts
-      if (reg.format && prov.format !== reg.format) {
+      // Sync protocol format if registry has updated format in metadata.ts,
+      // UNLESS provider supports multiple formats (supportedFormats) and user's choice is one of them!
+      const isUserSupportedFormat =
+        Array.isArray(reg.supportedFormats) &&
+        reg.supportedFormats.some((f) => (typeof f === "string" ? f : f.value) === prov.format);
+
+      if (reg.format && prov.format !== reg.format && !isUserSupportedFormat) {
         prov.format = reg.format as any;
         changed = true;
       }
@@ -281,8 +286,10 @@ export class ProviderRepository {
         const customKeys = Object.keys(prov.customHeaders);
 
         // If DB has the exact full set of legacy seeded default keys (and none was explicitly disabled)
+        // Note: Only apply full wipe if there are multiple default keys (regKeys.length > 1) and all match default keys,
+        // preventing single-header providers (like Anthropic) from wiping legitimate user customizations.
         const isLegacyFullSnapshot =
-          regKeys.length > 0 &&
+          regKeys.length > 1 &&
           customKeys.length === regKeys.length &&
           customKeys.every((k) => k in regHeaders && prov.customHeaders![k] !== "");
 
@@ -316,23 +323,39 @@ export class ProviderRepository {
   }
 
   public static seedDefaultProviders(): void {
-    const coreProviders = [
-      "claude",
-      "cursor",
-      "codex",
-      "kiro",
-      "antigravity",
-      "github",
-      "openai",
-      "deepseek",
-      "gemini",
-    ];
-    for (const pId of coreProviders) {
-      try {
-        this.ensureProviderExists(pId);
-      } catch {
-        // Fail-open
+    const db = getDatabase();
+    let isSeeded = false;
+    try {
+      const seededRow = db.get<{ value?: string }>(
+        "SELECT value FROM settings WHERE key = 'core_providers_seeded'"
+      );
+      isSeeded = Boolean(seededRow?.value);
+    } catch {}
+
+    if (!isSeeded) {
+      const coreProviders = [
+        "claude",
+        "cursor",
+        "codex",
+        "kiro",
+        "antigravity",
+        "github",
+        "openai",
+        "deepseek",
+        "gemini",
+      ];
+      for (const pId of coreProviders) {
+        try {
+          this.ensureProviderExists(pId);
+        } catch {
+          // Fail-open
+        }
       }
+      try {
+        db.run(
+          "INSERT INTO settings (key, value) VALUES ('core_providers_seeded', '1') ON CONFLICT(key) DO NOTHING"
+        );
+      } catch {}
     }
     try {
       this.syncRegistryDefaults();

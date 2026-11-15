@@ -9,7 +9,14 @@ export interface RestartOptions {
 }
 
 export async function runRestart(options: RestartOptions = {}): Promise<void> {
-  const port = Number(options?.port) || DEFAULT_PORT;
+  let targetPort = options?.port ? Number(options.port) : undefined;
+  if (!targetPort) {
+    try {
+      const { SettingsRepository } = await import("../../storage/repositories/settingsRepo.js");
+      targetPort = SettingsRepository.getEndpointSettings().port;
+    } catch {}
+  }
+  const port = targetPort || DEFAULT_PORT;
   const spinner = ora(`Restarting ${APP_NAME} daemon...`).start();
 
   await ProcessManager.stopDaemon(port);
