@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.146] - 2026-11-15
+
+### Features
+
+#### Providers & Model Catalog (Coarena, Trae, Zed)
+- **Coarena Provider & Quota Tracking**: Added Coarena catalog provider integration with branding assets and default models (`coarena/auto`, `coarena/glm-5.1`, `coarena/deepseek-v3.2`, `coarena/kimi-k2.5`, `coarena/minimax-m2.5`), implemented OpenAI-compatible model probing, and added quota tracking for daily allowance, rate limits, and concurrent requests.
+- **Trae Entitlement & Quota Tracking**: Integrated Trae entitlement API to fetch account quotas, parsing Dollar Usage, Autocomplete requests, and Fast Requests quota buckets, with dollar-formatted metrics in `QuotaProgressBar`.
+- **Zed Model Catalog & Plan Filtering**: Expanded static model registry with updated OpenAI, Anthropic, and Google models along with context lengths; added `getModelsForZedPlan` to filter model availability based on subscription tiers, and enhanced `normalizeZedProvider` to detect model family keywords.
+- **Zed Organization Billing & Spend Quotas**: Added organization billing usage fetching to track token spend in USD, plan resolution for organization-specific subscriptions, and stored organization metadata in OAuth provider-specific data.
+
+### Fixes
+
+#### Models & Autocomplete
+- **Model Search & Autocomplete Input**: Added tokenized and delimiter-normalized matching in `matchesModelQuery`, enabled immediate value commits on enter in `ModelAutocompleteInput` for quick-add and editable combo rows, and fixed combo ID exclusion filtering.
+- **Provider Capability Resolution**: Stripped account and tag suffixes from provider identifiers before looking up capability registry entries.
+
 ## [0.5.141] - 2026-11-14
 
 ### Features

@@ -4,7 +4,7 @@
 
 ### Local-first AI model gateway and token optimizer for coding assistants
 
-**One local endpoint (`http://127.0.0.1:20128`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 151+ AI providers.**  
+**One local endpoint (`http://127.0.0.1:20128`) that speaks the OpenAI, Anthropic, and Responses APIs, and routes to 152+ AI providers.**  
 *Works with Claude Code, Cursor, Cline, Codex, OpenCode, and 26 coding tools in total, plus GitHub Copilot, Kiro IDE, and Antigravity through a local MITM proxy.*
 
 ---
@@ -13,9 +13,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blueviolet.svg)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Version](https://img.shields.io/badge/version-0.5.141-orange.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.5.146-orange.svg)](package.json)
 
-[**What is Mapigate?**](#-what-is-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-151) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**Token Saver**](#-feature-1-token-saver-modular-token-optimization) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
+[**What is Mapigate?**](#-what-is-mapigate) • [**Gateway API**](#-gateway-api) • [**Supported Providers**](#-supported-providers-152) • [**Quick Start**](#-quick-start-get-running-in-60s) • [**Token Saver**](#-feature-1-token-saver-modular-token-optimization) • [**Smart Routing & Combos**](#-feature-2-smart-routing--combo-engine) • [**Connect Coding Tools**](#-feature-3-one-click-connection-for-26-coding-assistants) • [**MITM Interceptor**](#-feature-4-mitm-https-interceptor-for-closed-tools) • [**Web Dashboard**](#-feature-5-web-dashboard-tour) • [**CLI Reference**](#-cli-reference-mapigate--mpg)
 
 </div>
 
@@ -30,7 +30,7 @@ Mapigate is a local API gateway that runs on your machine (Node.js, single port 
 | | |
 | :--- | :--- |
 | **Client APIs** | OpenAI Chat Completions (`/v1/chat/completions`), Anthropic Messages (`/v1/messages`), OpenAI Responses (`/v1/responses`), model list (`/v1/models`). Streaming and non-streaming. |
-| **Providers** | 151+ built in: 32 runtime (OAuth / custom auth: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Cursor, Bedrock, Azure…), 118 catalog (OpenRouter, Groq, Cerebras, Mistral, Together, Moonshot, Z.ai, local Ollama / LM Studio…), plus the combo engine. More via the community catalog. |
+| **Providers** | 152+ built in: 32 runtime (OAuth / custom auth: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Cursor, Bedrock, Azure…), 119 catalog (OpenRouter, Groq, Cerebras, Mistral, Together, Moonshot, Z.ai, local Ollama / LM Studio…), plus the combo engine. More via the community catalog. |
 | **Coding tools** | 26 with config definitions (`mpg connect`): Claude Code, Codex, OpenCode, Cline, Roo Code, Continue, Qwen Code, Crush, Factory Droid… Cursor via base URL override. Copilot, Kiro IDE, and Antigravity via MITM. |
 | **Routing** | Model aliases, global and per-tool model mappings, combos (`fallback`, `round-robin`, `fusion`, `lkgp`, `p2c`), multi-account rotation (`round-robin` / `fill-first`), automatic fallback on 429 and quota errors. |
 | **Token saving** | Modular Token Saver: RTK in-place compression (`git diff`, terminal logs, search results — 20–40% fewer input tokens), Caveman style compression, Ponytail minimalist coding, and Custom Prompts. Fail-open, and error results are never compressed. |
@@ -63,7 +63,7 @@ graph TD
         VAULT[("SQLite (WAL) + AES-256-GCM vault")]
     end
 
-    subgraph UPSTREAM["151+ providers"]
+    subgraph UPSTREAM["152+ providers"]
         P1["Runtime: Claude, OpenAI, Gemini, Copilot, Codex, Kiro, Bedrock..."]
         P2["Catalog: OpenRouter, Groq, Cerebras, Mistral, Together..."]
         P3["Local: Ollama, LM Studio, Jan"]
@@ -115,14 +115,14 @@ The dashboard and CLI use a REST management API under `/api/*` (providers, accou
 
 ---
 
-## 🌐 Supported Providers (151+)
+## 🌐 Supported Providers (152+)
 
-Mapigate ships with **151+ provider modules**, discovered automatically from `src/providers/` by `npm run codegen`:
+Mapigate ships with **152+ provider modules**, discovered automatically from `src/providers/` by `npm run codegen`:
 
 | Tier | Count | What it covers |
 | :--- | :---: | :--- |
 | **Runtime** (`src/providers/runtime/`) | 32 | Providers with custom auth, OAuth, or streaming: `claude`, `openai`, `gemini`, `gemini-cli`, `antigravity`, `bedrock`, `azure`, `cloudflare`, `deepseek`, `github` (Copilot), `codex`, `cursor`, `cursor-api`, `kiro`, `xkiro`, `windsurf`, `zed`, `trae`, `qoder`, `cline`, `codebuddy`, `devin`, `opencode`, `grok`, `grok-cli`, `kimi`, `glm`, `minimax`, `minimax-code`, `mimo`, `alicode`, `ollama` |
-| **Catalog** (`src/providers/catalog/`) | 118 | Standard OpenAI/Anthropic-compatible API-key providers: Anthropic, OpenRouter, Groq, Cerebras, Together, Fireworks, DeepInfra, Mistral, Codestral, Cohere, Perplexity, NVIDIA, Hugging Face, Vertex AI, Databricks, Snowflake, watsonx, SambaNova, Nebius, Novita, SiliconFlow, Moonshot, Z.ai, StepFun, Baidu, Tencent, Volcengine, Vercel AI Gateway, LM Studio, Jan, local Ollama, and more |
+| **Catalog** (`src/providers/catalog/`) | 119 | Standard OpenAI/Anthropic-compatible API-key providers: Anthropic, OpenRouter, Groq, Cerebras, Together, Fireworks, DeepInfra, Mistral, Codestral, Cohere, Perplexity, NVIDIA, Hugging Face, Vertex AI, Databricks, Snowflake, watsonx, SambaNova, Nebius, Novita, SiliconFlow, Moonshot, Z.ai, StepFun, Baidu, Tencent, Volcengine, Vercel AI Gateway, LM Studio, Jan, local Ollama, Coarena, and more |
 | **Composite** (`src/providers/composite/`) | 1 | The `combo` engine (fallback, round-robin, fusion, lkgp, p2c) |
 | **Community catalog** | — | Additional providers importable from the dashboard (**Providers → Community Catalog**) |
 
