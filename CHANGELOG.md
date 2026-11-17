@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.153] - 2026-11-17
+
+### Features
+
+#### Adapters & Protocol Translation
+- **Responses & Anthropic Adapter Hardening**: Split `input_image` from Responses `function_call_output` into user messages after contiguous tool messages, mapped Anthropic `tool_choice` to OpenAI, added `repairPartialToolResponses` for partial parallel tool batches, and always emitted `is_error` on `tool_result` blocks in `requestOpenAiToAnthropic`.
+
+#### Providers & Routing
+- **Provider Request/Response Hardening**:
+  - `opencode-go`: Dropped unsupported `temperature` for GPT models, normalized `tool_choice`, and mapped `response_format` to `text.format`.
+  - `codex`: Dropped foreign encrypted reasoning items before `stripStoredItemReferences`.
+  - `github`: Stripped unsupported `temperature` for `gpt-5.4+` and `gpt-6*` models.
+  - `mistral` / `baidu` / `alicode`: Stripped top-level `thinking` fields and normalized Mistral chunked content arrays.
+  - `cursor`: Emitted `thinking_delta` for non-composer models and handled empty turns in `cursorStreamer`.
+  - `kimi`: Hoisted Claude Code deferred MCP `tool_addition` blocks.
+- **Combo Zero-Content Failover**: Added `isZeroContentResponse` check to trigger combo failover on HTTP 200 responses with empty content.
+- **Antigravity & Kiro 429 Resilience**: Added Hermes/OpenClaw prompt rewrites and bare 429 `RESOURCE_EXHAUSTED` system-to-user retry in Antigravity, plus Kiro `/v1/responses` fallback on 429 `USER_REQUEST_RATE_EXCEEDED` with format-aware streaming and non-streaming support.
+
+### Fixes
+
+#### Resilience, Token Saver & Architecture
+- **Resilience & RTK Quick Wins**: Hardened TLS curve configuration in `dnsResolver`, improved RTK `grep` and `dedupLog` filters and autodetection, treated HTTP 403 as terminal in `cooldownManager`, and handled HTTP 499 in combo fallback strategy.
+- **Architecture Decomposition**: Decomposed Kiro `createResponse.ts` into `createResponseConverter.ts` and `createResponseStream.ts`, and extracted `zeroContentCheck.ts` helper.
+
+### Maintenance & Build
+
+#### Build Pipeline
+- **Server Distribution Minification**: Extracted inline build commands into `scripts/clean.mjs` and `scripts/copy-tray-assets.mjs`, and added `scripts/minify-dist.mjs` using `esbuild` to minify compiled server distribution files.
+
 ## [0.5.150] - 2026-11-17
 
 ### Features
