@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.150] - 2026-11-17
+
+### Features
+
+#### Models & Routing
+- **Universal Dot-Dash Model Equivalence**: Added `normalizeModelCompareKey` to unify dot and dash version matching across capabilities resolution, standard model dictionary, router rule matching, tool mappings, proxy helpers, account model repositories, and usage pricing candidate extraction.
+- **Scanned Account Models in Listings**: Merged active account-scanned models into `/api/models/available` and `/v1/models` endpoints (including account-only providers with active scanned models) and updated `ModelSelectModal` to reflect scanned model availability.
+
+#### MITM Interceptor & Security
+- **Dedicated MITM System API Key**: Added persistent `getOrCreateMitmApiKey` in `SettingsRepository` for local gateway routing and connection tests, and protected system-managed keys from deletion or deactivation across storage and the `EndpointTab` / `MitmTab` UI.
+
+#### Providers (Antigravity)
+- **Claude 5.5 Max Models & Agent Update**: Added `claude-sonnet-5-5-max` and `claude-opus-5-5-max` model definitions, updated MITM tool config routing and regex rules for max thinking variants, and bumped Antigravity Hub User-Agent to `antigravity/hub/2.32.1`.
+
+### Fixes
+
+#### Providers & Configuration Persistence
+- **Strategy Column Migration & Safe Persistence**: Added schema migration for `strategy` and `sticky_limit` columns on legacy databases, tracked detail load state in provider detail view to prevent premature overwrites, and added UI rollback on failed updates.
+- **Registry Alias Resolution**: Canonicalized provider IDs from registry aliases during retrieval, creation, and strategy updates while preserving existing provider settings.
+- **Zero Priority Handling**: Allowed `0` as a valid provider priority instead of falling back to default `10`.
+- **Endpoint Settings & Header Preservation**: Prioritized database endpoint settings (`host`, `port`) during CLI start/restart lifecycle, preserved alternative supported provider formats and single-default-header customizations during registry sync, and tracked initial core provider seeding in settings.
+
+#### Models & UI
+- **Slash-Namespaced Model IDs**: Validated provider prefixes against known registry and database providers before splitting on `/`, preserving aggregator model paths, fixing prefix suppression in `ModelSelectModal`, and displaying actual model names in `ComboFormModal`.
+
+### Refactoring
+
+#### Providers
+- **Google AI Studio Branding**: Renamed `Google Gemini` provider display name, runtime class, and connection error messages to `Google AI Studio`.
+
 ## [0.5.146] - 2026-11-15
 
 ### Features
