@@ -9,7 +9,7 @@ export const metadata: ProviderRegistryItem = {
     "Tokens (Daily)"
   ],
   id: "gemini",
-  name: "Google Gemini",
+  name: "Google AI Studio",
   alias: "gemini",
   color: "#4285F4",
   image: "/assets/providers/gemini/icon.png",

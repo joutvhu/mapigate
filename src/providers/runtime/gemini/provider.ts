@@ -82,7 +82,7 @@ function sanitizeGeminiOpenAiPayload(payload: any): any {
 
 export class GeminiProvider extends OpenAiCompatibleProvider {
   public override readonly id = "gemini";
-  public override readonly name = "Google Gemini";
+  public override readonly name = "Google AI Studio";
   public override readonly defaultFormat = "openai";
 
   public override supportsQuota(): boolean {
@@ -202,7 +202,7 @@ export class GeminiProvider extends OpenAiCompatibleProvider {
           const msg = err instanceof Error ? err.message : String(err);
           return {
             success: false,
-            error: `Failed to connect to Google Gemini: ${msg}`,
+            error: `Failed to connect to Google AI Studio: ${msg}`,
           };
         }
       }
