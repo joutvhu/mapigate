@@ -1,7 +1,7 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 
-export const ANTIGRAVITY_IDE_VERSION = "2.31.2";
-export const ANTIGRAVITY_USER_AGENT = "antigravity/hub/2.31.2 darwin/arm64";
+export const ANTIGRAVITY_IDE_VERSION = "2.32.1";
+export const ANTIGRAVITY_USER_AGENT = "antigravity/hub/2.32.1 darwin/arm64";
 export const ANTIGRAVITY_LOAD_PROJECT_URL = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 export const ANTIGRAVITY_QUOTA_MODELS_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 export const ANTIGRAVITY_QUOTA_SUMMARY_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";
@@ -89,10 +89,12 @@ export const IMPORTANT_MODELS = [
   "gemini-3.1-pro-high",
   "gemini-pro-agent",
   "gemini-3.1-pro-low",
+  "claude-sonnet-5-5-max",
   "claude-sonnet-5-5-high",
   "claude-sonnet-5-5-medium",
   "claude-sonnet-5-5-low",
   "claude-sonnet-5-5",
+  "claude-opus-5-5-max",
   "claude-opus-5-5-high",
   "claude-opus-5-5-medium",
   "claude-opus-5-5-low",
