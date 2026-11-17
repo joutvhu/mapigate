@@ -91,13 +91,13 @@ export function autoDetectFilter(text: string): FilterFunction | null {
     return readNumbered;
   }
 
-  // Fallback: dedupLog for generic multi-line noise with duplicates
-  if (nonEmpty.length >= 5) return dedupLog;
-
-  // Last resort: big blob with no structure — smart truncate ONLY if not source code (RTK-03, #4559)
+  // Big blob with no structure — smart truncate ONLY if not source code (RTK-03, #4559)
   if (text.split("\n").length >= SMART_TRUNCATE_MIN_LINES && !looksLikeSourceCode(head)) {
     return smartTruncate;
   }
+
+  // Fallback: dedupLog for generic multi-line noise with duplicates (skip unnumbered source code)
+  if (nonEmpty.length >= 5 && !looksLikeSourceCode(head)) return dedupLog;
 
   return null;
 }

@@ -4,9 +4,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { TLS_ECDH_CURVE } from "../src/shared/utils/dnsResolver.js";
 import { autoDetectFilter } from "../src/core/tokenSaver/methods/rtk/autodetect.js";
-import { grep } from "../src/core/tokenSaver/methods/rtk/filters/grep.js";
+import { grep, parseGrepLine } from "../src/core/tokenSaver/methods/rtk/filters/grep.js";
 import { dedupLog } from "../src/core/tokenSaver/methods/rtk/filters/dedupLog.js";
-import { DEDUP_LINE_MAX } from "../src/core/tokenSaver/methods/rtk/constants.js";
+import { DEDUP_LINE_MAX, SMART_TRUNCATE_MIN_LINES } from "../src/core/tokenSaver/methods/rtk/constants.js";
 
 test("dnsResolver - TLS_ECDH_CURVE defaults to X25519:prime256v1:secp384r1", () => {
   if (!process.env.MAPIGATE_TLS_ECDH_CURVE) {
@@ -64,4 +64,39 @@ test("RTK dedupLog - truncation marker reports omitted line count", () => {
   const out = dedupLog(lines.join("\n"));
 
   assert.ok(out.includes(`... (truncated at ${DEDUP_LINE_MAX} lines, 25 lines omitted)`));
+});
+
+test("RTK grep & autodetect - supports Windows drive-letter paths", () => {
+  assert.deepEqual(
+    parseGrepLine("C:\\Users\\dev\\project\\file.ts:42:const x = 1;"),
+    ["C:\\Users\\dev\\project\\file.ts", "42", "const x = 1;"]
+  );
+  assert.equal(parseGrepLine("C:\\Users\\dev\\project\\file.ts"), null);
+
+  const winGrep = [
+    "C:\\Users\\dev\\project\\a.ts:10:export const a = 1;",
+    "C:\\Users\\dev\\project\\a.ts:20:export const b = 2;",
+    "C:\\Users\\dev\\project\\b.ts:5:import { a } from './a';",
+  ].join("\n");
+
+  assert.equal(autoDetectFilter(winGrep)?.filterName, "grep");
+  assert.ok(grep(winGrep).includes("3 matches in 2F:"));
+});
+
+test("RTK autodetect - smartTruncate is reachable before dedupLog and unnumbered source code is not routed to dedupLog", () => {
+  const bigUnstructured = Array.from(
+    { length: SMART_TRUNCATE_MIN_LINES + 10 },
+    (_, i) => `record_${i} value=${i * 2}`
+  ).join("\n");
+  assert.equal(autoDetectFilter(bigUnstructured)?.filterName, "smart-truncate");
+
+  const unnumberedSource = [
+    "import { foo } from './foo.js';",
+    "export function bar() {",
+    "  const a = 1;",
+    "  const b = 2;",
+    "  return foo(a + b);",
+    "}",
+  ].join("\n");
+  assert.equal(autoDetectFilter(unnumberedSource), null);
 });

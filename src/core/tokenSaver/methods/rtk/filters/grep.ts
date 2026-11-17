@@ -5,7 +5,8 @@ import { GREP_MIN_HIT_RATIO, GREP_PER_FILE_MAX } from "../constants.js";
 const RE_TIMESTAMP_PREFIX = /^\d{4}-\d{2}-\d{2}[T ]\d{2}$/;
 
 export function parseGrepLine(line: string): [string, string, string] | null {
-  const first = line.indexOf(":");
+  const startIdx = /^[A-Za-z]:[\\/]/.test(line) ? 2 : 0;
+  const first = line.indexOf(":", startIdx);
   if (first === -1) return null;
   const second = line.indexOf(":", first + 1);
   if (second === -1) return null;

@@ -100,6 +100,12 @@ test("PR #5636 - translateAnthropicToOpenAi maps tool_choice variants", () => {
     translateAnthropicToOpenAi({ ...base, tool_choice: { type: "tool", name: "read_file" } }).tool_choice,
     { type: "function", function: { name: "read_file" } }
   );
+  const noParallel = translateAnthropicToOpenAi({
+    ...base,
+    tool_choice: { type: "auto", disable_parallel_tool_use: true },
+  });
+  assert.equal(noParallel.tool_choice, "auto");
+  assert.equal(noParallel.parallel_tool_calls, false);
 });
 
 test("PR #5636 - repairPartialToolResponses inserts placeholder for missing parallel tool response", () => {
@@ -253,6 +259,7 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
         { role: "system", content: "Be concise" },
         { role: "user", content: "Hi" },
       ],
+      tool_choice: "auto",
       max_tokens: 100,
     },
     "claude-sonnet-4-5",
@@ -260,6 +267,7 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
   );
   assert.equal(payload.instructions, "Be concise");
   assert.equal(payload.input.length, 1);
+  assert.equal(payload.tool_choice, "auto");
   assert.equal(payload.max_output_tokens, 100);
 
   const openAi = responsesApiToOpenAiResponse(
@@ -328,4 +336,46 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
   assert.equal(sentStatus, 200);
   assert.equal(sentBody.type, "message");
   assert.equal(sentBody.content[0].text, "Recovered");
+
+  // Non-streaming zero-content response must NOT send headers/body to res (prevents ERR_HTTP_HEADERS_SENT in combo failover)
+  let zeroSent = false;
+  const zeroRes: any = {
+    status() {
+      zeroSent = true;
+      return this;
+    },
+    json() {
+      zeroSent = true;
+      return this;
+    },
+  };
+  const zeroResult = await executeKiroCreateResponse({
+    context: {
+      req: { headers: {}, body: {} } as any,
+      res: zeroRes,
+      targetModel: "claude-sonnet-4-5",
+      clientFormat: "openai",
+      targetFormat: "kiro",
+      body: { messages: [{ role: "user", content: "Hi" }], stream: false },
+      requestId: "req_test_zero",
+      startTime: Date.now(),
+      clientTool: "claude",
+      rawModel: "claude-sonnet-4-5",
+      rtkStats: { compressedTokens: 0, tokensSaved: 0 },
+    },
+    upstreamModel: "claude-sonnet-4-5",
+    region: "us-east-1",
+    headers: { Authorization: "Bearer test" },
+    effectiveProxy: "",
+    isStreaming: false,
+    retryDelayMs: 0,
+    fetchFn: async () =>
+      new Response(
+        JSON.stringify({ id: "resp_empty", output: [], usage: { input_tokens: 5, output_tokens: 0 } }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ),
+  });
+  assert.equal(zeroResult.ok, false);
+  assert.equal(zeroResult.status, 502);
+  assert.equal(zeroSent, false);
 });

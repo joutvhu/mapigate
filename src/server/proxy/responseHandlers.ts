@@ -10,7 +10,7 @@ import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { extractUsageTokens } from "../../core/usage/tokenExtractor.js";
-import { isZeroContentResponse } from "../../providers/composite/combo/fallbackStrategy.js";
+import { isZeroContentResponse } from "../../core/adapters/helpers/zeroContentCheck.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
