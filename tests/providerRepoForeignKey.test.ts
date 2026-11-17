@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import app from "../src/server/index.js";
 import { ProviderRepository } from "../src/storage/repositories/providerRepo.js";
+import { getDatabase } from "../src/storage/database.js";
 import { getRegistryProvider } from "../src/shared/constants/providerRegistry.js";
 
 test("Unit - ensureProviderExists for registry provider creates with registry defaults when missing from DB", () => {
@@ -284,6 +285,8 @@ test("Integration - POST /api/providers/:id/accounts/bulk auto-provisions non-ex
 });
 
 test("Unit - ProviderRepository.seedDefaultProviders pre-seeds core coding providers", () => {
+  // Reset initial-seed flag so this test verifies first-boot seeding regardless of prior tests
+  getDatabase().run("DELETE FROM settings WHERE key = 'core_providers_seeded'");
   ProviderRepository.seedDefaultProviders();
 
   const coreProviders = ["claude", "cursor", "codex", "kiro", "antigravity", "github", "openai", "deepseek", "gemini"];
