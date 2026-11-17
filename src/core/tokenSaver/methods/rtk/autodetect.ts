@@ -1,5 +1,6 @@
 import {
   DETECT_WINDOW,
+  GREP_MIN_HIT_RATIO,
   READ_NUMBERED_MIN_HIT_RATIO,
   SMART_TRUNCATE_MIN_LINES,
   type FilterFunction,
@@ -9,7 +10,7 @@ import { gitStatus } from "./filters/gitStatus.js";
 import { gitLog } from "./filters/gitLog.js";
 import { buildOutput } from "./filters/buildOutput.js";
 import { terminalLogs } from "./filters/terminalLogs.js";
-import { grep } from "./filters/grep.js";
+import { grep, parseGrepLine } from "./filters/grep.js";
 import { find } from "./filters/find.js";
 import { dedupLog } from "./filters/dedupLog.js";
 import { ls } from "./filters/ls.js";
@@ -70,9 +71,8 @@ export function autoDetectFilter(text: string): FilterFunction | null {
   const lines = head.split("\n");
   const nonEmpty = lines.filter((l) => l.trim().length > 0);
 
-  // Rust grep rule: first 5 non-empty lines, ANY matches "file:number:content"
-  const first5 = nonEmpty.slice(0, 5);
-  if (first5.some(isGrepLine)) return grep;
+  // Require a clear majority of non-empty lines to parse as grep hits
+  if (isMostlyGrep(nonEmpty)) return grep;
 
   // Rust find rule: ALL non-empty lines path-like (no ':'), >=3 lines
   if (nonEmpty.length >= 3 && nonEmpty.every(isPathLike)) return find;
@@ -102,13 +102,11 @@ export function autoDetectFilter(text: string): FilterFunction | null {
   return null;
 }
 
-function isGrepLine(line: string): boolean {
-  const first = line.indexOf(":");
-  if (first === -1) return false;
-  const second = line.indexOf(":", first + 1);
-  if (second === -1) return false;
-  const lineno = line.slice(first + 1, second);
-  return /^\d+$/.test(lineno);
+function isMostlyGrep(nonEmpty: string[]): boolean {
+  if (nonEmpty.length === 0) return false;
+  const sample = nonEmpty.slice(0, 100);
+  const hits = sample.filter((l) => parseGrepLine(l) !== null).length;
+  return hits / sample.length >= GREP_MIN_HIT_RATIO;
 }
 
 function isPathLike(line: string): boolean {

@@ -171,6 +171,8 @@ test("ConnectionCooldownManager - AWS decorrelated jitter and terminal states", 
   assert.equal(isTerminalError(403, "Account suspended for violation"), true);
   assert.equal(isTerminalError(403, "Account banned"), true);
   assert.equal(isTerminalError(403, "API key revoked"), true);
+  assert.equal(isTerminalError(403, "Antigravity error: tos_violation"), true);
+  assert.equal(isTerminalError(403, "Account requires validation_required"), true);
   // Non-terminal 403 (quota/balance)
   assert.equal(isTerminalError(403, "Resource has been exhausted (quota)"), false);
   assert.equal(isTerminalError(429), false);

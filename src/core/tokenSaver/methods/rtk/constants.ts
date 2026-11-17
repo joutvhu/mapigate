@@ -61,6 +61,9 @@ export const SMART_TRUNCATE_MIN_LINES = 250; // only kick in above this
 // readNumbered (files with "  N|content" lines, e.g. Cursor read_file)
 export const READ_NUMBERED_MIN_HIT_RATIO = 0.7;
 
+// grep (files with "file:lineno:content" lines)
+export const GREP_MIN_HIT_RATIO = 0.6;
+
 // Filter name strings (Rust parity + JS extras)
 export const FILTERS = {
   GIT_DIFF: "git-diff",

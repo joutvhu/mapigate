@@ -49,7 +49,9 @@ export function isTerminalError(status: number, errorText?: string): boolean {
       lower.includes("account disabled") ||
       lower.includes("account blocked") ||
       lower.includes("key deleted") ||
-      lower.includes("terminated")
+      lower.includes("terminated") ||
+      lower.includes("tos_violation") ||
+      lower.includes("validation_required")
     ) {
       return true;
     }

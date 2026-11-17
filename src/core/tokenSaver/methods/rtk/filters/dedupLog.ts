@@ -14,7 +14,8 @@ export function dedupLog(input: string): string {
     }
   };
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (line.trim() === "") {
       if (blankStreak < 1) out.push(line);
       blankStreak += 1;
@@ -33,7 +34,8 @@ export function dedupLog(input: string): string {
     prev = line;
     runCount = 1;
     if (out.length >= DEDUP_LINE_MAX) {
-      out.push(`... (truncated at ${DEDUP_LINE_MAX} lines)`);
+      const omitted = lines.length - i - 1;
+      out.push(`... (truncated at ${DEDUP_LINE_MAX} lines, ${omitted} lines omitted)`);
       return out.join("\n");
     }
   }

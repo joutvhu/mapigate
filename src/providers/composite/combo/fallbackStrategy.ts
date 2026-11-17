@@ -26,6 +26,9 @@ export function checkFallbackError(
   status: number,
   errorText?: string
 ): FallbackDecision {
+  if (status === 499) {
+    return { shouldFallback: false, cooldownMs: 0, requestScoped: false };
+  }
   if (status === 429) {
     return { shouldFallback: true, cooldownMs: 1500 };
   }

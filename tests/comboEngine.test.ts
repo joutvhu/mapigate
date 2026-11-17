@@ -208,3 +208,28 @@ test("ComboEngine - handleFusionChat parallel fan-out and Judge synthesis", asyn
   assert.ok(judgePromptPassed.includes("Analysis from provider-2/expert-b"));
   assert.equal(result.text, "Final synthesized judgment from all panel experts.");
 });
+
+test("ComboEngine - checkFallbackError(499) does not fallback or mark requestScoped", async () => {
+  const decision = checkFallbackError(499, "Client closed request");
+  assert.deepEqual(decision, {
+    shouldFallback: false,
+    cooldownMs: 0,
+    requestScoped: false,
+  });
+
+  const attempted: string[] = [];
+  const res = await handleFallbackChat({
+    body: { messages: [{ role: "user", content: "hi" }] },
+    models: ["provider-1/model-a", "provider-2/model-b"],
+    comboName: "abort-499-combo",
+    comboStrategy: "fallback",
+    handleSingleModel: async (_body, modelStr) => {
+      attempted.push(modelStr);
+      return { ok: false, status: 499, error: "Client aborted" };
+    },
+  });
+
+  assert.equal(res.ok, false);
+  assert.equal(res.status, 499);
+  assert.deepEqual(attempted, ["provider-1/model-a"]);
+});

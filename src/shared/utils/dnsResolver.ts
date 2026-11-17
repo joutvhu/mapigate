@@ -7,8 +7,9 @@ const cachedTargetIPs: Record<string, { ip: string; ts: number }> = {};
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 // ISP DPI (e.g. VN -> api.anthropic.com) RSTs Node's default TLS ClientHello curve
-// list; a single X25519 curve rewrites the fingerprint enough to pass.
-export const TLS_ECDH_CURVE = process.env.MAPIGATE_TLS_ECDH_CURVE || "X25519";
+// list; keeping X25519 first rewrites the fingerprint enough to pass while
+// prime256v1:secp384r1 preserves compatibility with AWS OIDC / Kiro endpoints.
+export const TLS_ECDH_CURVE = process.env.MAPIGATE_TLS_ECDH_CURVE || "X25519:prime256v1:secp384r1";
 
 // Happy Eyeballs (RFC 8305): race IPv4/IPv6 with a 250ms fallback window.
 export const EYEBALLS_CONNECT = {
