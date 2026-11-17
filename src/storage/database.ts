@@ -382,4 +382,18 @@ function initSchema(db: DatabaseDriver) {
     CREATE INDEX IF NOT EXISTS idx_kv_store_scope ON kv_store(scope);
     CREATE INDEX IF NOT EXISTS idx_tool_mappings_tool ON tool_mappings(tool_id);
   `);
+
+  // Ensure legacy databases have strategy and sticky_limit columns on providers
+  try {
+    const cols = db.all<{ name: string }>("PRAGMA table_info(providers)");
+    const colNames = new Set(cols.map((c) => c.name));
+    if (!colNames.has("strategy")) {
+      db.exec("ALTER TABLE providers ADD COLUMN strategy TEXT");
+    }
+    if (!colNames.has("sticky_limit")) {
+      db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER");
+    }
+  } catch {
+    // Fail-open
+  }
 }

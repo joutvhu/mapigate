@@ -40,6 +40,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   const [catalogModels, setCatalogModels] = useState<RegistryModel[]>(registryItem?.models || []);
   const [providerStrategy, setProviderStrategy] = useState<string | null>(null);
   const [providerStickyLimit, setProviderStickyLimit] = useState<string>("1");
+  const [detailsLoaded, setDetailsLoaded] = useState<boolean>(false);
   const [thinkingMode, setThinkingMode] = useState(registryItem?.thinkingMode || "auto");
   const [thinkingOptions, setThinkingOptions] = useState<string[]>(
     registryItem?.thinkingOptions || ["auto", "none", "low", "medium", "high"]
@@ -116,6 +117,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   };
 
   const loadProviderDetails = useCallback(() => {
+    setDetailsLoaded(false);
     const regHeaders = registryItem?.defaultHeaders || {};
     const defaultHeadersArray = Object.entries(regHeaders).map(([k, v]) => ({
       key: k,
@@ -125,7 +127,10 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     const regModels = (registryItem?.models || []).map((m) => m.id);
 
     fetch(`/api/providers/${provider.id}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((data) => {
         if (data.format) setProviderFormat(data.format);
         if (Array.isArray(data.supportedFormats) && data.supportedFormats.length > 0) {
@@ -155,6 +160,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         if (data.stickyLimit != null) {
           setProviderStickyLimit(String(data.stickyLimit));
         }
+        setDetailsLoaded(true);
 
         // Custom Headers
         const customObj = data.userCustomHeaders !== undefined ? data.userCustomHeaders : (data.customHeaders || {});
@@ -205,9 +211,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     loadProviderDetails();
   }, [loadProviderDetails]);
 
-  const saveProviderStrategy = async (strategy: string | null, stickyLimit: string) => {
+  const saveProviderStrategy = async (
+    strategy: string | null,
+    stickyLimit: string,
+    prevStrategy: string | null,
+    prevStickyLimit: string
+  ) => {
     try {
-      await fetch(`/api/providers/${provider.id}/strategy`, {
+      const res = await fetch(`/api/providers/${provider.id}/strategy`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -215,8 +226,14 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           stickyLimit: strategy === "round-robin" ? Number(stickyLimit) || 1 : null,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      setDetailsLoaded(true);
     } catch (err) {
       console.warn("Failed to save provider strategy:", err);
+      setProviderStrategy(prevStrategy);
+      setProviderStickyLimit(prevStickyLimit);
     }
   };
 
@@ -459,8 +476,12 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           customHeaders: headersObj,
           proxyUrl: proxyUrl.trim() || undefined,
           thinkingMode,
-          strategy: providerStrategy,
-          stickyLimit: providerStrategy === "round-robin" ? Number(providerStickyLimit) || 1 : null,
+          ...(detailsLoaded
+            ? {
+                strategy: providerStrategy,
+                stickyLimit: providerStrategy === "round-robin" ? Number(providerStickyLimit) || 1 : null,
+              }
+            : {}),
           models: nextModels,
         }),
       });
@@ -501,8 +522,12 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
           customHeaders: headersObj,
           proxyUrl: proxyUrl.trim() || undefined,
           thinkingMode,
-          strategy: providerStrategy,
-          stickyLimit: providerStrategy === "round-robin" ? Number(providerStickyLimit) || 1 : null,
+          ...(detailsLoaded
+            ? {
+                strategy: providerStrategy,
+                stickyLimit: providerStrategy === "round-robin" ? Number(providerStickyLimit) || 1 : null,
+              }
+            : {}),
           models,
         }),
       });
@@ -714,13 +739,15 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
               <Select
                 value={providerStrategy || ""}
                 onChange={(val) => {
+                  const prevStrategy = providerStrategy;
+                  const prevSticky = providerStickyLimit;
                   const strategy = val || null;
                   setProviderStrategy(strategy);
                   const sticky = strategy === "round-robin" ? (providerStickyLimit || "1") : providerStickyLimit;
                   if (strategy === "round-robin" && !providerStickyLimit) {
                     setProviderStickyLimit("1");
                   }
-                  saveProviderStrategy(strategy, sticky);
+                  saveProviderStrategy(strategy, sticky, prevStrategy, prevSticky);
                 }}
                 options={[
                   { value: "", label: "Default (Global)" },
@@ -740,9 +767,10 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
                     min={1}
                     value={providerStickyLimit}
                     onChange={(e) => {
+                      const prevSticky = providerStickyLimit;
                       const val = e.target.value;
                       setProviderStickyLimit(val);
-                      saveProviderStrategy("round-robin", val);
+                      saveProviderStrategy("round-robin", val, providerStrategy, prevSticky);
                     }}
                     placeholder="1"
                     className="w-14 px-2 py-1 text-xs border border-[#1E293B] rounded-lg bg-[#0A0D14] text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
