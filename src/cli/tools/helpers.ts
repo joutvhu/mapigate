@@ -41,7 +41,7 @@ export function ensureBackup(file: string): void {
 
 export function writeJsonSafe(file: string, data: any): void {
   ensureBackup(file);
-  fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+  fs.writeFileSync(file, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
 }
 
 export function rewriteFileSafe(file: string, content: string): void {
@@ -49,7 +49,7 @@ export function rewriteFileSafe(file: string, content: string): void {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-  fs.writeFileSync(file, content, "utf8");
+  fs.writeFileSync(file, content, { encoding: "utf8", mode: 0o600 });
 }
 
 export function pruneTomlSection(tomlText: string, sectionHeader: string): string {
@@ -59,7 +59,7 @@ export function pruneTomlSection(tomlText: string, sectionHeader: string): strin
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    if (trimmed.startsWith("[") && trimmed.endsWith("]") && !line.slice(0, line.indexOf("[")).includes("=")) {
       const header = trimmed.slice(1, -1).trim();
       if (header === sectionHeader) {
         inSection = true;

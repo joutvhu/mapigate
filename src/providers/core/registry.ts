@@ -3,6 +3,7 @@ import { getRegistryProvider } from "./metadataRegistry.js";
 import { OpenAiCompatibleProvider } from "./base/openAiProvider.js";
 import { AnthropicCompatibleProvider } from "./base/anthropicProvider.js";
 import { registerAllGeneratedProviders } from "../generated/providersRegistry.js";
+import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 
 export class ProviderRegistry {
   private static initialized = false;
@@ -99,7 +100,7 @@ export class ProviderRegistry {
     // Dynamic catalog fallback instantiation
     const catalogItem = getRegistryProvider(canonicalId);
     if (catalogItem) {
-      const isAnthropic = catalogItem.format === "claude";
+      const isAnthropic = catalogItem.format === "claude" || (catalogItem.format as string) === "anthropic";
       const prov: IProvider = isAnthropic
         ? new AnthropicCompatibleProvider({
             id: catalogItem.id,
@@ -114,6 +115,20 @@ export class ProviderRegistry {
       this.providers.set(canonicalId, prov);
       return prov;
     }
+
+    // Custom provider lookup from DB before falling back to generic OpenAI provider
+    try {
+      const dbProv = ProviderRepository.getProviderById(canonicalId) || ProviderRepository.getProviderById(lower);
+      if (dbProv && (dbProv.format === "claude" || (dbProv.format as string) === "anthropic")) {
+        const anthropicFallback = new AnthropicCompatibleProvider({
+          id: lower,
+          name: dbProv.name || providerId,
+          format: "claude",
+        });
+        this.providers.set(lower, anthropicFallback);
+        return anthropicFallback;
+      }
+    } catch {}
 
     // Default generic OpenAI compatible provider
     const fallback = new OpenAiCompatibleProvider({ id: lower, name: providerId, format: "openai" });

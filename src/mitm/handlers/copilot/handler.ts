@@ -6,8 +6,13 @@ export class CopilotMitmHandler implements IMitmHandler {
   public readonly id = "copilot";
 
   public canHandle(hostname: string, _url: string): boolean {
-    const host = (hostname || "").split(":")[0].toLowerCase();
-    return host.includes("githubcopilot") || host.includes("copilot");
+    const h = (hostname || "").split(":")[0].trim().toLowerCase();
+    return (
+      ["githubcopilot.com", "copilot-proxy.githubusercontent.com", "copilot-telemetry.github.com"].some(
+        (d) => h === d || h.endsWith("." + d)
+      ) ||
+      (h.endsWith(".github.com") && h.split(".")[0].startsWith("copilot"))
+    );
   }
 
   public async handle(context: MitmRequestContext): Promise<void> {

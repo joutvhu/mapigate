@@ -435,24 +435,32 @@ modelRouter.get("/available", (req, res) => {
 
 // POST save rule
 modelRouter.post("/rules", (req, res) => {
-  const body = req.body;
-  if (!body.alias || !body.targetModel || !body.targetProviderId) {
-    res.status(400).json({ error: "Alias, targetModel, and targetProviderId are required." });
-    return;
+  try {
+    const body = req.body || {};
+    if (!body.alias || !body.targetModel || !body.targetProviderId) {
+      res.status(400).json({ error: "Alias, targetModel, and targetProviderId are required." });
+      return;
+    }
+
+    if (body.targetProviderId && body.targetProviderId !== "combo") {
+      ProviderRepository.ensureProviderExists(body.targetProviderId);
+    }
+
+    const id = body.id || `rule_${crypto.randomUUID().slice(0, 8)}`;
+    const rule = {
+      id,
+      alias: body.alias,
+      targetModel: body.targetModel,
+      targetProviderId: body.targetProviderId,
+      fallbackRules: Array.isArray(body.fallbackRules) ? body.fallbackRules : [],
+      isDefault: Boolean(body.isDefault),
+    };
+
+    const saved = ModelRepository.saveRule(rule);
+    res.json(saved || rule);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to save model rule" });
   }
-
-  const id = body.id || `rule_${crypto.randomUUID().slice(0, 8)}`;
-  const rule = {
-    id,
-    alias: body.alias,
-    targetModel: body.targetModel,
-    targetProviderId: body.targetProviderId,
-    fallbackRules: Array.isArray(body.fallbackRules) ? body.fallbackRules : [],
-    isDefault: Boolean(body.isDefault),
-  };
-
-  ModelRepository.saveRule(rule);
-  res.json(rule);
 });
 
 // DELETE rule

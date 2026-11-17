@@ -279,10 +279,12 @@ export interface ResponsesStreamState {
   started: boolean;
   responseId: string;
   created: number;
+  nextOutputIndex: number;
   msgItemAdded: Record<number, boolean>;
   msgContentAdded: Record<number, boolean>;
   msgTextBuf: Record<number, string>;
   msgItemDone: Record<number, boolean>;
+  msgOutputIndex: Record<number, number>;
   reasoningId: string | null;
   reasoningIndex: number;
   reasoningPartAdded: boolean;
@@ -295,6 +297,7 @@ export interface ResponsesStreamState {
   funcArgsBuf: Record<number, string>;
   funcItemDone: Record<number, boolean>;
   funcArgsDone: Record<number, boolean>;
+  funcOutputIndex: Record<number, number>;
   completedOutputItems: Map<number, any>;
   completedSent: boolean;
   responsesUsage: any | null;
@@ -308,10 +311,12 @@ export function createResponsesStreamState(requestId?: string, toolNames?: Set<s
     started: false,
     responseId: requestId ? `resp_${requestId}` : `resp_${Date.now()}`,
     created: Math.floor(Date.now() / 1000),
+    nextOutputIndex: 0,
     msgItemAdded: {},
     msgContentAdded: {},
     msgTextBuf: {},
     msgItemDone: {},
+    msgOutputIndex: {},
     reasoningId: null,
     reasoningIndex: 0,
     reasoningPartAdded: false,
@@ -324,6 +329,7 @@ export function createResponsesStreamState(requestId?: string, toolNames?: Set<s
     funcArgsBuf: {},
     funcItemDone: {},
     funcArgsDone: {},
+    funcOutputIndex: {},
     completedOutputItems: new Map(),
     completedSent: false,
     responsesUsage: null,
@@ -361,22 +367,27 @@ function collectCompletedOutputItems(state: ResponsesStreamState): any[] {
 }
 
 function emitTextContent(state: ResponsesStreamState, emit: (event: string, data: any) => void, idx: number, content: string): void {
-  const msgId = `msg_${state.responseId}_${idx}`;
   if (!state.msgItemAdded[idx]) {
     state.msgItemAdded[idx] = true;
+    state.msgOutputIndex[idx] = state.nextOutputIndex++;
+    const outIdx = state.msgOutputIndex[idx];
+    const msgId = `msg_${state.responseId}_${outIdx}`;
     emit("response.output_item.added", {
       type: "response.output_item.added",
-      output_index: idx,
+      output_index: outIdx,
       item: { id: msgId, type: "message", content: [], role: "assistant" },
     });
   }
+
+  const outIdx = state.msgOutputIndex[idx] ?? idx;
+  const msgId = `msg_${state.responseId}_${outIdx}`;
 
   if (!state.msgContentAdded[idx]) {
     state.msgContentAdded[idx] = true;
     emit("response.content_part.added", {
       type: "response.content_part.added",
       item_id: msgId,
-      output_index: idx,
+      output_index: outIdx,
       content_index: 0,
       part: { type: "output_text", annotations: [], logprobs: [], text: "" },
     });
@@ -385,7 +396,7 @@ function emitTextContent(state: ResponsesStreamState, emit: (event: string, data
   emit("response.output_text.delta", {
     type: "response.output_text.delta",
     item_id: msgId,
-    output_index: idx,
+    output_index: outIdx,
     content_index: 0,
     delta: content,
     logprobs: [],
@@ -397,13 +408,14 @@ function emitTextContent(state: ResponsesStreamState, emit: (event: string, data
 function closeMessage(state: ResponsesStreamState, emit: (event: string, data: any) => void, idx: number): void {
   if (state.msgItemAdded[idx] && !state.msgItemDone[idx]) {
     state.msgItemDone[idx] = true;
+    const outIdx = state.msgOutputIndex[idx] ?? idx;
     const fullText = state.msgTextBuf[idx] || "";
-    const msgId = `msg_${state.responseId}_${idx}`;
+    const msgId = `msg_${state.responseId}_${outIdx}`;
 
     emit("response.output_text.done", {
       type: "response.output_text.done",
       item_id: msgId,
-      output_index: idx,
+      output_index: outIdx,
       content_index: 0,
       text: fullText,
       logprobs: [],
@@ -412,7 +424,7 @@ function closeMessage(state: ResponsesStreamState, emit: (event: string, data: a
     emit("response.content_part.done", {
       type: "response.content_part.done",
       item_id: msgId,
-      output_index: idx,
+      output_index: outIdx,
       content_index: 0,
       part: { type: "output_text", annotations: [], logprobs: [], text: fullText },
     });
@@ -426,29 +438,30 @@ function closeMessage(state: ResponsesStreamState, emit: (event: string, data: a
 
     emit("response.output_item.done", {
       type: "response.output_item.done",
-      output_index: idx,
+      output_index: outIdx,
       item,
     });
 
-    recordCompletedOutputItem(state, idx, item);
+    recordCompletedOutputItem(state, outIdx, item);
   }
 }
 
-function startReasoning(state: ResponsesStreamState, emit: (event: string, data: any) => void, idx: number): void {
+function startReasoning(state: ResponsesStreamState, emit: (event: string, data: any) => void, _idx: number): void {
   if (!state.reasoningId) {
-    state.reasoningId = `rs_${state.responseId}_${idx}`;
-    state.reasoningIndex = idx;
+    const outIdx = state.nextOutputIndex++;
+    state.reasoningId = `rs_${state.responseId}_${outIdx}`;
+    state.reasoningIndex = outIdx;
 
     emit("response.output_item.added", {
       type: "response.output_item.added",
-      output_index: idx,
+      output_index: outIdx,
       item: { id: state.reasoningId, type: "reasoning", summary: [] },
     });
 
     emit("response.reasoning_summary_part.added", {
       type: "response.reasoning_summary_part.added",
       item_id: state.reasoningId,
-      output_index: idx,
+      output_index: outIdx,
       summary_index: 0,
       part: { type: "summary_text", text: "" },
     });
@@ -515,9 +528,11 @@ function emitToolCall(state: ResponsesStreamState, emit: (event: string, data: a
   const callId = state.funcCallIds[tcIdx];
   if (!state.funcItemAdded[tcIdx] && callId && state.funcNames[tcIdx]) {
     state.funcItemAdded[tcIdx] = true;
+    state.funcOutputIndex[tcIdx] = state.nextOutputIndex++;
+    const outIdx = state.funcOutputIndex[tcIdx];
     emit("response.output_item.added", {
       type: "response.output_item.added",
-      output_index: tcIdx,
+      output_index: outIdx,
       item: {
         id: `fc_${callId}`,
         type: "function_call",
@@ -533,10 +548,11 @@ function emitToolCall(state: ResponsesStreamState, emit: (event: string, data: a
   if (tc.function?.arguments) {
     const refCallId = state.funcCallIds[tcIdx] || newCallId;
     if (state.funcItemAdded[tcIdx] && refCallId) {
+      const outIdx = state.funcOutputIndex[tcIdx] ?? tcIdx;
       emit("response.function_call_arguments.delta", {
         type: "response.function_call_arguments.delta",
         item_id: `fc_${refCallId}`,
-        output_index: tcIdx,
+        output_index: outIdx,
         delta: tc.function.arguments,
       });
     }
@@ -547,11 +563,12 @@ function emitToolCall(state: ResponsesStreamState, emit: (event: string, data: a
 function closeToolCall(state: ResponsesStreamState, emit: (event: string, data: any) => void, idx: number): void {
   const callId = state.funcCallIds[idx];
   if (callId && !state.funcItemDone[idx]) {
+    const outIdx = state.funcOutputIndex[idx] ?? idx;
     const args = state.funcArgsBuf[idx] || "{}";
     emit("response.function_call_arguments.done", {
       type: "response.function_call_arguments.done",
       item_id: `fc_${callId}`,
-      output_index: idx,
+      output_index: outIdx,
       arguments: args,
     });
 
@@ -565,11 +582,11 @@ function closeToolCall(state: ResponsesStreamState, emit: (event: string, data: 
 
     emit("response.output_item.done", {
       type: "response.output_item.done",
-      output_index: idx,
+      output_index: outIdx,
       item,
     });
 
-    recordCompletedOutputItem(state, idx, item);
+    recordCompletedOutputItem(state, outIdx, item);
     state.funcItemDone[idx] = true;
     state.funcArgsDone[idx] = true;
   }
@@ -578,6 +595,7 @@ function closeToolCall(state: ResponsesStreamState, emit: (event: string, data: 
 function sendCompleted(state: ResponsesStreamState, emit: (event: string, data: any) => void): void {
   if (!state.completedSent) {
     state.completedSent = true;
+    state.completionPending = false;
     emit("response.completed", {
       type: "response.completed",
       response: {
@@ -748,7 +766,11 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
     closeReasoning(state, emit);
     for (const i of Object.keys(state.funcCallIds).map(Number)) closeToolCall(state, emit, i);
 
-    sendCompleted(state, emit);
+    if (!state.responsesUsage && chunk.usage === null) {
+      state.completionPending = true;
+    } else {
+      sendCompleted(state, emit);
+    }
   }
 
   return events;
@@ -809,13 +831,15 @@ export function convertOpenAiResponseToResponsesApi(openAiResponse: any): any {
   }
 
   if (Array.isArray(message.tool_calls)) {
-    for (const tc of message.tool_calls) {
+    for (let i = 0; i < message.tool_calls.length; i++) {
+      const tc = message.tool_calls[i];
+      const callId = tc.id || `call_${Date.now()}_${i}`;
       output.push({
-        id: tc.id || `call_${Date.now()}`,
+        id: callId.startsWith("fc_") ? callId : `fc_${callId}`,
         type: "function_call",
         status: "completed",
         name: tc.function?.name || "",
-        call_id: tc.id || "",
+        call_id: callId,
         arguments: tc.function?.arguments || "{}",
       });
     }

@@ -1,4 +1,5 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
+import { extractTokenFromAccount } from "../../core/base/baseProvider.js";
 import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import { metadata } from "./metadata.js";
 
@@ -18,7 +19,7 @@ export class ClineProvider extends OpenAiCompatibleProvider {
 
   public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
     const headers = await super.buildHeaders(context);
-    const rawApiKey = context.account?.rawApiKey || "";
+    const rawApiKey = extractTokenFromAccount(context.account) || context.account?.rawApiKey || "";
     if (rawApiKey) {
       const accessToken = getClineAccessToken(rawApiKey);
       if (accessToken) {

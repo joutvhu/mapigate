@@ -1,5 +1,16 @@
 import type { ProviderRegistryItem } from "../../providers/core/types.js";
 
+const VALID_REGION_RE = /^[a-zA-Z0-9._-]+$/;
+
+function extractUrlHost(urlStr?: string): string {
+  if (!urlStr) return "";
+  try {
+    return new URL(urlStr).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Resolves candidate endpoint URLs for model discovery from a given baseUrl or provider info.
  */
@@ -13,6 +24,9 @@ export function resolveCandidateUrls(
   let cleanBase = (baseUrl || "").trim().replace(/\/+$/, "");
   if (!cleanBase) return [];
 
+  const safeRegion =
+    region && VALID_REGION_RE.test(region.trim()) ? region.trim().toLowerCase() : undefined;
+
   const candidates: string[] = [];
   const add = (url: string) => {
     const trimmed = url.trim().replace(/\/+$/, "");
@@ -22,6 +36,16 @@ export function resolveCandidateUrls(
   };
 
   let lowerBase = cleanBase.toLowerCase();
+  const baseHost = extractUrlHost(cleanBase);
+  const regBaseHost = extractUrlHost(registryItem?.baseUrl);
+  const regModelsHost = extractUrlHost(registryItem?.modelsUrl);
+  const regValidateHost = extractUrlHost(registryItem?.validateUrl);
+  const isCustomHost = Boolean(
+    baseHost &&
+      ((regBaseHost && baseHost !== regBaseHost) ||
+        (!regBaseHost && regModelsHost && baseHost !== regModelsHost))
+  );
+
   const isOllama =
     format === "ollama" ||
     lowerBase.includes(":11434") ||
@@ -39,7 +63,7 @@ export function resolveCandidateUrls(
 
   if (isTokenPlan && lowerBase.includes("xiaomimimo.com")) {
     const urlRegionMatch = lowerBase.match(/token-plan-([a-z0-9_-]+)\.xiaomimimo\.com/);
-    const targetRegion = (region || (urlRegionMatch ? urlRegionMatch[1] : "") || "sgp").toLowerCase().trim();
+    const targetRegion = (safeRegion || (urlRegionMatch ? urlRegionMatch[1] : "") || "sgp").toLowerCase().trim();
 
     add(`https://token-plan-${targetRegion}.xiaomimimo.com/v1/models`);
     const fallbackRegions = ["sgp", "cn", "ams"];
@@ -58,7 +82,7 @@ export function resolveCandidateUrls(
     registryItem?.id === "antigravity" ||
     lowerBase.includes("cloudcode-pa.googleapis.com");
 
-  if (isAntigravity) {
+  if (isAntigravity && !isCustomHost) {
     add("https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels");
     add("https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist");
     return candidates;
@@ -71,7 +95,7 @@ export function resolveCandidateUrls(
     registryItem?.id === "codex" ||
     lowerBase.includes("chatgpt.com/backend-api");
 
-  if (isCodex) {
+  if (isCodex && !isCustomHost) {
     add("https://chatgpt.com/backend-api/codex/models?client_version=0.159.0");
     add("https://chatgpt.com/backend-api/models");
     add("https://chatgpt.com/backend-api/wham/usage");
@@ -92,7 +116,7 @@ export function resolveCandidateUrls(
     registryItem?.alias === "iteracompute" ||
     lowerBase.includes("iteracompute.com");
 
-  if (isIteraCompute) {
+  if (isIteraCompute && !isCustomHost) {
     add("https://api.iteracompute.com/v1/models");
     if (cleanBase.endsWith("/v1")) {
       add(`${cleanBase}/models`);
@@ -110,7 +134,7 @@ export function resolveCandidateUrls(
     !providerId?.startsWith("opencode-go") &&
     !providerId?.startsWith("opencode-zen");
 
-  if (isOpenCodeFree) {
+  if (isOpenCodeFree && !isCustomHost) {
     add("https://opencode.ai/zen/v1/models");
     add(`${cleanBase}/zen/v1/models`);
     add(`${cleanBase}/v1/models`);
@@ -130,8 +154,8 @@ export function resolveCandidateUrls(
     lowerBase.includes("codewhisperer") ||
     lowerBase.includes("kiro.dev");
 
-  if (isAwsCodeWhisperer) {
-    const targetRegion = (region || "us-east-1").toLowerCase().trim();
+  if (isAwsCodeWhisperer && !isCustomHost) {
+    const targetRegion = safeRegion || "us-east-1";
     add(`https://codewhisperer.${targetRegion}.amazonaws.com`);
     add(`https://q.${targetRegion}.amazonaws.com`);
     if (lowerBase.endsWith("/generateassistantresponse")) {
@@ -173,10 +197,23 @@ export function resolveCandidateUrls(
     add(`${cleanBase}/models`);
   }
 
-  // 4. Registry modelsUrl or validateUrl fallback if it points to /models or /api/tags
-  if (registryItem?.modelsUrl) {
+  // 4. If custom host is provided, prioritize cleanBase endpoints and skip default cloud registry URLs
+  if (isCustomHost) {
+    if (lowerBase.endsWith("/v1")) {
+      add(`${cleanBase}/models`);
+      const parent = cleanBase.slice(0, cleanBase.length - "/v1".length);
+      add(`${parent}/models`);
+    } else {
+      add(`${cleanBase}/v1/models`);
+      add(`${cleanBase}/models`);
+    }
+    return candidates;
+  }
+
+  // 5. Registry modelsUrl or validateUrl fallback if it points to /models or /api/tags on the same host
+  if (registryItem?.modelsUrl && (!baseHost || !regModelsHost || baseHost === regModelsHost)) {
     add(registryItem.modelsUrl.trim());
-  } else if (registryItem?.validateUrl) {
+  } else if (registryItem?.validateUrl && (!baseHost || !regValidateHost || baseHost === regValidateHost)) {
     const vUrl = registryItem.validateUrl.trim();
     const isExternalXiaomiBypass =
       isTokenPlan && !lowerBase.includes("xiaomimimo.com") && vUrl.toLowerCase().includes("xiaomimimo.com");
@@ -185,7 +222,7 @@ export function resolveCandidateUrls(
     }
   }
 
-  // 5. Standard OpenAI / Anthropic compatible probing
+  // 6. Standard OpenAI / Anthropic compatible probing
   if (lowerBase.endsWith("/v1")) {
     add(`${cleanBase}/models`);
     const parent = cleanBase.slice(0, cleanBase.length - "/v1".length);

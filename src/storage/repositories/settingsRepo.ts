@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { getDatabase } from "../database.js";
+import { CryptoVault } from "../crypto/vault.js";
 import { DEFAULT_ALLOWED_HOSTS } from "../../shared/utils/security.js";
 import { DEFAULT_HOST, DEFAULT_PORT } from "../../shared/constants/index.js";
 import {
@@ -82,6 +83,7 @@ export interface MasterPasswordConfig {
   salt?: string;
   algorithm?: string;
   updatedAt?: number;
+  logoutAt?: number;
 }
 
 export const DEFAULT_MASTER_PASSWORD_CONFIG: MasterPasswordConfig = {
@@ -117,7 +119,19 @@ export class SettingsRepository {
 
   public static setSetting(key: string, value: any): void {
     const db = getDatabase();
-    const strVal = typeof value === "string" ? value : JSON.stringify(value);
+    let valToStore = value;
+    if (key === "gatewayApiKeys" && Array.isArray(value)) {
+      const vaultCipherRe = /^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i;
+      valToStore = value.map((k: any) => {
+        if (!k || typeof k !== "object" || typeof k.key !== "string" || !k.key) return k;
+        const isAlreadyEncrypted = vaultCipherRe.test(k.key);
+        return {
+          ...k,
+          key: isAlreadyEncrypted ? k.key : CryptoVault.encrypt(k.key),
+        };
+      });
+    }
+    const strVal = typeof valToStore === "string" ? valToStore : JSON.stringify(valToStore);
     db.run(
       `INSERT INTO settings (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
@@ -251,15 +265,22 @@ export class SettingsRepository {
     if (!Array.isArray(raw)) {
       return [];
     }
-    return raw.map((k: any) => ({
-      id: String(k.id),
-      key: String(k.key),
-      name: String(k.name || "Default Key"),
-      isActive: k.isActive !== false,
-      createdAt: Number(k.createdAt) || Date.now(),
-      lastUsedAt: k.lastUsedAt ? Number(k.lastUsedAt) : undefined,
-      isSystem: Boolean(k.isSystem || k.id === this.MITM_KEY_ID),
-    }));
+    const vaultCipherRe = /^[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/i;
+    return raw.map((k: any) => {
+      const rawKey = String(k.key || "");
+      const decryptedKey = vaultCipherRe.test(rawKey)
+        ? CryptoVault.decrypt(rawKey) || rawKey
+        : rawKey;
+      return {
+        id: String(k.id),
+        key: decryptedKey,
+        name: String(k.name || "Default Key"),
+        isActive: k.isActive !== false,
+        createdAt: Number(k.createdAt) || Date.now(),
+        lastUsedAt: k.lastUsedAt ? Number(k.lastUsedAt) : undefined,
+        isSystem: Boolean(k.isSystem || k.id === this.MITM_KEY_ID),
+      };
+    });
   }
 
   public static getOrCreateMitmApiKey(): GatewayApiKey {
@@ -437,6 +458,7 @@ export class SettingsRepository {
       salt: typeof raw.salt === "string" ? raw.salt : undefined,
       algorithm: typeof raw.algorithm === "string" ? raw.algorithm : "scrypt",
       updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : undefined,
+      logoutAt: typeof raw.logoutAt === "number" ? raw.logoutAt : undefined,
     };
   }
 
@@ -447,6 +469,7 @@ export class SettingsRepository {
       salt: config.salt,
       algorithm: config.algorithm || "scrypt",
       updatedAt: config.updatedAt || Date.now(),
+      logoutAt: typeof config.logoutAt === "number" ? config.logoutAt : undefined,
     };
     this.setSetting("masterPassword", updated);
     return updated;

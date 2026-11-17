@@ -82,185 +82,194 @@ export async function runProxyPipeline(
   const apiKeyId = req.apiKeyId;
   const apiKeyName = req.apiKeyName;
 
-  const { model: strippedModel, contextMarker, is1mContext } = stripModelContextMarker(body.model);
-  if (contextMarker && strippedModel) {
-    body.model = strippedModel;
-  }
-  const cleanModel = strippedModel || rawModel;
-
-  const tokenSaverSettings = SettingsRepository.getTokenSaverSettings();
-  const tokenSaverSummary = TokenSaverCoordinator.process(
-    body,
-    {
-      clientFormat,
-      targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
-      model: cleanModel,
-      clientTool,
-    },
-    tokenSaverSettings
-  );
-
-  const rtkStats = {
-    originalTokens: tokenSaverSummary.originalTokens,
-    compressedTokens: tokenSaverSummary.compressedTokens,
-    tokensSaved: tokenSaverSummary.tokensSaved,
+  let is1mContext = false;
+  let rtkStats = {
+    originalTokens: 0,
+    compressedTokens: 0,
+    tokensSaved: 0,
   };
+  let candidateModels: string[] = [rawModel];
+  let comboName = "";
+  let resolvedModel = rawModel;
 
-  if (tokenSaverSummary.tokensSaved > 0) {
-    const orig =
-      tokenSaverSummary.originalTokens ||
-      tokenSaverSummary.compressedTokens + tokenSaverSummary.tokensSaved;
-    const pct = orig > 0 ? Math.round((tokenSaverSummary.tokensSaved / orig) * 100) : 0;
-    logger.line(reqTag, LogSymbol.SAVER, `TOKEN SAVER: saved ${tokenSaverSummary.tokensSaved} tokens (-${pct}%)`);
-  }
+  try {
+    const stripped = stripModelContextMarker(body.model);
+    is1mContext = stripped.is1mContext;
+    if (stripped.contextMarker && stripped.model) {
+      body.model = stripped.model;
+    }
+    const cleanModel = stripped.model || rawModel;
+    resolvedModel = cleanModel;
+    candidateModels = [cleanModel];
 
-  for (const r of tokenSaverSummary.results) {
-    if (r.applied && (r.methodId === "caveman" || r.methodId === "ponytail")) {
+    const tokenSaverSettings = SettingsRepository.getTokenSaverSettings();
+    const tokenSaverSummary = TokenSaverCoordinator.process(
+      body,
+      {
+        clientFormat,
+        targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
+        model: cleanModel,
+        clientTool,
+      },
+      tokenSaverSettings
+    );
+
+    rtkStats = {
+      originalTokens: tokenSaverSummary.originalTokens,
+      compressedTokens: tokenSaverSummary.compressedTokens,
+      tokensSaved: tokenSaverSummary.tokensSaved,
+    };
+
+    if (tokenSaverSummary.tokensSaved > 0) {
+      const orig =
+        tokenSaverSummary.originalTokens ||
+        tokenSaverSummary.compressedTokens + tokenSaverSummary.tokensSaved;
+      const pct = orig > 0 ? Math.round((tokenSaverSummary.tokensSaved / orig) * 100) : 0;
+      logger.line(reqTag, LogSymbol.SAVER, `TOKEN SAVER: saved ${tokenSaverSummary.tokensSaved} tokens (-${pct}%)`);
+    }
+
+    for (const r of tokenSaverSummary.results) {
+      if (r.applied && (r.methodId === "caveman" || r.methodId === "ponytail")) {
+        logger.line(
+          reqTag,
+          LogSymbol.SAVER,
+          `TOKEN SAVER: injected [${r.methodId.toUpperCase()}] prompt (level: ${r.details?.level || "default"})`
+        );
+      }
+    }
+
+    // 1. Resolve client tool and tool model mappings (e.g. sonnet -> claude/claude-sonnet-4-6 or combo/my-combo)
+    const explicitTool = (req.headers["x-client-tool"] as string)?.toLowerCase().trim();
+    const ua = ((req.headers["user-agent"] as string) || "").toLowerCase();
+    let detectedToolId = explicitTool || "";
+
+    if (!detectedToolId) {
+      if (ua.includes("claude-code") || ua.includes("claude_cli") || ua.includes("@anthropic-ai/claude-code")) {
+        detectedToolId = "claude";
+      } else if (ua.includes("cursor")) {
+        detectedToolId = "cursor";
+      } else if (ua.includes("cline")) {
+        detectedToolId = "cline";
+      } else if (ua.includes("continue")) {
+        detectedToolId = "continue";
+      } else if (ua.includes("roo") || ua.includes("roocode")) {
+        detectedToolId = "roo";
+      } else if (ua.includes("copilot")) {
+        detectedToolId = "copilot";
+      } else if (ua.includes("kiro")) {
+        detectedToolId = "kiro";
+      } else if (ua.includes("antigravity")) {
+        detectedToolId = "antigravity";
+      } else if (clientFormat === "anthropic" || (typeof req.path === "string" && req.path.includes("/messages"))) {
+        detectedToolId = "claude";
+      }
+    }
+
+    if (detectedToolId) {
+      const mapped = ToolMappingRepository.resolveModelMapping(detectedToolId, cleanModel);
+      if (mapped) {
+        resolvedModel = mapped;
+        logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [${detectedToolId}]: '${cleanModel}' -> '${resolvedModel}'`);
+      }
+    } else {
+      const claudeMapped = ToolMappingRepository.resolveModelMapping("claude", cleanModel);
+      const cursorMapped = ToolMappingRepository.resolveModelMapping("cursor", cleanModel);
+      const fallbackMapped = claudeMapped || cursorMapped;
+      if (fallbackMapped) {
+        resolvedModel = fallbackMapped;
+        logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING: '${cleanModel}' -> '${resolvedModel}'`);
+      }
+    }
+
+    const allCombos = ComboRepository.getAllCombos();
+    const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
+    const isComboCandidate = !resolvedModel.includes("/") || resolvedModel.startsWith("combo/");
+    const activeCombo = isComboCandidate
+      ? allCombos.find(
+          (c) =>
+            c.isActive &&
+            (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
+        )
+      : undefined;
+
+    if (activeCombo && activeCombo.models.length > 0) {
+      candidateModels = [...activeCombo.models];
+      comboName = activeCombo.name;
       logger.line(
         reqTag,
-        LogSymbol.SAVER,
-        `TOKEN SAVER: injected [${r.methodId.toUpperCase()}] prompt (level: ${r.details?.level || "default"})`
+        LogSymbol.COMBO,
+        `COMBO "${comboName}" (${activeCombo.strategy}) · candidates: [${candidateModels.join(", ")}]`
+      );
+    } else {
+      candidateModels = [resolvedModel];
+    }
+
+    const requiredCaps = detectRequiredCapabilities(body);
+    if (requiredCaps.size > 0) {
+      const adapterSettings = SettingsRepository.getCapacityAdapterSettings();
+      candidateModels = augmentModelsWithCapacityAdapter(candidateModels, requiredCaps, adapterSettings);
+      logger.line(
+        reqTag,
+        LogSymbol.COMBO,
+        `CAPACITY ADAPTER: required [${[...requiredCaps].join(", ")}] · models: [${candidateModels.join(", ")}]`
       );
     }
-  }
 
-  // 1. Resolve client tool and tool model mappings (e.g. sonnet -> claude/claude-sonnet-4-6 or combo/my-combo)
-  const explicitTool = (req.headers["x-client-tool"] as string)?.toLowerCase().trim();
-  const ua = ((req.headers["user-agent"] as string) || "").toLowerCase();
-  let detectedToolId = explicitTool || "";
+    const initialCandidate = candidateModels[0] || resolvedModel;
+    const initialResolved = resolveTargetModelAndProvider(initialCandidate);
+    const initialProvider = initialResolved.providerId || (candidateModels[0]?.split("/")[0] || "unknown");
 
-  if (!detectedToolId) {
-    if (ua.includes("claude-code") || ua.includes("claude_cli") || ua.includes("@anthropic-ai/claude-code")) {
-      detectedToolId = "claude";
-    } else if (ua.includes("cursor")) {
-      detectedToolId = "cursor";
-    } else if (ua.includes("cline")) {
-      detectedToolId = "cline";
-    } else if (ua.includes("continue")) {
-      detectedToolId = "continue";
-    } else if (ua.includes("roo") || ua.includes("roocode")) {
-      detectedToolId = "roo";
-    } else if (ua.includes("copilot")) {
-      detectedToolId = "copilot";
-    } else if (ua.includes("kiro")) {
-      detectedToolId = "kiro";
-    } else if (ua.includes("antigravity")) {
-      detectedToolId = "antigravity";
-    } else if (clientFormat === "anthropic" || (typeof req.path === "string" && req.path.includes("/messages"))) {
-      detectedToolId = "claude";
-    }
-  }
-
-  let resolvedModel = cleanModel;
-  if (detectedToolId) {
-    const mapped = ToolMappingRepository.resolveModelMapping(detectedToolId, cleanModel);
-    if (mapped) {
-      resolvedModel = mapped;
-      logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [${detectedToolId}]: '${cleanModel}' -> '${resolvedModel}'`);
-    }
-  } else {
-    const claudeMapped = ToolMappingRepository.resolveModelMapping("claude", cleanModel);
-    const cursorMapped = ToolMappingRepository.resolveModelMapping("cursor", cleanModel);
-    const fallbackMapped = claudeMapped || cursorMapped;
-    if (fallbackMapped) {
-      resolvedModel = fallbackMapped;
-      logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING: '${cleanModel}' -> '${resolvedModel}'`);
-    }
-  }
-
-  const allCombos = ComboRepository.getAllCombos();
-  const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
-  const isComboCandidate = !resolvedModel.includes("/") || resolvedModel.startsWith("combo/");
-  const activeCombo = isComboCandidate
-    ? allCombos.find(
-        (c) =>
-          c.isActive &&
-          (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
-      )
-    : undefined;
-
-  let candidateModels: string[];
-  let comboName = "";
-
-  if (activeCombo && activeCombo.models.length > 0) {
-    candidateModels = [...activeCombo.models];
-    comboName = activeCombo.name;
-    logger.line(
-      reqTag,
-      LogSymbol.COMBO,
-      `COMBO "${comboName}" (${activeCombo.strategy}) · candidates: [${candidateModels.join(", ")}]`
-    );
-  } else {
-    candidateModels = [resolvedModel];
-  }
-
-  const requiredCaps = detectRequiredCapabilities(body);
-  if (requiredCaps.size > 0) {
-    const adapterSettings = SettingsRepository.getCapacityAdapterSettings();
-    candidateModels = augmentModelsWithCapacityAdapter(candidateModels, requiredCaps, adapterSettings);
-    logger.line(
-      reqTag,
-      LogSymbol.COMBO,
-      `CAPACITY ADAPTER: required [${[...requiredCaps].join(", ")}] · models: [${candidateModels.join(", ")}]`
-    );
-  }
-
-  const initialCandidate = candidateModels[0] || resolvedModel;
-  const initialResolved = resolveTargetModelAndProvider(initialCandidate);
-  const initialProvider = initialResolved.providerId || (candidateModels[0]?.split("/")[0] || "unknown");
-
-  UsageRepository.startPendingRequest({
-    id: requestId,
-    model: initialResolved.targetModel || rawModel,
-    provider: initialProvider,
-  });
-
-  if (typeof res?.on === "function") {
-    res.on("close", () => {
-      UsageRepository.endPendingRequest(requestId);
+    UsageRepository.startPendingRequest({
+      id: requestId,
+      model: initialResolved.targetModel || rawModel,
+      provider: initialProvider,
     });
-  }
 
-  const handleSingleModel: SingleModelHandler = async (modelBody, modelStr, isPanel = false) => {
-    return executeSingleModel({
+    if (typeof res?.on === "function") {
+      res.on("close", () => {
+        UsageRepository.endPendingRequest(requestId);
+      });
+    }
+
+    const handleSingleModel: SingleModelHandler = async (modelBody, modelStr, isPanel = false) => {
+      return executeSingleModel({
+        req,
+        res,
+        body: modelBody,
+        modelStr,
+        clientFormat,
+        isPanel,
+        requestId,
+        startTime,
+        clientTool,
+        rawModel,
+        rtkStats,
+        is1mContext,
+        reqTag,
+        apiKeyId,
+        apiKeyName,
+      });
+    };
+
+    const context: ProviderRequestContext = {
       req,
       res,
-      body: modelBody,
-      modelStr,
+      targetModel: comboName ? comboName : resolvedModel,
       clientFormat,
-      isPanel,
+      targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
+      body,
+      combo: activeCombo ? { ...activeCombo, models: candidateModels } : undefined,
+      is1mContext,
+      reqTag,
       requestId,
       startTime,
       clientTool,
       rawModel,
       rtkStats,
-      is1mContext,
-      reqTag,
       apiKeyId,
       apiKeyName,
-    });
-  };
+    };
 
-  const context: ProviderRequestContext = {
-    req,
-    res,
-    targetModel: comboName ? comboName : resolvedModel,
-    clientFormat,
-    targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
-    body,
-    combo: activeCombo ? { ...activeCombo, models: candidateModels } : undefined,
-    is1mContext,
-    reqTag,
-    requestId,
-    startTime,
-    clientTool,
-    rawModel,
-    rtkStats,
-    apiKeyId,
-    apiKeyName,
-  };
-
-  try {
     let result: ModelCallResult;
 
     if (activeCombo) {
@@ -283,10 +292,24 @@ export async function runProxyPipeline(
           } catch {}
         }
         if (typeof respData === "object" && respData !== null) {
+          const isAnthropicPayload =
+            respData?.type === "message" && Array.isArray(respData?.content);
+          const isResponsesPayload =
+            respData?.object === "response" && Array.isArray(respData?.output);
+
           if (clientFormat === "responses") {
-            respData = convertOpenAiResponseToResponsesApi(respData);
+            if (!isResponsesPayload) {
+              if (context.targetFormat === "claude" || isAnthropicPayload) {
+                respData = AnthropicAdapter.anthropicResponseToOpenAi(respData, resolvedModel);
+              }
+              respData = convertOpenAiResponseToResponsesApi(respData);
+            }
           } else if (clientFormat === "anthropic") {
-            respData = AnthropicAdapter.openAiResponseToAnthropic(respData, requestId);
+            if (!isAnthropicPayload) {
+              respData = AnthropicAdapter.openAiResponseToAnthropic(respData, requestId);
+            }
+          } else if (clientFormat === "openai" && isAnthropicPayload) {
+            respData = AnthropicAdapter.anthropicResponseToOpenAi(respData, resolvedModel);
           }
           res.status(result.status || 200).json(respData);
         } else {

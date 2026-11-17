@@ -182,19 +182,70 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       });
     }
 
+    const abortController = new AbortController();
+    const onClientClose = () => {
+      abortController.abort();
+    };
+    if (typeof res?.once === "function") {
+      res.once("close", onClientClose);
+    }
+
+    const mockPanelRes: any = isPanel
+      ? {
+          headersSent: false,
+          writableEnded: false,
+          destroyed: false,
+          status: () => mockPanelRes,
+          json: () => mockPanelRes,
+          send: () => mockPanelRes,
+          setHeader: () => mockPanelRes,
+          flushHeaders: () => {},
+          writeHead: () => mockPanelRes,
+          write: () => true,
+          end: () => {
+            mockPanelRes.writableEnded = true;
+            return mockPanelRes;
+          },
+          on: () => mockPanelRes,
+          once: () => mockPanelRes,
+          removeListener: () => mockPanelRes,
+        }
+      : undefined;
+
     const context: ProviderRequestContext = {
-      req, res, targetModel, clientFormat, targetFormat,
-      body: cloneBodyForUpstream(adjustedBody), provider: providerConfig, account,
-      isPanel, is1mContext, reqTag, requestId, startTime,
-      clientTool, rawModel, rtkStats,
-      apiKeyId, apiKeyName,
+      req,
+      res: isPanel ? mockPanelRes : res,
+      targetModel,
+      clientFormat,
+      targetFormat,
+      body: cloneBodyForUpstream(adjustedBody),
+      provider: providerConfig,
+      account,
+      isPanel,
+      is1mContext,
+      reqTag,
+      requestId,
+      startTime,
+      clientTool,
+      rawModel,
+      rtkStats,
+      apiKeyId,
+      apiKeyName,
+      abortController,
     };
 
     if (provider.execute && provider.id !== "combo" && (!provider.shouldExecute || provider.shouldExecute(context))) {
       const dispatchSingleModel: SingleModelHandler = async (mBody: any, mStr: string, isP: boolean = false) => {
         return executeSingleModel({ ...options, body: mBody, modelStr: mStr, isPanel: isP });
       };
-      const customResult = await provider.execute(context, dispatchSingleModel);
+      let customResult: ModelCallResult;
+      try {
+        customResult = await provider.execute(context, dispatchSingleModel);
+      } finally {
+        if (typeof res?.removeListener === "function") {
+          res.removeListener("close", onClientClose);
+        }
+      }
       if (customResult.ok) {
         recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
         return customResult;
@@ -265,15 +316,6 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     const effectiveProxy = (providerConfig.proxyUrl && providerConfig.proxyUrl.trim()) ||
       (globalSettings.proxyUrl && globalSettings.proxyUrl.trim()) || "";
 
-    const abortController = new AbortController();
-    context.abortController = abortController;
-    const onClientClose = () => {
-      abortController.abort();
-    };
-    if (typeof res?.once === "function") {
-      res.once("close", onClientClose);
-    }
-
     const upstreamTimeoutMs = Number(process.env.MAPIGATE_UPSTREAM_TIMEOUT_MS) || 180_000;
     const isStreaming = upstreamBody?.stream !== false && !isPanel;
     // Streaming generations with large contexts (e.g. 100k+ tokens) can take many minutes.
@@ -323,6 +365,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       if (!upstreamRes.ok && upstreamRes.status === 401 && provider.handleAuthRefresh) {
         const refreshed = await provider.handleAuthRefresh(context, upstreamRes.status);
         if (refreshed) {
+          await upstreamRes.body?.cancel().catch(() => {});
           fetchOptions.headers = await provider.buildHeaders(context);
           upstreamRes = await executeUpstreamFetch(upstreamUrl, fetchOptions, effectiveProxy);
         }
@@ -348,7 +391,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       const errMsg = fetchErr?.message || String(fetchErr);
       const cleanErrText = sanitizeErrorMessage(errMsg);
       recordResilienceFailure({
-        providerId: provider.id,
+        providerId: targetProviderId,
         accountId: account?.id,
         model: targetModel,
         status: 502,

@@ -6,7 +6,8 @@ export async function refreshKiroToken(account: any): Promise<string | null> {
 
   const psd = (account.providerSpecificData || {}) as Record<string, any>;
   const authMethod = psd.authMethod || "builder-id";
-  const region = (psd.region || "us-east-1").trim();
+  const rawRegion = (psd.region || "us-east-1").trim();
+  const region = /^[a-z0-9-]+$/i.test(rawRegion) ? rawRegion : "us-east-1";
   const refreshToken = psd.refreshToken;
 
   if (!refreshToken) return null;
@@ -17,7 +18,15 @@ export async function refreshKiroToken(account: any): Promise<string | null> {
 
   try {
     if (authMethod === "external_idp" && psd.tokenEndpoint) {
-      const tokenEndpoint = psd.tokenEndpoint;
+      const tokenEndpoint = String(psd.tokenEndpoint).trim();
+      const parsedUrl = new URL(tokenEndpoint);
+      if (
+        (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") ||
+        parsedUrl.hostname === "169.254.169.254" ||
+        parsedUrl.hostname === "metadata.google.internal"
+      ) {
+        throw new Error("Invalid external_idp tokenEndpoint");
+      }
       const scope = psd.scope || "https://service.codewhisperer.amazonaws.com/.default offline_access";
 
       const res = await fetch(tokenEndpoint, {

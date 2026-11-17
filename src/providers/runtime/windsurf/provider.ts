@@ -1,4 +1,5 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
+import { finalizeCustomNonStreamingResponse } from "../../core/base/customExecutionHelper.js";
 import type {
   ProviderRequestContext,
   SingleModelHandler,
@@ -257,6 +258,9 @@ export class WindsurfProvider extends OpenAiCompatibleProvider {
           res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
         }
         res.write("data: [DONE]\n\n");
+      } else if (clientFormat === "anthropic" && anthropicState) {
+        const finalEvents = AnthropicAdapter.finalizeStream(anthropicState);
+        for (const ev of finalEvents) res.write(ev);
       } else if (clientFormat === "anthropic") {
         res.write(`event: message_stop\ndata: {"type":"message_stop"}\n\n`);
       } else {
@@ -328,48 +332,15 @@ export class WindsurfProvider extends OpenAiCompatibleProvider {
       }
     } catch {}
 
-    const json = {
-      id: responseId,
-      object: "chat.completion",
+    return finalizeCustomNonStreamingResponse({
+      providerId: "windsurf",
+      targetModel,
+      responseId,
       created,
-      model: targetModel,
-      choices: [{ index: 0, message: { role: "assistant", content: fullText }, finish_reason: "stop" }],
-    };
-
-    const durationMs = Date.now() - context.startTime;
-    const completionTokens = Math.ceil(fullText.length / 4);
-    const promptTokens = context.rtkStats?.compressedTokens || 0;
-    if (!isPanel) {
-      ResponseLogger.logSuccess({
-        requestId: context.requestId,
-        startTime: context.startTime,
-        durationMs,
-        clientTool: context.clientTool || "generic",
-        rawModel: context.rawModel || targetModel,
-        targetModel,
-        providerId: "windsurf",
-        accountId: context.account?.id,
-        accountName: context.account?.name,
-        apiKeyId: context.apiKeyId,
-        apiKeyName: context.apiKeyName,
-        promptTokens,
-        completionTokens,
-        cachedTokens: 0,
-        cacheCreationTokens: 0,
-        reasoningTokens: 0,
-        tokensSavedByRtk: context.rtkStats?.tokensSaved || 0,
-        is1mContext: context.is1mContext,
-        requestHeaders: (context.req?.headers as Record<string, string>) || {},
-        requestBody: context.req?.body || body,
-        clientResponse: {
-          status: 200,
-          headers: { "content-type": "application/json" },
-          body: json,
-        },
-      });
-    }
-
-    return { ok: true, status: 200, json, logged: !isPanel, modelUsed: targetModel };
+      fullText,
+      context,
+      body,
+    });
   }
 }
 

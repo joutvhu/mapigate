@@ -173,6 +173,14 @@ export class ServerLifecycle {
       this.server = null;
     }
 
+    let dbSettings: { port?: number; host?: string } | null = null;
+    try {
+      const { SettingsRepository } = await import("../storage/repositories/settingsRepo.js");
+      dbSettings = SettingsRepository.getEndpointSettings();
+    } catch {
+      // Best-effort
+    }
+
     try {
       const { closeDatabase } = await import("../storage/database.js");
       closeDatabase();
@@ -186,15 +194,9 @@ export class ServerLifecycle {
     try {
       const { ProcessManager } = await import("../cli/daemon/processManager.js");
       const { getDefaultDataDir, MAPIGATE_LOG_FILE, DEFAULT_PORT, DEFAULT_HOST } = await import("../shared/constants/index.js");
-      const { SettingsRepository } = await import("../storage/repositories/settingsRepo.js");
       const { spawn } = await import("node:child_process");
       const path = await import("node:path");
       const fs = await import("node:fs");
-
-      let dbSettings = null;
-      try {
-        dbSettings = SettingsRepository.getEndpointSettings();
-      } catch {}
 
       const port = dbSettings?.port || Number(process.env.PORT) || DEFAULT_PORT;
       const host = dbSettings?.host || process.env.HOST || DEFAULT_HOST;
@@ -207,18 +209,21 @@ export class ServerLifecycle {
       const logPath = path.join(dataDir, MAPIGATE_LOG_FILE);
       const logFd = fs.openSync(logPath, "a");
 
+      const childEnv: NodeJS.ProcessEnv = {
+        ...process.env,
+        PORT: String(port),
+        HOST: host,
+        MAPIGATE_DAEMON: "1",
+        MAPIGATE_TRAY: "1",
+      };
+      delete childEnv.MAPIGATE_RESTARTING;
+
       const child = spawn(cmd, args, {
         detached: true,
         stdio: ["ignore", logFd, logFd],
         windowsHide: true,
         shell,
-        env: {
-          ...process.env,
-          PORT: String(port),
-          HOST: host,
-          MAPIGATE_DAEMON: "1",
-          MAPIGATE_TRAY: "1",
-        },
+        env: childEnv,
       });
 
       try {
@@ -229,7 +234,7 @@ export class ServerLifecycle {
 
       if (child.pid) {
         child.unref();
-        PidFileManager.writePid(child.pid);
+        PidFileManager.writePid(child.pid, port);
       }
     } catch (err) {
       console.error("[Lifecycle] Failed to spawn new server instance on restart:", err);

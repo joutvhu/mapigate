@@ -125,7 +125,11 @@ authRouter.post("/login", async (req, res) => {
 });
 
 // POST /api/auth/logout - Logout current session
-authRouter.post("/logout", (_req, res) => {
+authRouter.post("/logout", (req, res) => {
+  const token = extractMasterToken(req);
+  if (token && MasterAuth.verifySessionToken(token)) {
+    MasterAuth.revokeAllSessions();
+  }
   res.json({ success: true, message: "Logged out successfully" });
 });
 
@@ -163,6 +167,22 @@ authRouter.post("/setup", async (req, res) => {
 // PUT /api/auth/change-password - Change existing master password
 authRouter.put("/change-password", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    const now = Date.now();
+    const attempt = getAttempt(clientIp);
+
+    if (attempt && attempt.lockedUntil > now) {
+      const waitSec = Math.ceil((attempt.lockedUntil - now) / 1000);
+      return res.status(429).json({
+        error: `Too many failed password attempts. Please wait ${waitSec}s before retrying.`,
+        code: "RATE_LIMITED",
+      });
+    }
+
+    if (loginAttempts.size > MAX_ATTEMPTS_ENTRIES) {
+      sweepExpiredAttempts();
+    }
+
     if (!MasterAuth.isPasswordSet()) {
       return res.status(400).json({
         error: "Master password is not configured",
@@ -187,12 +207,21 @@ authRouter.put("/change-password", async (req, res) => {
 
     const success = await MasterAuth.changePassword(currentPassword, newPassword);
     if (!success) {
+      const currentAttempts = (attempt?.attempts || 0) + 1;
+      const isLocked = currentAttempts >= MAX_LOGIN_ATTEMPTS;
+      loginAttempts.set(clientIp, {
+        attempts: currentAttempts,
+        lockedUntil: isLocked ? now + LOGIN_LOCKOUT_MS : 0,
+      });
+
       return res.status(401).json({
         error: "Incorrect current password",
         code: "INVALID_CURRENT_PASSWORD",
+        remainingAttempts: Math.max(0, MAX_LOGIN_ATTEMPTS - currentAttempts),
       });
     }
 
+    loginAttempts.delete(clientIp);
     const token = MasterAuth.createSessionToken();
     res.json({
       success: true,
@@ -207,6 +236,22 @@ authRouter.put("/change-password", async (req, res) => {
 // DELETE /api/auth/remove-password - Disable master password
 authRouter.delete("/remove-password", async (req, res) => {
   try {
+    const clientIp = getClientIp(req);
+    const now = Date.now();
+    const attempt = getAttempt(clientIp);
+
+    if (attempt && attempt.lockedUntil > now) {
+      const waitSec = Math.ceil((attempt.lockedUntil - now) / 1000);
+      return res.status(429).json({
+        error: `Too many failed password attempts. Please wait ${waitSec}s before retrying.`,
+        code: "RATE_LIMITED",
+      });
+    }
+
+    if (loginAttempts.size > MAX_ATTEMPTS_ENTRIES) {
+      sweepExpiredAttempts();
+    }
+
     if (!MasterAuth.isPasswordSet()) {
       return res.status(400).json({
         error: "Master password is not configured",
@@ -224,12 +269,21 @@ authRouter.delete("/remove-password", async (req, res) => {
 
     const success = await MasterAuth.removePassword(currentPassword);
     if (!success) {
+      const currentAttempts = (attempt?.attempts || 0) + 1;
+      const isLocked = currentAttempts >= MAX_LOGIN_ATTEMPTS;
+      loginAttempts.set(clientIp, {
+        attempts: currentAttempts,
+        lockedUntil: isLocked ? now + LOGIN_LOCKOUT_MS : 0,
+      });
+
       return res.status(401).json({
         error: "Incorrect current password",
         code: "INVALID_CURRENT_PASSWORD",
+        remainingAttempts: Math.max(0, MAX_LOGIN_ATTEMPTS - currentAttempts),
       });
     }
 
+    loginAttempts.delete(clientIp);
     res.json({
       success: true,
       message: "Master password removed successfully",

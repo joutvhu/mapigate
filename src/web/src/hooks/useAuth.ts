@@ -71,13 +71,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   lock: () => {
-    if (get().isPasswordSet) {
-      AuthService.removeToken();
-      set({
-        isAuthenticated: false,
-        isLocked: true,
-      });
-    }
+    AuthService.removeToken();
+    set({
+      isPasswordSet: true,
+      isAuthenticated: false,
+      isLocked: true,
+    });
   },
 
   unlock: (token: string) => {

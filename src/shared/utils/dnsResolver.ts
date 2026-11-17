@@ -3,8 +3,9 @@ import { promisify } from "node:util";
 import { Agent as UndiciAgent, fetch as undiciFetch } from "undici";
 
 // ── Shared Public DNS Resolver (Bypasses local hosts file 127.0.0.1 / ::1 loops) ──
-const cachedTargetIPs: Record<string, { ip: string; ts: number }> = {};
+const cachedTargetIPs: Record<string, { ip: string; ts: number }> = Object.create(null);
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_DNS_CACHE_ENTRIES = 500;
 
 // ISP DPI (e.g. VN -> api.anthropic.com) RSTs Node's default TLS ClientHello curve
 // list; keeping X25519 first rewrites the fingerprint enough to pass while
@@ -51,6 +52,10 @@ export async function resolveTargetIP(hostname: string): Promise<string> {
     const { resolve4 } = getResolver();
     const addresses = await resolve4(hostname);
     const ip = addresses[0] || hostname;
+    const keys = Object.keys(cachedTargetIPs);
+    if (keys.length >= MAX_DNS_CACHE_ENTRIES && !(hostname in cachedTargetIPs)) {
+      delete cachedTargetIPs[keys[0]];
+    }
     cachedTargetIPs[hostname] = { ip, ts: Date.now() };
     return ip;
   } catch {

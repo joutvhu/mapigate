@@ -105,63 +105,73 @@ export async function pipeSseStream(
     }
   };
 
-  // 1. Read and verify initial chunk before committing HTTP headers to client
-  const firstRead = await reader.read();
-  const firstReadDone = firstRead.done;
-  const firstReadValue = firstRead.value;
+  try {
+    // 1. Read and verify initial chunk before committing HTTP headers to client
+    let firstRead: Awaited<ReturnType<typeof reader.read>>;
+    try {
+      firstRead = await reader.read();
+    } catch (readErr) {
+      reader.cancel().catch(() => {});
+      throw readErr;
+    }
+    const firstReadDone = firstRead.done;
+    const firstReadValue = firstRead.value;
 
-  if (firstReadDone && !firstReadValue) {
-    throw new Error("Upstream stream ended immediately without sending any data");
-  }
+    if (firstReadDone && !firstReadValue) {
+      reader.cancel().catch(() => {});
+      throw new Error("Upstream stream ended immediately without sending any data");
+    }
 
-  // Pre-decode initial chunk to detect inline error events / rate limits before sending headers
-  if (firstReadValue) {
-    const preview = decoder.decode(firstReadValue, { stream: true });
-    const previewLines = preview.split("\n");
-    for (const pl of previewLines) {
-      const trimmed = pl.trim();
-      if (trimmed.startsWith("data:") && trimmed.includes('"error"')) {
-        try {
-          const parsed = JSON.parse(trimmed.slice(5).trim());
-          if (parsed && parsed.error) {
-            const msg = parsed.error.message || "Upstream stream error in initial chunk";
-            const isRateLimit =
-              parsed.error.code === "rate_limit_exceeded" ||
-              parsed.error.type?.includes("rate_limit") ||
-              msg.toLowerCase().includes("rate limit") ||
-              msg.toLowerCase().includes("quota");
-            const errObj: any = new Error(msg);
-            errObj.status = isRateLimit ? 429 : 502;
-            errObj.isRateLimit = isRateLimit;
-            throw errObj;
+    // Pre-decode initial chunk to detect inline error events / rate limits before sending headers
+    if (firstReadValue) {
+      const preview = decoder.decode(firstReadValue, { stream: true });
+      const previewLines = preview.split("\n");
+      for (const pl of previewLines) {
+        const trimmed = pl.trim();
+        if (trimmed.startsWith("data:") && trimmed.includes('"error"')) {
+          try {
+            const parsed = JSON.parse(trimmed.slice(5).trim());
+            if (parsed && parsed.error) {
+              const msg = parsed.error.message || "Upstream stream error in initial chunk";
+              const isRateLimit =
+                parsed.error.code === "rate_limit_exceeded" ||
+                parsed.error.type?.includes("rate_limit") ||
+                msg.toLowerCase().includes("rate limit") ||
+                msg.toLowerCase().includes("quota");
+              const errObj: any = new Error(msg);
+              errObj.status = isRateLimit ? 429 : 502;
+              errObj.isRateLimit = isRateLimit;
+              throw errObj;
+            }
+          } catch (e: any) {
+            if (e.status) {
+              reader.cancel().catch(() => {});
+              throw e;
+            }
           }
-        } catch (e: any) {
-          if (e.status) throw e;
         }
       }
+      buffer = preview;
     }
-    buffer = preview;
-  }
 
-  if (clientFormat === "anthropic" && targetFormat === "openai") {
-    safeWrite(
-      `event: message_start\ndata: ${JSON.stringify({
-        type: "message_start",
-        message: {
-          id: `msg_${requestId}`,
-          type: "message",
-          role: "assistant",
-          model: targetModel,
-          content: [],
-        },
-      })}\n\n`
-    );
-    openAiToAnthropicState.messageStartSent = true;
-  }
+    if (clientFormat === "anthropic" && targetFormat === "openai") {
+      safeWrite(
+        `event: message_start\ndata: ${JSON.stringify({
+          type: "message_start",
+          message: {
+            id: `msg_${requestId}`,
+            type: "message",
+            role: "assistant",
+            model: targetModel,
+            content: [],
+          },
+        })}\n\n`
+      );
+      openAiToAnthropicState.messageStartSent = true;
+    }
 
-  let isFirstIteration = true;
+    let isFirstIteration = true;
 
-  try {
     while (true) {
       if (clientDisconnected || clientRes?.writableEnded || clientRes?.destroyed) break;
 
@@ -197,6 +207,7 @@ export async function pipeSseStream(
         const dataStr = line.slice(5).trim();
 
         if (dataStr === "[DONE]") {
+          currentEventName = "";
           if (clientFormat === "openai") {
             doneSent = true;
             safeWrite("data: [DONE]\n\n");
@@ -235,6 +246,7 @@ export async function pipeSseStream(
                 type: currentEventName || jsonChunk.type,
                 ...jsonChunk,
               };
+              currentEventName = "";
               const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
                 eventPayload,
                 requestId,
@@ -253,12 +265,14 @@ export async function pipeSseStream(
                 }
               }
             } else {
+              currentEventName = "";
               const responsesEvents = openAiChunkToResponsesEvents(jsonChunk, responsesState);
               for (const ev of responsesEvents) {
                 safeWrite(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
               }
             }
           } else if (clientFormat === "anthropic" && targetFormat === "openai") {
+            currentEventName = "";
             const anthropicEvents = AnthropicAdapter.openAiChunkToAnthropicEvent(
               jsonChunk,
               requestId,
@@ -272,6 +286,7 @@ export async function pipeSseStream(
               type: currentEventName || jsonChunk.type,
               ...jsonChunk,
             };
+            currentEventName = "";
             const openAiChunks = AnthropicAdapter.anthropicChunkToOpenAiEvent(
               eventPayload,
               requestId,
@@ -286,8 +301,8 @@ export async function pipeSseStream(
           } else {
             if (currentEventName && clientFormat === "anthropic") {
               safeWrite(`event: ${currentEventName}\n`);
-              currentEventName = "";
             }
+            currentEventName = "";
             if (provider.transformResponseChunk || chunkModified) {
               safeWrite(`data: ${JSON.stringify(jsonChunk)}\n\n`);
             } else {
@@ -295,6 +310,7 @@ export async function pipeSseStream(
             }
           }
         } catch {
+          currentEventName = "";
           safeWrite(rawLine + "\n\n");
         }
       }

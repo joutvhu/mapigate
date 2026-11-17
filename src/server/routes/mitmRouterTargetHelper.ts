@@ -1,7 +1,9 @@
-import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
+import { MitmRepository, isLocalRouterUrl } from "../../storage/repositories/mitmRepo.js";
 import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
 import { serverLifecycle } from "../lifecycle.js";
+
+export { isLocalRouterUrl };
 
 export interface RouterTargetInfo {
   baseUrl: string;
@@ -27,13 +29,20 @@ export function getCurrentRouterTarget(): RouterTargetInfo {
   };
 }
 
+function getUrlOrigin(rawUrl: string): string | null {
+  try {
+    return new URL(rawUrl.trim()).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 export async function testRouterTargetConnection(
   targetUrl?: string,
   apiKey?: string
 ): Promise<{ success: boolean; message: string; modelCount?: number; latencyMs?: number }> {
   const current = MitmRepository.getRouterTarget();
   const urlToTest = (targetUrl !== undefined ? targetUrl : current.baseUrl) || "";
-  let keyToUse = apiKey !== undefined ? apiKey : (current.apiKey || "");
 
   let defaultLocal = "";
   try {
@@ -42,17 +51,24 @@ export async function testRouterTargetConnection(
     defaultLocal = getMapigateBaseUrl();
   }
   const cleanUrl = (urlToTest.trim() || defaultLocal).replace(/\/+$/, "");
+  const isLocal = isLocalRouterUrl(cleanUrl);
+  const sameOriginAsCurrent =
+    Boolean(current.baseUrl) &&
+    getUrlOrigin(cleanUrl) !== null &&
+    getUrlOrigin(cleanUrl) === getUrlOrigin(current.baseUrl);
 
-  if (!keyToUse) {
-    const isLocal = !urlToTest || urlToTest.includes("127.0.0.1") || urlToTest.includes("localhost") || urlToTest.includes("0.0.0.0");
-    if (isLocal) {
-      try {
-        const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
-        if (mitmKey?.key && mitmKey.isActive) {
-          keyToUse = mitmKey.key;
-        }
-      } catch {}
-    }
+  let keyToUse = apiKey !== undefined ? apiKey : "";
+  if (!keyToUse && (targetUrl === undefined || sameOriginAsCurrent)) {
+    keyToUse = current.apiKey || "";
+  }
+
+  if (!keyToUse && isLocal) {
+    try {
+      const mitmKey = SettingsRepository.getOrCreateMitmApiKey();
+      if (mitmKey?.key && mitmKey.isActive) {
+        keyToUse = mitmKey.key;
+      }
+    } catch {}
   }
 
   const start = Date.now();

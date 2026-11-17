@@ -288,20 +288,8 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       throw new Error("No authorization URL returned from provider");
     } catch (err: any) {
       if (isStale()) return;
-      if (providerId === "antigravity" && DEFAULT_ANTIGRAVITY_AUTH_URL) {
-        setAuthUrl(DEFAULT_ANTIGRAVITY_AUTH_URL);
-        setStatus("waiting");
-        try {
-          const opened = window.open(DEFAULT_ANTIGRAVITY_AUTH_URL, "oauth_popup", "width=600,height=700");
-          if (opened) popupRef.current = opened;
-          else setPopupBlocked(true);
-        } catch {
-          setPopupBlocked(true);
-        }
-      } else {
-        setStatus("error");
-        setErrorMessage(err.message || "Failed to initialize authorization endpoint");
-      }
+      setStatus("error");
+      setErrorMessage(err.message || "Failed to initialize authorization endpoint");
     }
   }, [providerId, stopPolling]);
 
@@ -327,6 +315,11 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
 
     const handleCallbackData = (data: any) => {
       if (!data) return;
+      if (stateRef.current && data.state && data.state !== stateRef.current) {
+        setStatus("error");
+        setErrorMessage("OAuth state mismatch. Please retry authorization.");
+        return;
+      }
       if (data.done) {
         callbackHandledRef.current = true;
         stopPolling();
@@ -352,8 +345,28 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       }
     };
 
-    // 1. postMessage from popup window
+    // 1. postMessage from popup window (accept same-origin and same-port loopback siblings)
+    const isTrustedCallbackOrigin = (incomingOrigin: string): boolean => {
+      if (!incomingOrigin) return false;
+      if (incomingOrigin === window.location.origin) return true;
+      try {
+        const incoming = new URL(incomingOrigin);
+        const current = new URL(window.location.origin);
+        const isLoopback = (h: string) =>
+          h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+        return (
+          incoming.protocol === current.protocol &&
+          incoming.port === current.port &&
+          isLoopback(incoming.hostname.toLowerCase()) &&
+          isLoopback(current.hostname.toLowerCase())
+        );
+      } catch {
+        return false;
+      }
+    };
+
     const onMessage = (event: MessageEvent) => {
+      if (!isTrustedCallbackOrigin(event.origin)) return;
       if (event.data?.type === "oauth_callback") {
         handleCallbackData(event.data.data);
       }

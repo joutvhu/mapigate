@@ -9,7 +9,7 @@ import { requestLogger } from "./middlewares/requestLogger.js";
 // Initialize console log capture before any other modules log to console
 initConsoleLogCapture();
 
-import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, APP_VERSION } from "../shared/constants/index.js";
+import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME, APP_VERSION, isTestEnvironment } from "../shared/constants/index.js";
 import { handleProxyRequest } from "./proxy/chatProxy.js";
 import { handleCountTokens } from "./proxy/countTokens.js";
 import { convertResponsesApiFormat } from "../core/adapters/responsesAdapter.js";
@@ -72,12 +72,8 @@ function isTrustedOrigin(origin?: string): boolean {
     return true;
   }
 
-  // Allow loopback origins and IDE webviews
-  if (
-    /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ||
-    origin.startsWith("vscode-webview://") ||
-    origin.startsWith("chrome-extension://")
-  ) {
+  // Allow loopback origins
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin)) {
     return true;
   }
 
@@ -128,11 +124,7 @@ app.use((req, res, next) => {
 
 function isTrustedHost(rawHost?: string): boolean {
   if (!rawHost) {
-    return (
-      process.env.NODE_ENV === "test" ||
-      Boolean(process.env.NODE_TEST_CONTEXT) ||
-      process.argv.some((arg) => arg.includes("test"))
-    );
+    return isTestEnvironment();
   }
 
   let hostname = rawHost.trim();
@@ -235,25 +227,35 @@ app.get("/health", (_req, res) => {
 });
 
 // Proxy routes for AI Coding Tools
-app.post("/v1/chat/completions", (req, res) => {
-  handleProxyRequest(req, res, "openai");
+app.post("/v1/chat/completions", (req, res, next) => {
+  Promise.resolve(handleProxyRequest(req, res, "openai")).catch(next);
 });
 
-app.post("/v1/messages/count_tokens", handleCountTokens);
-
-app.post("/v1/messages", (req, res) => {
-  handleProxyRequest(req, res, "anthropic");
+app.post("/v1/messages/count_tokens", (req, res, next) => {
+  Promise.resolve(handleCountTokens(req, res)).catch(next);
 });
 
-app.post(["/v1/responses", "/responses"], (req, res) => {
-  if (req.body?.input || req.body?.conversationState || req.body?.messages) {
-    req.body = convertResponsesApiFormat(req.body);
-  }
-  handleProxyRequest(req, res, "responses");
+app.post("/v1/messages", (req, res, next) => {
+  Promise.resolve(handleProxyRequest(req, res, "anthropic")).catch(next);
 });
 
-app.get("/v1/models", handleOpenAiModelsList);
-app.get("/models", handleOpenAiModelsList);
+app.post(["/v1/responses", "/responses"], (req, res, next) => {
+  Promise.resolve()
+    .then(() => {
+      if (req.body?.input || req.body?.conversationState || req.body?.messages) {
+        req.body = convertResponsesApiFormat(req.body);
+      }
+      return handleProxyRequest(req, res, "responses");
+    })
+    .catch(next);
+});
+
+app.get("/v1/models", (req, res, next) => {
+  Promise.resolve(handleOpenAiModelsList(req, res)).catch(next);
+});
+app.get("/models", (req, res, next) => {
+  Promise.resolve(handleOpenAiModelsList(req, res)).catch(next);
+});
 
 // Master Password auth endpoints
 app.use("/api/auth", authRouter);
@@ -534,10 +536,21 @@ if (fs.existsSync(webDistPath)) {
   });
 }
 
-const isTest =
-  process.env.NODE_ENV === "test" ||
-  Boolean(process.env.NODE_TEST_CONTEXT) ||
-  process.argv.some((arg) => arg.includes("test"));
+// Express error-handling middleware to prevent HTML stack trace leaks
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (res.headersSent) {
+    return;
+  }
+  const status = err?.status || err?.statusCode || 500;
+  res.status(status).json({
+    error: {
+      message: err?.message || "Internal server error",
+      type: "invalid_request_error",
+    },
+  });
+});
+
+const isTest = isTestEnvironment();
 
 let server: any = null;
 if (!isTest) {

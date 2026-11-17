@@ -20,7 +20,10 @@ export class BedrockProvider extends BaseProvider {
 
   public override transformRequestBody(context: ProviderRequestContext): any {
     let body = context.body;
-    if (context.clientFormat === "openai") {
+    if (body?.anthropic_version === "bedrock-2023-05-31") {
+      return body;
+    }
+    if (context.clientFormat === "openai" || context.clientFormat === "responses") {
       body = AnthropicAdapter.openAiToAnthropic(
         body,
         context.targetModel,
@@ -42,7 +45,10 @@ export class BedrockProvider extends BaseProvider {
     const region = psd.region || "us-east-1";
     const bearerToken = context.account?.rawApiKey || "";
     const isStreaming = context.body?.stream !== false && !context.isPanel;
-    const body = this.transformRequestBody(context);
+    const body =
+      context.body?.anthropic_version === "bedrock-2023-05-31"
+        ? context.body
+        : this.transformRequestBody(context);
 
     return buildSignedBedrockHeaders({
       url,

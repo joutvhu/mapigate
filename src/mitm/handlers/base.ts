@@ -148,6 +148,13 @@ export async function passthroughHttps(
         rejectUnauthorized: process.env.MITM_DISABLE_TLS_VERIFY === "1" ? false : true,
       },
       (forwardRes) => {
+        forwardRes.on("error", (err: any) => {
+          if (!res.headersSent) {
+            res.writeHead(502, { "Content-Type": "application/json" });
+          }
+          res.end(JSON.stringify({ error: { message: "Bad Gateway", details: err.message } }));
+        });
+
         res.writeHead(forwardRes.statusCode || 200, forwardRes.headers);
 
         if (!onResponse) {
@@ -170,6 +177,12 @@ export async function passthroughHttps(
         });
       }
     );
+
+    res.once("close", () => {
+      if (!res.writableEnded) {
+        forwardReq.destroy();
+      }
+    });
 
     forwardReq.on("error", (e: any) => {
       console.error(`[MITM Passthrough] Error forwarding to ${targetHost}:`, e.message);
@@ -236,6 +249,7 @@ export async function fetchUpstreamDirect(
       },
       (forwardRes) => {
         const chunks: Buffer[] = [];
+        forwardRes.on("error", reject);
         forwardRes.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
         forwardRes.on("end", () => {
           resolve({
@@ -259,16 +273,17 @@ export function decompressBuffer(buffer: Buffer, encoding?: string | string[]): 
   if (!buffer || buffer.length === 0) return buffer;
   const enc = Array.isArray(encoding) ? encoding[0] : encoding;
   const cleanEnc = (enc || "").toLowerCase().trim();
+  const maxOutputLength = 50 * 1024 * 1024;
 
   try {
     if (cleanEnc === "gzip") {
-      return zlib.gunzipSync(buffer);
+      return zlib.gunzipSync(buffer, { maxOutputLength });
     }
     if (cleanEnc === "deflate") {
-      return zlib.inflateSync(buffer);
+      return zlib.inflateSync(buffer, { maxOutputLength });
     }
     if (cleanEnc === "br") {
-      return zlib.brotliDecompressSync(buffer);
+      return zlib.brotliDecompressSync(buffer, { maxOutputLength });
     }
   } catch {
     // If decompression fails, return raw buffer fail-open

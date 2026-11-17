@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { ROOT_CA_CERT_PATH, ROOT_CA_CN, getCertFingerprint } from "./rootCA.js";
-import { runElevatedPowerShell, isAdmin } from "../dns/winElevated.js";
+import { runElevatedPowerShell, isAdmin, quotePs } from "../dns/winElevated.js";
 import { execWithPassword } from "../dns/dnsConfig.js";
 
 const execAsync = promisify(exec);
@@ -79,7 +79,7 @@ export async function installCert(certPath: string = ROOT_CA_CERT_PATH): Promise
       if (isAdmin()) {
         await execAsync(`certutil -addstore Root "${certPath}"`, { windowsHide: true });
       } else {
-        await runElevatedPowerShell(`certutil -addstore Root "${certPath}"`);
+        await runElevatedPowerShell(`certutil -addstore Root ${quotePs(certPath)}`);
       }
 
       // Set NODE_EXTRA_CA_CERTS for Node.js / Electron IDEs (Antigravity, Kiro, VS Code)
@@ -131,8 +131,8 @@ export async function uninstallCert(
         if (isAdmin()) {
           await execAsync(`certutil -delstore Root ${fingerprint}`, { windowsHide: true });
           removed = true;
-        } else if (!removed) {
-          await runElevatedPowerShell(`certutil -delstore Root ${fingerprint}`);
+        } else {
+          await runElevatedPowerShell(`certutil -delstore Root ${quotePs(fingerprint)}`);
           removed = true;
         }
       } catch (err: any) {

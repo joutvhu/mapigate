@@ -20,7 +20,12 @@ export const toolConfig: MitmToolConfig = {
   ],
   defaultHost:
     "127.0.0.1 api.githubcopilot.com\n127.0.0.1 copilot-proxy.githubusercontent.com\n127.0.0.1 api.individual.githubcopilot.com\n127.0.0.1 api.business.githubcopilot.com\n127.0.0.1 api.enterprise.githubcopilot.com",
-  matchesHost: (h: string) => h.includes("githubcopilot.com") || h.includes("copilot-proxy.githubusercontent.com"),
+  matchesHost: (rawHost: string) => {
+    const h = (rawHost || "").split(":")[0].trim().toLowerCase();
+    return ["githubcopilot.com", "copilot-proxy.githubusercontent.com"].some(
+      (d) => h === d || h.endsWith("." + d)
+    );
+  },
   isModelListRequest: (req) => {
     const url = (req.url || "").toLowerCase().split("?")[0];
     return url === "/models" || url === "/v1/models" || url.endsWith("/models");

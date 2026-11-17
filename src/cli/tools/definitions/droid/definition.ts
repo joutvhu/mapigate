@@ -10,7 +10,7 @@ export const definition: CliToolDefinition = {
   description: "Factory Droid AI Assistant",
   configType: "custom",
   binary: "droid",
-  configPath: "~/.factory/config.json",
+  configPath: "~/.factory/settings.json",
   baseUrlPath: "/v1",
   defaultModels: [
     "claude-sonnet-4-6",

@@ -10,6 +10,7 @@ export interface VersionCheckResult {
 
 const NPM_PACKAGE_NAME = "mapigate";
 const VERSION_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour TTL
+export const VALID_SEMVER_REGEX = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 let cachedResult: VersionCheckResult | null = null;
 
@@ -59,7 +60,8 @@ export function fetchLatestNpmVersion(packageName: string = NPM_PACKAGE_NAME, ti
         res.on("end", () => {
           try {
             const parsed = JSON.parse(data);
-            resolve(typeof parsed.version === "string" ? parsed.version : null);
+            const ver = typeof parsed.version === "string" ? parsed.version.trim() : "";
+            resolve(VALID_SEMVER_REGEX.test(ver) ? ver : null);
           } catch {
             resolve(null);
           }

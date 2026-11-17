@@ -129,11 +129,27 @@ export class CodexProvider extends OpenAiCompatibleProvider {
                   token = data.access_token;
                   reqHeaders["Authorization"] = `Bearer ${token}`;
                   if (account?.id) {
+                    const newExpiresAt = Date.now() + (Number(data.expires_in) || 3600) * 1000;
+                    const newRefreshToken = data.refresh_token || rToken;
+                    let updatedRawApiKey = token;
+                    if (account.rawApiKey?.startsWith("{")) {
+                      try {
+                        const existingParsed = JSON.parse(account.rawApiKey);
+                        updatedRawApiKey = JSON.stringify({
+                          ...existingParsed,
+                          accessToken: token,
+                          refreshToken: newRefreshToken,
+                          expiresAt: newExpiresAt,
+                        });
+                      } catch {}
+                    }
+                    account.rawApiKey = updatedRawApiKey;
                     ProviderRepository.updateAccount(account.id, {
+                      rawApiKey: updatedRawApiKey,
                       providerSpecificData: {
                         ...psd,
-                        refreshToken: data.refresh_token || rToken,
-                        expiresAt: Date.now() + (Number(data.expires_in) || 3600) * 1000,
+                        refreshToken: newRefreshToken,
+                        expiresAt: newExpiresAt,
                       },
                     });
                   }

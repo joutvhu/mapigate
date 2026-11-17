@@ -111,6 +111,7 @@ export async function pollKimiToken(params: DevicePollParams): Promise<DevicePol
       providerSpecificData: {
         authMethod: "device_code",
         refreshToken: data.refresh_token,
+        region: isCn ? "cn" : "intl",
       },
     });
 

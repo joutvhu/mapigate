@@ -32,54 +32,66 @@ mitmRouter.get("/router-target", (_req, res) => {
 
 // PUT MITM router target
 mitmRouter.put("/router-target", async (req, res) => {
-  const status = await mitmManager.getStatus();
-  if (status.running) {
-    res.status(400).json({ error: "Cannot modify router target while MITM server is running. Please stop the server first." });
-    return;
-  }
-
-  const { baseUrl, apiKey } = req.body || {};
-
-  if (baseUrl !== undefined && typeof baseUrl !== "string") {
-    res.status(400).json({ error: "baseUrl must be a string" });
-    return;
-  }
-
-  if (baseUrl) {
-    try {
-      const parsed = new URL(baseUrl.trim());
-      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        res.status(400).json({ error: "URL protocol must be http: or https:" });
-        return;
-      }
-    } catch {
-      res.status(400).json({ error: "Invalid URL format" });
+  try {
+    const status = await mitmManager.getStatus();
+    if (status.running) {
+      res.status(400).json({ error: "Cannot modify router target while MITM server is running. Please stop the server first." });
       return;
     }
+
+    const { baseUrl, apiKey } = req.body || {};
+
+    if (baseUrl !== undefined && typeof baseUrl !== "string") {
+      res.status(400).json({ error: "baseUrl must be a string" });
+      return;
+    }
+
+    if (baseUrl) {
+      try {
+        const parsed = new URL(baseUrl.trim());
+        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+          res.status(400).json({ error: "URL protocol must be http: or https:" });
+          return;
+        }
+      } catch {
+        res.status(400).json({ error: "Invalid URL format" });
+        return;
+      }
+    }
+
+    MitmRepository.setRouterTarget({
+      baseUrl: baseUrl !== undefined ? baseUrl : undefined,
+      apiKey: apiKey !== undefined ? apiKey : undefined,
+    });
+
+    res.json({
+      success: true,
+      ...getCurrentRouterTarget(),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to update router target" });
   }
-
-  MitmRepository.setRouterTarget({
-    baseUrl: baseUrl !== undefined ? baseUrl : undefined,
-    apiKey: apiKey !== undefined ? apiKey : undefined,
-  });
-
-  res.json({
-    success: true,
-    ...getCurrentRouterTarget(),
-  });
 });
 
 // POST test MITM router target connection
 mitmRouter.post("/router-target/test", async (req, res) => {
-  const { baseUrl, apiKey } = req.body || {};
-  const result = await testRouterTargetConnection(baseUrl, apiKey);
-  res.json(result);
+  try {
+    const { baseUrl, apiKey } = req.body || {};
+    const result = await testRouterTargetConnection(baseUrl, apiKey);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error?.message || "Failed to test router target connection" });
+  }
 });
 
 // GET remote models when configured
 mitmRouter.get("/router-target/models", async (_req, res) => {
-  const models = await fetchRemoteModels();
-  res.json({ models });
+  try {
+    const models = await fetchRemoteModels();
+    res.json({ models });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to fetch remote models", models: [] });
+  }
 });
 
 // GET MITM status
@@ -231,61 +243,65 @@ mitmRouter.post("/toggle-server", async (req, res) => {
 
 // POST toggle DNS redirection for an IDE / tool
 mitmRouter.post("/toggle-dns", async (req, res) => {
-  const tool = req.body.tool || req.body.ide;
-  if (!tool || typeof tool !== "string") {
-    res.status(400).json({ error: "Missing tool or ide parameter" });
-    return;
-  }
-  const toolKey = tool.toLowerCase() as MitmToolId;
-  const currentStatus = MitmRepository.getToolDnsStatus(toolKey);
-  const newStatus = req.body.active !== undefined ? Boolean(req.body.active) : !currentStatus;
-
-  let dnsError: string | null = null;
-  MitmRepository.setToolDnsStatus(toolKey, newStatus);
-
-  const mitmStatus = await mitmManager.getStatus();
-  if (newStatus && !mitmStatus.running) {
-    try {
-      await mitmManager.startServer({ sudoPassword: req.body.sudoPassword });
-      const lastWarning = mitmManager.getLastDnsWarning();
-      if (lastWarning) dnsError = lastWarning;
-    } catch (err: any) {
-      if (err instanceof PortConflictError || err.name === "PortConflictError") {
-        res.status(409).json({
-          error: err.message,
-          code: err.code || "PORT_443_BUSY",
-          portOwner: err.portOwner,
-        });
-        return;
-      }
-      console.warn(`[MITM API] Auto-starting MITM server for ${toolKey} failed:`, err.message);
-      dnsError = err.message;
+  try {
+    const tool = req.body?.tool || req.body?.ide;
+    if (!tool || typeof tool !== "string") {
+      res.status(400).json({ error: "Missing tool or ide parameter" });
+      return;
     }
-  } else {
-    try {
-      if (newStatus) {
-        await addDNSEntry(toolKey, req.body.sudoPassword);
-      } else {
-        await removeDNSEntry(toolKey, req.body.sudoPassword);
+    const toolKey = tool.toLowerCase() as MitmToolId;
+    const currentStatus = MitmRepository.getToolDnsStatus(toolKey);
+    const newStatus = req.body?.active !== undefined ? Boolean(req.body.active) : !currentStatus;
+
+    let dnsError: string | null = null;
+    MitmRepository.setToolDnsStatus(toolKey, newStatus);
+
+    const mitmStatus = await mitmManager.getStatus();
+    if (newStatus && !mitmStatus.running) {
+      try {
+        await mitmManager.startServer({ sudoPassword: req.body?.sudoPassword });
+        const lastWarning = mitmManager.getLastDnsWarning();
+        if (lastWarning) dnsError = lastWarning;
+      } catch (err: any) {
+        if (err instanceof PortConflictError || err.name === "PortConflictError") {
+          res.status(409).json({
+            error: err.message,
+            code: err.code || "PORT_443_BUSY",
+            portOwner: err.portOwner,
+          });
+          return;
+        }
+        console.warn(`[MITM API] Auto-starting MITM server for ${toolKey} failed:`, err.message);
+        dnsError = err.message;
       }
-    } catch (err: any) {
-      console.warn(`[MITM API] Failed to update hosts file for ${toolKey}:`, err.message);
-      dnsError = err.message;
+    } else {
+      try {
+        if (newStatus) {
+          await addDNSEntry(toolKey, req.body?.sudoPassword);
+        } else {
+          await removeDNSEntry(toolKey, req.body?.sudoPassword);
+        }
+      } catch (err: any) {
+        console.warn(`[MITM API] Failed to update hosts file for ${toolKey}:`, err.message);
+        dnsError = err.message;
+      }
     }
-  }
 
-  const liveDns = checkAllDNSStatus();
-  if (dnsError && newStatus && !liveDns[toolKey]) {
-    MitmRepository.setToolDnsStatus(toolKey, false);
-  }
+    const liveDns = checkAllDNSStatus();
+    if (dnsError && newStatus && !liveDns[toolKey]) {
+      MitmRepository.setToolDnsStatus(toolKey, false);
+    }
 
-  res.json({
-    tool: toolKey,
-    ide: toolKey,
-    active: Boolean(liveDns[toolKey]),
-    dnsStatus: liveDns,
-    ...(dnsError && { warning: dnsError }),
-  });
+    res.json({
+      tool: toolKey,
+      ide: toolKey,
+      active: Boolean(liveDns[toolKey]),
+      dnsStatus: liveDns,
+      ...(dnsError && { warning: dnsError }),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error?.message || "Failed to toggle DNS redirection" });
+  }
 });
 
 // Per-tool Hosts endpoints
@@ -317,7 +333,7 @@ function validateHostsContent(tool: string, content: string): { valid: boolean; 
     if (parts.length < 2) {
       return { valid: false, error: `Invalid syntax on line ${i + 1}: expected '<ip> <hostname>'` };
     }
-    const [ip, host] = parts;
+    const ip = parts[0];
     const isLoopback =
       ip === "127.0.0.1" ||
       ip === "::1" ||
@@ -330,20 +346,23 @@ function validateHostsContent(tool: string, content: string): { valid: boolean; 
       };
     }
 
-    if (!/^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?$/.test(host) || host.includes("..")) {
-      return { valid: false, error: `Invalid hostname format on line ${i + 1}: '${host}'` };
-    }
+    const hostsOnLine = parts.slice(1);
+    for (const host of hostsOnLine) {
+      if (!/^[a-zA-Z0-9]([a-zA-Z0-9_.-]*[a-zA-Z0-9])?$/.test(host) || host.includes("..")) {
+        return { valid: false, error: `Invalid hostname format on line ${i + 1}: '${host}'` };
+      }
 
-    const hostLower = host.toLowerCase();
-    const matchesDomain = allowedBaseDomains.some(
-      (base) => hostLower === base.toLowerCase() || hostLower.endsWith("." + base.toLowerCase())
-    );
+      const hostLower = host.toLowerCase();
+      const matchesDomain = allowedBaseDomains.some(
+        (base) => hostLower === base.toLowerCase() || hostLower.endsWith("." + base.toLowerCase())
+      );
 
-    if (!matchesDomain && !defaultHosts.map((h) => h.toLowerCase()).includes(hostLower)) {
-      return {
-        valid: false,
-        error: `Unauthorized host '${host}' on line ${i + 1}: Only domains belonging to ${tool} (${allowedBaseDomains.join(", ")}) may be configured`,
-      };
+      if (!matchesDomain && !defaultHosts.map((h) => h.toLowerCase()).includes(hostLower)) {
+        return {
+          valid: false,
+          error: `Unauthorized host '${host}' on line ${i + 1}: Only domains belonging to ${tool} (${allowedBaseDomains.join(", ")}) may be configured`,
+        };
+      }
     }
   }
 

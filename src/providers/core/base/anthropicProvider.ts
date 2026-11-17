@@ -41,14 +41,24 @@ export class AnthropicCompatibleProvider extends BaseProvider {
       prov?.authType === "none" ||
       this.requiresApiKey === false;
 
-    if (bearerToken && !headers["x-api-key"]) {
+    const hasHeaderCi = (target: string) =>
+      Object.keys(headers).some((k) => k.toLowerCase() === target);
+    const removeHeaderCi = (target: string) => {
+      for (const k of Object.keys(headers)) {
+        if (k.toLowerCase() === target) {
+          delete headers[k];
+        }
+      }
+    };
+
+    if (bearerToken && !hasHeaderCi("x-api-key")) {
       headers["x-api-key"] = bearerToken;
     }
     if (isNoApiKey && !bearerToken) {
-      delete headers["x-api-key"];
-      delete headers["Authorization"];
+      removeHeaderCi("x-api-key");
+      removeHeaderCi("authorization");
     }
-    if (!headers["anthropic-version"]) {
+    if (!hasHeaderCi("anthropic-version")) {
       headers["anthropic-version"] = "2023-06-01";
     }
 
@@ -57,7 +67,7 @@ export class AnthropicCompatibleProvider extends BaseProvider {
 
   public override transformRequestBody(context: ProviderRequestContext): any {
     const modelToUse = this.resolveUpstreamModelId(context);
-    if (context.clientFormat === "openai") {
+    if (context.clientFormat === "openai" || context.clientFormat === "responses") {
       const converted = AnthropicAdapter.openAiToAnthropic(
         context.body,
         modelToUse || context.targetModel,

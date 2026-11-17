@@ -148,6 +148,7 @@ export async function executeKiro(
   if (!upstreamRes.ok && (upstreamRes.status === 401 || upstreamRes.status === 403)) {
     const refreshedToken = await refreshKiroToken(context.account);
     if (refreshedToken) {
+      await upstreamRes.body?.cancel().catch(() => {});
       headers["Authorization"] = `Bearer ${refreshedToken}`;
       headers["x-amz-sso-bearer"] = refreshedToken.replace(/^Bearer\s+/i, "");
       upstreamRes = await executeUpstreamFetch(
@@ -532,6 +533,10 @@ export async function executeKiro(
       },
     ],
   };
+
+  if (isPanel) {
+    return { ok: true, status: 200, json: responseJson, logged: false, modelUsed: `kiro/${targetModel}` };
+  }
 
   const durationMs = Date.now() - startTime;
   const completionTokens = Math.ceil((fullContent || "").length / 4);

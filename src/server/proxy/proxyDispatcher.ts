@@ -73,7 +73,6 @@ function buildDirectAgent(
       const oldAgent = directDispatchers.get(oldestKey);
       directDispatchers.delete(oldestKey);
       try {
-        oldAgent?.destroy?.();
         oldAgent?.close?.();
       } catch {}
     }
@@ -117,7 +116,6 @@ export function getProxyDispatcher(proxyUrl: string, insecure = false): ProxyAge
         const oldDispatcher = proxyDispatchers.get(oldestKey);
         proxyDispatchers.delete(oldestKey);
         try {
-          (oldDispatcher as any)?.destroy?.();
           (oldDispatcher as any)?.close?.();
         } catch {}
       }

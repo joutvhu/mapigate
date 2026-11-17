@@ -97,112 +97,132 @@ export function calculateAnthropicInputTokens(body: any): number {
   return Math.max(1, total);
 }
 
+function safeCompareKeys(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 /**
  * Handles POST /v1/messages/count_tokens for Claude Code and Anthropic clients
  */
 export async function handleCountTokens(req: Request, res: Response): Promise<void> {
-  const endpointSettings = SettingsRepository.getEndpointSettings();
-  const allKeys = SettingsRepository.getGatewayApiKeys();
+  try {
+    const endpointSettings = SettingsRepository.getEndpointSettings();
+    const allKeys = SettingsRepository.getGatewayApiKeys();
 
-  const authHeader = (req.headers["authorization"] as string) || "";
-  const apiKeyHeader = (req.headers["x-api-key"] as string) || "";
-  let providedKey = "";
-  if (authHeader.startsWith("Bearer ")) {
-    providedKey = authHeader.substring(7).trim();
-  } else if (authHeader) {
-    providedKey = authHeader.trim();
-  } else if (apiKeyHeader) {
-    providedKey = apiKeyHeader.trim();
-  }
+    const authHeader = (req.headers["authorization"] as string) || "";
+    const apiKeyHeader = (req.headers["x-api-key"] as string) || "";
+    let providedKey = "";
+    if (authHeader.startsWith("Bearer ")) {
+      providedKey = authHeader.substring(7).trim();
+    } else if (authHeader) {
+      providedKey = authHeader.trim();
+    } else if (apiKeyHeader) {
+      providedKey = apiKeyHeader.trim();
+    }
 
-  const matchedKey = providedKey ? allKeys.find((k) => k.key === providedKey) : undefined;
-  if (endpointSettings.requireApiKey) {
-    const activeKeys = allKeys.filter((k) => k.isActive);
-    if (activeKeys.length === 0 || !matchedKey || !matchedKey.isActive) {
-      res.status(401).json({
+    const matchedKey = providedKey ? allKeys.find((k) => safeCompareKeys(k.key, providedKey)) : undefined;
+    if (endpointSettings.requireApiKey) {
+      const activeKeys = allKeys.filter((k) => k.isActive);
+      if (activeKeys.length === 0 || !matchedKey || !matchedKey.isActive) {
+        res.status(401).json({
+          type: "error",
+          error: {
+            type: "authentication_error",
+            message: "Unauthorized: Invalid or missing gateway API key.",
+          },
+        });
+        return;
+      }
+    }
+
+    const body = req.body || {};
+    if (!body.messages || !Array.isArray(body.messages)) {
+      res.status(400).json({
         type: "error",
         error: {
-          type: "authentication_error",
-          message: "Unauthorized: Invalid or missing gateway API key.",
+          type: "invalid_request_error",
+          message: "messages: Field required",
         },
       });
       return;
     }
-  }
 
-  const body = req.body || {};
-  if (!body.messages || !Array.isArray(body.messages)) {
-    res.status(400).json({
-      type: "error",
-      error: {
-        type: "invalid_request_error",
-        message: "messages: Field required",
-      },
-    });
-    return;
-  }
+    const rawModel = body.model || "default";
+    const { model: strippedModel } = stripModelContextMarker(rawModel);
+    const cleanModel = strippedModel || rawModel;
 
-  const rawModel = body.model || "default";
-  const { model: strippedModel } = stripModelContextMarker(rawModel);
-  const cleanModel = strippedModel || rawModel;
+    // Resolve tool mapping
+    const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "";
+    let resolvedModel = cleanModel;
+    const toolId = clientTool.toLowerCase().includes("claude") ? "claude" : "";
+    if (toolId) {
+      const mapped = ToolMappingRepository.resolveModelMapping(toolId, cleanModel);
+      if (mapped) resolvedModel = mapped;
+    }
 
-  // Resolve tool mapping
-  const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "";
-  let resolvedModel = cleanModel;
-  const toolId = clientTool.toLowerCase().includes("claude") ? "claude" : "";
-  if (toolId) {
-    const mapped = ToolMappingRepository.resolveModelMapping(toolId, cleanModel);
-    if (mapped) resolvedModel = mapped;
-  }
+    // Resolve combo if target is combo
+    const allCombos = ComboRepository.getAllCombos();
+    const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
+    const activeCombo = allCombos.find(
+      (c) => c.isActive && (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
+    );
 
-  // Resolve combo if target is combo
-  const allCombos = ComboRepository.getAllCombos();
-  const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
-  const activeCombo = allCombos.find(
-    (c) => c.isActive && (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
-  );
+    const candidateModel = activeCombo && activeCombo.models[0] ? activeCombo.models[0] : resolvedModel;
+    const resolved = resolveTargetModelAndProvider(candidateModel);
+    const providerId = resolved.providerId || "claude";
 
-  const candidateModel = activeCombo && activeCombo.models[0] ? activeCombo.models[0] : resolvedModel;
-  const resolved = resolveTargetModelAndProvider(candidateModel);
-  const providerId = resolved.providerId || "claude";
-
-  // If resolved provider is native Claude, try calling upstream Anthropic count_tokens
-  if (providerId === "claude") {
-    const account = LoadBalancer.pickAccount("claude", { targetModel: resolved.targetModel });
-    if (account && account.rawApiKey) {
-      try {
-        const upstreamUrl = "https://api.anthropic.com/v1/messages/count_tokens";
-        const upstreamRes = await executeUpstreamFetch(
-          upstreamUrl,
-          {
-            method: "POST",
-            headers: {
-              "x-api-key": account.rawApiKey,
-              "anthropic-version": "2023-06-01",
-              "anthropic-beta": "token-counting-2024-11-01",
-              "content-type": "application/json",
+    // If resolved provider is native Claude, try calling upstream Anthropic count_tokens
+    if (providerId === "claude") {
+      const account = LoadBalancer.pickAccount("claude", { targetModel: resolved.targetModel });
+      if (account && account.rawApiKey) {
+        try {
+          const upstreamUrl = "https://api.anthropic.com/v1/messages/count_tokens";
+          const upstreamRes = await executeUpstreamFetch(
+            upstreamUrl,
+            {
+              method: "POST",
+              headers: {
+                "x-api-key": account.rawApiKey,
+                "anthropic-version": "2023-06-01",
+                "anthropic-beta": "token-counting-2024-11-01",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify(body),
             },
-            body: JSON.stringify(body),
-          },
-          ""
-        );
+            ""
+          );
 
-        if (upstreamRes.ok) {
-          const data: any = await upstreamRes.json();
-          if (data && typeof data.input_tokens === "number") {
-            res.json(data);
-            return;
+          if (upstreamRes.ok) {
+            const data: any = await upstreamRes.json();
+            if (data && typeof data.input_tokens === "number") {
+              res.json(data);
+              return;
+            }
           }
+        } catch {
+          // Fallback to local calculation
         }
-      } catch {
-        // Fallback to local calculation
       }
     }
-  }
 
-  // Local calculation fallback
-  const input_tokens = calculateAnthropicInputTokens(body);
-  const reqTag = tagForSession(req.reqId || crypto.randomUUID());
-  logger.line(reqTag, LogSymbol.SAVER, `COUNT_TOKENS: estimated ${input_tokens} tokens for model '${cleanModel}'`);
-  res.json({ input_tokens });
+    // Local calculation fallback
+    const input_tokens = calculateAnthropicInputTokens(body);
+    const reqTag = tagForSession(req.reqId || crypto.randomUUID());
+    logger.line(reqTag, LogSymbol.SAVER, `COUNT_TOKENS: estimated ${input_tokens} tokens for model '${cleanModel}'`);
+    res.json({ input_tokens });
+  } catch (err: any) {
+    if (!res.headersSent) {
+      res.status(500).json({
+        type: "error",
+        error: {
+          type: "api_error",
+          message: err?.message || "Internal server error",
+        },
+      });
+    }
+  }
 }

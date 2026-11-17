@@ -89,7 +89,8 @@ export class PortHelper {
             encoding: "utf8",
             timeout: 3000,
           }).trim();
-          const match = fuserOutput.match(/\b(\d+)\b/);
+          const rhs = fuserOutput.includes(":") ? fuserOutput.split(":").slice(1).join(":") : fuserOutput;
+          const match = rhs.match(/\b(\d+)\b/);
           if (match) {
             const pid = parseInt(match[1], 10);
             if (!isNaN(pid) && pid > 0) return [pid];
@@ -161,10 +162,15 @@ export class PortHelper {
    * Check if a port is currently listening.
    */
   public static async isPortListening(port: number, host: string = DEFAULT_HOST): Promise<boolean> {
+    const connectHost = host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
     return new Promise((resolve) => {
-      const socket = net.connect({ host, port }, () => {
+      const socket = net.connect({ host: connectHost, port }, () => {
         socket.destroy();
         resolve(true);
+      });
+      socket.setTimeout(1500, () => {
+        socket.destroy();
+        resolve(false);
       });
       socket.on("error", () => {
         socket.destroy();

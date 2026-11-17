@@ -10,6 +10,7 @@ import { scanProviderModels } from "../../core/scanner/modelScanner.js";
 import { testProviderConnection, testMultipleConnections } from "../../core/scanner/connectionTester.js";
 import { maskSensitivePsd } from "../../shared/utils/security.js";
 import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
+import { cooldownManager } from "../../core/resilience/index.js";
 import crypto from "node:crypto";
 
 export const providerRouter = Router();
@@ -118,13 +119,14 @@ providerRouter.get("/registry/:id", (req, res) => {
 
 // POST validate provider credentials
 providerRouter.post("/validate", async (req, res) => {
-  const { provider: providerId, apiKey, providerSpecificData } = req.body;
-  const pId = String(providerId || "").toLowerCase();
+  try {
+    const { provider: providerId, apiKey, providerSpecificData } = req.body || {};
+    const pId = String(providerId || "").toLowerCase();
 
-  if (!pId) {
-    res.status(400).json({ valid: false, error: "Provider is required" });
-    return;
-  }
+    if (!pId) {
+      res.status(400).json({ valid: false, error: "Provider is required" });
+      return;
+    }
 
   const reg = getRegistryProvider(pId);
   const isNoAuthOrNoKey =
@@ -368,6 +370,9 @@ providerRouter.post("/validate", async (req, res) => {
   } catch (err: any) {
     res.json({ valid: false, error: err.message || "Connection timeout or unreachable" });
   }
+  } catch (err: any) {
+    res.status(500).json({ valid: false, error: err?.message || "Failed to validate provider" });
+  }
 });
 
 // POST ad-hoc model scanning from upstream provider API
@@ -539,6 +544,9 @@ providerRouter.put("/:id/accounts/:accountId", (req, res) => {
       providerSpecificData: mergedPsd,
     });
 
+    cooldownManager.markSuccess(accountId);
+    (cooldownManager as any).clearAccount?.(accountId);
+
     // If API key was explicitly updated with a new non-empty key, clear cached models so account is fresh
     if (apiKey !== undefined && apiKey !== existing.rawApiKey) {
       AccountModelRepository.clearAccountModels(accountId);
@@ -567,7 +575,10 @@ providerRouter.put("/:id/accounts/:accountId/toggle", (req, res) => {
 
 // DELETE single account
 providerRouter.delete("/:id/accounts/:accountId", (req, res) => {
-  ProviderRepository.deleteAccount(req.params.accountId);
+  const { accountId } = req.params;
+  ProviderRepository.deleteAccount(accountId);
+  cooldownManager.markSuccess(accountId);
+  (cooldownManager as any).clearAccount?.(accountId);
   res.json({ success: true });
 });
 

@@ -100,6 +100,19 @@ export function buildOutput(input: string): string {
     }
   }
 
+  const summaryLines = summary ? summary.split("\n").length : 0;
+  if (
+    errors.length === 0 &&
+    warnings.length === 0 &&
+    deprecations.length === 0 &&
+    compilingCount === 0 &&
+    downloadingCount === 0 &&
+    summaryLines <= 1 &&
+    lines.length > 20
+  ) {
+    return input;
+  }
+
   let out = "";
 
   // Keep first N deprecations verbatim (package name + reason), count the rest

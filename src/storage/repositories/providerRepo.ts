@@ -4,6 +4,28 @@ import type { ProviderConfig, ProviderAccount } from "../../shared/types/index.j
 import { getRegistryProvider, type RegistryModel } from "../../shared/constants/providerRegistry.js";
 import type { ProviderRegion } from "../../providers/core/types.js";
 
+function serializePsd(psd?: Record<string, any> | null): string | null {
+  if (!psd) return null;
+  return CryptoVault.encrypt(JSON.stringify(psd));
+}
+
+function deserializePsd(raw?: string | null): Record<string, any> | undefined {
+  if (!raw) return undefined;
+  if (raw.trim().startsWith("{")) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  }
+  try {
+    const dec = CryptoVault.decrypt(raw);
+    return dec ? JSON.parse(dec) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export class ProviderRepository {
   public static getAllProviders(): ProviderConfig[] {
     const db = getDatabase();
@@ -399,7 +421,7 @@ export class ProviderRepository {
     );
 
     return rows.map((r) => {
-      const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+      const psd = deserializePsd(r.provider_specific_data);
       return {
         id: r.id,
         providerId: r.provider_id,
@@ -422,8 +444,17 @@ export class ProviderRepository {
   public static bulkToggleAccounts(accountIds: string[], isActive: boolean): void {
     if (!accountIds || accountIds.length === 0) return;
     const db = getDatabase();
-    for (const id of accountIds) {
-      db.run("UPDATE provider_accounts SET is_active = ? WHERE id = ?", isActive ? 1 : 0, id);
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      for (const id of accountIds) {
+        db.run("UPDATE provider_accounts SET is_active = ? WHERE id = ?", isActive ? 1 : 0, id);
+      }
+      db.exec("COMMIT;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK;");
+      } catch {}
+      throw err;
     }
   }
 
@@ -477,7 +508,7 @@ export class ProviderRepository {
     }
 
     return rows.map((r) => {
-      const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+      const psd = deserializePsd(r.provider_specific_data);
       return {
         id: r.id,
         providerId: r.provider_id,
@@ -533,7 +564,7 @@ export class ProviderRepository {
     }
 
     return rows.map((r) => {
-      const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+      const psd = deserializePsd(r.provider_specific_data);
       return {
         id: r.id,
         providerId: r.provider_id,
@@ -589,7 +620,7 @@ export class ProviderRepository {
       }
       return undefined;
     }
-    const psd = r.provider_specific_data ? JSON.parse(r.provider_specific_data) : undefined;
+    const psd = deserializePsd(r.provider_specific_data);
     return {
       id: r.id,
       providerId: r.provider_id,
@@ -621,7 +652,7 @@ export class ProviderRepository {
     const rawKey = account.rawApiKey || "";
     const encryptedKey = CryptoVault.encrypt(rawKey);
     const now = Date.now();
-    const psdJson = account.providerSpecificData ? JSON.stringify(account.providerSpecificData) : null;
+    const psdSerialized = serializePsd(account.providerSpecificData);
     const maxOrderRow = db.get<any>(
       "SELECT MAX(sort_order) as max_order FROM provider_accounts WHERE provider_id = ?",
       provider.id
@@ -641,7 +672,7 @@ export class ProviderRepository {
       encryptedKey,
       sortOrder,
       now,
-      psdJson
+      psdSerialized
     );
   }
 
@@ -655,26 +686,36 @@ export class ProviderRepository {
       sortOrder?: number;
     }>
   ): void {
+    if (!accounts || accounts.length === 0) return;
     const db = getDatabase();
     const now = Date.now();
-    for (let i = 0; i < accounts.length; i++) {
-      const acc = accounts[i];
-      const provider = this.ensureProviderExists(acc.providerId);
-      const rawKey = acc.rawApiKey || "";
-      const encryptedKey = CryptoVault.encrypt(rawKey);
-      const psdJson = acc.providerSpecificData ? JSON.stringify(acc.providerSpecificData) : null;
-      const sortOrder = acc.sortOrder ?? i;
-      db.run(
-        `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, sort_order, created_at, provider_specific_data)
-         VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?)`,
-        acc.id,
-        provider.id,
-        acc.name,
-        encryptedKey,
-        sortOrder,
-        now,
-        psdJson
-      );
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      for (let i = 0; i < accounts.length; i++) {
+        const acc = accounts[i];
+        const provider = this.ensureProviderExists(acc.providerId);
+        const rawKey = acc.rawApiKey || "";
+        const encryptedKey = CryptoVault.encrypt(rawKey);
+        const psdSerialized = serializePsd(acc.providerSpecificData);
+        const sortOrder = acc.sortOrder ?? i;
+        db.run(
+          `INSERT INTO provider_accounts (id, provider_id, name, api_key_encrypted, is_active, rate_limit_hits, sort_order, created_at, provider_specific_data)
+           VALUES (?, ?, ?, ?, 1, 0, ?, ?, ?)`,
+          acc.id,
+          provider.id,
+          acc.name,
+          encryptedKey,
+          sortOrder,
+          now,
+          psdSerialized
+        );
+      }
+      db.exec("COMMIT;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK;");
+      } catch {}
+      throw err;
     }
   }
 
@@ -691,12 +732,27 @@ export class ProviderRepository {
     const existing = db.get<any>("SELECT * FROM provider_accounts WHERE id = ?", id);
     if (!existing) return;
 
-    const newEncryptedKey = updates.rawApiKey !== undefined ? CryptoVault.encrypt(updates.rawApiKey) : existing.api_key_encrypted;
+    const newEncryptedKey =
+      updates.rawApiKey !== undefined && updates.rawApiKey !== "••••••••"
+        ? CryptoVault.encrypt(updates.rawApiKey)
+        : existing.api_key_encrypted;
     const newName = updates.name !== undefined ? updates.name : existing.name;
     const newIsActive = updates.isActive !== undefined ? (updates.isActive ? 1 : 0) : existing.is_active;
-    const newPsd = updates.providerSpecificData !== undefined
-      ? JSON.stringify(updates.providerSpecificData)
-      : existing.provider_specific_data;
+    let newPsd = existing.provider_specific_data;
+    if (updates.providerSpecificData !== undefined) {
+      const mergedPsd: Record<string, any> = { ...updates.providerSpecificData };
+      if (existing.provider_specific_data) {
+        const existingPsd = deserializePsd(existing.provider_specific_data);
+        if (existingPsd) {
+          for (const [k, v] of Object.entries(mergedPsd)) {
+            if (v === "••••••••" && existingPsd[k] !== undefined) {
+              mergedPsd[k] = existingPsd[k];
+            }
+          }
+        }
+      }
+      newPsd = serializePsd(mergedPsd);
+    }
 
     db.run(
       `UPDATE provider_accounts

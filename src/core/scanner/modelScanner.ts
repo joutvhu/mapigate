@@ -10,6 +10,20 @@ export { resolveCandidateUrls } from "./urlResolver.js";
 
 export { extractModelsFromPayload } from "./payloadExtractor.js";
 
+function extractUrlHost(urlStr?: string): string {
+  if (!urlStr) return "";
+  try {
+    return new URL(urlStr).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === "127.0.0.1" || h === "localhost" || h === "::1" || h === "[::1]";
+}
+
 /**
  * Scans models from an upstream provider API endpoint.
  * Probes candidate URLs with decrypted credentials and parses the response safely.
@@ -39,6 +53,27 @@ export async function scanProviderModels(options: ScanModelsOptions): Promise<Sc
     let dbProvider: any;
     if (providerId) {
       dbProvider = ProviderRepository.getProviderById(providerId);
+
+      const customTargetHost = options.baseUrl ? extractUrlHost(options.baseUrl) : "";
+      if (customTargetHost && !apiKey && !isLoopbackHost(customTargetHost)) {
+        const knownHosts = new Set(
+          [
+            extractUrlHost(dbProvider?.baseUrl),
+            extractUrlHost(dbProvider?.modelsUrl),
+            extractUrlHost(registryItem?.baseUrl),
+            extractUrlHost(registryItem?.modelsUrl),
+            extractUrlHost(registryItem?.validateUrl),
+          ].filter(Boolean)
+        );
+        if (knownHosts.size > 0 && !knownHosts.has(customTargetHost)) {
+          return {
+            success: false,
+            models: [],
+            count: 0,
+            error: "Explicit API key is required when scanning a custom external baseUrl that differs from the configured provider host.",
+          };
+        }
+      }
 
       if (!baseUrl) {
         baseUrl = dbProvider?.modelsUrl || registryItem?.modelsUrl || dbProvider?.baseUrl || registryItem?.baseUrl;

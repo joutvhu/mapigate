@@ -92,27 +92,48 @@ export class ComboRepository {
 
     const db = getDatabase();
     const now = Date.now();
-    const id = combo.id || trimmedName.toLowerCase().replace(/[^a-z0-9_.-]/g, "-");
+    const existingByName = this.getComboByName(trimmedName);
+    const existingById = combo.id ? this.getComboById(combo.id) : undefined;
+    const id =
+      existingByName?.id ||
+      existingById?.id ||
+      combo.id ||
+      trimmedName.toLowerCase().replace(/[^a-z0-9_.-]/g, "-");
+    const createdAt = existingByName?.createdAt || existingById?.createdAt || now;
     const strategy = combo.strategy || "round-robin";
     const isActive = combo.isActive !== false ? 1 : 0;
     const models = Array.isArray(combo.models) ? combo.models : [];
 
-    db.run(
-      `INSERT INTO combos (id, name, models, strategy, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(name) DO UPDATE SET
-         models = excluded.models,
-         strategy = excluded.strategy,
-         is_active = excluded.is_active,
-         updated_at = excluded.updated_at`,
-      id,
-      trimmedName,
-      JSON.stringify(models),
-      strategy,
-      isActive,
-      now,
-      now
-    );
+    if (!existingByName && existingById) {
+      db.run(
+        `UPDATE combos
+         SET name = ?, models = ?, strategy = ?, is_active = ?, updated_at = ?
+         WHERE id = ?`,
+        trimmedName,
+        JSON.stringify(models),
+        strategy,
+        isActive,
+        now,
+        id
+      );
+    } else {
+      db.run(
+        `INSERT INTO combos (id, name, models, strategy, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(name) DO UPDATE SET
+           models = excluded.models,
+           strategy = excluded.strategy,
+           is_active = excluded.is_active,
+           updated_at = excluded.updated_at`,
+        id,
+        trimmedName,
+        JSON.stringify(models),
+        strategy,
+        isActive,
+        createdAt,
+        now
+      );
+    }
 
     return {
       id,
@@ -120,7 +141,7 @@ export class ComboRepository {
       models,
       strategy,
       isActive: Boolean(isActive),
-      createdAt: now,
+      createdAt,
       updatedAt: now,
     };
   }

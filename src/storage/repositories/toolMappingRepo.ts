@@ -199,15 +199,7 @@ export class ToolMappingRepository {
       }
     }
 
-    // 2. Delete existing mappings
-    db.run("DELETE FROM tool_mappings WHERE tool_id = ?", tid);
-    try {
-      db.run("DELETE FROM mitm_mappings WHERE ide = ?", tid);
-    } catch {
-      // ignore
-    }
-
-    // 3. Get defaults
+    // 2. Get defaults before modifying tables
     const defaults = this.getDefaultMappings(tid);
     const restoredMappings: ToolMapping[] = defaults.map((m) => ({
       toolId: tid,
@@ -215,24 +207,40 @@ export class ToolMappingRepository {
       targetModel: existingTargetMap.get(m.sourceModel) || m.targetModel || "",
     }));
 
-    // 4. Insert restored mappings
-    for (const m of restoredMappings) {
-      db.run(
-        "INSERT INTO tool_mappings (tool_id, source_model, target_model) VALUES (?, ?, ?)",
-        m.toolId,
-        m.sourceModel,
-        m.targetModel
-      );
+    // 3. Delete existing mappings and insert restored mappings inside a transaction
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      db.run("DELETE FROM tool_mappings WHERE tool_id = ?", tid);
       try {
+        db.run("DELETE FROM mitm_mappings WHERE ide = ?", tid);
+      } catch {
+        // ignore
+      }
+
+      for (const m of restoredMappings) {
         db.run(
-          "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
+          "INSERT INTO tool_mappings (tool_id, source_model, target_model) VALUES (?, ?, ?)",
           m.toolId,
           m.sourceModel,
           m.targetModel
         );
-      } catch {
-        // ignore
+        try {
+          db.run(
+            "INSERT INTO mitm_mappings (ide, source_model, target_model) VALUES (?, ?, ?)",
+            m.toolId,
+            m.sourceModel,
+            m.targetModel
+          );
+        } catch {
+          // ignore
+        }
       }
+      db.exec("COMMIT;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK;");
+      } catch {}
+      throw err;
     }
 
     return this.sortMappingsCanonical(restoredMappings);

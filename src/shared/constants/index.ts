@@ -41,36 +41,14 @@ export function isTestEnvironment(): boolean {
     return false;
   }
 
-  if (
+  return (
     process.env.NODE_ENV === "test" ||
     process.env.MAPIGATE_TEST === "1" ||
-    process.env.MAPIGATE_TEST === "true"
-  ) {
-    return true;
-  }
-
-  if (
-    process.env.npm_lifecycle_event === "test" ||
-    process.env.npm_lifecycle_event?.startsWith("test:") ||
-    process.env.npm_lifecycle_event === "pretest"
-  ) {
-    return true;
-  }
-
-  if (process.env.NODE_TEST_CONTEXT) {
-    return true;
-  }
-
-  if (process.env.MAPIGATE_DATA_DIR?.includes("test")) {
-    return true;
-  }
-
-  const args = [...(process.execArgv || []), ...(process.argv || [])];
-  if (args.some((arg) => typeof arg === "string" && (arg.includes("--test") || arg.includes(".test.") || arg.includes(".spec.")))) {
-    return true;
-  }
-
-  return false;
+    Boolean(process.env.NODE_TEST_CONTEXT) ||
+    Boolean(process.env.MAPIGATE_DATA_DIR?.includes("mapigate-test")) ||
+    process.execArgv.includes("--test") ||
+    process.argv.some((arg) => arg === "--test" || /\.(test|spec)\.[cm]?[jt]s$/.test(arg))
+  );
 }
 
 export function getDefaultDataDir(): string {

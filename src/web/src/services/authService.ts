@@ -179,7 +179,15 @@ export function setupFetchInterceptor(): void {
       url = (input as Request).url;
     }
 
-    const isApiRequest = url.startsWith("/api/") || url.includes("/api/");
+    let isApiRequest = false;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      isApiRequest =
+        parsed.origin === window.location.origin &&
+        (parsed.pathname === "/api" || parsed.pathname.startsWith("/api/"));
+    } catch {
+      isApiRequest = url.startsWith("/api/");
+    }
     const isPublicAuth = url.includes("/api/auth/status") || url.includes("/api/auth/login");
 
     let modifiedInit = init;

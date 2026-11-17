@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from "express";
 import { spawn } from "node:child_process";
 import { serverLifecycle } from "../lifecycle.js";
-import { checkForUpdates } from "../../shared/utils/versionChecker.js";
-import { APP_NAME, APP_VERSION } from "../../shared/constants/index.js";
+import { checkForUpdates, VALID_SEMVER_REGEX } from "../../shared/utils/versionChecker.js";
+import { APP_NAME, APP_VERSION, isTestEnvironment } from "../../shared/constants/index.js";
 
 export const serverRouter = Router();
 
@@ -14,10 +14,7 @@ export const handleShutdownRequest = async (_req: Request, res: Response): Promi
     message: "Mapigate server is shutting down...",
   });
 
-  const isTest =
-    process.env.NODE_ENV === "test" ||
-    Boolean(process.env.NODE_TEST_CONTEXT) ||
-    process.argv.some((arg) => arg.includes("test"));
+  const isTest = isTestEnvironment();
 
   // Gracefully initiate server shutdown after flushing HTTP response
   serverLifecycle.shutdownServer({ delayMs: 150, exitProcess: !isTest }).catch((err) => {
@@ -31,10 +28,7 @@ export const handleRestartRequest = async (_req: Request, res: Response): Promis
     message: "Mapigate server is restarting...",
   });
 
-  const isTest =
-    process.env.NODE_ENV === "test" ||
-    Boolean(process.env.NODE_TEST_CONTEXT) ||
-    process.argv.some((arg) => arg.includes("test"));
+  const isTest = isTestEnvironment();
 
   // Gracefully initiate server restart after flushing HTTP response
   serverLifecycle.restartServer({ delayMs: 150, exitProcess: !isTest }).catch((err) => {
@@ -53,10 +47,7 @@ export const handleUpgradeRequest = async (req: Request, res: Response): Promise
 
   isUpgradeInProgress = true;
 
-  const isTest =
-    process.env.NODE_ENV === "test" ||
-    Boolean(process.env.NODE_TEST_CONTEXT) ||
-    process.argv.some((arg) => arg.includes("test"));
+  const isTest = isTestEnvironment();
 
   try {
     if (isTest && req.body?.mockTest) {
@@ -72,7 +63,7 @@ export const handleUpgradeRequest = async (req: Request, res: Response): Promise
 
     const updateInfo = await checkForUpdates(true);
 
-    if (!updateInfo.latestVersion) {
+    if (!updateInfo.latestVersion || !VALID_SEMVER_REGEX.test(updateInfo.latestVersion)) {
       isUpgradeInProgress = false;
       res.status(502).json({
         success: false,

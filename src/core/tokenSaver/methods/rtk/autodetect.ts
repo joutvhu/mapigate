@@ -25,7 +25,9 @@ const RE_GIT_STATUS = /^On branch |^nothing to commit|^Changes (not |to be )|^Un
 const RE_GIT_LOG = /^[*|/\\ ]*commit [0-9a-f]{7,40}$/m;
 const RE_PORCELAIN = /^[ MADRCU?!][ MADRCU?!] \S/m;
 const RE_BUILD_OUTPUT =
-  /^(npm (warn|error|ERR!)|yarn (warn|error)|\s*Compiling\s+\S+|\s*Downloading\s+\S+|added \d+ package|\[ERROR\]|BUILD (SUCCESS|FAILED)|\s*Finished\s+|Successfully (installed|built)|ERROR:)/im;
+  /^(?:npm (?:warn|error|ERR!)|yarn (?:warn|error)|\s*Compiling\s+\S+\s+v\d+|\s*Downloading\s+\S+\s+v\d+|added \d+ package|\[ERROR\]|BUILD (?:SUCCESS|FAILED)|\s*Finished\s+(?:['`]?(?:dev|release|test|bench)['`]?|target\(s\)|in\s+\d)|Successfully (?:installed|built)|ERROR:)/im;
+const RE_STRONG_BUILD_HEADER =
+  /^(?:npm (?:warn|error|ERR!)|yarn (?:warn|error)|error\[E\d+\]|\[ERROR\]|BUILD (?:SUCCESS|FAILED))/m;
 const RE_ANSI_OR_SPINNER = /\x1b\[[0-9;]*[a-zA-Z]|\[=+\]\s*\d+%|\[(?:progress|\.\.\.)\]/m;
 const RE_TREE_GLYPH = /[├└]──|│ {2}/;
 const RE_LS_ROW = /^[-dlbcps][rwx-]{9}/m;
@@ -43,9 +45,10 @@ function isBase64Data(text: string): boolean {
 
 function looksLikeSourceCode(head: string): boolean {
   const codePatterns = [
-    /^\s*(import\s+|export\s+|const\s+|let\s+|function\s+|class\s+|def\s+|public\s+|private\s+)/m,
+    /^\s*(?:import\s+|export\s+|const\s+|let\s+|function\s+|class\s+|def\s+|async\s+def\s+|elif\s+|except\s+|public\s+|private\s+|#!\/bin\/)/m,
     /[;{}][\r\n]/,
     /^\s*(package\s+|namespace\s+|using\s+|from\s+\S+\s+import)/m,
+    /^\s*(?:\{\s*$|"\w+":\s|\[\w[\w.-]*\]\s*$|<!DOCTYPE\s+|<!doctype\s+|<html\b|CREATE\s+TABLE\b|SELECT\s+.+\s+FROM\b)/im,
   ];
   return codePatterns.some((p) => p.test(head));
 }
@@ -63,9 +66,6 @@ export function autoDetectFilter(text: string): FilterFunction | null {
   if (RE_GIT_DIFF.test(head) || RE_GIT_DIFF_HUNK.test(head)) return gitDiff;
   if (RE_GIT_STATUS.test(head)) return gitStatus;
 
-  // Build output BEFORE porcelain check
-  if (RE_BUILD_OUTPUT.test(head)) return buildOutput;
-
   if (isMostlyPorcelain(head)) return gitStatus;
 
   const lines = head.split("\n");
@@ -77,22 +77,31 @@ export function autoDetectFilter(text: string): FilterFunction | null {
   // Rust find rule: ALL non-empty lines path-like (no ':'), >=3 lines
   if (nonEmpty.length >= 3 && nonEmpty.every(isPathLike)) return find;
 
-  // Tree: contains box-drawing glyphs
-  if (RE_TREE_GLYPH.test(head)) return tree;
-
   // ls -la: has "total N" header or >=3 rows starting with perms string
   if (RE_LS_TOTAL.test(head) || countMatches(head, RE_LS_ROW) >= 3) return ls;
 
   // Cursor Glob search list header
   if (SEARCH_LIST_HEADER_RE.test(head)) return searchList;
 
+  const totalLineCount = text.split("\n").length;
+
   // Line-numbered file dump ("  N|content")
-  if (lines.length >= SMART_TRUNCATE_MIN_LINES && isLineNumbered(lines)) {
+  if (totalLineCount >= SMART_TRUNCATE_MIN_LINES && isLineNumbered(lines)) {
     return readNumbered;
   }
 
+  // Protect source code files from being misclassified as build output or tree output
+  if (looksLikeSourceCode(head) && !RE_STRONG_BUILD_HEADER.test(head)) {
+    return null;
+  }
+
+  if (RE_BUILD_OUTPUT.test(head)) return buildOutput;
+
+  // Tree: contains box-drawing glyphs
+  if (RE_TREE_GLYPH.test(head)) return tree;
+
   // Big blob with no structure — smart truncate ONLY if not source code (RTK-03, #4559)
-  if (text.split("\n").length >= SMART_TRUNCATE_MIN_LINES && !looksLikeSourceCode(head)) {
+  if (totalLineCount >= SMART_TRUNCATE_MIN_LINES && !looksLikeSourceCode(head)) {
     return smartTruncate;
   }
 

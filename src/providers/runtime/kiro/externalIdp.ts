@@ -3,6 +3,25 @@ import { ProviderRepository } from "../../../storage/repositories/providerRepo.j
 
 const DEFAULT_REGION = "us-east-1";
 const DEFAULT_EXPIRES_IN = 3600;
+const VALID_REGION_RE = /^[a-z0-9-]+$/i;
+
+function validateTokenEndpoint(rawEndpoint: string): string | undefined {
+  if (!rawEndpoint) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(rawEndpoint);
+  } catch {
+    throw new Error("Invalid token_endpoint URL");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error("token_endpoint must use http or https protocol");
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (host === "169.254.169.254" || host === "metadata.google.internal") {
+    throw new Error("token_endpoint cannot point to cloud metadata service");
+  }
+  return parsed.toString();
+}
 
 function normalizeString(value: any): string {
   return typeof value === "string" ? value.trim() : "";
@@ -79,9 +98,10 @@ export function normalizeKiroExternalIdpAuth(rawAuth: any): KiroExternalIdpAuthD
   const accessToken = normalizeString(input.access_token || input.accessToken || input.token);
   const refreshToken = normalizeString(input.refresh_token || input.refreshToken);
   const clientId = normalizeString(input.client_id || input.clientId);
-  const tokenEndpoint = normalizeString(input.token_endpoint || input.tokenEndpoint);
+  const tokenEndpoint = validateTokenEndpoint(normalizeString(input.token_endpoint || input.tokenEndpoint));
   const profileArn = normalizeString(input.profile_arn || input.profileArn);
-  const region = normalizeString(input.region) || DEFAULT_REGION;
+  const rawRegion = normalizeString(input.region) || DEFAULT_REGION;
+  const region = VALID_REGION_RE.test(rawRegion) ? rawRegion : DEFAULT_REGION;
   const scope = normalizeScope(input.scopes || input.scope) || "https://service.codewhisperer.amazonaws.com/.default offline_access";
 
   if (!accessToken) {

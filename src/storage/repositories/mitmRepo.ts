@@ -26,6 +26,23 @@ export const DEFAULT_KIRO_MAPPINGS: MitmMapping[] = getDefaultMappings("kiro");
 export const DEFAULT_ANTIGRAVITY_MAPPINGS: MitmMapping[] = getDefaultMappings("antigravity");
 export const DEFAULT_COPILOT_MAPPINGS: MitmMapping[] = getDefaultMappings("copilot");
 
+export function isLocalRouterUrl(rawUrl?: string | null): boolean {
+  if (!rawUrl || !rawUrl.trim()) return true;
+  try {
+    const parsed = new URL(rawUrl.trim());
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "0.0.0.0" ||
+      host === "::1" ||
+      host === "[::1]"
+    );
+  } catch {
+    return false;
+  }
+}
+
 export class MitmRepository {
   public static getToolDnsStatus(tool: string): boolean {
     const db = getDatabase();
@@ -179,7 +196,7 @@ export class MitmRepository {
       }
     } catch {}
 
-    const isRemote = Boolean(url && !url.includes("127.0.0.1") && !url.includes("localhost") && !url.includes("0.0.0.0"));
+    const isRemote = Boolean(url && !isLocalRouterUrl(url));
     return {
       baseUrl: url,
       apiKey: apiKey || undefined,

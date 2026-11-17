@@ -4,6 +4,77 @@ import { buildPresetItems, PRESET_SOURCES } from "../../core/router/comboPresets
 
 export const comboRouter = Router();
 
+function extractComboRef(modelEntry: string): string {
+  const trimmed = String(modelEntry || "").trim();
+  if (trimmed.toLowerCase().startsWith("combo/")) {
+    return trimmed.slice(6).trim().toLowerCase();
+  }
+  return trimmed.toLowerCase();
+}
+
+function hasComboCycle(
+  selfId: string | undefined,
+  selfName: string,
+  models: unknown[],
+  allCombos: Array<{ id: string; name: string; models: string[] }>
+): boolean {
+  if (!Array.isArray(models) || models.length === 0) return false;
+  const selfNameLower = selfName.trim().toLowerCase();
+  const selfIdLower = selfId ? selfId.trim().toLowerCase() : "";
+
+  const matchesSelf = (entry: string): boolean => {
+    const raw = String(entry || "").trim().toLowerCase();
+    const ref = extractComboRef(raw);
+    if (ref === selfNameLower || raw === selfNameLower || raw === `combo/${selfNameLower}`) {
+      return true;
+    }
+    if (selfIdLower && (ref === selfIdLower || raw === selfIdLower || raw === `combo/${selfIdLower}`)) {
+      return true;
+    }
+    return false;
+  };
+
+  for (const m of models) {
+    if (typeof m === "string" && matchesSelf(m)) {
+      return true;
+    }
+  }
+
+  const findCombo = (entry: string) => {
+    const raw = String(entry || "").trim();
+    if (raw.includes("/") && !raw.toLowerCase().startsWith("combo/")) {
+      return undefined;
+    }
+    const ref = extractComboRef(raw);
+    return allCombos.find(
+      (c) =>
+        c.id.toLowerCase() !== selfIdLower &&
+        (c.name.toLowerCase() === ref || c.id.toLowerCase() === ref)
+    );
+  };
+
+  const visited = new Set<string>();
+  const stack: string[][] = [models.filter((m): m is string => typeof m === "string")];
+
+  while (stack.length > 0) {
+    const currentModels = stack.pop()!;
+    for (const m of currentModels) {
+      if (matchesSelf(m)) {
+        return true;
+      }
+      const targetCombo = findCombo(m);
+      if (targetCombo && !visited.has(targetCombo.id)) {
+        visited.add(targetCombo.id);
+        if (Array.isArray(targetCombo.models)) {
+          stack.push(targetCombo.models);
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 // GET /api/combos - Get all combos
 comboRouter.get("/", (_req, res) => {
   try {
@@ -96,11 +167,17 @@ comboRouter.post("/", (req, res) => {
     return;
   }
 
+  const modelList = Array.isArray(models) ? models : [];
+  if (hasComboCycle(id, trimmedName, modelList, ComboRepository.getAllCombos())) {
+    res.status(400).json({ error: "Combo models cannot reference the combo itself or create a circular dependency." });
+    return;
+  }
+
   try {
     const record = ComboRepository.saveCombo({
       id,
       name: trimmedName,
-      models: Array.isArray(models) ? models : [],
+      models: modelList,
       strategy: strategy || "round-robin",
       isActive: isActive !== false,
     });
@@ -126,6 +203,10 @@ comboRouter.put("/:id", (req, res) => {
   const id = req.params.id;
   const { name, models, strategy, isActive } = req.body;
 
+  const existingCombo = ComboRepository.getComboById(id) || ComboRepository.getComboByName(id);
+  const effectiveId = existingCombo?.id || id;
+  const effectiveName = name !== undefined ? String(name).trim() : (existingCombo?.name || id);
+
   if (name !== undefined) {
     if (typeof name !== "string" || name.trim().length === 0) {
       res.status(400).json({ error: "Combo name cannot be empty." });
@@ -137,10 +218,16 @@ comboRouter.put("/:id", (req, res) => {
       return;
     }
     const existingByName = ComboRepository.getComboByName(trimmedName);
-    if (existingByName && existingByName.id !== id) {
+    if (existingByName && existingByName.id !== effectiveId) {
       res.status(400).json({ error: "Combo name already exists." });
       return;
     }
+  }
+
+  const effectiveModels = Array.isArray(models) ? models : (existingCombo?.models || []);
+  if (hasComboCycle(effectiveId, effectiveName, effectiveModels, ComboRepository.getAllCombos())) {
+    res.status(400).json({ error: "Combo models cannot reference the combo itself or create a circular dependency." });
+    return;
   }
 
   try {

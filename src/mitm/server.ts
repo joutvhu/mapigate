@@ -138,17 +138,30 @@ function collectBody(req: IncomingMessage, maxBytes = MAX_MITM_BODY_BYTES): Prom
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let received = 0;
+    let settled = false;
     req.on("data", (chunk) => {
+      if (settled) return;
       const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       received += buf.length;
       if (received > maxBytes) {
-        req.destroy(new Error(`Payload too large: exceeded ${maxBytes} bytes`));
+        settled = true;
+        const err = new Error(`Payload too large: exceeded ${maxBytes} bytes`);
+        reject(err);
+        req.destroy(err);
         return;
       }
       chunks.push(buf);
     });
-    req.on("end", () => resolve(Buffer.concat(chunks)));
-    req.on("error", reject);
+    req.on("end", () => {
+      if (settled) return;
+      settled = true;
+      resolve(Buffer.concat(chunks));
+    });
+    req.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
   });
 }
 
@@ -340,12 +353,4 @@ if (!shutdownHookRegistered) {
     removeAllDNSEntriesSync();
   };
   process.on("exit", onExit);
-  process.on("SIGINT", () => {
-    onExit();
-    process.exit(0);
-  });
-  process.on("SIGTERM", () => {
-    onExit();
-    process.exit(0);
-  });
 }

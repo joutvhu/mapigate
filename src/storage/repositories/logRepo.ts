@@ -32,7 +32,7 @@ export class LogRepository {
       log.errorMessage || null
     );
 
-    // Roll up into daily_usage_stats only when this log ID was newly inserted (prevents double-counting on duplicate calls)
+    // Roll up into daily_usage_stats only when this log ID was newly inserted and has non-zero tokens
     const hasTokens = (log.promptTokens || 0) + (log.completionTokens || 0) > 0;
     if (insertResult.changes > 0 && hasTokens) {
       try {
@@ -170,8 +170,7 @@ export class LogRepository {
     if (hasDaily) {
       const row = db.get<any>(
         `SELECT COALESCE(SUM(prompt_tokens), 0)
-              + COALESCE(SUM(completion_tokens), 0)
-              + COALESCE(SUM(cached_tokens), 0) AS total
+              + COALESCE(SUM(completion_tokens), 0) AS total
          FROM daily_usage_stats
          WHERE (account_id = ? OR (account_id = '' AND provider_id = ?))
            AND date >= ?`,
@@ -184,9 +183,7 @@ export class LogRepository {
 
     const row = db.get<any>(
       `SELECT COALESCE(SUM(prompt_tokens), 0)
-            + COALESCE(SUM(completion_tokens), 0)
-            + COALESCE(SUM(cached_tokens), 0)
-            + COALESCE(SUM(cache_creation_tokens), 0) AS total
+            + COALESCE(SUM(completion_tokens), 0) AS total
        FROM request_logs
        WHERE (account_id = ? OR (account_id IS NULL AND provider_id = ?))
          AND timestamp >= ?`,

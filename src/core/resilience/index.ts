@@ -18,6 +18,12 @@ import type {
   ProviderBreakerProfile,
 } from "./types.js";
 
+let rateLimitHook: ((accountId: string, providerId?: string) => void) | null = null;
+
+export function registerRateLimitHook(fn: (accountId: string, providerId?: string) => void): void {
+  rateLimitHook = fn;
+}
+
 export * from "./types.js";
 export {
   ProviderCircuitBreaker,
@@ -132,6 +138,9 @@ export function recordResilienceFailure(opts: ResilienceFailureOptions): Resilie
     const parsedMs = parseRateLimitHeaders(headers);
     const appliedMs = parsedMs && parsedMs > 0 ? parsedMs : undefined;
     cooldownMs = cooldownManager.markRateLimited(accountId, appliedMs, providerId);
+    try {
+      rateLimitHook?.(accountId, providerId);
+    } catch {}
   }
 
   return {

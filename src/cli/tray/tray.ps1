@@ -99,13 +99,33 @@ function Set-Tooltip($text) {
   $script:notifyIcon.Text = $text
 }
 
-# Background reader thread polls stdin via timer on UI thread
+# Non-blocking async stdin reader polled via timer on UI thread
+# Note: [Console]::In is SyncTextReader on Windows PowerShell 5.1 (.NET Framework),
+# whose ReadLineAsync() blocks synchronously on the UI thread. Wrap OpenStandardInput() directly.
+$script:stdinReader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8)
+$script:readTask = $script:stdinReader.ReadLineAsync()
 $script:timer = New-Object System.Windows.Forms.Timer
 $script:timer.Interval = 100
 $script:timer.Add_Tick({
   try {
-    while ([Console]::In.Peek() -ne -1) {
-      $line = [Console]::In.ReadLine()
+    while ($null -ne $script:readTask -and $script:readTask.IsCompleted) {
+      if ($script:readTask.IsFaulted -or $script:readTask.IsCanceled) {
+        $script:timer.Stop()
+        $script:notifyIcon.Visible = $false
+        $script:notifyIcon.Dispose()
+        [System.Windows.Forms.Application]::Exit()
+        return
+      }
+      $line = $script:readTask.Result
+      if ($null -eq $line) {
+        # Parent process closed stdin (EOF)
+        $script:timer.Stop()
+        $script:notifyIcon.Visible = $false
+        $script:notifyIcon.Dispose()
+        [System.Windows.Forms.Application]::Exit()
+        return
+      }
+      $script:readTask = $script:stdinReader.ReadLineAsync()
       if ([string]::IsNullOrWhiteSpace($line)) { continue }
       $cmd = $line | ConvertFrom-Json
       switch ($cmd.action) {
@@ -114,9 +134,11 @@ $script:timer.Add_Tick({
         "set-tooltip" { Set-Tooltip $cmd.text }
         "ready"       { Write-Event @{ type = "ready" } }
         "kill"        {
+          $script:timer.Stop()
           $script:notifyIcon.Visible = $false
           $script:notifyIcon.Dispose()
           [System.Windows.Forms.Application]::Exit()
+          return
         }
       }
     }

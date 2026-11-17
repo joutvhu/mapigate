@@ -121,13 +121,20 @@ export function getCustomMitmHosts(): {
   return customHostsCache;
 }
 
+export function matchesDomain(host: string, domain: string): boolean {
+  const h = (host || "").split(":")[0].trim().toLowerCase();
+  const d = (domain || "").trim().toLowerCase();
+  if (!h || !d) return false;
+  return h === d || h.endsWith("." + d);
+}
+
 export function getToolForHost(host?: string | null): string | null {
   if (!host) return null;
   const h = host.split(":")[0].trim().toLowerCase();
 
   // 1. Static built-in tool hosts
   for (const tool of MITM_TOOLS) {
-    if (tool.hosts.some((target) => target.toLowerCase() === h)) {
+    if (tool.hosts.some((target) => matchesDomain(h, target))) {
       return tool.id;
     }
   }

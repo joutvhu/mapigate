@@ -18,26 +18,30 @@ const DEVICE_CODE_PROVIDERS = new Set([
 
 // GET /api/oauth/:provider/authorize - Get authorization URL & PKCE metadata
 oauthRouter.get("/:provider/authorize", async (req, res) => {
-  const { provider } = req.params;
-  const pId = provider.toLowerCase();
-  const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
-  const redirectUri = (req.query.redirect_uri as string) || `http://localhost:${appPort}/callback`;
-  const region = (req.query.region as string) || undefined;
-  const { codeVerifier, codeChallenge, state } = generatePKCE(32);
-  const handler = OAuthHandlerRegistry.get(provider);
+  try {
+    const { provider } = req.params;
+    const pId = provider.toLowerCase();
+    const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
+    const redirectUri = (req.query.redirect_uri as string) || `http://localhost:${appPort}/callback`;
+    const region = (req.query.region as string) || undefined;
+    const { codeVerifier, codeChallenge, state } = generatePKCE(32);
+    const handler = OAuthHandlerRegistry.get(provider);
 
-  if (DEVICE_CODE_PROVIDERS.has(pId) || (!handler.authorize && typeof handler.deviceCode === "function")) {
-    return res.json({ authUrl: null, flowType: "device_code", redirectUri, state, codeVerifier, region });
-  }
-  if (typeof handler.authorize === "function") {
-    try {
-      const result = await handler.authorize({ provider: pId, redirectUri, appPort, codeVerifier, codeChallenge, state, region });
-      return res.json(result);
-    } catch (err: any) {
-      return res.status(400).json({ error: err.message || `Provider '${provider}' does not support OAuth authorize endpoint` });
+    if (DEVICE_CODE_PROVIDERS.has(pId) || (!handler.authorize && typeof handler.deviceCode === "function")) {
+      return res.json({ authUrl: null, flowType: "device_code", redirectUri, state, codeVerifier, region });
     }
+    if (typeof handler.authorize === "function") {
+      try {
+        const result = await handler.authorize({ provider: pId, redirectUri, appPort, codeVerifier, codeChallenge, state, region });
+        return res.json(result);
+      } catch (err: any) {
+        return res.status(400).json({ error: err.message || `Provider '${provider}' does not support OAuth authorize endpoint` });
+      }
+    }
+    res.status(400).json({ error: `Provider '${provider}' does not support OAuth authorize endpoint` });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to initiate OAuth authorize" });
   }
-  res.status(400).json({ error: `Provider '${provider}' does not support OAuth authorize endpoint` });
 });
 
 // GET /api/oauth/:provider/device-code - Request device code for device flow providers
@@ -78,53 +82,53 @@ oauthRouter.post("/:provider/poll", async (req, res) => {
 
 // POST /api/oauth/:provider/exchange - Exchange authorization code for tokens and save account
 oauthRouter.post("/:provider/exchange", async (req, res) => {
-  const { provider } = req.params;
-  const pId = provider.toLowerCase();
-  const { code, redirectUri, codeVerifier, state, region } = req.body;
-  if (!code || typeof code !== "string") return res.status(400).json({ error: "Missing authorization code or callback URL" });
-
-  let rawCode = code.trim();
-  let extractedCodeState = "";
-  if (rawCode.includes("#")) {
-    const parts = rawCode.split("#");
-    rawCode = parts[0];
-    extractedCodeState = parts[1] || "";
-  }
-
-  if (rawCode.includes("code=")) {
-    try {
-      const url = new URL(rawCode.startsWith("http") ? rawCode : `http://localhost/${rawCode}`);
-      rawCode = url.searchParams.get("code") || rawCode;
-    } catch {
-      const match = rawCode.match(/[?&]code=([^&]+)/);
-      if (match) rawCode = decodeURIComponent(match[1]);
-    }
-  }
-
-  if (rawCode.startsWith("eyJ") && rawCode.includes(".")) {
-    const payload = parseJwtPayload(rawCode);
-    const accountName = payload?.email || payload?.name || `${provider} Account`;
-    const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
-    ProviderRepository.ensureProviderExists(pId);
-    ProviderRepository.addAccount({
-      id: accountId,
-      providerId: pId,
-      name: accountName,
-      rawApiKey: rawCode,
-      providerSpecificData: {
-        email: accountName,
-        authMethod: "access_token",
-        ...(region ? { region } : {}),
-      },
-    });
-    return res.json({ success: true, account: { id: accountId, name: accountName, providerId: pId } });
-  }
-
-  const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
-  const defaultRedirect = pId === "codex" ? "http://localhost:1455/auth/callback" : `http://localhost:${appPort}/callback`;
-  const effectiveRedirectUri = redirectUri || defaultRedirect;
-
   try {
+    const { provider } = req.params;
+    const pId = provider.toLowerCase();
+    const { code, redirectUri, codeVerifier, state, region } = req.body || {};
+    if (!code || typeof code !== "string") return res.status(400).json({ error: "Missing authorization code or callback URL" });
+
+    let rawCode = code.trim();
+    let extractedCodeState = "";
+    if (rawCode.includes("#")) {
+      const parts = rawCode.split("#");
+      rawCode = parts[0];
+      extractedCodeState = parts[1] || "";
+    }
+
+    if (rawCode.includes("code=")) {
+      try {
+        const url = new URL(rawCode.startsWith("http") ? rawCode : `http://localhost/${rawCode}`);
+        rawCode = url.searchParams.get("code") || rawCode;
+      } catch {
+        const match = rawCode.match(/[?&]code=([^&]+)/);
+        if (match) rawCode = decodeURIComponent(match[1]);
+      }
+    }
+
+    if (rawCode.startsWith("eyJ") && rawCode.includes(".")) {
+      const payload = parseJwtPayload(rawCode);
+      const accountName = payload?.email || payload?.name || `${provider} Account`;
+      const accountId = `acc_${crypto.randomUUID().slice(0, 8)}`;
+      ProviderRepository.ensureProviderExists(pId);
+      ProviderRepository.addAccount({
+        id: accountId,
+        providerId: pId,
+        name: accountName,
+        rawApiKey: rawCode,
+        providerSpecificData: {
+          email: accountName,
+          authMethod: "access_token",
+          ...(region ? { region } : {}),
+        },
+      });
+      return res.json({ success: true, account: { id: accountId, name: accountName, providerId: pId } });
+    }
+
+    const appPort = req.headers.host?.split(":")[1] || String(serverLifecycle.getPort());
+    const defaultRedirect = pId === "codex" ? "http://localhost:1455/auth/callback" : `http://localhost:${appPort}/callback`;
+    const effectiveRedirectUri = redirectUri || defaultRedirect;
+
     const handler = OAuthHandlerRegistry.get(provider);
     if (!handler.exchange) return res.status(400).json({ error: `OAuth exchange not implemented for provider '${provider}'` });
     const result = await handler.exchange({

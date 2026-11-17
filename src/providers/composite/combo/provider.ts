@@ -45,6 +45,8 @@ export class ComboProvider implements IProvider {
         models,
         handleSingleModel: dispatchSingleModel,
         comboName,
+        judgeModel: (combo as any)?.judgeModel,
+        tuning: (combo as any)?.tuning,
       });
     }
 

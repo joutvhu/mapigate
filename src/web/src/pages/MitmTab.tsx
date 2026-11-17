@@ -904,14 +904,33 @@ export const MitmTab: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href="/api/mitm/cert"
-              download="mapigate-rootCA.crt"
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/mitm/cert");
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  const blob = await res.blob();
+                  const blobUrl = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = blobUrl;
+                  a.download = "mapigate-rootCA.crt";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(blobUrl);
+                } catch (err: any) {
+                  setCertInstallMsg({
+                    type: "error",
+                    text: err?.message || "Failed to download Root CA certificate.",
+                  });
+                }
+              }}
               className="rt-btn rt-btn--secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">download</span>
               Download CA
-            </a>
+            </button>
             {certTrusted ? (
               <button
                 disabled={uninstallingCert}

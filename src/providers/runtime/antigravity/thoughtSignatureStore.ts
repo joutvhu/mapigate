@@ -12,6 +12,28 @@ interface SignatureEntry {
 }
 
 const memorySignatures = new Map<string, SignatureEntry>();
+let writeCounter = 0;
+
+function prunePersistedIfNeeded(db: ReturnType<typeof getDatabase>): void {
+  writeCounter++;
+  if (writeCounter < 100) return;
+  writeCounter = 0;
+  try {
+    const row = db.get<{ cnt: number }>("SELECT COUNT(*) as cnt FROM kv_store WHERE scope = ?", SCOPE);
+    const total = Number(row?.cnt || 0);
+    if (total > 4000) {
+      const excess = total - MAX_SIGNATURES;
+      db.run(
+        "DELETE FROM kv_store WHERE scope = ? AND key IN (SELECT key FROM kv_store WHERE scope = ? LIMIT ?)",
+        SCOPE,
+        SCOPE,
+        excess
+      );
+    }
+  } catch {
+    // Fail-open
+  }
+}
 
 export function signatureFamily(model?: string): string | null {
   const m = typeof model === "string" ? model.toLowerCase() : "";
@@ -79,6 +101,7 @@ export function storeGeminiThoughtSignature(
         expiresAt: now + PERSISTED_TTL_MS,
       });
       db.run("INSERT OR REPLACE INTO kv_store (scope, key, value) VALUES (?, ?, ?)", SCOPE, k, val);
+      prunePersistedIfNeeded(db);
     } catch {
       // Fail-open
     }

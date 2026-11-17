@@ -5,6 +5,14 @@ import { DEFAULT_PORT, DEFAULT_HOST, APP_NAME } from "../../shared/constants/ind
 import { ProcessManager } from "../daemon/processManager.js";
 
 export function openBrowser(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+  } catch {
+    return;
+  }
+  if (/["`$;&|<>]/.test(url)) return;
+
   const platform = process.platform;
   let cmd = `xdg-open "${url}"`;
   if (platform === "win32") {

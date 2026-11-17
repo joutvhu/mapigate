@@ -414,6 +414,7 @@ export async function executeAntigravity(
     if (refreshed) {
       const refreshedCreds = resolveAccountCredentials(context);
       if (refreshedCreds?.accessToken) {
+        await upstreamRes.body?.cancel().catch(() => {});
         headers.Authorization = `Bearer ${refreshedCreds.accessToken}`;
         upstreamRes = await executeUpstreamFetch(
           targetUrl,
@@ -559,6 +560,10 @@ export async function executeAntigravity(
       },
     };
 
+    if (isPanel) {
+      return { ok: true, status: 200, json: openAiResponse, logged: false, modelUsed: `antigravity/${targetModel}` };
+    }
+
     if (clientFormat === "responses") {
       const responsesRes = convertOpenAiResponseToResponsesApi(openAiResponse);
       res.status(200).json(responsesRes);
@@ -623,7 +628,7 @@ export async function executeAntigravity(
     });
     logger.line(reqTag, LogSymbol.USAGE, `antigravity/${targetModel} · ${doneMsg}`);
 
-    return { ok: true, status: 200, json: openAiResponse, modelUsed: targetModel };
+    return { ok: true, status: 200, json: openAiResponse, logged: true, modelUsed: targetModel };
   }
 
   // 7. Streaming Response Path

@@ -1,4 +1,5 @@
 import { DEFAULT_PORT, DEFAULT_HOST } from "../../shared/constants/index.js";
+import { MasterAuth } from "../../server/auth/masterAuth.js";
 
 export interface ApiClientConfig {
   host?: string;
@@ -64,12 +65,29 @@ export class ApiClient {
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs || this.timeoutMs);
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      };
+
+      const isLoopback =
+        this.host === "127.0.0.1" ||
+        this.host === "localhost" ||
+        this.host === "::1" ||
+        this.host === "[::1]";
+      if (isLoopback) {
+        try {
+          if (MasterAuth.isPasswordSet()) {
+            headers.Authorization = `Bearer ${MasterAuth.createSessionToken(60_000)}`;
+          }
+        } catch {
+          // Fail-open if DB / vault is unavailable in CLI process
+        }
+      }
+
       const fetchOptions: RequestInit = {
         method: options.method || "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers,
         signal: controller.signal,
       };
 

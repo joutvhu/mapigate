@@ -3,6 +3,12 @@ import { ProviderRepository } from "../../../storage/repositories/providerRepo.j
 
 const DEFAULT_REGION = "us-east-1";
 const DEFAULT_START_URL = "https://view.awsapps.com/start";
+const VALID_REGION_RE = /^[a-z0-9-]+$/i;
+
+function sanitizeRegion(region?: string): string {
+  const trimmed = (region || DEFAULT_REGION).trim();
+  return VALID_REGION_RE.test(trimmed) ? trimmed : DEFAULT_REGION;
+}
 
 export interface KiroDeviceCodeResult {
   device_code: string;
@@ -27,7 +33,7 @@ export async function requestKiroDeviceCode(options?: {
   authMethod?: string;
   name?: string;
 }): Promise<KiroDeviceCodeResult> {
-  const region = (options?.region || DEFAULT_REGION).trim();
+  const region = sanitizeRegion(options?.region);
   const startUrl = (options?.startUrl || DEFAULT_START_URL).trim();
   const authMethod = options?.authMethod === "idc" ? "idc" : "builder-id";
   const name = options?.name?.trim();
@@ -123,7 +129,7 @@ export async function pollKiroDeviceToken(params: {
   error?: string;
 }> {
   const extra = params.extraData || {};
-  const region = extra._region || DEFAULT_REGION;
+  const region = sanitizeRegion(extra._region);
   const tokenUrl = `https://oidc.${region}.amazonaws.com/token`;
 
   const res = await fetch(tokenUrl, {

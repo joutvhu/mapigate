@@ -104,7 +104,7 @@ export async function handleFusionChat(options: FusionChatOptions): Promise<Mode
   const calls = panel.map((m) => handleSingleModel(panelBody, m, true));
   const settled = await collectPanel(calls, { ...cfg, minPanel });
 
-  const answers: Array<{ model: string; text: string }> = [];
+  const answers: Array<{ model: string; text: string; result?: ModelCallResult }> = [];
   for (let i = 0; i < settled.length; i++) {
     const res: any = settled[i];
     const m = panel[i];
@@ -119,7 +119,7 @@ export async function handleFusionChat(options: FusionChatOptions): Promise<Mode
 
     const text = res.json ? extractPanelText(res.json) : res.text || "";
     if (text.trim()) {
-      answers.push({ model: m, text: text.trim() });
+      answers.push({ model: m, text: text.trim(), result: res });
     }
   }
 
@@ -130,6 +130,13 @@ export async function handleFusionChat(options: FusionChatOptions): Promise<Mode
 
   if (answers.length === 1) {
     log.info(`[COMBO:Fusion] Only 1 panel model (${answers[0].model}) succeeded; delivering directly`);
+    const canReusePanelResult =
+      body?.stream === false &&
+      (!Array.isArray(body?.tools) || body.tools.length === 0) &&
+      Boolean(answers[0].result?.ok);
+    if (canReusePanelResult) {
+      return { ...answers[0].result!, modelUsed: answers[0].model, logged: false };
+    }
     return handleSingleModel(body, answers[0].model, false);
   }
 

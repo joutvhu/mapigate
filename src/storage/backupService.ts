@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { getDatabase } from "./database.js";
 import { ProviderRepository } from "./repositories/providerRepo.js";
 import { ComboRepository } from "./repositories/comboRepo.js";
 import { ToolMappingRepository } from "./repositories/toolMappingRepo.js";
@@ -33,6 +34,8 @@ export interface BackupPayload {
       type?: string;
       baseUrl?: string;
       format?: string;
+      priority?: number;
+      models?: any[];
       customHeaders?: Record<string, string>;
       proxyUrl?: string;
       thinkingMode?: string;
@@ -152,6 +155,8 @@ export class BackupService {
         type: (p as any).type,
         baseUrl: p.baseUrl,
         format: p.format,
+        priority: p.priority,
+        models: p.models,
         customHeaders: p.customHeaders,
         proxyUrl: p.proxyUrl,
         thinkingMode: p.thinkingMode,
@@ -267,7 +272,32 @@ export class BackupService {
           throw new Error("Invalid password for encrypted backup.");
         }
       }
+
+      if (Array.isArray(payload.data.providers)) {
+        for (const provData of payload.data.providers) {
+          if (!Array.isArray(provData.accounts)) continue;
+          for (const accData of provData.accounts) {
+            if (accData.apiKey) {
+              try {
+                decryptWithPassword(accData.apiKey, decryptKey);
+              } catch (e: any) {
+                throw new Error(`Invalid password for encrypted backup: Authentication failed (${e.message})`);
+              }
+            }
+            if (typeof accData.providerSpecificData === "string" && accData.providerSpecificData.includes(":")) {
+              try {
+                decryptWithPassword(accData.providerSpecificData, decryptKey);
+              } catch (e: any) {
+                throw new Error(`Invalid password for encrypted backup: Authentication failed (${e.message})`);
+              }
+            }
+          }
+        }
+      }
     }
+
+    const db = getDatabase();
+    db.exec("SAVEPOINT backup_import;");
 
     const warnings: string[] = [];
     const restored = {
@@ -278,25 +308,42 @@ export class BackupService {
       rulesCount: 0,
     };
 
+    try {
+      if (options.mode === "overwrite") {
+        for (const existingCombo of ComboRepository.getAllCombos()) {
+          ComboRepository.deleteCombo(existingCombo.id);
+        }
+        for (const existingMapping of ToolMappingRepository.getAllMappings()) {
+          ToolMappingRepository.deleteMapping(existingMapping.toolId, existingMapping.sourceModel);
+        }
+        for (const existingRule of ModelRepository.getAllRules()) {
+          ModelRepository.deleteRule(existingRule.id);
+        }
+      }
+
     // 1. Providers & Accounts
     if (Array.isArray(payload.data.providers)) {
       for (const provData of payload.data.providers) {
         if (!provData.id) continue;
         try {
+          const existing = ProviderRepository.getProviderById(provData.id);
           ProviderRepository.saveProvider({
             id: provData.id,
-            name: provData.name || provData.id,
-            baseUrl: provData.baseUrl || "https://api.openai.com",
-            format: (provData.format as any) || "openai",
-            priority: 0,
-            models: [],
-            customHeaders: provData.customHeaders,
-            proxyUrl: provData.proxyUrl,
-            thinkingMode: provData.thinkingMode,
-            strategy: provData.strategy || undefined,
-            stickyLimit: provData.stickyLimit || undefined,
+            name: provData.name || existing?.name || provData.id,
+            baseUrl: provData.baseUrl || existing?.baseUrl || "https://api.openai.com",
+            format: (provData.format as any) || existing?.format || "openai",
+            priority: provData.priority ?? existing?.priority ?? 10,
+            models:
+              Array.isArray(provData.models) && provData.models.length > 0
+                ? provData.models
+                : (existing?.models || []),
+            customHeaders: provData.customHeaders ?? existing?.customHeaders,
+            proxyUrl: provData.proxyUrl ?? existing?.proxyUrl,
+            thinkingMode: provData.thinkingMode || existing?.thinkingMode,
+            strategy: provData.strategy !== undefined ? (provData.strategy || undefined) : existing?.strategy,
+            stickyLimit: provData.stickyLimit !== undefined ? (provData.stickyLimit || undefined) : existing?.stickyLimit,
             isActive: provData.isActive !== false,
-            createdAt: Date.now(),
+            createdAt: existing?.createdAt || Date.now(),
             updatedAt: Date.now(),
           });
           restored.providersCount++;
@@ -397,6 +444,9 @@ export class BackupService {
       for (const r of payload.data.modelRules) {
         if (!r.alias || !r.targetModel) continue;
         try {
+          if (r.targetProviderId && r.targetProviderId !== "combo") {
+            ProviderRepository.ensureProviderExists(r.targetProviderId);
+          }
           ModelRepository.saveRule({
             id: r.id || crypto.randomUUID(),
             alias: r.alias,
@@ -412,21 +462,30 @@ export class BackupService {
       }
     }
 
-    // 5. Settings
-    if (payload.data.settings) {
-      try {
-        if (payload.data.settings.tokenSaver) {
-          SettingsRepository.setTokenSaverSettings(payload.data.settings.tokenSaver);
+      // 5. Settings
+      if (payload.data.settings) {
+        try {
+          if (payload.data.settings.tokenSaver) {
+            SettingsRepository.setTokenSaverSettings(payload.data.settings.tokenSaver);
+          }
+          if (payload.data.settings.capacityAdapter) {
+            SettingsRepository.setCapacityAdapterSettings(payload.data.settings.capacityAdapter);
+          }
+          if (payload.data.settings.endpoint) {
+            SettingsRepository.setEndpointSettings(payload.data.settings.endpoint);
+          }
+        } catch (err: any) {
+          warnings.push(`Failed restoring settings: ${err.message}`);
         }
-        if (payload.data.settings.capacityAdapter) {
-          SettingsRepository.setCapacityAdapterSettings(payload.data.settings.capacityAdapter);
-        }
-        if (payload.data.settings.endpoint) {
-          SettingsRepository.setEndpointSettings(payload.data.settings.endpoint);
-        }
-      } catch (err: any) {
-        warnings.push(`Failed restoring settings: ${err.message}`);
       }
+
+      db.exec("RELEASE SAVEPOINT backup_import;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK TO SAVEPOINT backup_import;");
+        db.exec("RELEASE SAVEPOINT backup_import;");
+      } catch {}
+      throw err;
     }
 
     return {

@@ -1,4 +1,4 @@
-export const DEFAULT_ALLOWED_HOSTS = "10.*, 172.16-31.*, 192.168.*, 169.254.*, *.local";
+export const DEFAULT_ALLOWED_HOSTS = "10.*, 172.16-31.*, 192.168.*, *.local";
 
 export function isHostPatternMatch(pattern: string, hostname: string): boolean {
   const p = pattern.trim().toLowerCase();

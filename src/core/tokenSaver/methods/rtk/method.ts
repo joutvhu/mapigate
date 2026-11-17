@@ -75,7 +75,7 @@ export class RtkMethod implements ITokenSaverMethod {
       /\b(SyntaxError|ReferenceError|TypeError|RangeError|AssertionError)\b/.test(output) ||
       /\berror TS\d+:/.test(output) ||
       /\b(FATAL|PANIC|CRITICAL)\b/.test(output) ||
-      /\b(FAILED|FAILURE)\b.*(test|spec)/i.test(output)
+      /\b(?:FAILED|FAILURE)\b[^\r\n]{0,200}(?:test|spec)/i.test(output.slice(0, 32768))
     ) {
       return { text: output, tokensSaved: 0 };
     }

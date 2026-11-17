@@ -86,11 +86,21 @@ quotaRouter.put("/accounts/:accountId", async (req, res) => {
       return;
     }
 
+    let mergedPsd = providerSpecificData;
+    if (providerSpecificData && typeof providerSpecificData === "object" && existing.providerSpecificData) {
+      mergedPsd = { ...existing.providerSpecificData, ...providerSpecificData };
+      for (const [k, v] of Object.entries(providerSpecificData)) {
+        if (v === "••••••••" && existing.providerSpecificData[k] !== undefined) {
+          mergedPsd[k] = existing.providerSpecificData[k];
+        }
+      }
+    }
+
     ProviderRepository.updateAccount(accountId, {
       name,
-      rawApiKey: apiKey !== undefined ? apiKey : undefined,
+      rawApiKey: apiKey !== undefined && apiKey !== "••••••••" ? apiKey : undefined,
       isActive,
-      providerSpecificData,
+      providerSpecificData: mergedPsd,
     });
 
     // Re-fetch updated quota for this account

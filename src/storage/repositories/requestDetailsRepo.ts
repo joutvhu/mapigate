@@ -64,78 +64,87 @@ export function flushRequestDetailsBuffer(): void {
     const items = writeBuffer.splice(0, writeBuffer.length);
     const db = getDatabase();
 
-    for (const item of items) {
-      const sanitizedItem: RequestDetail = {
-        ...item,
-        request: item.request
-          ? {
-              ...item.request,
-              headers: sanitizeHeaders(item.request.headers),
-              body: truncatePayload(item.request.body),
-            }
-          : undefined,
-        providerRequest: item.providerRequest
-          ? {
-              ...item.providerRequest,
-              headers: sanitizeHeaders(item.providerRequest.headers),
-              body: truncatePayload(item.providerRequest.body),
-            }
-          : undefined,
-        providerResponse: item.providerResponse
-          ? {
-              ...item.providerResponse,
-              headers: sanitizeHeaders(item.providerResponse.headers),
-              body: truncatePayload(item.providerResponse.body),
-            }
-          : undefined,
-        response: item.response
-          ? {
-              ...item.response,
-              headers: sanitizeHeaders(item.response.headers),
-              body: truncatePayload(item.response.body),
-            }
-          : undefined,
-      };
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      for (const item of items) {
+        const sanitizedItem: RequestDetail = {
+          ...item,
+          request: item.request
+            ? {
+                ...item.request,
+                headers: sanitizeHeaders(item.request.headers),
+                body: truncatePayload(item.request.body),
+              }
+            : undefined,
+          providerRequest: item.providerRequest
+            ? {
+                ...item.providerRequest,
+                headers: sanitizeHeaders(item.providerRequest.headers),
+                body: truncatePayload(item.providerRequest.body),
+              }
+            : undefined,
+          providerResponse: item.providerResponse
+            ? {
+                ...item.providerResponse,
+                headers: sanitizeHeaders(item.providerResponse.headers),
+                body: truncatePayload(item.providerResponse.body),
+              }
+            : undefined,
+          response: item.response
+            ? {
+                ...item.response,
+                headers: sanitizeHeaders(item.response.headers),
+                body: truncatePayload(item.response.body),
+              }
+            : undefined,
+        };
 
-      const tsString =
-        typeof sanitizedItem.timestamp === "number"
-          ? new Date(sanitizedItem.timestamp).toISOString()
-          : String(sanitizedItem.timestamp || new Date().toISOString());
+        const tsString =
+          typeof sanitizedItem.timestamp === "number"
+            ? new Date(sanitizedItem.timestamp).toISOString()
+            : String(sanitizedItem.timestamp || new Date().toISOString());
 
-      db.run(
-        `INSERT OR REPLACE INTO request_details (
-          id, timestamp, provider, model, connection_id, status, data
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        sanitizedItem.id,
-        tsString,
-        sanitizedItem.provider || null,
-        sanitizedItem.model || null,
-        sanitizedItem.connectionId || null,
-        String(sanitizedItem.status || "ok"),
-        JSON.stringify(sanitizedItem)
-      );
-    }
+        db.run(
+          `INSERT OR REPLACE INTO request_details (
+            id, timestamp, provider, model, connection_id, status, data
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          sanitizedItem.id,
+          tsString,
+          sanitizedItem.provider || null,
+          sanitizedItem.model || null,
+          sanitizedItem.connectionId || null,
+          String(sanitizedItem.status || "ok"),
+          JSON.stringify(sanitizedItem)
+        );
+      }
 
-    // Retention prune if table count exceeds limit
-    const retentionDays = SettingsRepository.getLogRetentionDays();
-    if (retentionDays > 0) {
+      // Retention prune if table count exceeds limit
+      const retentionDays = SettingsRepository.getLogRetentionDays();
+      if (retentionDays > 0) {
+        try {
+          const cutoffIso = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+          db.run("DELETE FROM request_details WHERE timestamp < ?", cutoffIso);
+        } catch {}
+      }
+
+      const maxRecords = getMaxRecords();
+      const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM request_details");
+      const totalCount = countRow?.count || 0;
+      if (totalCount > maxRecords) {
+        const excess = totalCount - maxRecords;
+        db.run(
+          `DELETE FROM request_details WHERE id IN (
+            SELECT id FROM request_details ORDER BY timestamp ASC LIMIT ?
+          )`,
+          excess
+        );
+      }
+      db.exec("COMMIT;");
+    } catch (txErr) {
       try {
-        const cutoffIso = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-        db.run("DELETE FROM request_details WHERE timestamp < ?", cutoffIso);
+        db.exec("ROLLBACK;");
       } catch {}
-    }
-
-    const maxRecords = getMaxRecords();
-    const countRow = db.get<{ count: number }>("SELECT COUNT(*) as count FROM request_details");
-    const totalCount = countRow?.count || 0;
-    if (totalCount > maxRecords) {
-      const excess = totalCount - maxRecords;
-      db.run(
-        `DELETE FROM request_details WHERE id IN (
-          SELECT id FROM request_details ORDER BY timestamp ASC LIMIT ?
-        )`,
-        excess
-      );
+      throw txErr;
     }
   } catch (err) {
     console.warn("[requestDetailsRepo] Batch flush error:", err);

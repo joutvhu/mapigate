@@ -8,9 +8,19 @@ const DEFAULT_SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 interface SessionTokenPayload {
   type: "master_session";
+  iat: number;
   exp: number;
   pwdUpdatedAt: number;
+  pwdSig: string;
   nonce: string;
+}
+
+function computePasswordSig(hash?: string): string {
+  return crypto
+    .createHmac("sha256", hash || "")
+    .update("master_session")
+    .digest("hex")
+    .slice(0, 16);
 }
 
 export class MasterAuth {
@@ -68,10 +78,14 @@ export class MasterAuth {
       throw new Error("Master password is not configured");
     }
 
+    const now = Date.now();
+    const iat = config.logoutAt && now <= config.logoutAt ? config.logoutAt + 1 : now;
     const payload: SessionTokenPayload = {
       type: "master_session",
-      exp: Date.now() + durationMs,
+      iat,
+      exp: now + durationMs,
       pwdUpdatedAt: config.updatedAt || 0,
+      pwdSig: computePasswordSig(config.hash),
       nonce: crypto.randomBytes(8).toString("hex"),
     };
 
@@ -82,7 +96,8 @@ export class MasterAuth {
    * Verify a session token. Validates:
    * 1. Decryption and tamper-proofing (AES-256-GCM auth tag).
    * 2. Expiration timestamp.
-   * 3. Current password version (instant invalidation if password changed or cleared).
+   * 3. Current password version & hash signature (instant invalidation if password changed or cleared).
+   * 4. Session revocation timestamp (logoutAt).
    */
   public static verifySessionToken(token: string): boolean {
     if (!token || typeof token !== "string") return false;
@@ -99,11 +114,27 @@ export class MasterAuth {
       if (payload.type !== "master_session") return false;
       if (typeof payload.exp !== "number" || payload.exp <= Date.now()) return false;
       if (typeof payload.pwdUpdatedAt !== "number" || payload.pwdUpdatedAt !== config.updatedAt) return false;
+      const expectedSig = computePasswordSig(config.hash);
+      if (payload.pwdSig !== expectedSig) return false;
+      if (config.logoutAt && typeof payload.iat === "number" && payload.iat <= config.logoutAt) return false;
 
       return true;
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Revoke all active session tokens issued at or before the current timestamp.
+   */
+  public static revokeAllSessions(): void {
+    const config = SettingsRepository.getMasterPasswordConfig();
+    if (!config.enabled) return;
+    const now = Date.now();
+    SettingsRepository.setMasterPasswordConfig({
+      ...config,
+      logoutAt: config.logoutAt && now <= config.logoutAt ? config.logoutAt + 1 : now,
+    });
   }
 
   /**

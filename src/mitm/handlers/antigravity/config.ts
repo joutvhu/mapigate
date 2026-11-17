@@ -19,7 +19,12 @@ export const toolConfig: MitmToolConfig = {
   hostRewrite: {
     "cloudcode-pa.googleapis.com": "daily-cloudcode-pa.googleapis.com",
   },
-  matchesHost: (h: string) => h.includes("cloudcode-pa.googleapis.com"),
+  matchesHost: (rawHost: string) => {
+    const h = (rawHost || "").split(":")[0].trim().toLowerCase();
+    return ["cloudcode-pa.googleapis.com", "daily-cloudcode-pa.googleapis.com"].some(
+      (d) => h === d || h.endsWith("." + d)
+    );
+  },
   isModelListRequest: (req) => {
     const url = (req.url || "").toLowerCase();
     return url.includes("fetchavailablemodels");

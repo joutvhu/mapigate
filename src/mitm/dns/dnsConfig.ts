@@ -1,7 +1,6 @@
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import os from "node:os";
 import { TOOL_HOSTS, type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
 import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
 import { runElevatedPowerShell, isAdmin, quotePs } from "./winElevated.js";
@@ -122,22 +121,14 @@ async function writeHostsFileWin(target: string, currentContent: string, newCont
     return;
   }
 
-  // Fallback: write to temp file and elevate copy via PowerShell
-  const tmpFile = path.join(os.tmpdir(), `mapigate-hosts-${Date.now()}.txt`);
-  fs.writeFileSync(tmpFile, newContent, "utf8");
-  try {
-    const psScript = `
-      Copy-Item -Path ${quotePs(tmpFile)} -Destination ${quotePs(target)} -Force;
-      ipconfig /flushdns | Out-Null;
-    `;
-    await runElevatedPowerShell(psScript);
-  } finally {
-    try {
-      fs.unlinkSync(tmpFile);
-    } catch {
-      // best effort
-    }
-  }
+  // Fallback: pass base64-encoded UTF-8 content directly to elevated PowerShell
+  const b64 = Buffer.from(newContent, "utf8").toString("base64");
+  const psScript = `
+    $bytes = [Convert]::FromBase64String('${b64}');
+    [IO.File]::WriteAllText(${quotePs(target)}, [Text.Encoding]::UTF8.GetString($bytes));
+    ipconfig /flushdns | Out-Null;
+  `;
+  await runElevatedPowerShell(psScript);
 }
 
 /** True when `sudo` exists (missing on minimal Docker images like Alpine). */
@@ -172,19 +163,42 @@ export function execWithPassword(command: string, password?: string): Promise<st
   return new Promise((resolve, reject) => {
     const useSudo = isSudoAvailable();
     const child = useSudo
-      ? spawn("sudo", ["-S", "sh", "-c", command], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
+      ? password
+        ? spawn("sudo", ["-S", "sh", "-c", command], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true })
+        : spawn("sudo", ["-n", "sh", "-c", command], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true })
       : spawn("sh", ["-c", command], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
 
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (d) => {
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        child.kill("SIGKILL");
+      } catch {}
+      reject(new Error("Command timed out after 15 seconds"));
+    }, 15000);
+
+    child.stdout?.on("data", (d) => {
       stdout += d.toString();
     });
-    child.stderr.on("data", (d) => {
+    child.stderr?.on("data", (d) => {
       stderr += d.toString();
     });
 
+    child.on("error", (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (code === 0) resolve(stdout);
       else reject(new Error(stderr || `Exit code ${code}`));
     });

@@ -93,11 +93,11 @@ async function runDoctorDiagnostics(): Promise<void> {
   console.log(`\n${COLORS.bold}Running Mapigate Doctor Diagnostics...${COLORS.reset}\n`);
 
   // 1. Check Node.js version
-  const nodeMajor = parseInt(process.versions.node.split(".")[0], 10);
-  if (nodeMajor >= 18) {
-    showStatus(`Node.js Runtime: ${process.version} (supported >= 18)`, "success");
+  const [nodeMajor, nodeMinor] = process.versions.node.split(".").map((n) => parseInt(n, 10) || 0);
+  if (nodeMajor > 22 || (nodeMajor === 22 && nodeMinor >= 5)) {
+    showStatus(`Node.js Runtime: ${process.version} (supported >= 22.5)`, "success");
   } else {
-    showStatus(`Node.js Runtime: ${process.version} (requires >= 18)`, "error");
+    showStatus(`Node.js Runtime: ${process.version} (requires >= 22.5)`, "error");
   }
 
   // 2. Check Server Health

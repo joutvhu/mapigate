@@ -130,6 +130,8 @@ export default defineConfig({
     "process.env": {},
   },
   build: {
+    outDir: path.resolve(projectRoot, "dist/web"),
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         manualChunks(id) {

@@ -9,6 +9,7 @@ import { decodeEventStreamChunk } from "../../../providers/runtime/bedrock/event
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/core/types.js";
 import { createStreamTrackingState, recordStreamToolCall, extractTokensFromChunk } from "./streamState.js";
+import { reasoningCache } from "../../../core/caching/reasoningCache.js";
 
 export async function pipeBedrockEventStream(
   upstreamRes: globalThis.Response,
@@ -16,7 +17,7 @@ export async function pipeBedrockEventStream(
   context: ProviderRequestContext,
   _provider: IProvider
 ): Promise<StreamExecutionResult> {
-  const { reqTag, startTime, requestId, clientFormat, rtkStats } = context;
+  const { reqTag, startTime, requestId, clientFormat, targetModel, rtkStats } = context;
   const reader = upstreamRes.body?.getReader();
   if (!reader) {
     throw new Error("Bedrock upstream response body is not readable");
@@ -215,6 +216,15 @@ export async function pipeBedrockEventStream(
     if (typeof clientRes?.removeListener === "function") {
       clientRes.removeListener("close", onClose);
     }
+  }
+
+  if (state.capturedToolCallIds.length > 0 && state.capturedReasoningText) {
+    reasoningCache.saveMultiple(
+      state.capturedToolCallIds,
+      context.provider?.id || _provider.id,
+      targetModel,
+      state.capturedReasoningText
+    );
   }
 
   if (state.completionTokens === 0 && state.capturedResponseText.length > 0) {

@@ -1,10 +1,10 @@
-import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
+import { AnthropicCompatibleProvider } from "../../core/base/anthropicProvider.js";
 import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getMiniMaxUsage } from "./quota.js";
 import { metadata } from "./metadata.js";
 
-export class MiniMaxProvider extends OpenAiCompatibleProvider {
+export class MiniMaxProvider extends AnthropicCompatibleProvider {
   public override readonly id = "minimax";
   public override readonly name = "MiniMax";
   public override readonly defaultFormat = "claude";

@@ -36,9 +36,25 @@ export function CallbackPage() {
     // 1. Relay data to parent/opener via multiple channels (mirroring 9router)
     const relayToOpener = (payload: any) => {
       if (window.opener) {
-        try {
-          window.opener.postMessage({ type: "oauth_callback", data: payload }, "*");
-        } catch {}
+        const targetOrigins = new Set<string>([window.location.origin]);
+        const currentHost = window.location.hostname.toLowerCase();
+        const isLoopback =
+          currentHost === "localhost" ||
+          currentHost === "127.0.0.1" ||
+          currentHost === "[::1]" ||
+          currentHost === "::1";
+        if (isLoopback) {
+          const portSuffix = window.location.port ? `:${window.location.port}` : "";
+          const proto = window.location.protocol;
+          targetOrigins.add(`${proto}//localhost${portSuffix}`);
+          targetOrigins.add(`${proto}//127.0.0.1${portSuffix}`);
+          targetOrigins.add(`${proto}//[::1]${portSuffix}`);
+        }
+        for (const origin of targetOrigins) {
+          try {
+            window.opener.postMessage({ type: "oauth_callback", data: payload }, origin);
+          } catch {}
+        }
       }
       try {
         const channel = new BroadcastChannel("oauth_callback");
@@ -76,7 +92,7 @@ export function CallbackPage() {
         if (raw) pendingFlow = JSON.parse(raw);
       } catch {}
 
-      if (pendingFlow?.providerId) {
+      if (pendingFlow?.providerId && !window.opener) {
         try {
           const res = await fetch(`/api/oauth/${pendingFlow.providerId}/exchange`, {
             method: "POST",

@@ -130,6 +130,7 @@ export class ConnectionCooldownManager {
 
     if (Date.now() >= entry.until) {
       this.cooldowns.delete(accountId);
+      this.lastDurations.delete(accountId);
       return false;
     }
     return true;
@@ -147,9 +148,15 @@ export class ConnectionCooldownManager {
     const remaining = entry.until - Date.now();
     if (remaining <= 0) {
       this.cooldowns.delete(accountId);
+      this.lastDurations.delete(accountId);
       return 0;
     }
     return remaining;
+  }
+
+  public clearAccount(accountId: string): void {
+    this.cooldowns.delete(accountId);
+    this.lastDurations.delete(accountId);
   }
 
   public clearCooldowns(): void {

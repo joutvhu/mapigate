@@ -30,25 +30,51 @@ export class ModelRepository {
     };
   }
 
-  public static saveRule(rule: ModelMappingRule): void {
+  public static saveRule(rule: ModelMappingRule): ModelMappingRule {
     const db = getDatabase();
     const now = Date.now();
-    db.run(
-      `INSERT INTO model_rules (id, alias, target_model, target_provider_id, fallback_rules, is_default, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT(alias) DO UPDATE SET
-         target_model = excluded.target_model,
-         target_provider_id = excluded.target_provider_id,
-         fallback_rules = excluded.fallback_rules,
-         is_default = excluded.is_default`,
-      rule.id,
-      rule.alias,
-      rule.targetModel,
-      rule.targetProviderId,
-      JSON.stringify(rule.fallbackRules),
-      rule.isDefault ? 1 : 0,
-      now
-    );
+    const existingByAlias = this.getRuleByAlias(rule.alias);
+    const existingById = rule.id
+      ? db.get<any>("SELECT * FROM model_rules WHERE id = ?", rule.id)
+      : undefined;
+    const effectiveId = existingByAlias?.id || existingById?.id || rule.id;
+    rule.id = effectiveId;
+
+    if (!existingByAlias && existingById) {
+      db.run(
+        `UPDATE model_rules
+         SET alias = ?, target_model = ?, target_provider_id = ?, fallback_rules = ?, is_default = ?
+         WHERE id = ?`,
+        rule.alias,
+        rule.targetModel,
+        rule.targetProviderId,
+        JSON.stringify(rule.fallbackRules || []),
+        rule.isDefault ? 1 : 0,
+        effectiveId
+      );
+    } else {
+      db.run(
+        `INSERT INTO model_rules (id, alias, target_model, target_provider_id, fallback_rules, is_default, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(alias) DO UPDATE SET
+           target_model = excluded.target_model,
+           target_provider_id = excluded.target_provider_id,
+           fallback_rules = excluded.fallback_rules,
+           is_default = excluded.is_default`,
+        effectiveId,
+        rule.alias,
+        rule.targetModel,
+        rule.targetProviderId,
+        JSON.stringify(rule.fallbackRules || []),
+        rule.isDefault ? 1 : 0,
+        now
+      );
+    }
+
+    return {
+      ...rule,
+      id: effectiveId,
+    };
   }
 
   public static deleteRule(id: string): void {

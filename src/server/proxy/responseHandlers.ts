@@ -42,6 +42,12 @@ export async function handleNonStreamingResponse(
 
   if (isJson) {
     if (context.clientFormat === "responses") {
+      if (
+        context.targetFormat === "claude" ||
+        (responseBody?.type === "message" && Array.isArray(responseBody?.content))
+      ) {
+        responseBody = AnthropicAdapter.anthropicResponseToOpenAi(responseBody, context.targetModel);
+      }
       responseBody = convertOpenAiResponseToResponsesApi(responseBody);
     } else if (context.clientFormat === "anthropic" && context.targetFormat === "openai") {
       responseBody = AnthropicAdapter.openAiResponseToAnthropic(responseBody, context.requestId);

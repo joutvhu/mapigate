@@ -182,18 +182,23 @@ export function getDatabase(): DatabaseDriver {
   if (!process.env.MAPIGATE_DATA_DIR && isTestEnvironment()) {
     const testDataDir = path.resolve(process.cwd(), ".mapigate-test");
     if (!fs.existsSync(testDataDir)) {
-      fs.mkdirSync(testDataDir, { recursive: true });
+      fs.mkdirSync(testDataDir, { recursive: true, mode: 0o700 });
     }
     process.env.MAPIGATE_DATA_DIR = testDataDir;
   }
 
   const dataDir = getDefaultDataDir();
   if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+    fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
   }
 
   const dbPath = path.join(dataDir, MAPIGATE_DB_FILE);
   dbInstance = createDriver(dbPath);
+  try {
+    fs.chmodSync(dbPath, 0o600);
+  } catch {
+    // Best-effort on platforms where chmod is unsupported
+  }
 
   // Hook cleanup on process exit
   const cleanup = () => {
@@ -250,6 +255,7 @@ function initSchema(db: DatabaseDriver) {
       quota_fetched_at INTEGER,
       FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
     );
+    CREATE INDEX IF NOT EXISTS idx_provider_accounts_provider ON provider_accounts(provider_id);
 
     CREATE TABLE IF NOT EXISTS account_supported_models (
       account_id TEXT NOT NULL,

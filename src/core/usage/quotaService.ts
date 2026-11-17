@@ -7,6 +7,7 @@ import { fetchRawQuotaForProvider } from "./handlers/index.js";
 const DEFAULT_CACHE_TTL_MS = 60_000; // 60s cache
 const CLAUDE_CACHE_TTL_MS = 600_000; // 10 min cache for Claude
 const ACCOUNT_TIMEOUT_MS = 8_000; // 8-second per-account timeout
+const FORCED_FETCH_THROTTLE_MS = 30_000; // 30s throttle for forced refreshes
 
 interface CacheEntry {
   data: AccountQuotaResult;
@@ -16,6 +17,8 @@ interface CacheEntry {
 export class QuotaService {
   private static instance: QuotaService | null = null;
   private cache: Map<string, CacheEntry> = new Map();
+  private inFlight: Map<string, Promise<AccountQuotaResult>> = new Map();
+  private lastForcedFetchAt: Map<string, number> = new Map();
 
   public static getInstance(): QuotaService {
     if (!this.instance) {
@@ -42,6 +45,11 @@ export class QuotaService {
     accountId: string,
     force = false
   ): Promise<AccountQuotaResult> {
+    const existingInFlight = this.inFlight.get(accountId);
+    if (existingInFlight) {
+      return existingInFlight;
+    }
+
     const account = ProviderRepository.getAccountById(accountId);
     if (!account) {
       return {
@@ -56,8 +64,33 @@ export class QuotaService {
       };
     }
 
-    // 1. Check in-memory cache unless force
+    // Throttle forced refreshes to at most once every 30s per account
     const cached = this.cache.get(accountId);
+    if (force) {
+      const lastForced = this.lastForcedFetchAt.get(accountId) || 0;
+      if (Date.now() - lastForced < FORCED_FETCH_THROTTLE_MS) {
+        if (cached?.data) {
+          return {
+            ...cached.data,
+            isActive: account.isActive,
+          };
+        }
+        if (account.cachedQuotas) {
+          try {
+            const dbCached = JSON.parse(account.cachedQuotas) as AccountQuotaResult;
+            if (dbCached && Array.isArray(dbCached.quotas)) {
+              return {
+                ...dbCached,
+                isActive: account.isActive,
+              };
+            }
+          } catch {}
+        }
+      }
+      this.lastForcedFetchAt.set(accountId, Date.now());
+    }
+
+    // 1. Check in-memory cache unless force
     if (!force && cached && cached.expiresAt > Date.now()) {
       // Keep isActive in sync with database in case user toggled it
       return {
@@ -260,46 +293,56 @@ export class QuotaService {
       return result;
     };
 
-    let timer: NodeJS.Timeout | null = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        reject(new Error("Quota request timed out after 8 seconds"));
-      }, ACCOUNT_TIMEOUT_MS);
-      timer.unref?.();
-    });
+    const executeWithTimeout = async (): Promise<AccountQuotaResult> => {
+      let timer: NodeJS.Timeout | null = null;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error("Quota request timed out after 8 seconds"));
+        }, ACCOUNT_TIMEOUT_MS);
+        timer.unref?.();
+      });
 
-    try {
-      return await Promise.race([fetchCore(), timeoutPromise]);
-    } catch (err: any) {
-      let previousQuotas: NormalizedQuotaItem[] = [];
       try {
-        const cached =
-          this.cache.get(account.id)?.data ||
-          (account.cachedQuotas ? JSON.parse(account.cachedQuotas) : null);
-        if (cached && Array.isArray(cached.quotas) && cached.quotas.length > 0) {
-          previousQuotas = cached.quotas;
+        return await Promise.race([fetchCore(), timeoutPromise]);
+      } catch (err: any) {
+        let previousQuotas: NormalizedQuotaItem[] = [];
+        try {
+          const cached =
+            this.cache.get(account.id)?.data ||
+            (account.cachedQuotas ? JSON.parse(account.cachedQuotas) : null);
+          if (cached && Array.isArray(cached.quotas) && cached.quotas.length > 0) {
+            previousQuotas = cached.quotas;
+          }
+        } catch {}
+
+        const errorResult: AccountQuotaResult = {
+          accountId: account.id,
+          providerId: account.providerId,
+          accountName: account.name,
+          plan: "Standard",
+          isActive: account.isActive,
+          quotas: previousQuotas,
+          lastFetchedAt: Date.now(),
+          error: err?.message || "Failed to fetch quota",
+          providerSpecificData: account.providerSpecificData,
+          sortOrder: account.sortOrder ?? 0,
+          createdAt: account.createdAt,
+        };
+
+        return errorResult;
+      } finally {
+        if (timer) {
+          clearTimeout(timer);
         }
-      } catch {}
-
-      const errorResult: AccountQuotaResult = {
-        accountId: account.id,
-        providerId: account.providerId,
-        accountName: account.name,
-        plan: "Standard",
-        isActive: account.isActive,
-        quotas: previousQuotas,
-        lastFetchedAt: Date.now(),
-        error: err?.message || "Failed to fetch quota",
-        providerSpecificData: account.providerSpecificData,
-        sortOrder: account.sortOrder ?? 0,
-        createdAt: account.createdAt,
-      };
-
-      return errorResult;
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
       }
+    };
+
+    const inFlightTask = executeWithTimeout();
+    this.inFlight.set(accountId, inFlightTask);
+    try {
+      return await inFlightTask;
+    } finally {
+      this.inFlight.delete(accountId);
     }
   }
 
@@ -445,5 +488,7 @@ export class QuotaService {
    */
   public clearCache(): void {
     this.cache.clear();
+    this.inFlight.clear();
+    this.lastForcedFetchAt.clear();
   }
 }

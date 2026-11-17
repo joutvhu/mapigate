@@ -180,7 +180,7 @@ export class GeminiProvider extends OpenAiCompatibleProvider {
             const models = extractModelsFromPayload(payload, this.id);
             return {
               success: true,
-              endpointUrl: url,
+              endpointUrl: url.replace(/([?&]key=)[^&]+/, "$1***"),
               models: models.length > 0 ? models : undefined,
               count: models.length,
             };

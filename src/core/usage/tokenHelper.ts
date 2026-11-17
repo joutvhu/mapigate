@@ -191,6 +191,8 @@ export function isTokenExpired(expiresAt?: number): boolean {
   return Date.now() > expiresAtMs - 60_000;
 }
 
+const inFlightRefreshes = new Map<string, Promise<ResolvedCredentials>>();
+
 /**
  * Attempts to refresh expired OAuth credentials and persist them back to SQLite
  * Delegates provider-specific token refresh to each provider's own OAuthHandler.
@@ -218,66 +220,87 @@ export async function ensureFreshCredentials(
     return creds;
   }
 
-  try {
-    const refreshed = await handler.refreshToken({
-      refreshToken: creds.refreshToken || "",
-      rawApiKey,
-      providerSpecificData: creds.providerSpecificData,
-      providerId: pId,
-      accountId,
-      forceRefresh,
-    });
-
-    if (refreshed?.accessToken) {
-      const expiresInSec = refreshed.expiresIn || 3600;
-      const newExpiresAt = refreshed.expiresAt || (Date.now() + expiresInSec * 1000);
-      const newRefreshToken = refreshed.refreshToken || creds.refreshToken;
-
-      const updatedPsd = {
-        ...creds.providerSpecificData,
-        ...(refreshed.providerSpecificData || {}),
-        refreshToken: newRefreshToken,
-        expiresAt: newExpiresAt,
-        tokenExpiresAt: newExpiresAt,
-      };
-
-      let newRawApiKey = refreshed.rawApiKey || refreshed.accessToken;
-      if (!refreshed.rawApiKey && rawApiKey.trim().startsWith("{")) {
-        try {
-          const existingJson = JSON.parse(rawApiKey);
-          newRawApiKey = JSON.stringify({
-            ...existingJson,
-            accessToken: refreshed.accessToken,
-            refreshToken: newRefreshToken,
-            expiresAt: newExpiresAt,
-          });
-        } catch {
-          newRawApiKey = JSON.stringify({
-            accessToken: refreshed.accessToken,
-            refreshToken: newRefreshToken,
-            expiresAt: newExpiresAt,
-          });
-        }
-      }
-
-      // Persist refreshed credentials to DB
-      ProviderRepository.updateAccount(accountId, {
-        rawApiKey: newRawApiKey,
-        providerSpecificData: updatedPsd,
-      });
-
-      return {
-        ...creds,
-        accessToken: refreshed.accessToken,
-        apiKey: refreshed.accessToken,
-        refreshToken: newRefreshToken,
-        expiresAt: newExpiresAt,
-        providerSpecificData: updatedPsd,
-      };
+  if (accountId) {
+    const existingInFlight = inFlightRefreshes.get(accountId);
+    if (existingInFlight) {
+      return existingInFlight;
     }
-  } catch (err) {
-    console.warn(`[QuotaService] Failed to auto-refresh token for account ${accountId} (${providerId}):`, err);
   }
 
-  return creds;
+  const refreshTask = (async (): Promise<ResolvedCredentials> => {
+    try {
+      const refreshed = await handler.refreshToken!({
+        refreshToken: creds.refreshToken || "",
+        rawApiKey,
+        providerSpecificData: creds.providerSpecificData,
+        providerId: pId,
+        accountId,
+        forceRefresh,
+      });
+
+      if (refreshed?.accessToken) {
+        const expiresInSec = refreshed.expiresIn || 3600;
+        const newExpiresAt = refreshed.expiresAt || (Date.now() + expiresInSec * 1000);
+        const newRefreshToken = refreshed.refreshToken || creds.refreshToken;
+
+        const updatedPsd = {
+          ...creds.providerSpecificData,
+          ...(refreshed.providerSpecificData || {}),
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          tokenExpiresAt: newExpiresAt,
+        };
+
+        let newRawApiKey = refreshed.rawApiKey || refreshed.accessToken;
+        if (!refreshed.rawApiKey && rawApiKey.trim().startsWith("{")) {
+          try {
+            const existingJson = JSON.parse(rawApiKey);
+            newRawApiKey = JSON.stringify({
+              ...existingJson,
+              accessToken: refreshed.accessToken,
+              refreshToken: newRefreshToken,
+              expiresAt: newExpiresAt,
+            });
+          } catch {
+            newRawApiKey = JSON.stringify({
+              accessToken: refreshed.accessToken,
+              refreshToken: newRefreshToken,
+              expiresAt: newExpiresAt,
+            });
+          }
+        }
+
+        // Persist refreshed credentials to DB
+        ProviderRepository.updateAccount(accountId, {
+          rawApiKey: newRawApiKey,
+          providerSpecificData: updatedPsd,
+        });
+
+        return {
+          ...creds,
+          accessToken: refreshed.accessToken,
+          apiKey: refreshed.accessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: newExpiresAt,
+          providerSpecificData: updatedPsd,
+        };
+      }
+    } catch (err) {
+      console.warn(`[QuotaService] Failed to auto-refresh token for account ${accountId} (${providerId}):`, err);
+    }
+
+    return creds;
+  })();
+
+  if (accountId) {
+    inFlightRefreshes.set(accountId, refreshTask);
+  }
+
+  try {
+    return await refreshTask;
+  } finally {
+    if (accountId) {
+      inFlightRefreshes.delete(accountId);
+    }
+  }
 }

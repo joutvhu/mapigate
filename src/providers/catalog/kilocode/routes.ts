@@ -42,7 +42,7 @@ export const kilocodeOAuthHandler: ProviderOAuthHandler = {
     const deviceCode = params.deviceCode || params.device_code;
     if (!deviceCode) return { ok: false, error: "Missing device_code" };
 
-    const res = await fetch(`${KILOCODE_POLL_URL}/${deviceCode}`);
+    const res = await fetch(`${KILOCODE_POLL_URL}/${encodeURIComponent(deviceCode)}`);
     if (res.status === 202) return { ok: false, error: "authorization_pending" };
     if (res.status === 403) return { ok: false, error: "access_denied" };
     if (res.status === 410) return { ok: false, error: "expired_token" };

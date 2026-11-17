@@ -23,7 +23,8 @@ export function buildOpenCodeHeaders(
   reqHeaders: Record<string, string> = {},
   sessionId?: string,
   requestId?: string,
-  url?: string
+  url?: string,
+  stream: boolean = true
 ): Record<string, string> {
   const lower: Record<string, string> = {};
   for (const [k, v] of Object.entries(reqHeaders)) {
@@ -51,7 +52,7 @@ export function buildOpenCodeHeaders(
     "x-session-affinity": session,
     "x-session-id": session,
     "x-opencode-project": lower["x-opencode-project"] || "global",
-    "Accept": "text/event-stream",
+    "Accept": stream ? "text/event-stream" : "application/json",
   };
 
   if (url && (url.endsWith("/messages") || url.includes("/v1/messages"))) {
@@ -75,11 +76,13 @@ export class OpenCodeProvider extends BaseProvider {
 
   public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
     const url = this.buildUrl(context);
+    const isStreaming = Boolean(context.body?.stream) && !context.isPanel;
     const headers = buildOpenCodeHeaders(
       context.req.headers as Record<string, string>,
       context.account?.id,
       undefined,
-      url
+      url,
+      isStreaming
     );
     this.applyAnthropicClientHeaders(headers, context);
     return headers;
@@ -87,7 +90,7 @@ export class OpenCodeProvider extends BaseProvider {
 
   public override transformRequestBody(context: ProviderRequestContext): any {
     const body = { ...context.body };
-    body.stream = true;
+    body.stream = Boolean(context.body?.stream);
     const format = context.targetFormat === "claude" ? "claude" : false;
     const toolMap = applyFingerprintTools(body, format);
     if (context.req) {

@@ -6,6 +6,7 @@ import {
   modelLockoutManager,
   getProviderCircuitBreaker,
   isRateLimitOrQuotaError,
+  registerRateLimitHook,
 } from "../resilience/index.js";
 import { pickAffinityAccount } from "../caching/promptCacheAffinity.js";
 import { compareAccountsEarliestReset } from "./earliestResetComparator.js";
@@ -146,7 +147,13 @@ export class LoadBalancer {
       return undefined;
     }
 
-    let pool = available.length > 0 ? available : eligibleAccounts;
+    const nonTerminalEligible = eligibleAccounts.filter((acc) => !cooldownManager.isTerminal(acc.id));
+    let pool =
+      available.length > 0
+        ? available
+        : nonTerminalEligible.length > 0
+        ? nonTerminalEligible
+        : eligibleAccounts;
 
     // Account-level model capability prioritization:
     // If targetModel is present, partition pool into:
@@ -305,16 +312,18 @@ export class LoadBalancer {
   }
 
   /**
-   * Mark an account as rate limited with a cooldown period (default 60s).
+   * Mark an account as rate limited with a cooldown period.
    * Legacy facade method delegating to cooldownManager.
    */
   public static markRateLimited(
     accountId: string,
-    cooldownMs: number = 60_000,
+    cooldownMs?: number,
     providerId?: string
-  ): void {
-    cooldownManager.markRateLimited(accountId, cooldownMs, providerId);
-    ProviderRepository.recordRateLimitHit(accountId);
+  ): number {
+    const duration = cooldownManager.markRateLimited(accountId, cooldownMs, providerId);
+    try {
+      ProviderRepository.recordRateLimitHit(accountId);
+    } catch {}
 
     // If this account was sticky, clear sticky count so next selection moves on
     for (const [pId, entry] of this.stickyCounts.entries()) {
@@ -329,6 +338,7 @@ export class LoadBalancer {
         this.sessionAccountMap.delete(sKey);
       }
     }
+    return duration;
   }
 
   public static isAccountInCooldown(accountId: string): boolean {
@@ -353,4 +363,24 @@ export class LoadBalancer {
     this.stickyCounts.clear();
     this.sessionAccountMap.clear();
   }
+
+  public static evictStickyAccount(accountId: string, providerId?: string): void {
+    for (const [pId, entry] of this.stickyCounts.entries()) {
+      if (entry.accountId === accountId || pId === providerId) {
+        this.stickyCounts.delete(pId);
+      }
+    }
+    for (const [sKey, entry] of this.sessionAccountMap.entries()) {
+      if (entry.accountId === accountId) {
+        this.sessionAccountMap.delete(sKey);
+      }
+    }
+  }
 }
+
+registerRateLimitHook((accountId, providerId) => {
+  try {
+    ProviderRepository.recordRateLimitHit(accountId);
+  } catch {}
+  LoadBalancer.evictStickyAccount(accountId, providerId);
+});

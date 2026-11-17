@@ -520,8 +520,14 @@ export function rescueInlineToolCalls(
 
     // Dialect 4: bare or ```json-fenced JSON object naming a known tool
     const trimmed = text.trim();
-    const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmed);
-    const candidate = (fenced ? fenced[1] : trimmed).trim();
+    let candidate = trimmed;
+    if (trimmed.startsWith("```") && trimmed.endsWith("```") && trimmed.length >= 6) {
+      let inner = trimmed.slice(3, -3);
+      if (/^json\b/i.test(inner)) {
+        inner = inner.slice(4);
+      }
+      candidate = inner.trim();
+    }
     if (candidate.startsWith("{") && candidate.endsWith("}")) {
       const call = callFromNamedJson(candidate, toolNames);
       if (call) {

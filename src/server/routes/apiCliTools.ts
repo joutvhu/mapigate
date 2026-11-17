@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { CLI_TOOLS, getMapigateBaseUrl } from "../../shared/constants/cliTools.js";
+import { CliToolRegistry } from "../../cli/tools/index.js";
 import { DEFAULT_PORT } from "../../shared/constants/index.js";
 import { serverLifecycle } from "../lifecycle.js";
 import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
@@ -231,40 +232,42 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
     return;
   }
 
-  const targetPath = resolveUserPath(tool.configPath || tool.settingsFile);
-  if (!targetPath) {
-    res.status(400).json({ error: `Tool ${toolId} has no direct file configuration path` });
-    return;
-  }
-
   try {
+    const handler = CliToolRegistry.get(toolId);
+    if (handler) {
+      await handler.apply({
+        baseUrl: getMapigateBaseUrl(serverLifecycle.getPort()),
+        apiKey: req.body?.apiKey || "mapigate-local",
+        model: req.body?.model || tool.defaultModels?.[0] || "claude-sonnet-4-6",
+      });
+      const updatedStatus = await inspectToolStatus(toolId);
+      res.json({ success: true, status: updatedStatus });
+      return;
+    }
+
+    const targetPath = resolveUserPath(tool.configPath || tool.settingsFile);
+    if (!targetPath) {
+      res.status(400).json({ error: `Tool ${toolId} has no direct file configuration path` });
+      return;
+    }
+
     const dir = path.dirname(targetPath);
     await fs.mkdir(dir, { recursive: true });
 
-    if (tool.id === "claude") {
-      let currentSettings: any = {};
-      try {
-        const raw = await fs.readFile(targetPath, "utf-8");
-        currentSettings = JSON.parse(raw.replace(/,(\s*[}\]])/g, "$1"));
-      } catch {
-        // fresh
+    if (tool.configFileTemplate) {
+      const backupPath = `${targetPath}.bak-mapigate`;
+      if ((await checkFileExists(targetPath)) && !(await checkFileExists(backupPath))) {
+        try {
+          await fs.copyFile(targetPath, backupPath);
+        } catch {
+          // ignore backup error
+        }
       }
-      const runningPort = serverLifecycle.getPort();
-      if (!currentSettings.env) currentSettings.env = {};
-      if (req.body?.apiKey) {
-        currentSettings.env.ANTHROPIC_AUTH_TOKEN = req.body.apiKey;
-      } else {
-        currentSettings.env.ANTHROPIC_AUTH_TOKEN = "mapigate-local";
-      }
-      currentSettings.env.ANTHROPIC_BASE_URL = getMapigateBaseUrl(runningPort);
-      currentSettings.env.ANTHROPIC_MODEL = req.body?.model || "claude-sonnet-4-6";
-      await fs.writeFile(targetPath, JSON.stringify(currentSettings, null, 2), "utf-8");
-    } else if (tool.configFileTemplate) {
       const runningPort = serverLifecycle.getPort();
       const renderedTemplate = tool.configFileTemplate
         .replace(new RegExp(`127\\.0\\.0\\.1:${DEFAULT_PORT}`, "g"), `127.0.0.1:${runningPort}`)
         .replace(new RegExp(`:${DEFAULT_PORT}`, "g"), `:${runningPort}`);
-      await fs.writeFile(targetPath, renderedTemplate, "utf-8");
+      await fs.writeFile(targetPath, renderedTemplate, { encoding: "utf-8", mode: 0o600 });
     } else {
       res.status(400).json({ error: `No config template available for ${toolId}` });
       return;
@@ -286,31 +289,41 @@ cliToolsRouter.post("/:tool/reset", async (req, res) => {
     return;
   }
 
-  const targetPath = resolveUserPath(tool.configPath || tool.settingsFile);
-  if (!targetPath) {
-    res.status(400).json({ error: `Tool ${toolId} has no file configuration path` });
-    return;
-  }
-
   try {
-    if (tool.id === "claude") {
+    const handler = CliToolRegistry.get(toolId);
+    if (handler) {
+      await handler.reset();
+      const updatedStatus = await inspectToolStatus(toolId);
+      res.json({ success: true, status: updatedStatus });
+      return;
+    }
+
+    const targetPath = resolveUserPath(tool.configPath || tool.settingsFile);
+    if (!targetPath) {
+      res.status(400).json({ error: `Tool ${toolId} has no file configuration path` });
+      return;
+    }
+
+    const backupPath = `${targetPath}.bak-mapigate`;
+    if (await checkFileExists(backupPath)) {
+      await fs.copyFile(backupPath, targetPath);
+    } else if (await checkFileExists(targetPath)) {
       try {
         const raw = await fs.readFile(targetPath, "utf-8");
-        const currentSettings = JSON.parse(raw.replace(/,(\s*[}\]])/g, "$1"));
-        if (currentSettings.env) {
-          delete currentSettings.env.ANTHROPIC_BASE_URL;
-          delete currentSettings.env.ANTHROPIC_AUTH_TOKEN;
-          delete currentSettings.env.ANTHROPIC_MODEL;
+        if (targetPath.endsWith(".json")) {
+          const parsed = JSON.parse(raw.replace(/,(\s*[}\]])/g, "$1"));
+          if (parsed && typeof parsed === "object") {
+            if (parsed.baseUrl && String(parsed.baseUrl).includes(String(serverLifecycle.getPort()))) {
+              delete parsed.baseUrl;
+            }
+            if (parsed.apiKey === "mapigate-local") {
+              delete parsed.apiKey;
+            }
+            await fs.writeFile(targetPath, JSON.stringify(parsed, null, 2), { encoding: "utf-8", mode: 0o600 });
+          }
         }
-        await fs.writeFile(targetPath, JSON.stringify(currentSettings, null, 2), "utf-8");
       } catch {
-        // ignore
-      }
-    } else {
-      try {
-        await fs.unlink(targetPath);
-      } catch {
-        // ignore
+        // Leave user file intact on parse error
       }
     }
 

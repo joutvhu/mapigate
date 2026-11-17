@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
+import net from "node:net";
 import forge from "node-forge";
 import { MITM_DIR, getMitmDir } from "../paths.js";
 
@@ -124,18 +125,42 @@ export function loadRootCA(): LoadedRootCA {
   };
 }
 
+let sharedLeafKeyPair: forge.pki.rsa.KeyPair | null = null;
+let sharedLeafPrivateKeyPem: string | null = null;
+
+function getSharedLeafKeyPair(): { keys: forge.pki.rsa.KeyPair; privateKeyPem: string } {
+  if (!sharedLeafKeyPair || !sharedLeafPrivateKeyPem) {
+    sharedLeafKeyPair = forge.pki.rsa.generateKeyPair(2048);
+    sharedLeafPrivateKeyPem = forge.pki.privateKeyToPem(sharedLeafKeyPair.privateKey);
+  }
+  return { keys: sharedLeafKeyPair, privateKeyPem: sharedLeafPrivateKeyPem };
+}
+
 export function generateLeafCert(domain: string, rootCA: LoadedRootCA): LeafCert {
-  const keys = forge.pki.rsa.generateKeyPair(2048);
+  const { keys, privateKeyPem } = getSharedLeafKeyPair();
   const cert = forge.pki.createCertificate();
 
   cert.publicKey = keys.publicKey;
-  cert.serialNumber = Math.floor(Math.random() * 10000000).toString();
+  const serialBytes = crypto.randomBytes(16);
+  serialBytes[0] &= 0x7f;
+  serialBytes[0] |= 0x01;
+  cert.serialNumber = serialBytes.toString("hex");
   cert.validity.notBefore = new Date();
   cert.validity.notAfter = new Date();
   cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1);
 
-  cert.setSubject([{ name: "commonName", value: domain }]);
+  const cleanDomain = domain.trim().replace(/^\[|\]$/g, "");
+  const cn = cleanDomain.length > 64 ? cleanDomain.slice(-64) : cleanDomain;
+  cert.setSubject([{ name: "commonName", value: cn }]);
   cert.setIssuer(rootCA.cert.subject.attributes);
+
+  const isIp = net.isIP(cleanDomain) !== 0;
+  const altNames = isIp
+    ? [{ type: 7, ip: cleanDomain }]
+    : [
+        { type: 2, value: cleanDomain },
+        { type: 2, value: `*.${cleanDomain}` },
+      ];
 
   cert.setExtensions([
     {
@@ -154,17 +179,14 @@ export function generateLeafCert(domain: string, rootCA: LoadedRootCA): LeafCert
     },
     {
       name: "subjectAltName",
-      altNames: [
-        { type: 2, value: domain },
-        { type: 2, value: `*.${domain}` },
-      ],
+      altNames,
     },
   ]);
 
   cert.sign(rootCA.key, forge.md.sha256.create());
 
   return {
-    key: forge.pki.privateKeyToPem(keys.privateKey),
+    key: privateKeyPem,
     cert: forge.pki.certificateToPem(cert),
   };
 }

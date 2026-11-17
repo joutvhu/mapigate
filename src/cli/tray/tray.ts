@@ -26,6 +26,14 @@ export const MENU_INDEX = {
 } as const;
 
 export function openBrowser(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+  } catch {
+    return;
+  }
+  if (/["`$;&|<>]/.test(url)) return;
+
   const platform = process.platform;
   let cmd: string;
   if (platform === "darwin") {

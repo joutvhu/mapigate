@@ -66,10 +66,17 @@ export function maskSecretsInText(text: string): string {
   if (!text || typeof text !== "string") return text;
   let result = text.replace(/Bearer\s+([A-Za-z0-9_.-]{8,})/gi, (_m, t) => `Bearer ${maskKey(t)}`);
   result = result.replace(/sk-[A-Za-z0-9_-]{8,}/g, (m) => maskKey(m));
-  return result.replace(
-    /"(password|secret|rawApiKey|client_secret|apiKey)"\s*:\s*"([^"]+)"/gi,
+  result = result.replace(/gh[po]_[A-Za-z0-9_]+/g, (m) => maskKey(m));
+  result = result.replace(/AIza[0-9A-Za-z-_]{30,}/g, (m) => maskKey(m));
+  result = result.replace(
+    /"(password|secret|rawApiKey|client_secret|clientSecret|apiKey|api_key|access_token|accessToken|refresh_token|refreshToken|id_token|idToken)"\s*:\s*"([^"]+)"/gi,
     (_m, f, val) => `"${f}":"${maskKey(val)}"`
   );
+  result = result.replace(
+    /\b(access_token|refresh_token|id_token|client_secret|api_key)=([A-Za-z0-9_.-]{6,})/gi,
+    (_m, k, val) => `${k}=${maskKey(val)}`
+  );
+  return result;
 }
 
 function formatArg(arg: any): string {

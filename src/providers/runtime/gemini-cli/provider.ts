@@ -97,11 +97,27 @@ export class GeminiCliProvider extends OpenAiCompatibleProvider {
                 token = refreshed.accessToken;
                 reqHeaders["Authorization"] = `Bearer ${token}`;
                 if (account?.id) {
+                  const newExpiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
+                  const newRefreshToken = refreshed.refreshToken || rToken;
+                  let updatedRawApiKey = token;
+                  if (account.rawApiKey?.startsWith("{")) {
+                    try {
+                      const existingParsed = JSON.parse(account.rawApiKey);
+                      updatedRawApiKey = JSON.stringify({
+                        ...existingParsed,
+                        accessToken: token,
+                        refreshToken: newRefreshToken,
+                        expiresAt: newExpiresAt,
+                      });
+                    } catch {}
+                  }
+                  account.rawApiKey = updatedRawApiKey;
                   ProviderRepository.updateAccount(account.id, {
+                    rawApiKey: updatedRawApiKey,
                     providerSpecificData: {
                       ...psd,
-                      refreshToken: refreshed.refreshToken || rToken,
-                      expiresAt: Date.now() + (refreshed.expiresIn || 3600) * 1000,
+                      refreshToken: newRefreshToken,
+                      expiresAt: newExpiresAt,
                     },
                   });
                 }

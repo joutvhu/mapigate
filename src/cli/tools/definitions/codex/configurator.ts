@@ -46,14 +46,14 @@ export const codexHandler: ToolConfigHandler = {
     const mapigateSection = [
       `[model_providers.mapigate]`,
       `name = "Mapigate"`,
-      `base_url = "${v1(baseUrl)}"`,
+      `base_url = ${JSON.stringify(v1(baseUrl))}`,
       `wire_api = "responses"`,
-      `http_headers = { Authorization = "Bearer ${apiKey}" }`,
+      `http_headers = { Authorization = ${JSON.stringify(`Bearer ${apiKey}`)} }`,
     ].join("\n");
 
     const newContent = [
       `model_provider = "mapigate"`,
-      `model = "${model}"`,
+      `model = ${JSON.stringify(model)}`,
       cleaned ? `\n${cleaned}\n` : "",
       mapigateSection,
       "",
