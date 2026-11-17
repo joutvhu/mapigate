@@ -32,7 +32,7 @@ export function parseServerUpdates(
   session: AgentSession,
   composer: boolean,
   thinkingAcc: { val: string },
-  emitted: { text: boolean; visible: number },
+  emitted: { text: boolean; thinking?: boolean; toolCall?: boolean; visible: number },
   onEvent: (ev: CursorStreamEvent) => void,
   finishTurn: () => void
 ): void {
@@ -57,6 +57,9 @@ export function parseServerUpdates(
             emitted.text = true;
             onEvent({ type: "text", value: delta });
           }
+        } else {
+          emitted.thinking = true;
+          onEvent({ type: "thinking", value: thinkingDelta });
         }
       }
     }
@@ -82,6 +85,7 @@ export function parseServerUpdates(
       const mcp = decodeMcpArgs(execRequest.get(11)![0].value);
       const name = mcp.toolName || mcp.name;
       if (name) {
+        emitted.toolCall = true;
         onEvent({
           type: "tool_call",
           value: {
@@ -110,10 +114,10 @@ export async function runSessionLoop(
   let pending: Buffer<any> = Buffer.alloc(0);
   let finished = false;
   const thinkingAcc = { val: "" };
-  const emitted = { text: false, visible: 0 };
+  const emitted = { text: false, thinking: false, toolCall: false, visible: 0 };
 
   const finishTurn = () => {
-    if (!emitted.text && thinkingAcc.val) {
+    if (!emitted.text && !emitted.toolCall && thinkingAcc.val) {
       const fallback = composer ? visibleComposerContentFromThinking(thinkingAcc.val) : thinkingAcc.val.trim();
       if (fallback) {
         emitted.text = true;
@@ -121,7 +125,8 @@ export async function runSessionLoop(
       }
     }
     finished = true;
-    if (emitted.text) onEvent({ type: "done" });
+    if (emitted.toolCall) return;
+    if (emitted.text || emitted.thinking) onEvent({ type: "done" });
     else onEvent({ type: "error", value: "Cursor AgentService returned an empty turn" });
   };
 
@@ -142,7 +147,7 @@ export async function runSessionLoop(
     try { session.close(); } catch {}
   }
 
-  return { sawContent: emitted.text };
+  return { sawContent: emitted.text || emitted.thinking || emitted.toolCall };
 }
 
 export interface CursorSseOptions {

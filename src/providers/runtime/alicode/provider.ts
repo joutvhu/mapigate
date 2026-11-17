@@ -84,6 +84,16 @@ export class AlibabaProvider extends OpenAiCompatibleProvider {
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
 
+  public override transformRequestBody(context: ProviderRequestContext): any {
+    const body = super.transformRequestBody(context);
+    if (body && typeof body === "object" && "thinking" in body) {
+      const next = { ...body };
+      delete next.thinking;
+      return next;
+    }
+    return body;
+  }
+
   public override buildUrl(context: ProviderRequestContext): string {
     const psd = ((context.account?.providerSpecificData || {}) as any);
     const token = context.account?.rawApiKey || "";

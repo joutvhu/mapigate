@@ -90,10 +90,8 @@ export function translateOpenAiToAnthropic(
           type: "tool_result",
           tool_use_id: msg.tool_call_id,
           content: toolContent,
+          is_error: Boolean(msg.is_error),
         };
-        if (msg.is_error !== undefined) {
-          toolResultBlock.is_error = Boolean(msg.is_error);
-        }
 
         const lastMsg = anthropicMessages[anthropicMessages.length - 1];
         if (lastMsg && lastMsg.role === "user") {

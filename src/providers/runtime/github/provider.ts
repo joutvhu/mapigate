@@ -4,10 +4,35 @@ import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core
 import { getGitHubUsage } from "./quota.js";
 import { ensureFreshCopilotCredentials } from "./auth.js";
 
+function isCopilotTemperatureUnsupported(model?: string): boolean {
+  if (!model) return false;
+  const clean = model.replace(/^.*\//, "").trim().toLowerCase();
+  const match = clean.match(/^gpt-(\d+)(?:\.(\d+))?/);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = match[2] !== undefined ? Number(match[2]) : 0;
+  if (major >= 6) return true;
+  if (major === 5 && minor >= 4) return true;
+  return false;
+}
+
 export class GitHubProvider extends OpenAiCompatibleProvider {
   public override readonly id = "github";
   public override readonly name = "GitHub Copilot";
   public override readonly defaultFormat = "openai";
+
+  public override transformRequestBody(context: ProviderRequestContext): any {
+    const body = super.transformRequestBody(context);
+    if (body && typeof body === "object" && "temperature" in body) {
+      const model = body.model || context.targetModel;
+      if (isCopilotTemperatureUnsupported(model)) {
+        const next = { ...body };
+        delete next.temperature;
+        return next;
+      }
+    }
+    return body;
+  }
 
   public override supportsQuota(): boolean {
     return true;

@@ -157,6 +157,60 @@ function messagesToResponsesInput(messages: any[]): { instructions?: string; inp
   };
 }
 
+function normalizeToolChoice(rawChoice: any, tools: any[]): any {
+  if (rawChoice === undefined || rawChoice === null) return undefined;
+  if (typeof rawChoice === "string") {
+    return rawChoice;
+  }
+  if (typeof rawChoice === "object" && !Array.isArray(rawChoice)) {
+    if (rawChoice.type === "auto" || rawChoice.type === "required" || rawChoice.type === "none") {
+      return rawChoice.type;
+    }
+    const rawName =
+      typeof rawChoice.name === "string"
+        ? rawChoice.name
+        : typeof rawChoice.function?.name === "string"
+        ? rawChoice.function.name
+        : "";
+    const clampedName = rawName.trim().slice(0, MAX_TOOL_NAME_LEN);
+    if (!clampedName) return undefined;
+    if (!tools.some((t) => t.name === clampedName)) return undefined;
+    return { type: "function", name: clampedName };
+  }
+  return undefined;
+}
+
+function mapResponseFormatToText(baseBody: any): Record<string, any> | undefined {
+  let textObj =
+    baseBody.text && typeof baseBody.text === "object" && !Array.isArray(baseBody.text)
+      ? { ...baseBody.text }
+      : undefined;
+
+  const rf = baseBody.response_format;
+  if (rf && typeof rf === "object" && !Array.isArray(rf)) {
+    let format: Record<string, any> | undefined;
+    if (rf.type === "json_object") {
+      format = { type: "json_object" };
+    } else if (rf.type === "text") {
+      format = { type: "text" };
+    } else if (rf.type === "json_schema") {
+      const js = rf.json_schema && typeof rf.json_schema === "object" ? rf.json_schema : rf;
+      format = {
+        type: "json_schema",
+        name: typeof js.name === "string" && js.name.trim() ? js.name.trim() : "response_schema",
+        ...(js.schema && typeof js.schema === "object" ? { schema: js.schema } : {}),
+        ...(js.strict !== undefined ? { strict: Boolean(js.strict) } : {}),
+        ...(typeof js.description === "string" && js.description ? { description: js.description } : {}),
+      };
+    }
+    if (format) {
+      textObj = { ...(textObj || {}), format };
+    }
+  }
+
+  return textObj;
+}
+
 export function buildOpenCodeGoResponsesPayload(rawBody: any, model: string, clientFormat: string): any {
   const baseBody =
     clientFormat === "anthropic" ? AnthropicAdapter.anthropicToOpenAi(rawBody) : { ...(rawBody || {}) };
@@ -201,8 +255,13 @@ export function buildOpenCodeGoResponsesPayload(rawBody: any, model: string, cli
 
   const maxOut = baseBody.max_output_tokens ?? baseBody.max_completion_tokens ?? baseBody.max_tokens;
   if (maxOut !== undefined) out.max_output_tokens = maxOut;
-  if (baseBody.temperature !== undefined) out.temperature = baseBody.temperature;
+  if (baseBody.temperature !== undefined && !/^gpt-/i.test(model)) {
+    out.temperature = baseBody.temperature;
+  }
   if (baseBody.top_p !== undefined) out.top_p = baseBody.top_p;
+
+  const textConfig = mapResponseFormatToText(baseBody);
+  if (textConfig) out.text = textConfig;
 
   if (baseBody.reasoning && typeof baseBody.reasoning === "object" && !Array.isArray(baseBody.reasoning)) {
     out.reasoning = { summary: "auto", ...baseBody.reasoning };
@@ -214,11 +273,9 @@ export function buildOpenCodeGoResponsesPayload(rawBody: any, model: string, cli
     const tools = normalizeTools(baseBody.tools);
     if (tools.length > 0) {
       out.tools = tools;
-      if (baseBody.tool_choice !== undefined) {
-        out.tool_choice =
-          typeof baseBody.tool_choice === "object" && baseBody.tool_choice?.function?.name
-            ? { type: "function", name: baseBody.tool_choice.function.name }
-            : baseBody.tool_choice;
+      const normalizedChoice = normalizeToolChoice(baseBody.tool_choice, tools);
+      if (normalizedChoice !== undefined) {
+        out.tool_choice = normalizedChoice;
       }
     }
   }

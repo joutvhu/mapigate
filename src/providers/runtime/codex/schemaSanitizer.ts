@@ -1,5 +1,6 @@
 const UNICODE_PROPERTY_ESCAPE = /(^|[^\\])(\\\\)*\\[pP]\{/;
 const SERVER_ID_PATTERN = /^(?:rs|fc|resp|msg)_[A-Za-z0-9]+$/;
+const UUID_REASONING_ID_PATTERN = /^(?:rs_)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function hasUnicodePropertyEscape(pattern: string): boolean {
   return typeof pattern === "string" && UNICODE_PROPERTY_ESCAPE.test(pattern);
@@ -52,7 +53,30 @@ export function convertSystemToDeveloperRole(body: any): void {
   }
 }
 
+export function isForeignEncryptedReasoningItem(item: any): boolean {
+  if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+  if (item.type !== "reasoning") return false;
+  if (typeof item.id === "string" && UUID_REASONING_ID_PATTERN.test(item.id)) {
+    return true;
+  }
+  if (
+    typeof item.encrypted_content === "string" &&
+    item.encrypted_content.length > 0 &&
+    !item.encrypted_content.startsWith("gAAAAA")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function stripForeignEncryptedReasoning(body: any): void {
+  if (Array.isArray(body?.input)) {
+    body.input = body.input.filter((item: any) => !isForeignEncryptedReasoningItem(item));
+  }
+}
+
 export function stripStoredItemReferences(body: any): void {
+  stripForeignEncryptedReasoning(body);
   if (Array.isArray(body?.input)) {
     body.input = body.input
       .filter((item: any) => {

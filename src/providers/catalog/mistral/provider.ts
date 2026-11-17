@@ -2,16 +2,71 @@ import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import type {
   ProviderProbeContext,
   ProviderProbeResult,
+  ProviderRequestContext,
 } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import type { ScannedModel } from "../../../shared/types/index.js";
 import { getMistralUsage } from "./quota.js";
 import { metadata } from "./metadata.js";
 
+function extractMistralThinkingText(part: any): string {
+  if (typeof part.thinking === "string") return part.thinking;
+  if (Array.isArray(part.thinking)) {
+    return part.thinking
+      .map((sub: any) => (typeof sub === "string" ? sub : typeof sub?.text === "string" ? sub.text : ""))
+      .join("");
+  }
+  if (typeof part.text === "string") return part.text;
+  return "";
+}
+
 export class MistralProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
+
+  public override transformRequestBody(context: ProviderRequestContext): any {
+    const body = super.transformRequestBody(context);
+    if (body && typeof body === "object" && "thinking" in body) {
+      const next = { ...body };
+      delete next.thinking;
+      return next;
+    }
+    return body;
+  }
+
+  public transformResponseChunk(chunk: any, _context: ProviderRequestContext): any {
+    if (!chunk || typeof chunk !== "object" || !Array.isArray(chunk.choices)) {
+      return chunk;
+    }
+    let modified = false;
+    const nextChoices = chunk.choices.map((choice: any) => {
+      const delta = choice?.delta;
+      if (!delta || !Array.isArray(delta.content)) return choice;
+      modified = true;
+      let textOut = "";
+      let reasoningOut = typeof delta.reasoning_content === "string" ? delta.reasoning_content : "";
+      for (const part of delta.content) {
+        if (!part || typeof part !== "object") continue;
+        if (part.type === "thinking") {
+          reasoningOut += extractMistralThinkingText(part);
+        } else if (part.type === "text" && typeof part.text === "string") {
+          textOut += part.text;
+        }
+      }
+      const nextDelta: Record<string, any> = { ...delta };
+      if (textOut) {
+        nextDelta.content = textOut;
+      } else {
+        delete nextDelta.content;
+      }
+      if (reasoningOut) {
+        nextDelta.reasoning_content = reasoningOut;
+      }
+      return { ...choice, delta: nextDelta };
+    });
+    return modified ? { ...chunk, choices: nextChoices } : chunk;
+  }
 
   public override supportsQuota(): boolean {
     return true;

@@ -11,10 +11,92 @@ import type {
 import { metadata } from "./metadata.js";
 import { getKimiUsage } from "./quota.js";
 
+const UNSUPPORTED_BETA_BLOCK_TYPES = new Set([
+  "tool_reference",
+  "mcp_toolset",
+  "server_tool_use",
+  "web_search_tool_result",
+]);
+
+function sanitizeKimiClaudeBody(rawBody: any): any {
+  if (!rawBody || typeof rawBody !== "object") return rawBody;
+  const body = structuredClone(rawBody);
+
+  const toolsMap = new Map<string, any>();
+  if (Array.isArray(body.tools)) {
+    for (const tool of body.tools) {
+      if (!tool || typeof tool !== "object") continue;
+      if (typeof tool.type === "string" && (tool.type.startsWith("tool_search_tool_") || tool.type === "mcp_toolset")) {
+        continue;
+      }
+      const name = typeof tool.name === "string" ? tool.name.trim() : "";
+      if (!name || toolsMap.has(name)) continue;
+      const cleanTool = { ...tool };
+      delete cleanTool.defer_loading;
+      toolsMap.set(name, cleanTool);
+    }
+  }
+
+  if (Array.isArray(body.messages)) {
+    const nextMessages: any[] = [];
+    for (const msg of body.messages) {
+      if (!msg || typeof msg !== "object") continue;
+      if (!Array.isArray(msg.content)) {
+        nextMessages.push(msg);
+        continue;
+      }
+      const nextContent: any[] = [];
+      for (const block of msg.content) {
+        if (!block || typeof block !== "object") {
+          nextContent.push(block);
+          continue;
+        }
+        if (block.type === "tool_addition") {
+          const toolDef = block.tool && typeof block.tool === "object" ? block.tool : block;
+          const name = typeof toolDef.name === "string" ? toolDef.name.trim() : "";
+          if (name && !toolsMap.has(name)) {
+            toolsMap.set(name, {
+              name,
+              ...(toolDef.description !== undefined ? { description: toolDef.description } : {}),
+              input_schema: toolDef.input_schema || { type: "object", properties: {} },
+            });
+          }
+          continue;
+        }
+        if (typeof block.type === "string" && UNSUPPORTED_BETA_BLOCK_TYPES.has(block.type)) {
+          continue;
+        }
+        nextContent.push(block);
+      }
+      if (nextContent.length > 0) {
+        nextMessages.push({ ...msg, content: nextContent });
+      }
+    }
+    body.messages = nextMessages;
+  }
+
+  if (toolsMap.size > 0) {
+    body.tools = Array.from(toolsMap.values());
+  } else if (Array.isArray(body.tools)) {
+    delete body.tools;
+  }
+
+  return body;
+}
+
 export class KimiProvider extends AnthropicCompatibleProvider {
   public override readonly id = metadata.id;
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "claude";
+
+  public override transformRequestBody(context: ProviderRequestContext): any {
+    const body = super.transformRequestBody(context);
+    const targetFormat = context.targetFormat || this.defaultFormat;
+    if (targetFormat === "claude") {
+      return sanitizeKimiClaudeBody(body);
+    }
+    return body;
+  }
 
   public override supportsQuota(): boolean {
     return true;
