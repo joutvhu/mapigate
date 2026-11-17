@@ -1,7 +1,30 @@
 import { convertAnthropicImageToOpenAi } from "./imageUtils.js";
+import { repairPartialToolResponses } from "../helpers/toolResponseRepair.js";
 
 export interface AnthropicToOpenAiOptions {
   preserveCacheControl?: boolean;
+}
+
+function mapAnthropicToolChoiceToOpenAi(toolChoice: any): any {
+  if (!toolChoice) return undefined;
+  if (typeof toolChoice === "string") return toolChoice;
+  if (typeof toolChoice !== "object") return undefined;
+
+  switch (toolChoice.type) {
+    case "none":
+      return "none";
+    case "auto":
+      return "auto";
+    case "any":
+      return "required";
+    case "tool":
+      if (toolChoice.name) {
+        return { type: "function", function: { name: toolChoice.name } };
+      }
+      return undefined;
+    default:
+      return undefined;
+  }
 }
 
 /**
@@ -210,14 +233,21 @@ export function translateAnthropicToOpenAi(
     }));
   }
 
+  const repairedMessages = repairPartialToolResponses(messages);
+
   const result: any = {
     model: anthropicBody.model,
-    messages,
+    messages: repairedMessages,
     tools,
     stream: Boolean(anthropicBody.stream),
     max_tokens: anthropicBody.max_tokens,
     temperature: anthropicBody.temperature,
   };
+
+  const mappedToolChoice = mapAnthropicToolChoiceToOpenAi(anthropicBody.tool_choice);
+  if (mappedToolChoice !== undefined) {
+    result.tool_choice = mappedToolChoice;
+  }
 
   const effort = anthropicBody.output_config?.effort || anthropicBody.reasoning_effort;
   if (effort) {

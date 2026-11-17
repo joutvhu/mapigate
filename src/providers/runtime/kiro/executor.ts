@@ -15,6 +15,11 @@ import { refreshKiroToken } from "./auth.js";
 import { resolveDefaultProfileArn } from "./quota.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
+import {
+  getKiroCreateResponseMode,
+  isKiroUserRateExceeded,
+  executeKiroCreateResponse,
+} from "./createResponse.js";
 
 interface BufferedToolCall {
   id: string;
@@ -119,6 +124,18 @@ export async function executeKiro(
   }
 
   const effectiveProxy = (context.provider?.proxyUrl && context.provider.proxyUrl.trim()) || "";
+  const createResponseMode = getKiroCreateResponseMode();
+
+  if (createResponseMode === "always") {
+    return await executeKiroCreateResponse({
+      context,
+      upstreamModel,
+      region,
+      headers,
+      effectiveProxy,
+      isStreaming,
+    });
+  }
 
   // 4. Dispatch Upstream
   let upstreamRes = await executeUpstreamFetch(
@@ -143,6 +160,20 @@ export async function executeKiro(
 
   if (!upstreamRes.ok) {
     const errText = await upstreamRes.text().catch(() => "");
+    if (createResponseMode !== "off" && isKiroUserRateExceeded(upstreamRes.status, errText)) {
+      logger.warn(
+        "KIRO",
+        "429 USER_REQUEST_RATE_EXCEEDED on /generateAssistantResponse; falling back to /v1/responses"
+      );
+      return await executeKiroCreateResponse({
+        context,
+        upstreamModel,
+        region,
+        headers,
+        effectiveProxy,
+        isStreaming,
+      });
+    }
     return {
       ok: false,
       status: upstreamRes.status,

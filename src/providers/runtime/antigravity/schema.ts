@@ -40,7 +40,66 @@ export const ANTIGRAVITY_PROMPT_REWRITES: Array<{ from: string | RegExp; to: str
   { from: /You are Hermes(?: Agent)?(?:,\s*(?:an intelligent AI assistant|an AI assistant|an AI agent))?(?:,?\s*(?:built|created)\s+by\s+Nous Research)?\./gi, to: "You are an AI assistant." },
   { from: /^x-anthropic-billing-header:[^\n]*(?:\r?\n)*/gim, to: "" },
   { from: /opencode/gi, to: (m: string) => (m === "OpenCode" ? "Antigravity" : m === "OPENCODE" ? "ANTIGRAVITY" : "antigravity") },
+  // 8 Hermes & OpenClaw prompt rewrites (PR #5703)
+  { from: /You are a personal assistant running inside OpenClaw[^.]*\./gi, to: "You are an AI assistant." },
+  { from: /You are OpenClaw(?:,\s*[^.]*)?\./gi, to: "You are an AI assistant." },
+  { from: /openclaw/gi, to: (m: string) => (m === "OpenClaw" ? "Antigravity" : m === "OPENCLAW" ? "ANTIGRAVITY" : "antigravity") },
+  { from: /clawhub/gi, to: "skillhub" },
+  { from: /Hermes Agent/gi, to: "AI Assistant" },
+  { from: /Nous Research/gi, to: "the developer" },
+  { from: /hermes-agent/gi, to: "ai-agent" },
+  { from: /\/\.hermes\b/gi, to: "/.agent" },
 ];
+
+export function applyAntigravityPromptRewrites(text: string): string {
+  let out = text;
+  for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
+    out = typeof to === "function" ? out.replaceAll(from as any, to as any) : out.replaceAll(from as any, to);
+  }
+  return out;
+}
+
+/**
+ * Recognizes bare 429 RESOURCE_EXHAUSTED responses (exact generic message
+ * "Resource has been exhausted (e.g. check quota)." with no details / ErrorInfo / RetryInfo)
+ * as a prompt rejection rather than a real quota exhaustion.
+ */
+export function isBare429PromptRejection(status: number, errText: string): boolean {
+  if (status !== 429 || !errText) return false;
+  try {
+    const parsed = JSON.parse(errText);
+    const err = parsed?.error || parsed;
+    if (!err || typeof err !== "object") return false;
+    const isResourceExhausted = err.status === "RESOURCE_EXHAUSTED" || err.code === 429;
+    const isGenericMessage = err.message === "Resource has been exhausted (e.g. check quota).";
+    const hasNoDetails = !Array.isArray(err.details) || err.details.length === 0;
+    return isResourceExhausted && isGenericMessage && hasNoDetails;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Moves systemInstruction parts to the front of the first user turn in an Antigravity
+ * request envelope (used as a one-shot retry when bare 429 prompt rejection occurs).
+ */
+export function moveSystemInstructionToFirstUserTurn(envelope: any): any {
+  const sysParts = envelope?.request?.systemInstruction?.parts;
+  if (!Array.isArray(sysParts) || sysParts.length === 0) return envelope;
+
+  const cloned = structuredClone(envelope);
+  delete cloned.request.systemInstruction;
+
+  const contents: any[] = Array.isArray(cloned.request.contents) ? cloned.request.contents : [];
+  const firstUser = contents.find((c: any) => c?.role === "user" && Array.isArray(c.parts));
+  if (firstUser) {
+    firstUser.parts = [...sysParts, ...firstUser.parts];
+  } else {
+    contents.unshift({ role: "user", parts: [...sysParts] });
+  }
+  cloned.request.contents = contents;
+  return cloned;
+}
 
 export function uuidFromSeed(seed: string): string {
   const bytes = crypto.createHash("sha256").update(String(seed || "antigravity")).digest().subarray(0, 16);

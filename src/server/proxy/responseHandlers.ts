@@ -10,6 +10,7 @@ import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { extractUsageTokens } from "../../core/usage/tokenExtractor.js";
+import { isZeroContentResponse } from "../../providers/composite/combo/fallbackStrategy.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -47,8 +48,14 @@ export async function handleNonStreamingResponse(
     } else if (context.clientFormat === "openai" && (context.targetFormat === "claude" || (responseBody?.type === "message" && Array.isArray(responseBody?.content)))) {
       responseBody = AnthropicAdapter.anthropicResponseToOpenAi(responseBody, context.targetModel);
     }
+    if (isZeroContentResponse(responseBody)) {
+      return { ok: false, status: 502, error: "Upstream returned HTTP 200 with empty content" };
+    }
     res.status(200).json(responseBody);
   } else {
+    if (isZeroContentResponse(responseBody)) {
+      return { ok: false, status: 502, error: "Upstream returned HTTP 200 with empty content" };
+    }
     res.status(200).send(responseBody);
   }
 

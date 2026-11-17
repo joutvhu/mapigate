@@ -25,6 +25,9 @@ import {
   toNumericSessionId,
   resolveSessionId,
   ANTIGRAVITY_PROMPT_REWRITES,
+  applyAntigravityPromptRewrites,
+  isBare429PromptRejection,
+  moveSystemInstructionToFirstUserTurn,
   buildIdeRequestId,
   ANTIGRAVITY_REQUEST_BLACKLIST,
   stripBlacklisted,
@@ -185,9 +188,7 @@ export async function executeAntigravity(
     if (sys) systemText = sys;
   }
   if (systemText) {
-    for (const { from, to } of ANTIGRAVITY_PROMPT_REWRITES) {
-      systemText = typeof to === "function" ? systemText.replaceAll(from as any, to as any) : systemText.replaceAll(from as any, to);
-    }
+    systemText = applyAntigravityPromptRewrites(systemText);
   }
 
   // Pre-build tool responses FIFO queue keyed by tool_call_id
@@ -425,11 +426,47 @@ export async function executeAntigravity(
 
   if (!upstreamRes.ok) {
     const errText = await upstreamRes.text().catch(() => "");
-    return {
-      ok: false,
-      status: upstreamRes.status,
-      error: errText || `Google Antigravity request failed with status ${upstreamRes.status}`,
-    };
+    if (isBare429PromptRejection(upstreamRes.status, errText)) {
+      if (envelope.request.systemInstruction?.parts?.length) {
+        logger.warn(
+          "ANTIGRAVITY",
+          "Bare 429 RESOURCE_EXHAUSTED prompt rejection detected; retrying once with systemInstruction moved into first user turn"
+        );
+        const retryEnvelope = moveSystemInstructionToFirstUserTurn(envelope);
+        upstreamRes = await executeUpstreamFetch(
+          targetUrl,
+          { method: "POST", headers, body: JSON.stringify(retryEnvelope) },
+          effectiveProxy
+        );
+        if (!upstreamRes.ok) {
+          const retryErrText = await upstreamRes.text().catch(() => "");
+          if (isBare429PromptRejection(upstreamRes.status, retryErrText)) {
+            return {
+              ok: false,
+              status: 400,
+              error: retryErrText || "Google Antigravity rejected prompt (bare 429 RESOURCE_EXHAUSTED)",
+            };
+          }
+          return {
+            ok: false,
+            status: upstreamRes.status,
+            error: retryErrText || `Google Antigravity request failed with status ${upstreamRes.status}`,
+          };
+        }
+      } else {
+        return {
+          ok: false,
+          status: 400,
+          error: errText || "Google Antigravity rejected prompt (bare 429 RESOURCE_EXHAUSTED)",
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        status: upstreamRes.status,
+        error: errText || `Google Antigravity request failed with status ${upstreamRes.status}`,
+      };
+    }
   }
 
   const responseId = `chatcmpl-${requestId}`;

@@ -3,6 +3,38 @@ import {
   createStreamToolCallRescuer,
   type StreamToolCallRescuer,
 } from "./helpers/toolCallRescue.js";
+import { repairPartialToolResponses } from "./helpers/toolResponseRepair.js";
+
+function splitToolOutput(output: any): { text: string; images: any[] } {
+  if (typeof output === "string") {
+    return { text: output, images: [] };
+  }
+  if (Array.isArray(output)) {
+    const textParts: string[] = [];
+    const images: any[] = [];
+    for (const part of output) {
+      if (!part) continue;
+      if (typeof part === "string") {
+        textParts.push(part);
+      } else if (part.type === "input_image") {
+        const url = part.image_url || part.file_id || "";
+        if (url) {
+          images.push({
+            type: "image_url",
+            image_url: { url, detail: part.detail || "auto" },
+          });
+        }
+      } else if (part.type === "input_text" || part.type === "output_text" || part.type === "text") {
+        if (part.text) textParts.push(part.text);
+      } else {
+        textParts.push(JSON.stringify(part));
+      }
+    }
+    const text = textParts.filter(Boolean).join("\n") || (images.length > 0 ? "[Image returned]" : "");
+    return { text, images };
+  }
+  return { text: JSON.stringify(output ?? ""), images: [] };
+}
 
 /**
  * Normalize Responses API input to array format.
@@ -63,7 +95,7 @@ export function convertResponsesApiFormat(body: any): any {
 
   // 2. Already OpenAI messages
   if (body.messages && Array.isArray(body.messages)) {
-    const result: any = { ...body };
+    const result: any = { ...body, messages: repairPartialToolResponses(body.messages) };
     if (result.tools) {
       result.tools = normalizeToolsToOpenAi(result.tools);
       if (!result.tools) {
@@ -90,6 +122,14 @@ export function convertResponsesApiFormat(body: any): any {
 
   let currentAssistantMsg: any = null;
   let pendingToolResults: any[] = [];
+  let pendingToolImages: any[] = [];
+
+  const flushToolImages = () => {
+    if (pendingToolImages.length > 0) {
+      result.messages.push({ role: "user", content: pendingToolImages });
+      pendingToolImages = [];
+    }
+  };
 
   const inputItems = normalizeResponsesInput(body.input);
   if (!inputItems) return body;
@@ -108,6 +148,7 @@ export function convertResponsesApiFormat(body: any): any {
         }
         pendingToolResults = [];
       }
+      flushToolImages();
 
       const content = Array.isArray(item.content)
         ? item.content.map((c: any) => {
@@ -130,6 +171,7 @@ export function convertResponsesApiFormat(body: any): any {
         }
         pendingToolResults = [];
       }
+      flushToolImages();
       if (!currentAssistantMsg) {
         currentAssistantMsg = {
           role: "assistant",
@@ -157,11 +199,19 @@ export function convertResponsesApiFormat(body: any): any {
         }
         pendingToolResults = [];
       }
+      const { text, images } = splitToolOutput(item.output);
       result.messages.push({
         role: "tool",
         tool_call_id: item.call_id,
-        content: typeof item.output === "string" ? item.output : JSON.stringify(item.output ?? ""),
+        content: text,
       });
+      if (images.length > 0) {
+        pendingToolImages.push({
+          type: "text",
+          text: item.call_id ? `[Image from tool result ${item.call_id}]` : "[Image from tool result]",
+        });
+        pendingToolImages.push(...images);
+      }
     } else if (itemType === "reasoning") {
       continue;
     }
@@ -175,6 +225,8 @@ export function convertResponsesApiFormat(body: any): any {
       result.messages.push(tr);
     }
   }
+  flushToolImages();
+  result.messages = repairPartialToolResponses(result.messages);
 
   if (result.tools) {
     result.tools = normalizeToolsToOpenAi(result.tools);

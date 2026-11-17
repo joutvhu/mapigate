@@ -537,12 +537,12 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
 
     if (isPanel) {
+      const rawText = await upstreamRes.text();
       try {
-        const json = await upstreamRes.json();
+        const json = JSON.parse(rawText);
         return { ok: true, status: 200, json, modelUsed: targetModel };
       } catch {
-        const text = await upstreamRes.text();
-        return { ok: true, status: 200, text, modelUsed: targetModel };
+        return { ok: true, status: 200, text: rawText, modelUsed: targetModel };
       }
     }
 
