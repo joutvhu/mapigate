@@ -4,6 +4,7 @@ import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { isZeroContentResponse } from "../../../core/adapters/helpers/zeroContentCheck.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
+import { resolveDefaultProfileArn } from "./quota.js";
 import {
   type KiroCreateResponseMode,
   getKiroCreateResponseMode,
@@ -30,6 +31,7 @@ export interface ExecuteKiroCreateResponseOptions {
   headers: Record<string, string>;
   effectiveProxy: string;
   isStreaming: boolean;
+  profileArn?: string;
   fetchFn?: typeof executeUpstreamFetch;
   retryDelayMs?: number;
 }
@@ -57,8 +59,15 @@ export async function executeKiroCreateResponse(
   const targetModel = context.targetModel || rawModel;
   const body = context.body || req?.body || {};
 
+  const psd = (context.account?.providerSpecificData || {}) as Record<string, any>;
+  const effectiveProfileArn =
+    (opts.profileArn || "").trim() ||
+    (psd.profileArn || "").trim() ||
+    (headers["x-amzn-codewhisperer-profile-arn"] || "").trim() ||
+    resolveDefaultProfileArn(psd.authMethod);
+
   const url = buildKiroCreateResponseUrl(region);
-  const payload = buildKiroCreateResponsePayload(body, upstreamModel, isStreaming);
+  const payload = buildKiroCreateResponsePayload(body, upstreamModel, isStreaming, effectiveProfileArn);
 
   const reqHeaders: Record<string, string> = {
     ...headers,

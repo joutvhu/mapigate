@@ -142,6 +142,7 @@ export async function executeKiro(
       headers,
       effectiveProxy,
       isStreaming,
+      profileArn: effectiveProfileArn,
     });
   }
 
@@ -181,6 +182,7 @@ export async function executeKiro(
         headers,
         effectiveProxy,
         isStreaming,
+        profileArn: effectiveProfileArn,
       });
     }
     return {

@@ -22,12 +22,17 @@ export function buildKiroCreateResponseUrl(region: string): string {
 export function buildKiroCreateResponsePayload(
   body: any,
   upstreamModel: string,
-  isStreaming: boolean
+  isStreaming: boolean,
+  profileArn?: string
 ): Record<string, any> {
   const payload: Record<string, any> = {
     model: upstreamModel,
     stream: isStreaming,
   };
+  const cleanProfileArn = (profileArn || "").trim();
+  if (cleanProfileArn) {
+    payload.profileArn = cleanProfileArn;
+  }
 
   if (Array.isArray(body?.input)) {
     payload.input = body.input;

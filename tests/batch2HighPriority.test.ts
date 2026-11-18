@@ -263,12 +263,14 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
       max_tokens: 100,
     },
     "claude-sonnet-4-5",
-    false
+    false,
+    "arn:aws:codewhisperer:us-east-1:123456789012:profile/TESTPROFILE"
   );
   assert.equal(payload.instructions, "Be concise");
   assert.equal(payload.input.length, 1);
   assert.equal(payload.tool_choice, "auto");
   assert.equal(payload.max_output_tokens, 100);
+  assert.equal(payload.profileArn, "arn:aws:codewhisperer:us-east-1:123456789012:profile/TESTPROFILE");
 
   const openAi = responsesApiToOpenAiResponse(
     {
@@ -295,6 +297,7 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
     },
   };
 
+  let capturedBody: any = null;
   const result = await executeKiroCreateResponse({
     context: {
       req: { headers: {}, body: {} } as any,
@@ -315,7 +318,8 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
     effectiveProxy: "",
     isStreaming: false,
     retryDelayMs: 0,
-    fetchFn: async () => {
+    fetchFn: async (_url, init) => {
+      capturedBody = JSON.parse(String(init?.body || "{}"));
       attempts++;
       if (attempts === 1) {
         return new Response("rate limited", { status: 429 });
@@ -332,6 +336,7 @@ test("PR #5716 - Kiro CreateResponse helpers, mode env, and format-aware executi
   });
 
   assert.equal(attempts, 2);
+  assert.ok(capturedBody?.profileArn, "executeKiroCreateResponse must include profileArn in request body");
   assert.equal(result.ok, true);
   assert.equal(sentStatus, 200);
   assert.equal(sentBody.type, "message");
