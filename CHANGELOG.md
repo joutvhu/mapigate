@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.156] - 2026-11-19
+
+### Features
+
+#### Observability & Logging
+- **Account Context in Failure Logs & Token Refresh**: Added optional `accountName` to `ModelCallResult`, surfaced account labels in proxy pipeline failure logs and combo fallback warnings, and added descriptive error/warning logs for Antigravity, Kiro, and `singleModelExecutor` OAuth token refresh failures.
+
+### Fixes
+
+#### Proxy & Providers
+- **Account Exhaustion & Credential Validation**: Returned the last failure result immediately and released the circuit breaker probe when no accounts remain, and fixed missing-account validation to run independently of custom headers.
+- **Kiro `CreateResponse` Headers**: Added `x-amzn-kiro-origin: AI_EDITOR` and `x-amzn-kiro-profile` (when `effectiveProfileArn` is present) headers to `executeKiroCreateResponse`, with unit test coverage.
+
 ## [0.5.155] - 2026-11-19
 
 ### Features
