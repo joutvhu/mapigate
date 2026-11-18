@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.155] - 2026-11-19
+
+### Features
+
+#### Auth & CLI
+- **CLI Loopback Session Token Injection**: Added automatic short-lived session token injection for CLI loopback calls when a master password is configured.
+- **Custom Execution Helper**: Extracted reusable custom runtime provider execution logic into `customExecutionHelper.ts`.
+
+### Fixes
+
+#### Auth & Credential Refresh
+- **Missing Access Token Refresh**: Prevented `tokenExtractor` from falling back to raw JSON strings when key fields are absent, allowed Antigravity and Kiro executors to resolve and proactively refresh credentials when only a refresh token is present, and hydrated credentials via `ensureFreshCredentials` in `singleModelExecutor`.
+
+#### Providers & MITM
+- **Kiro `CreateResponse` & Sonnet 5.5 Alias**: Attached effective `profileArn` to Kiro `CreateResponse` payloads and executor calls, and fixed the `claude-sonnet-5.5` alias mapping and regex pattern in Kiro MITM config.
+- **Gateway, MITM & Storage Hardening**: Hardened MITM proxy handlers, root CA certificate installation, DNS configuration, cooldown/resilience handling, RTK `buildOutput` filter, streaming/token counting across Anthropic/Bedrock/Kiro runtimes, and SQLite repository queries; updated Node.js requirement check to `>= 22.5` in `mpg doctor`.
+
 ## [0.5.153] - 2026-11-17
 
 ### Features
