@@ -184,7 +184,12 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       );
     }
 
-    if ((!account || !account.rawApiKey) && !hasCustomHeaders && requiresAccount && !isNoAuthOrProfile) {
+    if (!account && triedAccountIds.size > 0 && lastFailureResult) {
+      cb.releaseProbe();
+      return lastFailureResult;
+    }
+
+    if ((!account || (!account.rawApiKey && !hasCustomHeaders)) && requiresAccount && !isNoAuthOrProfile) {
       cb.releaseProbe();
       if (triedAccountIds.size > 0 && lastFailureResult) return lastFailureResult;
       const accLabel = account ? `Account '${account.name || account.id}' for provider '${providerConfig.name}' has no active API key/token` : `No active API key account found for provider '${providerConfig.name}'`;
