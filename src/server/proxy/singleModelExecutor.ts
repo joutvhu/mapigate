@@ -20,6 +20,7 @@ import { applyReasoningReplayPolicy } from "../../core/caching/reasoningCache.js
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import { applyCacheControlPolicy } from "../../core/caching/cacheControlPolicy.js";
 import { normalizeToolsToOpenAi } from "../../core/adapters/helpers/toolSchemaNormalize.js";
+import { ensureFreshCredentials } from "../../core/usage/tokenHelper.js";
 
 import fs from "node:fs";
 import path from "node:path";
@@ -155,6 +156,21 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       Boolean(regProv?.isLocal) ||
       provider.requiresApiKey === false ||
       provider.isLocal === true;
+
+    if (account && !account.rawApiKey && (account.providerSpecificData?.refreshToken || account.providerSpecificData?.refresh_token)) {
+      try {
+        const fresh = await ensureFreshCredentials(
+          account.id,
+          targetProviderId,
+          account.rawApiKey || "",
+          account.providerSpecificData
+        );
+        if (fresh.accessToken) {
+          account.rawApiKey = fresh.accessToken;
+          account.providerSpecificData = fresh.providerSpecificData;
+        }
+      } catch {}
+    }
 
     if (account && (account as any).apiKeyEncrypted && !account.rawApiKey) {
       logger.errorLine(

@@ -16,7 +16,7 @@ export function extractTokenFromAccount(account?: any): string {
         parsed.apiKey ||
         parsed.api_key ||
         parsed.key ||
-        token
+        ""
       ).trim();
     } catch {}
   }

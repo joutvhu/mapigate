@@ -61,14 +61,14 @@ function resolveAccountCredentials(context: ProviderRequestContext): Antigravity
   if (rawKey.startsWith("{")) {
     try {
       const parsed = JSON.parse(rawKey);
-      accessToken = parsed.accessToken || parsed.access_token || accessToken;
+      accessToken = parsed.accessToken || parsed.access_token || "";
       refreshToken = parsed.refreshToken || parsed.refresh_token || refreshToken;
       expiresAt = parsed.expiresAt || parsed.expires_at || expiresAt;
       projectId = parsed.projectId || parsed.project_id || projectId;
     } catch {}
   }
 
-  if (!accessToken) return null;
+  if (!accessToken && !refreshToken) return null;
 
   return {
     accessToken,
@@ -91,7 +91,7 @@ export async function executeAntigravity(
 
   // 1. Resolve Account Credentials
   const creds = resolveAccountCredentials(context);
-  if (!creds || !creds.accessToken) {
+  if (!creds || (!creds.accessToken && !creds.refreshToken)) {
     return {
       ok: false,
       status: 401,
@@ -99,27 +99,43 @@ export async function executeAntigravity(
     };
   }
 
-  // Refresh token proactively if nearing expiry (within 5 minutes)
-  if (creds.refreshToken && creds.expiresAt && Date.now() >= creds.expiresAt - 300_000) {
+  // Refresh token proactively if missing accessToken or nearing expiry (within 5 minutes)
+  const needsRefresh = Boolean(
+    creds.refreshToken &&
+      (!creds.accessToken || (creds.expiresAt && Date.now() >= creds.expiresAt - 300_000))
+  );
+  if (needsRefresh && creds.refreshToken) {
     try {
       const refreshed = await refreshGoogleOAuthToken(creds.refreshToken);
       if (refreshed?.accessToken) {
         creds.accessToken = refreshed.accessToken;
         creds.refreshToken = refreshed.refreshToken || creds.refreshToken;
         creds.expiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
-        context.account!.rawApiKey = creds.accessToken;
-        context.account!.providerSpecificData = {
-          ...(context.account!.providerSpecificData || {}),
-          refreshToken: creds.refreshToken,
-          expiresAt: creds.expiresAt,
-          projectId: creds.projectId,
-        };
-        ProviderRepository.updateAccount(context.account!.id, {
-          rawApiKey: JSON.stringify(creds),
-          providerSpecificData: context.account!.providerSpecificData,
-        });
+        if (context.account) {
+          context.account.rawApiKey = creds.accessToken;
+          context.account.providerSpecificData = {
+            ...(context.account.providerSpecificData || {}),
+            refreshToken: creds.refreshToken,
+            expiresAt: creds.expiresAt,
+            projectId: creds.projectId,
+          };
+          if (context.account.id) {
+            ProviderRepository.updateAccount(context.account.id, {
+              rawApiKey: JSON.stringify(creds),
+              providerSpecificData: context.account.providerSpecificData,
+            });
+          }
+        }
       }
     } catch {}
+  }
+
+  if (!creds.accessToken) {
+    return {
+      ok: false,
+      status: 401,
+      error: "No active Antigravity access token found. Please connect an Antigravity account.",
+    };
   }
 
   // Ensure Project ID exists
