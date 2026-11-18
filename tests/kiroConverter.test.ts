@@ -207,4 +207,60 @@ describe("Kiro Converter - OpenAI to CodeWhisperer wire format", () => {
       global.fetch = originalFetch;
     }
   });
+
+  it("sends x-amzn-kiro-origin: AI_EDITOR and x-amzn-kiro-profile headers in executeKiroCreateResponse", async () => {
+    const { executeKiroCreateResponse } = await import("../src/providers/runtime/kiro/createResponse.js");
+    let capturedHeaders: Record<string, string> = {};
+    let capturedBody: any = null;
+
+    const mockRes: any = {
+      headersSent: false,
+      writableEnded: false,
+      destroyed: false,
+      setHeader() {},
+      flushHeaders() {},
+      status() { return this; },
+      json() { return this; },
+      write() { return true; },
+      end() { this.writableEnded = true; },
+    };
+
+    const result = await executeKiroCreateResponse({
+      context: {
+        req: {} as any,
+        res: mockRes,
+        clientFormat: "openai",
+        targetModel: "claude-sonnet-5.5",
+        targetFormat: "openai",
+        body: { stream: false, messages: [{ role: "user", content: "hello" }] },
+        requestId: "test_create_resp_1",
+        startTime: Date.now(),
+      },
+      upstreamModel: "claude-sonnet-5.5",
+      region: "us-east-1",
+      headers: { Authorization: "Bearer test-token" },
+      effectiveProxy: "",
+      isStreaming: false,
+      profileArn: "arn:aws:codewhisperer:us-east-1:123456789012:profile/test",
+      fetchFn: async (_url: any, init: any) => {
+        capturedHeaders = init.headers;
+        capturedBody = JSON.parse(init.body);
+        return new Response(
+          JSON.stringify({
+            id: "resp_1",
+            output: [{ type: "message", content: [{ type: "output_text", text: "hi" }] }],
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(capturedHeaders["x-amzn-kiro-origin"], "AI_EDITOR");
+    assert.equal(capturedHeaders["x-amzn-kiro-profile"], "arn:aws:codewhisperer:us-east-1:123456789012:profile/test");
+    assert.equal(capturedBody.origin, undefined);
+  });
 });

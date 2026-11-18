@@ -73,6 +73,8 @@ export async function executeKiroCreateResponse(
     ...headers,
     "Content-Type": "application/json",
     Accept: isStreaming ? "text/event-stream" : "application/json",
+    "x-amzn-kiro-origin": "AI_EDITOR",
+    ...(effectiveProfileArn ? { "x-amzn-kiro-profile": effectiveProfileArn } : {}),
   };
   delete reqHeaders["X-Amz-Target"];
 
