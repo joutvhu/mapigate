@@ -157,8 +157,9 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
 
       // A request-scoped 4xx (validation, unsupported parameter, context overflow) means
       // this member cannot serve THIS request — but a later member might. Advance without cooldown.
+      const accSuffix = res.accountName ? ` [${res.accountName}]` : "";
       if (requestScoped) {
-        log.warn(`[COMBO:Fallback] Model ${modelStr} rejected request (${res.status}): ${errText}, trying next model`);
+        log.warn(`[COMBO:Fallback] Model ${modelStr}${accSuffix} rejected request (${res.status}): ${errText}, trying next model`);
         if (!firstRequestScopedResult) {
           firstRequestScopedResult = { ...res, modelUsed: modelStr };
         }
@@ -166,7 +167,7 @@ export async function handleFallbackChat(options: FallbackChatOptions): Promise<
       }
 
       if (!shouldFallback) {
-        log.warn(`[COMBO:Fallback] Model ${modelStr} failed with unretryable error ${res.status}: ${errText}`);
+        log.warn(`[COMBO:Fallback] Model ${modelStr}${accSuffix} failed with unretryable error ${res.status}: ${errText}`);
         return { ...res, modelUsed: modelStr };
       }
 

@@ -74,14 +74,22 @@ export async function executeKiro(
   const upstreamPayload = buildKiroPayload(body, upstreamModel, context.account, requestId);
 
   // 2. Build Headers
+  const accountLabel = context.account?.name || context.account?.id || "none";
   let bearerToken = extractTokenFromAccount(context.account);
   if (!bearerToken && context.account && (psd.refreshToken || psd.refresh_token)) {
     try {
       const refreshed = await refreshKiroToken(context.account);
       if (refreshed) {
         bearerToken = extractTokenFromAccount(context.account);
+      } else {
+        logger.warn(reqTag, `Kiro token refresh failed for account '${accountLabel}'`);
       }
-    } catch {}
+    } catch (err: any) {
+      logger.warn(reqTag, `Kiro token refresh failed for account '${accountLabel}': ${err?.message || err}`);
+    }
+  }
+  if (!bearerToken) {
+    logger.errorLine(reqTag, LogSymbol.ERROR, `Kiro account '${accountLabel}' has no active bearer token`);
   }
   const provCustomHeaders = (context.provider as any)?.customHeaders || {};
   const headers: Record<string, string> = {

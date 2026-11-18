@@ -90,12 +90,19 @@ export async function executeAntigravity(
   const isStreaming = body.stream !== false && !isPanel;
 
   // 1. Resolve Account Credentials
+  const accountLabel = context.account?.name || context.account?.id || "none";
   const creds = resolveAccountCredentials(context);
   if (!creds || (!creds.accessToken && !creds.refreshToken)) {
+    logger.errorLine(
+      reqTag,
+      LogSymbol.ERROR,
+      `Antigravity account '${accountLabel}' has no accessToken or refreshToken`
+    );
     return {
       ok: false,
       status: 401,
       error: "No active Antigravity access token found. Please connect an Antigravity account.",
+      accountName: accountLabel,
     };
   }
 
@@ -126,15 +133,25 @@ export async function executeAntigravity(
             });
           }
         }
+      } else {
+        logger.warn(reqTag, `Antigravity token refresh returned empty token for account '${accountLabel}'`);
       }
-    } catch {}
+    } catch (err: any) {
+      logger.warn(reqTag, `Antigravity token refresh failed for account '${accountLabel}': ${err?.message || err}`);
+    }
   }
 
   if (!creds.accessToken) {
+    logger.errorLine(
+      reqTag,
+      LogSymbol.ERROR,
+      `Antigravity account '${accountLabel}' has no active accessToken after refresh`
+    );
     return {
       ok: false,
       status: 401,
       error: "No active Antigravity access token found. Please connect an Antigravity account.",
+      accountName: accountLabel,
     };
   }
 

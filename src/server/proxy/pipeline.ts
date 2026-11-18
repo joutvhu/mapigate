@@ -374,11 +374,12 @@ export async function runProxyPipeline(
       const failedResolved = resolveTargetModelAndProvider(failedCandidate);
       const actualProviderId = failedResolved.providerId || (candidateModels[0]?.split("/")[0] || "unknown");
       const actualTargetModel = failedResolved.targetModel || rawModel;
+      const accSuffix = result.accountName ? ` [${result.accountName}]` : "";
 
       logger.errorLine(
         reqTag,
         LogSymbol.ERROR,
-        `REQUEST FAILED ${status} · ${actualProviderId}/${actualTargetModel}${comboName ? ` (via combo '${comboName}')` : ""} · ${durationMs}ms [req: ${requestId}]\n    ${errMsg}`
+        `REQUEST FAILED ${status} · ${actualProviderId}/${actualTargetModel}${accSuffix}${comboName ? ` (via combo '${comboName}')` : ""} · ${durationMs}ms [req: ${requestId}]\n    ${errMsg}`
       );
 
       UsageRepository.endPendingRequest(requestId, true, actualProviderId);
@@ -405,7 +406,7 @@ export async function runProxyPipeline(
           status,
           message: errMsg,
         },
-        rawText: `[${reqTag}] ❌ REQUEST FAILED ${status} · ${actualProviderId}/${actualTargetModel} · ${durationMs}ms\n    ${errMsg}`,
+        rawText: `[${reqTag}] ❌ REQUEST FAILED ${status} · ${actualProviderId}/${actualTargetModel}${accSuffix} · ${durationMs}ms\n    ${errMsg}`,
       });
 
       ResponseLogger.logFailure({

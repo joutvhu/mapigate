@@ -168,8 +168,12 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         if (fresh.accessToken) {
           account.rawApiKey = fresh.accessToken;
           account.providerSpecificData = fresh.providerSpecificData;
+        } else {
+          logger.warn(reqTag, `OAuth token refresh returned empty token for ${targetProviderId} account '${account.name || account.id}'`);
         }
-      } catch {}
+      } catch (err: any) {
+        logger.warn(reqTag, `OAuth token refresh failed for ${targetProviderId} account '${account.name || account.id}': ${err?.message || err}`);
+      }
     }
 
     if (account && (account as any).apiKeyEncrypted && !account.rawApiKey) {
@@ -183,8 +187,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     if ((!account || !account.rawApiKey) && !hasCustomHeaders && requiresAccount && !isNoAuthOrProfile) {
       cb.releaseProbe();
       if (triedAccountIds.size > 0 && lastFailureResult) return lastFailureResult;
-      logger.errorLine(reqTag, LogSymbol.ERROR, `No active API key account found for provider '${providerConfig.name}'`);
-      return { ok: false, status: 503, error: `No active API key account found for provider '${providerConfig.name}'.` };
+      const accLabel = account ? `Account '${account.name || account.id}' for provider '${providerConfig.name}' has no active API key/token` : `No active API key account found for provider '${providerConfig.name}'`;
+      logger.errorLine(reqTag, LogSymbol.ERROR, accLabel);
+      return {
+        ok: false,
+        status: 503,
+        error: `${accLabel}.`,
+        accountName: account?.name || account?.id,
+      };
     }
 
     if (account) triedAccountIds.add(account.id);
@@ -265,6 +275,9 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       if (customResult.ok) {
         recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
         return customResult;
+      }
+      if (!customResult.accountName && account) {
+        customResult.accountName = account.name || account.id;
       }
 
       const errText = customResult.text || customResult.error || "";
@@ -465,12 +478,12 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
             sessionId
           )
         ) {
-          lastFailureResult = { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
+          lastFailureResult = { ok: false, status: 502, text: cleanErrText, error: cleanErrText, accountName: account?.name || account?.id };
           continue;
         }
       }
 
-      return { ok: false, status: 502, text: cleanErrText, error: cleanErrText };
+      return { ok: false, status: 502, text: cleanErrText, error: cleanErrText, accountName: account?.name || account?.id };
     } finally {
       const willStream = upstreamRes?.ok && upstreamBody?.stream !== false && !isPanel;
       if (!willStream && typeof res?.removeListener === "function") {
@@ -521,7 +534,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         }
         const cdMs = resFailure.cooldownMs || (resFailure.rateLimited ? 60_000 : 5000);
         if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined, sessionId)) {
-          lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
+          lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText, accountName: account?.name || account?.id };
           continue;
         }
       }
@@ -590,7 +603,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
         rawText: `[${reqTag}] ❌ UPSTREAM ERROR ${upstreamRes.status} · ${targetProviderId}/${targetModel}${detailSuffix} · ${durationMs}ms\n    ${sanitizedErr}`,
       });
 
-      return { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText };
+      return { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText, accountName: account?.name || account?.id };
     }
 
     recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });

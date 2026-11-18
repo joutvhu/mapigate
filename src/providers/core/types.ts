@@ -110,6 +110,7 @@ export interface ModelCallResult {
   stream?: any;
   error?: string;
   modelUsed?: string;
+  accountName?: string;
   logged?: boolean;
 }
 
