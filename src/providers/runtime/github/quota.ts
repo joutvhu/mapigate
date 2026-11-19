@@ -1,5 +1,6 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../../../core/usage/types.js";
 import { parseResetTime } from "../../../core/usage/utils.js";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 
 export const GITHUB_COPILOT_USER_URL = "https://api.github.com/copilot_internal/user";
 
@@ -44,7 +45,7 @@ export async function getGitHubUsage(
   providerSpecificData?: Record<string, any>,
   options?: { fetchFn?: typeof fetch }
 ): Promise<RawProviderQuotaResult> {
-  const fetchFn = options?.fetchFn || globalThis.fetch;
+  const fetchFn = options?.fetchFn || (fetchWithDnsBypass as any);
   const token = (providerSpecificData?.githubAccessToken || accessToken || "").trim();
 
   if (!token) {

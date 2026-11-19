@@ -1,5 +1,5 @@
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
-
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
 export const COPILOT_INTERNAL_TOKEN_URL = "https://api.github.com/copilot_internal/v2/token";
@@ -56,7 +56,7 @@ export function isCopilotTokenExpiring(
  */
 export async function fetchCopilotInternalToken(
   githubAccessToken: string,
-  fetchFn: typeof fetch = globalThis.fetch
+  fetchFn: typeof fetch = fetchWithDnsBypass as any
 ): Promise<{ token: string; expiresAt: number } | null> {
   const cleanToken = githubAccessToken.trim();
   if (!cleanToken) return null;
@@ -107,7 +107,7 @@ export async function refreshGitHubOAuthToken(
   refreshToken: string,
   clientId = GITHUB_COPILOT_CLIENT_ID,
   clientSecret?: string,
-  fetchFn: typeof fetch = globalThis.fetch
+  fetchFn: typeof fetch = fetchWithDnsBypass as any
 ): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number } | null> {
   if (!refreshToken) return null;
   try {

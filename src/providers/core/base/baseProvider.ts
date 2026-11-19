@@ -8,10 +8,24 @@ import { isRateLimitOrQuotaError } from "../../../core/resilience/index.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { resolveCandidateUrls } from "../../../core/scanner/urlResolver.js";
 import { getRegistryProvider } from "../metadataRegistry.js";
+import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
+
+function isLocalOrIpHost(urlStr: string): boolean {
+  try {
+    const host = new URL(urlStr).hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1" || host === "[::1]") {
+      return true;
+    }
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export async function checkBinaryInstalled(binary?: string): Promise<boolean> {
   if (!binary || typeof binary !== "string") return false;
@@ -298,7 +312,8 @@ export abstract class BaseProvider implements IProvider {
 
     for (const url of candidateUrls) {
       try {
-        const res = await fetch(url, {
+        const doFetch = isLocalOrIpHost(url) ? fetch : fetchWithDnsBypass;
+        const res = await doFetch(url, {
           method: "GET",
           headers: reqHeaders,
           signal: AbortSignal.timeout(timeoutMs),
