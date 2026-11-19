@@ -131,13 +131,20 @@ export function clearPublicDnsAgents(): void {
   publicDnsFreshAgentInstance = null;
 }
 
+const initialGlobalFetch = globalThis.fetch;
+const isTestEnv = process.env.NODE_ENV === "test" || process.env.MAPIGATE_TEST === "1";
+
 /**
  * Fetch wrapper that automatically uses the public DNS dispatcher to bypass local loopback.
+ * Respects globalThis.fetch mocks/overrides (e.g. in unit tests).
  */
 export async function fetchWithDnsBypass(
   url: string | URL,
   init?: any
 ): Promise<Response> {
+  if (isTestEnv && typeof globalThis.fetch === "function" && globalThis.fetch !== initialGlobalFetch) {
+    return await globalThis.fetch(url as any, init);
+  }
   const agent = getPublicDnsAgent();
   return (await undiciFetch(url as any, { ...(init || {}), dispatcher: agent })) as unknown as Response;
 }
