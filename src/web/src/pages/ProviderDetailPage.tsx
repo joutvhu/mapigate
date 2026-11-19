@@ -1505,7 +1505,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       <PortalModal
         isOpen={showAddModelModal}
         onClose={() => setShowAddModelModal(false)}
-        maxWidthClass="max-w-md"
+        maxWidthClass="max-w-lg"
       >
         <div className="space-y-4">
           <h4 className="text-sm font-bold text-white">Add Custom Model</h4>
@@ -1569,7 +1569,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
       <PortalModal
         isOpen={Boolean(viewingAccountModels)}
         onClose={() => setViewingAccountModels(null)}
-        maxWidthClass="max-w-md"
+        maxWidthClass="max-w-2xl"
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-[#1E293B] pb-3">

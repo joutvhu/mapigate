@@ -1458,7 +1458,7 @@ export const MitmTab: React.FC = () => {
       <PortalModal
         isOpen={Boolean(modalTool)}
         onClose={() => setModalTool(null)}
-        maxWidthClass="max-w-md"
+        maxWidthClass="max-w-xl"
       >
         {modalTool && (
           <div className="space-y-4">
@@ -1526,7 +1526,7 @@ export const MitmTab: React.FC = () => {
       <PortalModal
         isOpen={Boolean(portConflict)}
         onClose={() => setPortConflict(null)}
-        maxWidthClass="max-w-md"
+        maxWidthClass="max-w-xl"
       >
         {portConflict && (() => {
           const isTimeWait = Boolean(portConflict.isTransient) || portConflict.pid === 0 || Boolean(portConflict.processName?.toLowerCase().includes("idle"));

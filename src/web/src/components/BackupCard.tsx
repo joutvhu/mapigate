@@ -154,7 +154,7 @@ export const BackupCard: React.FC = () => {
       </p>
 
       {/* Export Modal */}
-      <PortalModal isOpen={showExportModal} onClose={() => !isExporting && setShowExportModal(false)} maxWidthClass="max-w-md">
+      <PortalModal isOpen={showExportModal} onClose={() => !isExporting && setShowExportModal(false)} maxWidthClass="max-w-xl">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
@@ -227,7 +227,7 @@ export const BackupCard: React.FC = () => {
       </PortalModal>
 
       {/* Import Modal */}
-      <PortalModal isOpen={showImportModal} onClose={() => !isImporting && setShowImportModal(false)} maxWidthClass="max-w-md">
+      <PortalModal isOpen={showImportModal} onClose={() => !isImporting && setShowImportModal(false)} maxWidthClass="max-w-xl">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">

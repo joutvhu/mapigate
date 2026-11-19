@@ -90,7 +90,7 @@ export const CursorAuthModal: React.FC<CursorAuthModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-lg">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-xl">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">

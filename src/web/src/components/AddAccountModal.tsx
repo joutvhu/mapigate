@@ -383,7 +383,7 @@ export const AddAccountModal: React.FC<AddAccountModalProps> = ({
   };
 
   return (
-    <PortalModal isOpen={isOpen} onClose={handleClose} maxWidthClass="max-w-xl">
+    <PortalModal isOpen={isOpen} onClose={handleClose} maxWidthClass="max-w-2xl">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">

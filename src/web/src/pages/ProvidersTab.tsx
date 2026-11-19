@@ -598,7 +598,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
           setCustomBaseUrl("");
           setSaveError(null);
         }}
-        maxWidthClass="max-w-md"
+        maxWidthClass="max-w-xl"
       >
         {selectedProvider && (
           <div className="space-y-4">

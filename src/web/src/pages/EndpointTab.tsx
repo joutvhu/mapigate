@@ -899,7 +899,7 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
             setShowCreateKeyModal(false);
             setNewlyCreatedKey(null);
           }}
-          maxWidthClass="max-w-md"
+          maxWidthClass="max-w-xl"
         >
           <div className="space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
