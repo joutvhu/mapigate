@@ -264,9 +264,14 @@ cliToolsRouter.post("/:tool/apply", async (req, res) => {
         }
       }
       const runningPort = serverLifecycle.getPort();
+      const effectiveApiKey =
+        typeof req.body?.apiKey === "string" && req.body.apiKey.trim()
+          ? req.body.apiKey.trim()
+          : "mapigate-local";
       const renderedTemplate = tool.configFileTemplate
         .replace(new RegExp(`127\\.0\\.0\\.1:${DEFAULT_PORT}`, "g"), `127.0.0.1:${runningPort}`)
-        .replace(new RegExp(`:${DEFAULT_PORT}`, "g"), `:${runningPort}`);
+        .replace(new RegExp(`:${DEFAULT_PORT}`, "g"), `:${runningPort}`)
+        .replace(/mapigate-local/g, effectiveApiKey);
       await fs.writeFile(targetPath, renderedTemplate, { encoding: "utf-8", mode: 0o600 });
     } else {
       res.status(400).json({ error: `No config template available for ${toolId}` });

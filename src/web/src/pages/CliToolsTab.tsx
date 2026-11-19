@@ -24,17 +24,47 @@ interface ToolStatusData {
   hasMapigate?: boolean;
 }
 
+interface GatewayApiKeyItem {
+  id: string;
+  key: string;
+  name: string;
+  isActive: boolean;
+  isSystem?: boolean;
+}
+
 export const CliToolsTab: React.FC = () => {
   const systemInfo = useSystemInfo((s) => s.info);
   const effectivePort = systemInfo?.port || DEFAULT_PORT;
   const effectiveHost = systemInfo?.host || DEFAULT_HOST;
+
+  // Gateway API Key & Endpoint Auth state
+  const [requireApiKey, setRequireApiKey] = useState(false);
+  const [gatewayKeys, setGatewayKeys] = useState<GatewayApiKeyItem[]>([]);
+  const [selectedApiKey, setSelectedApiKey] = useState<string>("mapigate-local");
+  const [creatingKey, setCreatingKey] = useState(false);
+
+  const activeUserKeys = useMemo(
+    () => gatewayKeys.filter((k) => k.isActive && !k.isSystem),
+    [gatewayKeys]
+  );
+
+  const effectiveApiKey = useMemo(() => {
+    if (selectedApiKey && selectedApiKey !== "mapigate-local") {
+      return selectedApiKey;
+    }
+    if (requireApiKey && activeUserKeys.length > 0) {
+      return activeUserKeys[0].key;
+    }
+    return "mapigate-local";
+  }, [selectedApiKey, requireApiKey, activeUserKeys]);
 
   const formatWithActivePort = (text?: string): string => {
     if (!text) return "";
     return text
       .replace(/127\.0\.0\.1:2012[78]/g, `${effectiveHost}:${effectivePort}`)
       .replace(/localhost:2012[78]/g, `localhost:${effectivePort}`)
-      .replace(/:2012[78]\b/g, `:${effectivePort}`);
+      .replace(/:2012[78]\b/g, `:${effectivePort}`)
+      .replace(/mapigate-local/g, effectiveApiKey);
   };
 
   // View Mode: Tool Catalog vs Global Model Mappings
@@ -100,10 +130,60 @@ export const CliToolsTab: React.FC = () => {
     }
   };
 
+  // Load endpoint auth settings & gateway API keys
+  const loadEndpointAuth = async () => {
+    try {
+      const [epRes, keysRes] = await Promise.all([
+        fetch("/api/settings/endpoint"),
+        fetch("/api/settings/endpoint/keys"),
+      ]);
+      let reqKey = false;
+      if (epRes.ok) {
+        const epData = await epRes.json();
+        reqKey = Boolean(epData?.requireApiKey);
+        setRequireApiKey(reqKey);
+      }
+      if (keysRes.ok) {
+        const keysData = await keysRes.json();
+        if (Array.isArray(keysData)) {
+          setGatewayKeys(keysData);
+          const firstActive = keysData.find((k: GatewayApiKeyItem) => k.isActive && !k.isSystem);
+          if (reqKey && firstActive) {
+            setSelectedApiKey((prev) => (prev === "mapigate-local" ? firstActive.key : prev));
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleQuickCreateKey = async (toolName?: string) => {
+    setCreatingKey(true);
+    try {
+      const res = await fetch("/api/settings/endpoint/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: toolName ? `${toolName} Key` : "CLI Tool Key" }),
+      });
+      if (res.ok) {
+        const created: GatewayApiKeyItem = await res.json();
+        setGatewayKeys((prev) => [created, ...prev]);
+        setSelectedApiKey(created.key);
+        setApplyMsg({ type: "success", text: `Created Gateway API Key "${created.name}" and selected it.` });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCreatingKey(false);
+    }
+  };
+
   useEffect(() => {
     fetchStatuses();
     loadCombos();
     loadGlobalMappings();
+    loadEndpointAuth();
   }, []);
 
   const copyText = (text: string) => {
@@ -233,7 +313,7 @@ export const CliToolsTab: React.FC = () => {
       const res = await fetch(`/api/cli-tools/${toolId}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ apiKey: effectiveApiKey }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -742,6 +822,85 @@ export const CliToolsTab: React.FC = () => {
               </div>
             </div>
 
+            {/* Gateway API Key Selector & Auth Guidance */}
+            <div
+              className={`p-3.5 rounded-xl border space-y-2.5 ${
+                requireApiKey && effectiveApiKey === "mapigate-local"
+                  ? "bg-amber-500/10 border-amber-500/30"
+                  : "bg-[#0A0D14] border-[#1E293B]"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-amber-400">vpn_key</span>
+                  <span className="text-xs font-semibold text-white">Gateway API Key</span>
+                  {requireApiKey ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Required
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                      Optional
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end min-w-[240px]">
+                  <select
+                    value={effectiveApiKey}
+                    onChange={(e) => setSelectedApiKey(e.target.value)}
+                    className="bg-[#0F1420] border border-[#243048] rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500 max-w-[280px] w-full"
+                  >
+                    {!requireApiKey && (
+                      <option value="mapigate-local">mapigate-local (Placeholder)</option>
+                    )}
+                    {requireApiKey && activeUserKeys.length === 0 && (
+                      <option value="mapigate-local">No active key — create one →</option>
+                    )}
+                    {activeUserKeys.map((k) => (
+                      <option key={k.id} value={k.key}>
+                        {k.name} ({k.key.slice(0, 10)}…{k.key.slice(-4)})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={creatingKey}
+                    onClick={() => handleQuickCreateKey(activeModalTool.name)}
+                    className="px-2.5 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold flex items-center gap-1 shrink-0 transition-colors cursor-pointer"
+                    title="Create a new Gateway API Key and insert it into the commands below"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">add</span>
+                    {creatingKey ? "Creating..." : "New Key"}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                {requireApiKey ? (
+                  effectiveApiKey === "mapigate-local" ? (
+                    <span className="text-amber-300">
+                      <strong>Require API Key</strong> is enabled in Endpoint settings.{" "}
+                      <code className="font-mono">mapigate-local</code> will be rejected with{" "}
+                      <code className="font-mono">401 Unauthorized</code> — click <strong>New Key</strong> to generate a valid key.
+                    </span>
+                  ) : (
+                    <span>
+                      <strong>Require API Key</strong> is enabled. All commands and config templates below are populated with your selected Gateway API Key.
+                    </span>
+                  )
+                ) : effectiveApiKey === "mapigate-local" ? (
+                  <span>
+                    <strong>Require API Key</strong> is currently OFF, so <code className="font-mono text-slate-300">mapigate-local</code> works as a placeholder. Select or create a real key if you want per-key usage tracking or plan to enable auth later.
+                  </span>
+                ) : (
+                  <span>
+                    Using your real Gateway API Key — requests from this tool will be authenticated and tracked under this key.
+                  </span>
+                )}
+              </p>
+            </div>
+
             {/* Navigation Tabs */}
             <div className="flex border-b border-[#1E293B] gap-2 overflow-x-auto">
               <button
@@ -805,7 +964,7 @@ export const CliToolsTab: React.FC = () => {
                       onClick={() =>
                         copyText(
                           formatWithActivePort(selectedDef?.powershellTemplate) ||
-                            `$env:OPENAI_BASE_URL = "http://${effectiveHost}:${effectivePort}/v1"; $env:OPENAI_API_KEY = "mapigate-local"`
+                            `$env:OPENAI_BASE_URL = "http://${effectiveHost}:${effectivePort}/v1"; $env:OPENAI_API_KEY = "${effectiveApiKey}"`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold cursor-pointer"
@@ -816,7 +975,7 @@ export const CliToolsTab: React.FC = () => {
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-4 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
                     {formatWithActivePort(selectedDef?.powershellTemplate) ||
-                      `$env:OPENAI_BASE_URL = "http://${effectiveHost}:${effectivePort}/v1"\n$env:OPENAI_API_KEY = "mapigate-local"`}
+                      `$env:OPENAI_BASE_URL = "http://${effectiveHost}:${effectivePort}/v1"\n$env:OPENAI_API_KEY = "${effectiveApiKey}"`}
                   </pre>
                   <p className="text-[11px] text-slate-400">
                     💡 Sets environment variables in your current PowerShell session pointing to Mapigate port {effectivePort}.
@@ -833,7 +992,7 @@ export const CliToolsTab: React.FC = () => {
                       onClick={() =>
                         copyText(
                           formatWithActivePort(selectedDef?.bashTemplate) ||
-                            `export OPENAI_BASE_URL="http://${effectiveHost}:${effectivePort}/v1"\nexport OPENAI_API_KEY="mapigate-local"`
+                            `export OPENAI_BASE_URL="http://${effectiveHost}:${effectivePort}/v1"\nexport OPENAI_API_KEY="${effectiveApiKey}"`
                         )
                       }
                       className="text-blue-400 hover:text-blue-300 flex items-center gap-1 font-semibold cursor-pointer"
@@ -844,7 +1003,7 @@ export const CliToolsTab: React.FC = () => {
                   </div>
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-4 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
                     {formatWithActivePort(selectedDef?.bashTemplate) ||
-                      `export OPENAI_BASE_URL="http://${effectiveHost}:${effectivePort}/v1"\nexport OPENAI_API_KEY="mapigate-local"`}
+                      `export OPENAI_BASE_URL="http://${effectiveHost}:${effectivePort}/v1"\nexport OPENAI_API_KEY="${effectiveApiKey}"`}
                   </pre>
                   <p className="text-[11px] text-slate-400">
                     💡 Exports the environment variables for your current terminal session.
@@ -879,7 +1038,7 @@ export const CliToolsTab: React.FC = () => {
                   <pre className="bg-[#0A0D14] border border-[#1E293B] p-4 rounded-xl text-emerald-400 font-mono text-xs overflow-x-auto whitespace-pre leading-relaxed">
                     {formatWithActivePort(
                       selectedDef?.configFileTemplate || selectedDef?.codeBlock?.code
-                    ) || `{\n  "baseUrl": "http://${effectiveHost}:${effectivePort}/v1",\n  "apiKey": "mapigate-local"\n}`}
+                    ) || `{\n  "baseUrl": "http://${effectiveHost}:${effectivePort}/v1",\n  "apiKey": "${effectiveApiKey}"\n}`}
                   </pre>
                   {Boolean(selectedDef?.configPath || selectedDef?.settingsFile) && (
                     <div className="flex items-center gap-2 pt-1">
