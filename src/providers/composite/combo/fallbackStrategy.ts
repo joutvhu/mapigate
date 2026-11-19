@@ -57,9 +57,15 @@ export function checkFallbackError(
     return { shouldFallback: true, cooldownMs: 1000 };
   }
 
+  // Account / credential / model availability errors (401, 402, 403, 404).
+  // These indicate this specific account or provider cannot serve the model,
+  // so the combo should fall over to the next candidate model without cooldown.
+  if (status === 401 || status === 402 || status === 403 || status === 404) {
+    return { shouldFallback: true, cooldownMs: 0 };
+  }
+
   // Request-scoped 4xx (validation failure, unsupported parameter, context overflow).
-  // Statuses 401, 402, 403, 404 are credential/account-scoped.
-  if (status >= 400 && status < 500 && status !== 401 && status !== 402 && status !== 403 && status !== 404) {
+  if (status >= 400 && status < 500) {
     return { shouldFallback: false, cooldownMs: 0, requestScoped: true };
   }
 

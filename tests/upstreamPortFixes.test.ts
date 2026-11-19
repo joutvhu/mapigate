@@ -62,8 +62,8 @@ describe("Upstream 9router Port Fixes", () => {
 
   describe("3. Antigravity hub and Gemini 4 Argon tiers", () => {
     it("uses antigravity client version and User-Agent", () => {
-      assert.equal(ANTIGRAVITY_IDE_VERSION, "2.32.1");
-      assert.ok(ANTIGRAVITY_USER_AGENT.includes("hub/2.32.1"));
+      assert.equal(ANTIGRAVITY_IDE_VERSION, "2.33.0");
+      assert.ok(ANTIGRAVITY_USER_AGENT.includes("hub/2.33.0"));
     });
 
     it("registers gemini-4-argon medium and low tiers", () => {
@@ -124,6 +124,35 @@ describe("Upstream 9router Port Fixes", () => {
       const decision = checkFallbackError(400, "credit balance is too low");
       assert.equal(decision.shouldFallback, true);
       assert.ok(decision.cooldownMs && decision.cooldownMs > 0);
+    });
+
+    it("identifies 401, 403, 404 account/model errors as fallbackable without cooldown", () => {
+      assert.deepEqual(checkFallbackError(401, "Unauthorized"), { shouldFallback: true, cooldownMs: 0 });
+      assert.deepEqual(checkFallbackError(403, "Forbidden"), { shouldFallback: true, cooldownMs: 0 });
+      assert.deepEqual(checkFallbackError(404, "Requested entity was not found."), { shouldFallback: true, cooldownMs: 0 });
+    });
+
+    it("advances to next combo model when first model fails with 404 not found", async () => {
+      const calls: string[] = [];
+      const handleSingleModel = async (_body: any, modelStr: string) => {
+        calls.push(modelStr);
+        if (modelStr === "antigravity[ultra]/gemini-4-argon-high") {
+          return { ok: false, status: 404, error: "Requested entity was not found." };
+        }
+        return { ok: true, status: 200, text: "Success from gemini-4-argon" };
+      };
+
+      const result = await handleFallbackChat({
+        body: { messages: [{ role: "user", content: "hello" }] },
+        models: ["antigravity[ultra]/gemini-4-argon-high", "gemini/gemini-4-argon"],
+        handleSingleModel,
+        comboStrategy: "fallback",
+        autoSwitch: false,
+      });
+
+      assert.equal(result.ok, true);
+      assert.equal(result.modelUsed, "gemini/gemini-4-argon");
+      assert.deepEqual(calls, ["antigravity[ultra]/gemini-4-argon-high", "gemini/gemini-4-argon"]);
     });
 
     it("advances to next combo model when first model rejects with 400 validation error", async () => {

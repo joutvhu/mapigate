@@ -90,6 +90,10 @@ describe("Account Models & Tagging Capabilities", () => {
     const pickedFree = LoadBalancer.pickAccount(providerId, { targetTag: "free" });
     assert.ok(pickedFree);
     assert.equal(pickedFree.id, "acc_free_1");
+
+    // 3. Pick with targetTag: 'ultra' (non-existent tag) MUST return undefined and NOT fall back to other accounts
+    const pickedUltra = LoadBalancer.pickAccount(providerId, { targetTag: "ultra" });
+    assert.equal(pickedUltra, undefined, "Must return undefined when requested tag has no matching accounts");
   });
 
   it("prioritizes accounts with confirmed model support over unsupported ones", () => {

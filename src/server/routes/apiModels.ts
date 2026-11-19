@@ -176,14 +176,27 @@ modelRouter.get("/available", (req, res) => {
           }
         }
 
-        // Strip account tag if present (e.g. claude[pro] -> claude)
-        const cleanPId = pId.replace(/\[.*\]$/, "");
+        // Check if model specifies a tag e.g. antigravity[ultra]/...
+        const tagMatch = pId.match(/^([^[\]]+)\[([^[\]]+)\]$/);
+        const cleanPId = tagMatch ? tagMatch[1] : pId;
+        const requiredTag = tagMatch ? tagMatch[2].toLowerCase() : undefined;
 
         if (cleanPId) {
-          const count = getProviderAccountsCount(cleanPId);
-          if (count > 0) {
-            comboHasConnected = true;
-            comboAccountsCount += count;
+          if (requiredTag) {
+            const provAccounts = ProviderRepository.getAccountsByProvider(cleanPId);
+            const matchingCount = provAccounts.filter(
+              (acc) => acc.isActive && (acc.tag || acc.providerSpecificData?.tag)?.trim().toLowerCase() === requiredTag
+            ).length;
+            if (matchingCount > 0) {
+              comboHasConnected = true;
+              comboAccountsCount += matchingCount;
+            }
+          } else {
+            const count = getProviderAccountsCount(cleanPId);
+            if (count > 0) {
+              comboHasConnected = true;
+              comboAccountsCount += count;
+            }
           }
         }
       }

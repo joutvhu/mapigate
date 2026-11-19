@@ -110,16 +110,14 @@ export class LoadBalancer {
         ? excludeOrOptions.targetTag
         : undefined;
 
-    // Optional tag filtering: if targetTag is specified, narrow allAccounts
+    // Strict tag filtering: if targetTag is specified, ONLY accounts matching the tag are eligible.
+    // If no accounts match the specified tag, do NOT fall back to untagged or other accounts.
     let taggedAccounts = allAccounts;
     if (targetTag) {
       const cleanTag = targetTag.trim().toLowerCase();
-      const matched = allAccounts.filter(
+      taggedAccounts = allAccounts.filter(
         (acc) => (acc.tag || acc.providerSpecificData?.tag)?.trim().toLowerCase() === cleanTag
       );
-      if (matched.length > 0) {
-        taggedAccounts = matched;
-      }
     }
 
     const eligibleAccounts = excludeSet
