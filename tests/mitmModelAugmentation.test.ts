@@ -495,14 +495,32 @@ describe("MITM Model Augmentation & Discovery Interception", () => {
       assert.ok(augmented.models["claude-sonnet-5.5-thinking"]);
       assert.ok(augmented.models["gemini-3.8-flash-high"]);
 
-      // Verify agentModelSorts updated with model IDs
+      // Verify agentModelSorts updated with model IDs in groups[0] (Antigravity IDE only reads groups[0])
       const groups = augmented.agentModelSorts[0].groups;
-      assert.ok(groups.length >= 2, "Must have organized groups");
+      assert.ok(groups.length >= 1, "Must have primary group");
 
-      const allSortModelIds = groups.flatMap((g: any) => g.modelIds || []);
-      assert.ok(allSortModelIds.includes("gemini-2.0-flash"));
-      assert.ok(allSortModelIds.includes("claude-sonnet-5.5-thinking"));
-      assert.ok(allSortModelIds.includes("gemini-3.8-flash-high"));
+      const primaryModelIds = groups[0].modelIds || [];
+      assert.ok(primaryModelIds.includes("gemini-2.0-flash"));
+      assert.ok(primaryModelIds.includes("claude-sonnet-5.5-high"));
+      assert.ok(primaryModelIds.includes("gemini-3.8-flash-high"));
+      assert.ok(primaryModelIds.includes("gemini-4-argon-high"));
+      assert.ok(primaryModelIds.includes("gemini-4-hydrogen-xhigh"));
+
+      // Verify unsuffixed base IDs and "(Thinking)"-only entries are omitted from groups[0] when effort variants exist
+      assert.ok(!primaryModelIds.includes("gemini-4-argon"), "Unsuffixed base ID should not duplicate effort group");
+      assert.ok(!primaryModelIds.includes("gemini-4-hydrogen"), "Unsuffixed base ID should not duplicate effort group");
+      assert.ok(!primaryModelIds.includes("claude-sonnet-5.5-thinking"), "Thinking-only entry should not duplicate effort group");
+      assert.ok(!primaryModelIds.includes("claude-opus-5.5-thinking"), "Thinking-only entry should not duplicate effort group");
+
+      // Verify no duplicate displayNames in groups[0]
+      const primaryLabels = primaryModelIds.map((id: string) =>
+        String(augmented.models[id]?.displayName || id).toLowerCase()
+      );
+      assert.equal(primaryLabels.length, new Set(primaryLabels).size, "No duplicate displayNames in groups[0]");
+
+      // Verify xhigh displayName uses "(xhigh)" so Antigravity IDE groups it into Thinking effort submenu
+      assert.equal(augmented.models["gemini-4-hydrogen-xhigh"].displayName, "Gemini 4 Hydrogen (xhigh)");
+      assert.equal(augmented.models["gemini-4-neon-xhigh"].displayName, "Gemini 4 Neon (xhigh)");
 
       // Verify no duplicate IDs in any group
       for (const group of groups) {

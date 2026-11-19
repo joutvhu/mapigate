@@ -5,6 +5,16 @@ import { toolConfig } from "./config.js";
 import { resolveModelDisplayName } from "../../../core/capabilities/modelDictionary.js";
 import { MitmRepository } from "../../../storage/repositories/mitmRepo.js";
 
+const IDE_EFFORT_LABEL_RE = /^(.*?)\s*\((low|medium|high|xhigh|max)(?:\s+thinking)?\)\s*$/i;
+const THINKING_ONLY_LABEL_RE = /^(.*?)\s*\(thinking\)\s*$/i;
+
+function formatAntigravityDisplayName(rawId: string, fallbackName?: string): string {
+  const baseName = fallbackName || resolveModelDisplayName(rawId) || rawId;
+  // Antigravity IDE's effort parser (/^(.*?)\s*\((low|medium|high|xhigh|max)(?:\s+thinking)?\)\s*$/i)
+  // expects "(xhigh)" rather than "(Extra)" so it can group xhigh into the Thinking effort submenu.
+  return baseName.replace(/\s*\(Extra\)\s*$/i, " (xhigh)");
+}
+
 export function augmentAntigravityModelsPayload(
   payload: any,
   additionalCandidates?: CandidateModelItem[]
@@ -87,45 +97,42 @@ export function augmentAntigravityModelsPayload(
       ? "agent_model_sorts"
       : "agentModelSorts";
 
-  if (!Array.isArray(payload[sortsKey])) {
+  if (!Array.isArray(payload[sortsKey]) || payload[sortsKey].length === 0) {
     payload[sortsKey] = [
       {
         displayName: "Recommended",
-        groups: [
-          { displayName: "Gemini", modelIds: [] },
-          { displayName: "Claude", modelIds: [] },
-          { displayName: "Mapigate Models", modelIds: [] },
-        ],
+        groups: [{ displayName: "Recommended", modelIds: [] }],
       },
     ];
   }
 
-  const primarySort = payload[sortsKey][0] || {};
-  if (!primarySort.groups || !Array.isArray(primarySort.groups)) {
-    primarySort.groups = [];
+  // Antigravity IDE's model selector only reads `groups[0]` of the "Recommended" sort.
+  const primarySort =
+    payload[sortsKey].find(
+      (s: any) => String(s?.displayName || s?.display_name || "").toLowerCase() === "recommended"
+    ) || payload[sortsKey][0];
+
+  if (!primarySort.groups || !Array.isArray(primarySort.groups) || primarySort.groups.length === 0) {
+    primarySort.groups = [{ displayName: "Recommended", modelIds: [] }];
   }
 
-  // Group helpers
-  const geminiGroup = primarySort.groups.find((g: any) =>
-    /gemini/i.test(g.displayName || g.display_name || "")
-  );
-  const claudeGroup = primarySort.groups.find((g: any) =>
-    /claude/i.test(g.displayName || g.display_name || "")
-  );
-  let mapigateGroup = primarySort.groups.find((g: any) =>
-    /mapigate|custom/i.test(g.displayName || g.display_name || "")
-  );
+  const primaryGroup = primarySort.groups[0];
+  const modelIdsKey =
+    primaryGroup.modelIds !== undefined
+      ? "modelIds"
+      : primaryGroup.model_ids !== undefined
+      ? "model_ids"
+      : "modelIds";
 
-  if (!mapigateGroup) {
-    mapigateGroup = { displayName: "Mapigate Models", modelIds: [] };
-    primarySort.groups.push(mapigateGroup);
+  if (!Array.isArray(primaryGroup[modelIdsKey])) {
+    primaryGroup[modelIdsKey] = [];
   }
 
   for (const cand of candidates) {
     const rawId = cand.id.trim();
     if (!rawId) continue;
     const lowerId = rawId.toLowerCase();
-    const displayName = cand.name || resolveModelDisplayName(rawId) || rawId;
+    const displayName = formatAntigravityDisplayName(rawId, cand.name);
 
     // 1. Inject into payload.models if not already present, or clean unavailable flags if already present
     if (!existingModelKeys.has(lowerId)) {
@@ -150,7 +157,10 @@ export function augmentAntigravityModelsPayload(
       const matchKey = Object.keys(payload.models).find((k) => k.toLowerCase() === lowerId) || rawId;
       if (payload.models[matchKey] && typeof payload.models[matchKey] === "object") {
         payload.models[matchKey].model = payload.models[matchKey].model || matchKey;
-        payload.models[matchKey].displayName = payload.models[matchKey].displayName || displayName;
+        payload.models[matchKey].displayName = formatAntigravityDisplayName(
+          matchKey,
+          payload.models[matchKey].displayName || displayName
+        );
         payload.models[matchKey].disabled = false;
         payload.models[matchKey].preview = false;
         payload.models[matchKey].supportsAdaptiveThinking = true;
@@ -163,31 +173,61 @@ export function augmentAntigravityModelsPayload(
       }
     }
 
-    // 2. Ensure model ID is present in agentModelSorts so Antigravity UI renders it in dropdown
-    const targetGroup = lowerId.includes("claude")
-      ? claudeGroup || mapigateGroup
-      : lowerId.includes("gemini")
-      ? geminiGroup || mapigateGroup
-      : mapigateGroup;
-
-    const modelIdsKey =
-      targetGroup.modelIds !== undefined
-        ? "modelIds"
-        : targetGroup.model_ids !== undefined
-        ? "model_ids"
-        : "modelIds";
-
-    if (!Array.isArray(targetGroup[modelIdsKey])) {
-      targetGroup[modelIdsKey] = [];
-    }
-
-    const hasInGroup = targetGroup[modelIdsKey].some(
+    // 2. Ensure model ID is present in primaryGroup (groups[0]) so Antigravity UI renders it in dropdown.
+    const hasInGroup = primaryGroup[modelIdsKey].some(
       (m: string) => String(m).toLowerCase() === lowerId
     );
     if (!hasInGroup) {
-      targetGroup[modelIdsKey].push(rawId);
+      primaryGroup[modelIdsKey].push(rawId);
     }
   }
+
+  // 3. Deduplicate primaryGroup by displayName and remove unsuffixed / "(Thinking)"-only entries
+  // when >= 2 effort variants exist for the same base displayName (e.g. Gemini 4 Argon, Claude Sonnet 5.5).
+  const effortCountsByBaseLabel = new Map<string, Set<string>>();
+  for (const id of primaryGroup[modelIdsKey] as string[]) {
+    const modelObj = payload.models[id];
+    if (!modelObj) continue;
+    const label = String(modelObj.displayName || id).trim();
+    const m = IDE_EFFORT_LABEL_RE.exec(label);
+    if (!m) continue;
+    const baseLabel = m[1].trim().toLowerCase();
+    const effort = m[2].toLowerCase();
+    let set = effortCountsByBaseLabel.get(baseLabel);
+    if (!set) {
+      set = new Set();
+      effortCountsByBaseLabel.set(baseLabel, set);
+    }
+    set.add(effort);
+  }
+
+  const groupedBaseLabels = new Set<string>();
+  for (const [baseLabel, efforts] of effortCountsByBaseLabel.entries()) {
+    if (efforts.size >= 2) {
+      groupedBaseLabels.add(baseLabel);
+    }
+  }
+
+  const seenLabels = new Set<string>();
+  primaryGroup[modelIdsKey] = (primaryGroup[modelIdsKey] as string[]).filter((id) => {
+    const modelObj = payload.models[id];
+    if (!modelObj) return false;
+    const label = String(modelObj.displayName || id).trim();
+    const lowerLabel = label.toLowerCase();
+
+    if (groupedBaseLabels.has(lowerLabel)) {
+      return false;
+    }
+    const thinkingMatch = THINKING_ONLY_LABEL_RE.exec(label);
+    if (thinkingMatch && groupedBaseLabels.has(thinkingMatch[1].trim().toLowerCase())) {
+      return false;
+    }
+    if (seenLabels.has(lowerLabel)) {
+      return false;
+    }
+    seenLabels.add(lowerLabel);
+    return true;
+  });
 
   // Also ensure no model in payload.models remains marked as disabled or unavailable
   for (const [, modelObj] of Object.entries(payload.models as Record<string, any>)) {
