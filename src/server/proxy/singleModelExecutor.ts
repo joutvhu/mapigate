@@ -189,10 +189,14 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       return lastFailureResult;
     }
 
-    if ((!account || (!account.rawApiKey && !hasCustomHeaders)) && requiresAccount && !isNoAuthOrProfile) {
+    if ((!account && targetTag) || ((!account || (!account.rawApiKey && !hasCustomHeaders)) && requiresAccount && !isNoAuthOrProfile)) {
       cb.releaseProbe();
       if (triedAccountIds.size > 0 && lastFailureResult) return lastFailureResult;
-      const accLabel = account ? `Account '${account.name || account.id}' for provider '${providerConfig.name}' has no active API key/token` : `No active API key account found for provider '${providerConfig.name}'`;
+      const accLabel = account
+        ? `Account '${account.name || account.id}' for provider '${providerConfig.name}' has no active API key/token`
+        : targetTag
+        ? `No active account matching tag '[${targetTag}]' found for provider '${providerConfig.name}'`
+        : `No active API key account found for provider '${providerConfig.name}'`;
       logger.errorLine(reqTag, LogSymbol.ERROR, accLabel);
       return {
         ok: false,
@@ -538,7 +542,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
           forceFreshNextAttempt = true;
         }
         const cdMs = resFailure.cooldownMs || (resFailure.rateLimited ? 60_000 : 5000);
-        if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined, sessionId)) {
+        if (tryFailover(targetProviderId, account, upstreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, false, prefixHash || undefined, sessionId, targetTag)) {
           lastFailureResult = { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText, accountName: account?.name || account?.id };
           continue;
         }

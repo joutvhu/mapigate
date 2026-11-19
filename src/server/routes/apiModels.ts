@@ -183,9 +183,11 @@ modelRouter.get("/available", (req, res) => {
 
         if (cleanPId) {
           if (requiredTag) {
-            const provAccounts = ProviderRepository.getAccountsByProvider(cleanPId);
-            const matchingCount = provAccounts.filter(
-              (acc) => acc.isActive && (acc.tag || acc.providerSpecificData?.tag)?.trim().toLowerCase() === requiredTag
+            const matchingCount = accounts.filter(
+              (acc) =>
+                acc.isActive &&
+                acc.providerId === cleanPId &&
+                (acc.tag || acc.providerSpecificData?.tag)?.trim().toLowerCase() === requiredTag
             ).length;
             if (matchingCount > 0) {
               comboHasConnected = true;

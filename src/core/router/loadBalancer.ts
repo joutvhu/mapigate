@@ -55,8 +55,16 @@ export class LoadBalancer {
       return undefined;
     }
 
+    const targetTag =
+      excludeOrOptions && !(excludeOrOptions instanceof Set) && !Array.isArray(excludeOrOptions)
+        ? excludeOrOptions.targetTag
+        : undefined;
+
     const allAccounts = ProviderRepository.getAccountsByProvider(providerId);
     if (allAccounts.length === 0) {
+      if (targetTag) {
+        return undefined;
+      }
       const reg = getRegistryProvider(providerId);
       const isNoKey =
         Boolean(reg?.noAuth) ||
@@ -104,11 +112,6 @@ export class LoadBalancer {
         sessionId = excludeOrOptions.sessionId;
       }
     }
-
-    const targetTag =
-      excludeOrOptions && !(excludeOrOptions instanceof Set) && !Array.isArray(excludeOrOptions)
-        ? excludeOrOptions.targetTag
-        : undefined;
 
     // Strict tag filtering: if targetTag is specified, ONLY accounts matching the tag are eligible.
     // If no accounts match the specified tag, do NOT fall back to untagged or other accounts.

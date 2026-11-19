@@ -16,11 +16,13 @@ export function tryFailover(
   reqTag: string,
   isCustom = false,
   prefixHash?: string,
-  sessionId?: string
+  sessionId?: string,
+  targetTag?: string
 ): boolean {
   const next = LoadBalancer.pickAccount(providerId, {
     excludeAccountIds: triedAccountIds,
     targetModel,
+    targetTag,
     prefixHash,
     sessionId,
   });

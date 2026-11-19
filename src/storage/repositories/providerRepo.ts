@@ -643,6 +643,7 @@ export class ProviderRepository {
     id: string;
     providerId: string;
     name: string;
+    tag?: string;
     rawApiKey?: string;
     providerSpecificData?: Record<string, any>;
     sortOrder?: number;
@@ -652,7 +653,10 @@ export class ProviderRepository {
     const rawKey = account.rawApiKey || "";
     const encryptedKey = CryptoVault.encrypt(rawKey);
     const now = Date.now();
-    const psdSerialized = serializePsd(account.providerSpecificData);
+    const psd = account.tag && !account.providerSpecificData?.tag
+      ? { ...account.providerSpecificData, tag: account.tag }
+      : account.providerSpecificData;
+    const psdSerialized = serializePsd(psd);
     const maxOrderRow = db.get<any>(
       "SELECT MAX(sort_order) as max_order FROM provider_accounts WHERE provider_id = ?",
       provider.id
