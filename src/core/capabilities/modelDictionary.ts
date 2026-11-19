@@ -262,12 +262,14 @@ export const STANDARD_MODELS: Record<string, string> = {
   "gpt-oss-120b": "GPT-OSS 120B",
 };
 
-// Suffix matcher: dates (8 digits), thinking tiers (high, medium, low, extra-low, thinking), version/tags (:free, -preview, -beta, -latest, @date, etc.)
-const SUFFIX_REGEX = /[-_:@](extra-low|high-thinking|medium-thinking|low-thinking|high|medium|low|thinking|free|preview|latest|beta|eco|instruct|chat|v[0-9]+(?:\.[0-9]+)*|[0-9]{8})$/i;
+// Suffix matcher: dates (8 digits), thinking tiers (xhigh, high, medium, low, extra-low, thinking), version/tags (:free, -preview, -beta, -latest, @date, etc.)
+const SUFFIX_REGEX = /[-_:@](extra-low|high-thinking|medium-thinking|low-thinking|xhigh|high|medium|low|thinking|free|preview|latest|beta|eco|instruct|chat|v[0-9]+(?:\.[0-9]+)*|[0-9]{8})$/i;
 
 function formatSuffixTag(raw: string): string {
   const s = raw.toLowerCase();
   switch (s) {
+    case "xhigh":
+      return " (Extra)";
     case "high":
       return " (High)";
     case "medium":
