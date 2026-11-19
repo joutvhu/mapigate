@@ -1,4 +1,5 @@
 import http2 from "node:http2";
+import { publicDnsLookup } from "../../../shared/utils/dnsResolver.js";
 
 export const AGENT_RUN_URL = "https://agent.api5.cursor.sh/agent.v1.AgentService/Run";
 export const TAIL_ONLY_THRESHOLD = 80;
@@ -30,7 +31,9 @@ export function openAgentHttp2Stream(
   signal?: AbortSignal
 ): AgentSession {
   const urlObj = new URL(url);
-  const client = http2.connect(`https://${urlObj.host}`);
+  const client = http2.connect(`https://${urlObj.host}`, {
+    lookup: publicDnsLookup,
+  });
   const chunkQueue: Buffer[] = [];
   let waiting: ((result: { value?: Buffer; done: boolean } | null) => void) | null = null;
   let ended = false;

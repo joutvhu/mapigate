@@ -63,6 +63,32 @@ export async function resolveTargetIP(hostname: string): Promise<string> {
   }
 }
 
+/**
+ * Node.js net/tls/http2 compatible `lookup` function that resolves via public DNS
+ * (8.8.8.8 / 1.1.1.1), bypassing local hosts file entries (e.g. MITM 127.0.0.1).
+ */
+export function publicDnsLookup(
+  hostname: string,
+  options: any,
+  callback: (err: NodeJS.ErrnoException | null, address: any, family?: number) => void
+): void {
+  const cb = typeof options === "function" ? options : callback;
+  const opts = typeof options === "function" ? {} : options || {};
+
+  resolveTargetIP(hostname)
+    .then((ip) => {
+      const family = ip.includes(":") ? 6 : 4;
+      if (opts.all) {
+        cb(null, [{ address: ip, family }]);
+      } else {
+        cb(null, ip, family);
+      }
+    })
+    .catch((err) => {
+      cb(err, opts.all ? [] : "", 4);
+    });
+}
+
 let publicDnsAgentInstance: UndiciAgent | null = null;
 let publicDnsFreshAgentInstance: UndiciAgent | null = null;
 

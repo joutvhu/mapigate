@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import http2 from "node:http2";
 import { buildCursorHeaders } from "./cursorChecksum.js";
 import { decodeMessage, type DecodedFields } from "./cursorWire.js";
+import { publicDnsLookup } from "../../../shared/utils/dnsResolver.js";
 
 const FETCH_TIMEOUT_MS = 10_000;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -131,7 +132,9 @@ export function http2PostProto(
 ): Promise<{ status: number; body: Buffer }> {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
-    const client = http2.connect(`https://${urlObj.host}`);
+    const client = http2.connect(`https://${urlObj.host}`, {
+      lookup: publicDnsLookup,
+    });
     const chunks: Buffer[] = [];
     let responseHeaders: Record<string, any> = {};
     let settled = false;
