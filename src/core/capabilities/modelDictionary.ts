@@ -100,6 +100,7 @@ export const STANDARD_MODELS: Record<string, string> = {
   "gemini-4-argon": "Gemini 4 Argon",
   "gemini-4-carbon": "Gemini 4 Carbon",
   "gemini-4-hydrogen": "Gemini 4 Hydrogen",
+  "gemini-4-neon": "Gemini 4 Neon",
   "gemini-4-ultra": "Gemini 4 Ultra",
   "gemini-4-pro": "Gemini 4 Pro",
   "gemini-4-flash": "Gemini 4 Flash",

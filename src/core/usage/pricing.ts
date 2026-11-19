@@ -173,6 +173,7 @@ export const MODEL_PRICING: Record<string, ModelPricingRates> = {
   "gemini-4-argon":               { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.00  },
   "gemini-4-carbon":              { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.00  },
   "gemini-4-hydrogen":            { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 1.50  },
+  "gemini-4-neon":                { input: 3.00,  output: 15.00, cached: 0.15,  reasoning: 15.00,  cache_creation: 3.00  },
 
   // === DeepSeek ===
   "deepseek-chat":                { input: 0.14,  output: 0.28,  cached: 0.014, reasoning: 0.28,   cache_creation: 0.14  },
@@ -226,6 +227,8 @@ export const PATTERN_PRICING: Array<{ pattern: RegExp; pricing: ModelPricingRate
   { pattern: /minimax/i,          pricing: { input: 0.30,  output: 1.20,  cached: 0.06,  reasoning: 1.20,   cache_creation: 0.30  } },
   { pattern: /gemini-4-(argon|carbon)/i, pricing: { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.00  } },
   { pattern: /(argon|carbon)/i,          pricing: { input: 2.00,  output: 10.00, cached: 0.10,  reasoning: 10.00,  cache_creation: 2.00  } },
+  { pattern: /gemini-4-neon/i,           pricing: { input: 3.00,  output: 15.00, cached: 0.15,  reasoning: 15.00,  cache_creation: 3.00  } },
+  { pattern: /neon/i,                    pricing: { input: 3.00,  output: 15.00, cached: 0.15,  reasoning: 15.00,  cache_creation: 3.00  } },
   { pattern: /gemini-4-hydrogen/i,       pricing: { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 1.50  } },
   { pattern: /hydrogen/i,                pricing: { input: 1.50,  output: 7.50,  cached: 0.075, reasoning: 7.50,   cache_creation: 1.50  } },
   { pattern: /k3[.-]1.*highspeed/i, pricing: { input: 4.00,  output: 20.00, cached: 0.20,  reasoning: 20.00,  cache_creation: 4.00  } },
