@@ -28,9 +28,9 @@ test("Unit - ToolMappingRepository defaults, CRUD, and resolveModelMapping", () 
   const cursorDefaults = ToolMappingRepository.getDefaultMappings("cursor");
   assert.ok(cursorDefaults.length > 0);
   const cursorSources = cursorDefaults.map((m) => m.sourceModel);
-  assert.ok(cursorSources.includes("claude-3-7-sonnet"));
-  assert.ok(cursorSources.includes("gpt-4o"));
-  assert.equal(cursorDefaults.find((m) => m.sourceModel === "claude-3-7-sonnet")?.targetModel, "");
+  assert.ok(cursorSources.includes("claude-sonnet-4.6"));
+  assert.ok(cursorSources.includes("gpt-5.4"));
+  assert.equal(cursorDefaults.find((m) => m.sourceModel === "claude-sonnet-4.6")?.targetModel, "");
 
   // 3. Resolve model mapping fallback (unconfigured returns null because targetModel is empty by default)
   const unmappedSonnet = ToolMappingRepository.resolveModelMapping("claude", "sonnet");
@@ -65,7 +65,7 @@ test("Unit - ToolMappingRepository defaults, CRUD, and resolveModelMapping", () 
   // 7. Reset mappings
   const resetCursor = ToolMappingRepository.resetMappings("cursor");
   assert.ok(resetCursor.length > 0);
-  assert.ok(resetCursor.some((m) => m.sourceModel === "claude-3-7-sonnet"));
+  assert.ok(resetCursor.some((m) => m.sourceModel === "claude-sonnet-4.6"));
 });
 
 test("Unit - ToolMappingRepository integration with MITM tools", () => {

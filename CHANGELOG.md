@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.162] - 2026-11-20
+
+### Features
+
+#### Cursor, CLI Tools & Dashboard UI
+- **Cursor Public DNS & Tunnel Setup Guidance**: Added `publicDnsLookup` in `dnsResolver.ts` for Cursor HTTP/2 connections and agent streams, expanded and pruned Cursor default models in `cursor/definition.ts`, and updated Cursor setup steps with HTTPS tunnel (`cloudflared`) and security guidance.
+- **Gateway API Key Selector in CLI Tools**: Added a gateway API key selector (`apiKeySelector`) and authentication guidance in `CliToolsTab.tsx` and `apiCliTools.ts`.
+- **Dashboard Modal Widths**: Widened cramped modal dialogs across dashboard components and pages (`AddAccountModal`, `EditAccountModal`, `OAuthModal`, `CopilotAuthModal`, `CursorAuthModal`, `KiroAuthModal`, `BackupCard`, `EndpointTab`, `MitmTab`, `ProviderDetailPage`, `ProvidersTab`).
+
+### Fixes
+
+#### Router, Tag Isolation & Combo Fallback
+- **Strict Account Tag Isolation**: Enforced strict `targetTag` filtering in `loadBalancer.ts` without falling back to untagged, no-key, or no-auth accounts, propagated `targetTag` through `executorHelpers.ts` and `singleModelExecutor.ts` failover retries, persisted top-level `tag` into `providerSpecificData` in `providerRepo.ts`, and matched required account tags when computing combo availability in `apiModels.ts`.
+- **Combo Fallback on 4xx Errors**: Enabled `fallbackStrategy.ts` to advance to the next combo model without cooldown on `401`, `402`, `403`, and `404` responses.
+
+### Chores
+
+#### Provider Client Versions
+- **Antigravity & Kiro User-Agent Updates**: Updated Antigravity client version and `User-Agent` to `2.33.0` (including `gemini-cli` headers) and Kiro `User-Agent` / `x-amz-user-agent` headers to `KiroIDE 1.4.236` (`KAS 0.66.119`).
+
 ## [0.5.160] - 2026-11-19
 
 ### Features
