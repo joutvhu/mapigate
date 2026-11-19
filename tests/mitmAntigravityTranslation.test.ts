@@ -5,6 +5,7 @@ import {
   convertGeminiToOpenAI,
   convertOpenAIToGeminiResponse,
   convertOpenAIToGeminiChunk,
+  createGeminiStreamState,
   type GeminiRequestBody,
 } from "../src/mitm/handlers/antigravity/index.js";
 
@@ -73,6 +74,74 @@ describe("Google Antigravity Protocol Translation", () => {
         { role: "user", content: "Now in C" },
       ]);
     });
+
+    it("converts tools, toolConfig, functionCall, functionResponse, and strips thought parts", () => {
+      const geminiBody: GeminiRequestBody = {
+        contents: [
+          { role: "user", parts: [{ text: "Read package.json" }] },
+          {
+            role: "model",
+            parts: [
+              { text: "I should read package.json", thought: true },
+              { functionCall: { id: "call_1", name: "read_file", args: { path: "package.json" } } },
+            ],
+          },
+          {
+            role: "user",
+            parts: [
+              { functionResponse: { id: "call_1", name: "read_file", response: { result: "{\"name\":\"mapigate\"}" } } },
+            ],
+          },
+        ],
+        tools: [
+          {
+            functionDeclarations: [
+              {
+                name: "read_file",
+                description: "Read a file",
+                parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+              },
+            ],
+          },
+        ],
+        toolConfig: {
+          functionCallingConfig: { mode: "AUTO" },
+        },
+      };
+
+      const openaiBody = convertGeminiToOpenAI(geminiBody, "gemini-4-hydrogen", true);
+
+      assert.deepEqual(openaiBody.tools, [
+        {
+          type: "function",
+          function: {
+            name: "read_file",
+            description: "Read a file",
+            parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+          },
+        },
+      ]);
+      assert.equal(openaiBody.tool_choice, "auto");
+      assert.deepEqual(openaiBody.messages, [
+        { role: "user", content: "Read package.json" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name: "read_file", arguments: "{\"path\":\"package.json\"}" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          tool_call_id: "call_1",
+          content: "{\"name\":\"mapigate\"}",
+        },
+      ]);
+    });
   });
 
   describe("convertOpenAIToGeminiResponse", () => {
@@ -117,6 +186,37 @@ describe("Google Antigravity Protocol Translation", () => {
       assert.equal(usage.promptTokenCount, 25);
       assert.equal(usage.candidatesTokenCount, 15);
       assert.equal(usage.totalTokenCount, 40);
+    });
+
+    it("converts OpenAI tool_calls into Gemini functionCall parts", () => {
+      const openaiRes = {
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: null,
+              reasoning_content: "Need to inspect file",
+              tool_calls: [
+                {
+                  id: "call_abc",
+                  type: "function",
+                  function: { name: "read_file", arguments: "{\"path\":\"src/index.ts\"}" },
+                },
+              ],
+            },
+            finish_reason: "tool_calls",
+          },
+        ],
+      };
+
+      const geminiRes = convertOpenAIToGeminiResponse(openaiRes);
+      const candidate = (geminiRes.candidates as any[])[0];
+      assert.equal(candidate.finishReason, "STOP");
+      assert.deepEqual(candidate.content.parts, [
+        { text: "Need to inspect file", thought: true },
+        { functionCall: { id: "call_abc", name: "read_file", args: { path: "src/index.ts" } } },
+      ]);
     });
   });
 
@@ -186,6 +286,61 @@ describe("Google Antigravity Protocol Translation", () => {
 
       const geminiChunk = convertOpenAIToGeminiChunk(openaiChunk);
       assert.equal(geminiChunk, null);
+    });
+
+    it("accumulates fragmented delta.tool_calls and flushes on finish_reason", () => {
+      const state = createGeminiStreamState();
+
+      const c1 = convertOpenAIToGeminiChunk(
+        {
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [{ index: 0, id: "call_99", function: { name: "run_cmd", arguments: "{\"cmd\":" } }],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        state
+      );
+      assert.equal(c1, null);
+
+      const c2 = convertOpenAIToGeminiChunk(
+        {
+          choices: [
+            {
+              index: 0,
+              delta: {
+                tool_calls: [{ index: 0, function: { arguments: "\"ls\"}" } }],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        state
+      );
+      assert.equal(c2, null);
+
+      const c3 = convertOpenAIToGeminiChunk(
+        {
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: "tool_calls",
+            },
+          ],
+        },
+        state
+      );
+      assert.ok(c3);
+      const candidate = (c3 as any).candidates[0];
+      assert.equal(candidate.finishReason, "STOP");
+      assert.deepEqual(candidate.content.parts, [
+        { functionCall: { id: "call_99", name: "run_cmd", args: { cmd: "ls" } } },
+      ]);
     });
   });
 });

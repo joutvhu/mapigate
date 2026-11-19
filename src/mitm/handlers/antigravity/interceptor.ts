@@ -4,6 +4,8 @@ import {
   convertGeminiToOpenAI,
   convertOpenAIToGeminiResponse,
   convertOpenAIToGeminiChunk,
+  createGeminiStreamState,
+  flushGeminiStreamToolCalls,
   type GeminiRequestBody,
 } from "./converter.js";
 
@@ -56,6 +58,7 @@ export async function interceptAntigravity(
 
     const reader = routerRes.body.getReader();
     const decoder = new TextDecoder();
+    const streamState = createGeminiStreamState();
     let buffer = "";
     let clientDisconnected = false;
 
@@ -82,11 +85,21 @@ export async function interceptAntigravity(
           if (!trimmed || !trimmed.startsWith("data:")) continue;
 
           const data = trimmed.slice(5).trim();
-          if (data === "[DONE]") continue;
+          if (data === "[DONE]") {
+            const flushed = flushGeminiStreamToolCalls(streamState);
+            if (flushed) {
+              const sseLine = `data: ${JSON.stringify(flushed)}\r\n\r\n`;
+              const canWrite = res.write(sseLine);
+              if (!canWrite) {
+                await waitForDrainOrClose(res);
+              }
+            }
+            continue;
+          }
 
           try {
             const parsed = JSON.parse(data);
-            const geminiChunk = convertOpenAIToGeminiChunk(parsed);
+            const geminiChunk = convertOpenAIToGeminiChunk(parsed, streamState);
             if (geminiChunk) {
               const sseLine = `data: ${JSON.stringify(geminiChunk)}\r\n\r\n`;
               const canWrite = res.write(sseLine);
@@ -96,6 +109,17 @@ export async function interceptAntigravity(
             }
           } catch {
             // Skip unparseable lines
+          }
+        }
+      }
+
+      if (!clientDisconnected && !res.destroyed) {
+        const flushed = flushGeminiStreamToolCalls(streamState);
+        if (flushed) {
+          const sseLine = `data: ${JSON.stringify(flushed)}\r\n\r\n`;
+          const canWrite = res.write(sseLine);
+          if (!canWrite) {
+            await waitForDrainOrClose(res);
           }
         }
       }
