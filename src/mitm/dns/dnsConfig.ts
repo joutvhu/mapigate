@@ -1,5 +1,6 @@
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { TOOL_HOSTS, type MitmToolId } from "../../shared/constants/mitmToolHosts.js";
 import { MitmRepository } from "../../storage/repositories/mitmRepo.js";
@@ -121,14 +122,24 @@ async function writeHostsFileWin(target: string, currentContent: string, newCont
     return;
   }
 
-  // Fallback: pass base64-encoded UTF-8 content directly to elevated PowerShell
-  const b64 = Buffer.from(newContent, "utf8").toString("base64");
-  const psScript = `
-    $bytes = [Convert]::FromBase64String('${b64}');
-    [IO.File]::WriteAllText(${quotePs(target)}, [Text.Encoding]::UTF8.GetString($bytes));
-    ipconfig /flushdns | Out-Null;
-  `;
-  await runElevatedPowerShell(psScript);
+  // Fallback: write to an isolated temp directory and elevate copy via PowerShell
+  // (avoids Windows command-line length limits when hosts file is large)
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mapigate-hosts-"));
+  const tmpFile = path.join(tmpDir, "hosts");
+  fs.writeFileSync(tmpFile, newContent, "utf8");
+  try {
+    const psScript = `
+      Copy-Item -Path ${quotePs(tmpFile)} -Destination ${quotePs(target)} -Force;
+      ipconfig /flushdns | Out-Null;
+    `;
+    await runElevatedPowerShell(psScript);
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      // best effort
+    }
+  }
 }
 
 /** True when `sudo` exists (missing on minimal Docker images like Alpine). */
