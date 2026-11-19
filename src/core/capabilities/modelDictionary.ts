@@ -244,6 +244,8 @@ export const STANDARD_MODELS: Record<string, string> = {
   "ministral-3b": "Ministral 3B",
 
   // ── Microsoft AI ──
+  "mai-code-2-flash": "MAI-Code 2 Flash",
+  "mai-code-2": "MAI-Code 2",
   "mai-code-1.1-flash": "MAI-Code 1.1 Flash",
   "mai-code-1.1": "MAI-Code 1.1",
 
