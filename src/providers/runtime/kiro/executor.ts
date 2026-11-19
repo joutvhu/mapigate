@@ -95,8 +95,8 @@ export async function executeKiro(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/vnd.amazon.eventstream",
-    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
-    "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.154 KAS/0.66.92-hotfix.5 os/win32 md/appVersion-1.4.154",
+    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.236 KAS/0.66.119 os/win32 md/appVersion-1.4.236",
+    "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.236 KAS/0.66.119 os/win32 md/appVersion-1.4.236",
     "x-amzn-kiro-agent-mode": "spec",
     "x-amzn-codewhisperer-machine-id": "kiro-desktop",
     ...provCustomHeaders,
