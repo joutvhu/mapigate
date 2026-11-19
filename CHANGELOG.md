@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.160] - 2026-11-19
+
+### Features
+
+#### Antigravity & Copilot Models
+- **Antigravity Tool Calling & Multimodal Support**: Added bidirectional translation between Gemini `functionCall`/`functionResponse` and OpenAI `tool_calls`/`tool` messages, `functionDeclarations`/`toolConfig` mapping, `inlineData` base64 image conversion, and thought-part filtering in `converter.ts` with unit test coverage.
+- **New Model Catalog & Dictionary Entries**: Added `gemini-4-neon` and `gemini-4-hydrogen-xhigh` (with `xhigh` tier formatted as `(Extra)` in `modelDictionary`), added `MAI-Code 2`, `MAI-Code 2 Flash`, `Claude Fable`, `Copilot Search`, `Gemini 4 Argon`, and new GPT variants to Copilot tool config, and removed deprecated Gemini 3.6/3.7 and `claude-opus-4.8-fast` entries.
+
+### Fixes
+
+#### MITM, Network & Protocol Translation
+- **Antigravity Tool Schema Parameter Preservation**: Updated `removeUnsupportedKeywords` in `src/providers/runtime/antigravity/schema.ts` to recurse into `properties` values without stripping tool parameter names (such as `title`, `format`, `default`, or `x-*`) that collide with unsupported JSON Schema keywords, with unit test coverage.
+- **Antigravity Function Response & Model Injection**: Added `snake_case` field support, `functionResponse.parts` serialization, pending tool call ID correlation, model-turn `functionResponse` extraction, streaming tool call index collision fixes, and updated `modelInjector.ts` response augmentation.
+- **Windows Hosts Writer CLI Limit**: Replaced inline base64 PowerShell execution in `dnsConfig.ts` with an isolated temporary file and `Copy-Item` to avoid command-line length limits on large hosts files.
+- **DNS Bypass for Model Scans & GitHub Auth**: Used `fetchWithDnsBypass` for non-local provider model candidate discovery in `BaseProvider` and for GitHub Copilot token refresh and quota checks.
+
 ## [0.5.156] - 2026-11-19
 
 ### Features

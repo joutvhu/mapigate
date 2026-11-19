@@ -418,6 +418,15 @@ export function removeUnsupportedKeywords(obj: any, keywords: string[]): void {
   }
 
   for (const key of Object.keys(obj)) {
+    if (key === "properties" && obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) {
+      for (const propSchema of Object.values(obj[key])) {
+        if (propSchema && typeof propSchema === "object") {
+          removeUnsupportedKeywords(propSchema, keywords);
+        }
+      }
+      continue;
+    }
+
     if (keywords.includes(key) || key.startsWith("x-")) {
       delete obj[key];
       continue;

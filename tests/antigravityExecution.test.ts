@@ -283,6 +283,35 @@ describe("Google Antigravity Provider Execution & Schemas", () => {
       assert.equal(schema.properties.items[0]["x-inner"], undefined);
     });
 
+    it("removeUnsupportedKeywords: preserves tool parameter names in properties that match unsupported keywords", () => {
+      const schema: any = {
+        type: "object",
+        title: "MemoryInput",
+        properties: {
+          command: { type: "string", enum: ["get", "add"] },
+          title: { type: "string", title: "Memory Title", minLength: 1 },
+          format: { type: "string", format: "date-time" },
+          default: { type: "boolean", default: false },
+          "x-custom-param": { type: "string", "x-vendor": true },
+        },
+        required: ["command", "title"],
+      };
+
+      const cleaned = cleanJSONSchemaForAntigravity(schema);
+      assert.equal(cleaned.title, undefined);
+      assert.ok(cleaned.properties.title, "properties.title must be preserved");
+      assert.equal(cleaned.properties.title.type, "string");
+      assert.equal(cleaned.properties.title.title, undefined);
+      assert.equal(cleaned.properties.title.minLength, undefined);
+      assert.ok(cleaned.properties.format, "properties.format must be preserved");
+      assert.equal(cleaned.properties.format.format, undefined);
+      assert.ok(cleaned.properties.default, "properties.default must be preserved");
+      assert.equal(cleaned.properties.default.default, undefined);
+      assert.ok(cleaned.properties["x-custom-param"], "properties['x-custom-param'] must be preserved");
+      assert.equal(cleaned.properties["x-custom-param"]["x-vendor"], undefined);
+      assert.deepEqual(cleaned.required, ["command", "title"]);
+    });
+
     it("cleanJSONSchemaForAntigravity enforces Gemini protobuf type predicates (items only on array, properties on object)", () => {
       const schemaWithInvalidItems = {
         type: "object",
