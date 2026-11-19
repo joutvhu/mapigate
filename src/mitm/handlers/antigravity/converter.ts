@@ -8,6 +8,7 @@ export interface GeminiFunctionResponse {
   id?: string;
   name: string;
   response?: unknown;
+  parts?: GeminiPart[];
 }
 
 export interface GeminiInlineData {
@@ -134,16 +135,28 @@ export function joinPartsText(parts?: GeminiPart[]): string {
     .join("\n");
 }
 
-function serializeFunctionResponse(response: unknown): string {
-  if (response == null) return "";
-  if (typeof response === "string") return response;
+function serializeFunctionResponse(fr: GeminiFunctionResponse): string {
+  const response = fr.response;
+  const partsText = Array.isArray(fr.parts) ? joinPartsText(fr.parts) : "";
+
+  if (response == null) {
+    return partsText;
+  }
+  if (typeof response === "string") {
+    return response || partsText;
+  }
   if (typeof response === "object" && !Array.isArray(response)) {
     const obj = response as Record<string, unknown>;
     if ("result" in obj && Object.keys(obj).length === 1) {
-      return typeof obj.result === "string" ? obj.result : JSON.stringify(obj.result ?? "");
+      const val = typeof obj.result === "string" ? obj.result : JSON.stringify(obj.result ?? "");
+      return val || partsText;
+    }
+    if (Object.keys(obj).length === 0 && partsText) {
+      return partsText;
     }
   }
-  return JSON.stringify(response);
+  const serialized = JSON.stringify(response);
+  return partsText ? `${serialized}\n${partsText}` : serialized;
 }
 
 function parseToolArguments(raw: unknown): Record<string, unknown> {
@@ -184,24 +197,27 @@ export function convertGeminiToOpenAI(
   }
 
   const pendingCallIdsByName = new Map<string, string[]>();
+  const pendingCallIdsSet = new Set<string>();
 
   // Chat turns
   const contents = src.contents || [];
   for (let turnIdx = 0; turnIdx < contents.length; turnIdx++) {
     const content = contents[turnIdx];
     const parts = content.parts || [];
+    const fnResponses = parts.filter((p) => p.functionResponse || (p as any).function_response);
 
     if (content.role === "model") {
       const textContent = joinPartsText(parts);
       const toolCalls: OpenAIChatToolCall[] = [];
 
       for (let partIdx = 0; partIdx < parts.length; partIdx++) {
-        const fc = parts[partIdx]?.functionCall;
+        const fc = parts[partIdx]?.functionCall || (parts[partIdx] as any)?.function_call;
         if (!fc?.name) continue;
         const callId = fc.id || `call_${turnIdx}_${partIdx}_${fc.name}`;
         const queue = pendingCallIdsByName.get(fc.name) || [];
         queue.push(callId);
         pendingCallIdsByName.set(fc.name, queue);
+        pendingCallIdsSet.add(callId);
 
         toolCalls.push({
           id: callId,
@@ -219,26 +235,45 @@ export function convertGeminiToOpenAI(
           content: textContent || null,
           tool_calls: toolCalls,
         });
-      } else {
+      } else if (textContent || fnResponses.length === 0) {
         messages.push({ role: "assistant", content: textContent });
       }
-      continue;
+
+      if (fnResponses.length === 0) {
+        continue;
+      }
     }
 
-    // User / tool response turn
-    const fnResponses = parts.filter((p) => p.functionResponse);
+    // Tool response parts (can appear in user, function, tool, or model turns)
     for (const part of fnResponses) {
-      const fr = part.functionResponse!;
+      const fr: GeminiFunctionResponse = part.functionResponse || (part as any).function_response;
       const queue = fr.name ? pendingCallIdsByName.get(fr.name) : undefined;
-      const callId = fr.id || queue?.shift() || `call_${fr.name || "tool"}`;
+      let callId: string;
+      if (fr.id && pendingCallIdsSet.has(fr.id)) {
+        callId = fr.id;
+        pendingCallIdsSet.delete(fr.id);
+        if (queue) {
+          const idx = queue.indexOf(fr.id);
+          if (idx !== -1) queue.splice(idx, 1);
+        }
+      } else if (queue && queue.length > 0) {
+        callId = queue.shift()!;
+        pendingCallIdsSet.delete(callId);
+      } else {
+        callId = fr.id || `call_${fr.name || "tool"}`;
+      }
       messages.push({
         role: "tool",
         tool_call_id: callId,
-        content: serializeFunctionResponse(fr.response),
+        content: serializeFunctionResponse(fr),
       });
     }
 
-    const nonFnParts = parts.filter((p) => !p.functionResponse && !p.thought);
+    if (content.role === "model") {
+      continue;
+    }
+
+    const nonFnParts = parts.filter((p) => !p.functionResponse && !(p as any).function_response && !p.thought);
     const hasInlineData = nonFnParts.some((p) => p.inlineData?.data);
 
     if (hasInlineData) {
@@ -275,14 +310,19 @@ export function convertGeminiToOpenAI(
   if (Array.isArray(src.tools) && src.tools.length > 0) {
     const openaiTools: OpenAIChatTool[] = [];
     for (const tool of src.tools) {
-      for (const decl of tool.functionDeclarations || []) {
+      const decls = tool.functionDeclarations || (tool as any).function_declarations || [];
+      for (const decl of decls) {
         if (!decl?.name) continue;
         openaiTools.push({
           type: "function",
           function: {
             name: decl.name,
             ...(decl.description ? { description: decl.description } : {}),
-            parameters: decl.parameters || decl.parametersJsonSchema || { type: "object", properties: {} },
+            parameters:
+              decl.parameters ||
+              decl.parametersJsonSchema ||
+              (decl as any).parameters_json_schema ||
+              { type: "object", properties: {} },
           },
         });
       }
@@ -293,8 +333,9 @@ export function convertGeminiToOpenAI(
   }
 
   // Tool choice
-  const fcMode = src.toolConfig?.functionCallingConfig?.mode?.toUpperCase();
-  const allowedNames = src.toolConfig?.functionCallingConfig?.allowedFunctionNames;
+  const fcConfig = src.toolConfig?.functionCallingConfig || (src as any).tool_config?.function_calling_config;
+  const fcMode = fcConfig?.mode?.toUpperCase();
+  const allowedNames = fcConfig?.allowedFunctionNames || fcConfig?.allowed_function_names;
   if (fcMode === "NONE") {
     openaiBody.tool_choice = "none";
   } else if (fcMode === "ANY") {
@@ -463,8 +504,15 @@ export function convertOpenAIToGeminiChunk(
   if (Array.isArray(delta.tool_calls)) {
     if (state) {
       for (const tc of delta.tool_calls) {
-        const idx = typeof tc.index === "number" ? tc.index : 0;
-        const existing = state.toolCalls.get(idx) || { id: "", name: "", arguments: "" };
+        let idx = typeof tc.index === "number" ? tc.index : 0;
+        let existing = state.toolCalls.get(idx);
+        if (existing && tc.id && existing.id && tc.id !== existing.id) {
+          while (state.toolCalls.has(idx)) idx++;
+          existing = undefined;
+        }
+        if (!existing) {
+          existing = { id: "", name: "", arguments: "" };
+        }
         if (tc.id) existing.id = tc.id;
         if (tc.function?.name) existing.name += tc.function.name;
         if (typeof tc.function?.arguments === "string") existing.arguments += tc.function.arguments;

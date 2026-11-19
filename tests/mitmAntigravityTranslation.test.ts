@@ -142,6 +142,88 @@ describe("Google Antigravity Protocol Translation", () => {
         },
       ]);
     });
+
+    it("matches mismatched functionResponse.id to pending functionCall.id and reads functionResponse.parts", () => {
+      const geminiBody: GeminiRequestBody = {
+        contents: [
+          { role: "user", parts: [{ text: "Run git show" }] },
+          {
+            role: "model",
+            parts: [{ functionCall: { id: "run_command-123", name: "run_command", args: { cmd: "git show" } } }],
+          },
+          {
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  id: "different-id-456",
+                  name: "run_command",
+                  parts: [{ text: "commit 9427e010..." }],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const openaiBody = convertGeminiToOpenAI(geminiBody, "gemini-4-hydrogen", true);
+      assert.deepEqual(openaiBody.messages, [
+        { role: "user", content: "Run git show" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "run_command-123",
+              type: "function",
+              function: { name: "run_command", arguments: "{\"cmd\":\"git show\"}" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          tool_call_id: "run_command-123",
+          content: "commit 9427e010...",
+        },
+      ]);
+    });
+
+    it("extracts functionResponse even when Antigravity IDE sends it with role: model", () => {
+      const geminiBody: GeminiRequestBody = {
+        contents: [
+          { role: "user", parts: [{ text: "Read package.json" }] },
+          {
+            role: "model",
+            parts: [{ functionCall: { id: "call_1", name: "read_file", args: { path: "package.json" } } }],
+          },
+          {
+            role: "model",
+            parts: [{ functionResponse: { id: "call_1", name: "read_file", response: { result: "{\"name\":\"mapigate\"}" } } }],
+          },
+        ],
+      };
+
+      const openaiBody = convertGeminiToOpenAI(geminiBody, "gemini-4-hydrogen", true);
+      assert.deepEqual(openaiBody.messages, [
+        { role: "user", content: "Read package.json" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name: "read_file", arguments: "{\"path\":\"package.json\"}" },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          tool_call_id: "call_1",
+          content: "{\"name\":\"mapigate\"}",
+        },
+      ]);
+    });
   });
 
   describe("convertOpenAIToGeminiResponse", () => {
