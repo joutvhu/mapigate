@@ -25,8 +25,13 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
-  "passthroughModels": true
-,
+  "passthroughModels": true,
+  "freeTier": {
+    "scope": "models",
+    "match": ["*-free", "*:free", "*contributor-free*"],
+    "limitType": "requests",
+    "note": "Free models on OpenCode fast lane"
+  },
   models
 };
 

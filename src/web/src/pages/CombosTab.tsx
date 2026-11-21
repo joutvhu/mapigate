@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { ComboFormModal, type ComboItem } from "../components/ComboFormModal.js";
+import { FreeTierComboModal } from "../components/FreeTierComboModal.js";
 import { ModelSelectModal } from "../components/ModelSelectModal.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 import { CapacityBadges } from "../components/CapacityBadges.js";
@@ -59,6 +60,7 @@ export const CombosTab: React.FC = () => {
 
   // Modals state
   const [showComboModal, setShowComboModal] = useState(false);
+  const [showFreeTierModal, setShowFreeTierModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState<ComboItem | null>(null);
   const [adapterModalKey, setAdapterModalKey] = useState<"vision" | "audioInput" | null>(null);
   const [confirmState, setConfirmState] = useState<{
@@ -308,17 +310,28 @@ export const CombosTab: React.FC = () => {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditingCombo(null);
-              setShowComboModal(true);
-            }}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-          >
-            <span className="material-symbols-outlined text-[16px]">add_circle</span>
-            Create Combo
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowFreeTierModal(true)}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-600/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">savings</span>
+              Create Free Tier Combo
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCombo(null);
+                setShowComboModal(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/20 text-xs font-semibold text-white flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              Create Combo
+            </button>
+          </div>
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed">
@@ -839,6 +852,19 @@ export const CombosTab: React.FC = () => {
         }}
         combo={editingCombo}
         onSave={handleSaveCombo}
+      />
+
+      {/* Free Tier Combo Modal */}
+      <FreeTierComboModal
+        isOpen={showFreeTierModal}
+        onClose={() => setShowFreeTierModal(false)}
+        onSave={async (comboData) => {
+          await handleSaveCombo({
+            ...comboData,
+            isActive: true,
+          });
+        }}
+        existingComboNames={combos.map((c) => c.name)}
       />
 
       {/* Capacity Adapter Model Picker Modal */}

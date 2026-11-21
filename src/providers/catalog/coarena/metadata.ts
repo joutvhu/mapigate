@@ -31,6 +31,11 @@ export const metadata: ProviderRegistryItem = {
     "Content-Type": "application/json",
   },
   thinkingMode: "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "credits",
+    note: "Free daily $5 allowance on arena models",
+  },
   models: [
     {
       id: "deepseek-v4-1-flash-1017",

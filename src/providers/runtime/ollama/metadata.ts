@@ -28,6 +28,11 @@ export const metadata: ProviderRegistryItem = {
   "format": "ollama",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  "freeTier": {
+    "scope": "all",
+    "limitType": "local",
+    "note": "Local Ollama instance"
+  },
   "models": [
     {
       "id": "gpt-oss:120b",

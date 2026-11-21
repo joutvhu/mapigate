@@ -25,6 +25,11 @@ export const metadata: ProviderRegistryItem = {
     "Content-Type": "application/json"
   },
   thinkingMode: "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "requests",
+    note: "Rolling free quota (30 requests / 5 hours)",
+  },
   models: [
     {
       id: "meta-llama/llama-3.3-70b-instruct",

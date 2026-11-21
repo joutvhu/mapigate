@@ -30,6 +30,11 @@ export const metadata: ProviderRegistryItem = {
   format: "openai",
   defaultHeaders: {},
   thinkingMode: "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "per-model",
+    note: "15 RPM / 1,500 RPD free tier on Google AI Studio",
+  },
   models
 };
 

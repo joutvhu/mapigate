@@ -25,6 +25,11 @@ export const metadata: ProviderRegistryItem = {
     "Content-Type": "application/json"
   },
   thinkingMode: "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "credits",
+    note: "$5 monthly recurring credits",
+  },
   models: [
     {
       id: "openai/gpt-oss-120b",

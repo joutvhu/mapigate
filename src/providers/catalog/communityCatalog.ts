@@ -1,3 +1,5 @@
+import type { FreeTierConfig } from "../core/types.js";
+
 export interface CommunityCatalogModel {
   id: string;
   name?: string;
@@ -15,6 +17,7 @@ export interface CommunityProviderItem {
   website?: string;
   notice?: string;
   models?: CommunityCatalogModel[];
+  freeTier?: FreeTierConfig;
 }
 
 export const COMMUNITY_PROVIDERS_CATALOG: CommunityProviderItem[] = [

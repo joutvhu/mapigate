@@ -30,8 +30,12 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
-  "hasProviderSpecificData": true
-,
+  "hasProviderSpecificData": true,
+  "freeTier": {
+    "scope": "all",
+    "limitType": "requests",
+    "note": "10,000 free daily neurons on Workers AI"
+  },
   models
 };
 

@@ -26,6 +26,11 @@ export const metadata: ProviderRegistryItem = {
     "Content-Type": "application/json"
   },
   thinkingMode: "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "requests",
+    note: "30M free monthly tokens (160k TPM)",
+  },
   models: [
     {
       id: "Auto",

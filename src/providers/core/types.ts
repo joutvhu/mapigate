@@ -20,6 +20,19 @@ export interface ProviderRegion {
   label: string;
 }
 
+export interface FreeTierModel {
+  id: string;
+  limit?: string;
+}
+
+export interface FreeTierConfig {
+  scope: "all" | "models";
+  models?: FreeTierModel[];
+  match?: string[];
+  limitType: "requests" | "credits" | "per-model" | "local";
+  note?: string;
+}
+
 export interface ProviderNotice {
   apiKeyUrl?: string;
   signupUrl?: string;
@@ -91,6 +104,7 @@ export interface ProviderRegistryItem {
   supportsAutoImport?: boolean;
   autoImportHint?: string;
   quotaOrder?: string[];
+  freeTier?: FreeTierConfig;
 }
 
 export type SingleModelHandler = (

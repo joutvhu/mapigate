@@ -25,6 +25,11 @@ export const metadata: ProviderRegistryItem = {
   format: "openai",
   defaultHeaders: {},
   thinkingMode: "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "local",
+    note: "Local model runner on localhost:1234",
+  },
   hasProviderSpecificData: true,
   models: [],
   passthroughModels: true,

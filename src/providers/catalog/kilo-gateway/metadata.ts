@@ -29,6 +29,18 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  "freeTier": {
+    "scope": "models",
+    "match": ["*:free", "*/free"],
+    "models": [
+      { "id": "kilo-auto/free", "limit": "Free tier auto router" },
+      { "id": "nvidia/nemotron-3-super-120b-a12b:free", "limit": "Free tier" },
+      { "id": "nvidia/nemotron-3-ultra-550b-a55b:free", "limit": "Free tier" },
+      { "id": "kwaipilot/kat-coder-pro-v2.5:free", "limit": "Free tier" }
+    ],
+    "limitType": "per-model",
+    "note": "Free router and free tier models"
+  },
   "models": [
     {
       "id": "kilo-auto/free",

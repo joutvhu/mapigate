@@ -26,6 +26,11 @@ export const metadata: ProviderRegistryItem = {
     "x-opencode-client": "cli"
   },
   "thinkingMode": "auto",
+  "freeTier": {
+    "scope": "all",
+    "limitType": "requests",
+    "note": "100% free community access, no API key required"
+  },
   "models": [
     {
       "id": "muse-spark-1.2-contributor-free",

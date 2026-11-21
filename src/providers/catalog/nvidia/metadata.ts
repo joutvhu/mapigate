@@ -26,6 +26,11 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  "freeTier": {
+    "scope": "all",
+    "limitType": "credits",
+    "note": "1,000 free trial credits for NVIDIA Developer members"
+  },
   models
 };
 

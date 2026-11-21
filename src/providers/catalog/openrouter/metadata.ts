@@ -29,8 +29,13 @@ export const metadata: ProviderRegistryItem = {
     "X-Title": "Endpoint Proxy"
   },
   "thinkingMode": "auto",
-  "passthroughModels": true
-,
+  "passthroughModels": true,
+  "freeTier": {
+    "scope": "models",
+    "match": ["*:free"],
+    "limitType": "requests",
+    "note": "200 requests/day across all :free models"
+  },
   models
 };
 

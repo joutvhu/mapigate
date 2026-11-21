@@ -21,6 +21,11 @@ export const metadata: ProviderRegistryItem = {
   "format": "ollama",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  "freeTier": {
+    "scope": "all",
+    "limitType": "local",
+    "note": "Local Ollama engine on localhost:11434"
+  },
   "hasProviderSpecificData": true,
   "models": []
 };
