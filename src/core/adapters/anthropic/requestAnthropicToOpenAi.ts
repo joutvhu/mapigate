@@ -251,6 +251,9 @@ export function translateAnthropicToOpenAi(
   if (anthropicBody.tool_choice?.disable_parallel_tool_use === true) {
     result.parallel_tool_calls = false;
   }
+  if (Array.isArray(anthropicBody.stop_sequences) && anthropicBody.stop_sequences.length > 0) {
+    result.stop = anthropicBody.stop_sequences.slice(0, 4);
+  }
 
   const effort = anthropicBody.output_config?.effort || anthropicBody.reasoning_effort;
   if (effort) {

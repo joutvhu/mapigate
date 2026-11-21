@@ -26,6 +26,7 @@ import { usageRouter } from "./routes/apiUsage.js";
 import { settingsRouter } from "./routes/apiSettings.js";
 import { authRouter } from "./routes/apiAuth.js";
 import { masterAuthMiddleware } from "./middlewares/masterAuthMiddleware.js";
+import { collapseDoubledV1Prefix } from "./middlewares/doubledV1Middleware.js";
 import { serverRouter, handleShutdownRequest, handleRestartRequest, handleUpgradeRequest } from "./routes/apiServer.js";
 import { serverLifecycle } from "./lifecycle.js";
 import { initTray } from "../cli/tray/tray.js";
@@ -211,6 +212,9 @@ app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   next();
 });
+
+// Forgive doubled /v1 prefix from Anthropic-style clients
+app.use(collapseDoubledV1Prefix);
 
 app.use(express.json({ limit: "50mb" }));
 app.use(requestLogger);

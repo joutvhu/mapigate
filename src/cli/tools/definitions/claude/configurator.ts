@@ -13,6 +13,7 @@ export const CLAUDE_RESET_KEYS = [
   "ANTHROPIC_BASE_URL",
   "ANTHROPIC_AUTH_TOKEN",
   "ANTHROPIC_MODEL",
+  "CLAUDE_CODE_AUTO_MODE_SERVER",
   ...CLAUDE_MODELS.map((m) => m.envKey),
 ];
 
@@ -44,6 +45,7 @@ export const claudeHandler: ToolConfigHandler = {
       ...(cur.env || {}),
       ANTHROPIC_BASE_URL: baseUrl,
       ANTHROPIC_AUTH_TOKEN: apiKey,
+      CLAUDE_CODE_AUTO_MODE_SERVER: "0",
     };
     if (model) {
       cur.env.ANTHROPIC_MODEL = model;

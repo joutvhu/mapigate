@@ -3,6 +3,24 @@ function hasNonEmptyString(val: unknown): boolean {
 }
 
 /**
+ * Detects an in-band error envelope returned with HTTP 200 and no choices.
+ * Certain budget or relay providers (such as cheapllm.shop or overloaded proxies) return HTTP 200
+ * with an error body: `{"error": {"code": "overloaded", "message": "..."}}`.
+ */
+export function inBandErrorEnvelope(data: unknown): { status: number; message: string } | null {
+  const d = data as { choices?: unknown; error?: { message?: unknown; code?: unknown; type?: unknown } } | null;
+  if (!d || typeof d !== "object") return null;
+  if (Array.isArray(d.choices) && d.choices.length > 0) return null;
+  const e = d.error;
+  if (!e || typeof e !== "object" || typeof e.message !== "string" || !e.message) return null;
+  const tag = `${String(e.code ?? "")} ${String(e.type ?? "")}`.toLowerCase();
+  const status = /overload|busy|capacity|unavailable/.test(tag) ? 503
+    : /rate_limit|too_many/.test(tag) ? 429
+    : 502;
+  return { status, message: e.message };
+}
+
+/**
  * Detects HTTP 200 responses that carry zero usable content across OpenAI Chat,
  * Anthropic Messages, Gemini/Antigravity, OpenAI Responses, and bare `{"text":""}`.
  * Reasoning/thinking blocks count as content. `content_filter` / safety refusals
@@ -10,6 +28,10 @@ function hasNonEmptyString(val: unknown): boolean {
  */
 export function isZeroContentResponse(payload: any): boolean {
   if (payload == null) return true;
+
+  if (inBandErrorEnvelope(payload)) {
+    return true;
+  }
 
   if (typeof payload === "string") {
     const trimmed = payload.trim();

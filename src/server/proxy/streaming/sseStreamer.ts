@@ -63,8 +63,13 @@ export async function pipeSseStream(
     (context.provider as any)?.rescueInlineTools ?? regMeta?.rescueInlineTools
   );
   const rescueToolNames = shouldRescue ? toolNameSet : undefined;
+  const requestSafeguards = context.req?.body?.safeguards || context.body?.safeguards;
 
-  const openAiToAnthropicState = AnthropicAdapter.createStreamState(requestId, requestTools);
+  const openAiToAnthropicState = AnthropicAdapter.createStreamState(
+    requestId,
+    requestTools,
+    requestSafeguards
+  );
   const responsesState =
     clientFormat === "responses" ? createResponsesStreamState(requestId, rescueToolNames) : null;
   const seenToolCallIds = new Map<number, string>();

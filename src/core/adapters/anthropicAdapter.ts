@@ -33,8 +33,12 @@ export class AnthropicAdapter {
   /**
    * Create a state tracker for OpenAI -> Anthropic streaming
    */
-  public static createStreamState(messageId?: string, tools?: any[]): AnthropicStreamState {
-    return createStreamState(messageId, tools);
+  public static createStreamState(
+    messageId?: string,
+    tools?: any[],
+    safeguards?: any[]
+  ): AnthropicStreamState {
+    return createStreamState(messageId, tools, safeguards);
   }
 
   /**
@@ -97,8 +101,12 @@ export class AnthropicAdapter {
   /**
    * Convert OpenAI non-streaming chat completion to Anthropic Message response
    */
-  public static openAiResponseToAnthropic(openAiResponse: any, requestId?: string): any {
-    return toAnthropicResponse(openAiResponse, requestId);
+  public static openAiResponseToAnthropic(
+    openAiResponse: any,
+    requestId?: string,
+    options?: { safeguards?: any[] }
+  ): any {
+    return toAnthropicResponse(openAiResponse, requestId, options);
   }
 
   /**

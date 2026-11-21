@@ -2,6 +2,7 @@ import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import type { ProviderProbeContext, ProviderProbeResult, ProviderRequestContext } from "../../core/types.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { sanitizeSchemaForGemini } from "../../../core/adapters/helpers/toolSchemaNormalize.js";
 
 const GEMINI_OPENAI_ALLOWED_FIELDS = new Set([
   "model",
@@ -69,7 +70,7 @@ function sanitizeGeminiOpenAiPayload(payload: any): any {
           cleanFn.description = tool.function.description;
         }
         if (tool.function.parameters !== undefined) {
-          cleanFn.parameters = tool.function.parameters;
+          cleanFn.parameters = sanitizeSchemaForGemini(tool.function.parameters);
         }
         return { type: "function", function: cleanFn };
       }

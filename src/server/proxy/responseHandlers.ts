@@ -10,7 +10,7 @@ import { OpenAiAdapter } from "../../core/adapters/openAiAdapter.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { extractUsageTokens } from "../../core/usage/tokenExtractor.js";
-import { isZeroContentResponse } from "../../core/adapters/helpers/zeroContentCheck.js";
+import { isZeroContentResponse, inBandErrorEnvelope } from "../../core/adapters/helpers/zeroContentCheck.js";
 
 export async function handleNonStreamingResponse(
   upstreamRes: globalThis.Response,
@@ -50,15 +50,25 @@ export async function handleNonStreamingResponse(
       }
       responseBody = convertOpenAiResponseToResponsesApi(responseBody);
     } else if (context.clientFormat === "anthropic" && context.targetFormat === "openai") {
-      responseBody = AnthropicAdapter.openAiResponseToAnthropic(responseBody, context.requestId);
+      responseBody = AnthropicAdapter.openAiResponseToAnthropic(responseBody, context.requestId, {
+        safeguards: context.req?.body?.safeguards || context.body?.safeguards,
+      });
     } else if (context.clientFormat === "openai" && (context.targetFormat === "claude" || (responseBody?.type === "message" && Array.isArray(responseBody?.content)))) {
       responseBody = AnthropicAdapter.anthropicResponseToOpenAi(responseBody, context.targetModel);
+    }
+    const inBandErr = inBandErrorEnvelope(responseBody);
+    if (inBandErr) {
+      return { ok: false, status: inBandErr.status, error: `Upstream returned HTTP 200 with error envelope: ${inBandErr.message}` };
     }
     if (isZeroContentResponse(responseBody)) {
       return { ok: false, status: 502, error: "Upstream returned HTTP 200 with empty content" };
     }
     res.status(200).json(responseBody);
   } else {
+    const inBandErr = inBandErrorEnvelope(responseBody);
+    if (inBandErr) {
+      return { ok: false, status: inBandErr.status, error: `Upstream returned HTTP 200 with error envelope: ${inBandErr.message}` };
+    }
     if (isZeroContentResponse(responseBody)) {
       return { ok: false, status: 502, error: "Upstream returned HTTP 200 with empty content" };
     }

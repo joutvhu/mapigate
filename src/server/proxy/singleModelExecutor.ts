@@ -615,9 +615,8 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       return { ok: false, status: upstreamRes.status, text: cleanErrText, error: cleanErrText, accountName: account?.name || account?.id };
     }
 
-    recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
-
     if (isPanel) {
+      recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
       const rawText = await upstreamRes.text();
       try {
         const json = JSON.parse(rawText);
@@ -628,11 +627,38 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     }
 
     if (upstreamBody.stream === false) {
-      return await handleNonStreamingResponse(upstreamRes, res, context, provider, {
+      const nonStreamRes = await handleNonStreamingResponse(upstreamRes, res, context, provider, {
         upstreamUrl, outgoingHeaders, upstreamBody,
       });
+      if (nonStreamRes.ok) {
+        recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
+        return nonStreamRes;
+      }
+
+      if (!nonStreamRes.accountName && account) {
+        nonStreamRes.accountName = account.name || account.id;
+      }
+      const errText = nonStreamRes.text || nonStreamRes.error || "";
+      const cleanErrText = sanitizeErrorMessage(errText);
+      const resFailure = recordResilienceFailure({
+        providerId: targetProviderId,
+        accountId: account?.id,
+        model: targetModel,
+        status: nonStreamRes.status,
+        errorText: cleanErrText,
+      });
+
+      if ((resFailure.rateLimited || nonStreamRes.status === 429 || nonStreamRes.status === 503) && account) {
+        const cdMs = resFailure.cooldownMs || 60_000;
+        if (tryFailover(targetProviderId, account, nonStreamRes.status, cdMs, triedAccountIds, targetModel, reqTag, true, prefixHash || undefined, sessionId)) {
+          lastFailureResult = { ...nonStreamRes, error: cleanErrText, text: cleanErrText };
+          continue;
+        }
+      }
+      return { ...nonStreamRes, error: cleanErrText, text: cleanErrText };
     }
 
+    recordResilienceSuccess({ providerId: targetProviderId, accountId: account?.id, model: targetModel });
     return await handleStreamingResponse(upstreamRes, res, context, provider, {
       upstreamUrl, outgoingHeaders, upstreamBody,
     });

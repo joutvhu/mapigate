@@ -36,6 +36,7 @@ const DIALECT_MARKERS = [
   "<|tool_call_begin|>",
   "<tool_call>",
   "<function=",
+  "<dots_function_call>",
 ] as const;
 
 /** Does the (trimmed) text start with a known dialect marker? */
@@ -489,6 +490,81 @@ function parseXmlDialect(
 }
 
 /**
+ * Dialect 5: Dots XML (<dots_function_call>).
+ * Strips line breaks adjacent to parameter tags while preserving interior whitespace,
+ * and coerces JSON numbers, booleans, arrays, or objects to typed values.
+ */
+function dotsParamValue(raw: string): unknown {
+  const value = raw.replace(/^[ \t]*\r?\n/, "").replace(/\r?\n[ \t]*$/, "");
+  const t = value.trim();
+  if (t === "true") return true;
+  if (t === "false") return false;
+  if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(t)) return Number(t);
+  if ((t.startsWith("[") && t.endsWith("]")) || (t.startsWith("{") && t.endsWith("}"))) {
+    try {
+      return JSON.parse(t);
+    } catch {
+      /* keep original text */
+    }
+  }
+  return value;
+}
+
+function parseDotsDialect(
+  text: string,
+  toolNames: Set<string>
+): { calls: RescuedToolCall[] | null; cleanText: string } {
+  const calls: RescuedToolCall[] = [];
+  let parsedAll = true;
+  const blockRe = /<dots_function_call>([\s\S]*?)<\/dots_function_call>/g;
+  const spans: Array<{ from: number; to: number }> = [];
+  let block: RegExpExecArray | null;
+
+  while ((block = blockRe.exec(text)) !== null) {
+    spans.push({ from: block.index, to: block.index + block[0].length });
+    const invokeRe =
+      /<invoke\s+name\s*=\s*(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_.-]+))\s*>([\s\S]*?)<\/invoke>/g;
+    let inv: RegExpExecArray | null;
+    let sawInvoke = false;
+
+    while ((inv = invokeRe.exec(block[1])) !== null) {
+      sawInvoke = true;
+      const name = inv[1] ?? inv[2] ?? inv[3];
+      const args: Record<string, unknown> = {};
+      const paramRe =
+        /<parameter\s+name\s*=\s*(?:"([^"]+)"|'([^']+)'|([A-Za-z0-9_.-]+))\s*>([\s\S]*?)<\/parameter>/g;
+      let p: RegExpExecArray | null;
+
+      while ((p = paramRe.exec(inv[4] ?? "")) !== null) {
+        const key = p[1] ?? p[2] ?? p[3];
+        if (!key) {
+          parsedAll = false;
+          continue;
+        }
+        args[key] = dotsParamValue(p[4] ?? "");
+      }
+
+      if (name && isKnownTool(name, toolNames)) {
+        calls.push({ name, arguments: JSON.stringify(args) });
+      } else {
+        parsedAll = false;
+      }
+    }
+    if (!sawInvoke) parsedAll = false;
+  }
+
+  let clean = text;
+  for (const s of [...spans].reverse()) {
+    clean = clean.slice(0, s.from) + clean.slice(s.to);
+  }
+  if (clean.includes("<dots_function_call>")) {
+    parsedAll = false;
+    clean = clean.replace(/<dots_function_call>[\s\S]*$/, "");
+  }
+  return { calls: parsedAll && calls.length > 0 ? calls : null, cleanText: clean.trim() };
+}
+
+/**
  * Rescue inline tool-call dialects out of an assistant text answer.
  * Fail-open invariant: wrapped in try/catch to never crash the turn.
  *
@@ -515,6 +591,10 @@ export function rescueInlineToolCalls(
     }
     if (text.includes("<function=")) {
       const { calls, cleanText } = parseFunctionTagDialect(text, toolNames);
+      return { detected: true, calls, cleanText };
+    }
+    if (text.includes("<dots_function_call>")) {
+      const { calls, cleanText } = parseDotsDialect(text, toolNames);
       return { detected: true, calls, cleanText };
     }
 

@@ -293,5 +293,13 @@ export function translateOpenAiToAnthropic(
     result.output_config = { effort: openAiBody.reasoning_effort };
   }
 
+  if (openAiBody.stop) {
+    result.stop_sequences = Array.isArray(openAiBody.stop) ? openAiBody.stop : [openAiBody.stop];
+  }
+
+  if (openAiBody.parallel_tool_calls === false) {
+    result.tool_choice = { ...(result.tool_choice || { type: "auto" }), disable_parallel_tool_use: true };
+  }
+
   return result;
 }

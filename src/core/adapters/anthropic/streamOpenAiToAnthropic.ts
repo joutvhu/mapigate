@@ -1,5 +1,5 @@
 import { repairToolArguments } from "../helpers/toolArgsRepair.js";
-import { type AnthropicStreamState, createStreamState } from "./types.js";
+import { type AnthropicStreamState, createStreamState, safeguardResultsFor } from "./types.js";
 
 /**
  * Translates OpenAI response chunk to Anthropic SSE event format
@@ -265,10 +265,19 @@ export function openAiChunkToAnthropicEvent(
         ? "max_tokens"
         : "end_turn";
 
+    const deltaObj: Record<string, any> = {
+      stop_reason: stopReason,
+      stop_sequence: null,
+    };
+    const safeguardResults = safeguardResultsFor(streamState.safeguards, streamState.safeguardResults);
+    if (safeguardResults !== undefined) {
+      deltaObj.safeguard_results = safeguardResults;
+    }
+
     events.push(
       `event: message_delta\ndata: ${JSON.stringify({
         type: "message_delta",
-        delta: { stop_reason: stopReason, stop_sequence: null },
+        delta: deltaObj,
         usage: { output_tokens: streamState.outputTokens || 0 },
       })}\n\n`
     );
@@ -318,10 +327,19 @@ export function finalizeStream(
   }
   state.currentToolCallIndex = undefined;
 
+  const finalDeltaObj: Record<string, any> = {
+    stop_reason: "end_turn",
+    stop_sequence: null,
+  };
+  const finalSafeguardResults = safeguardResultsFor(state.safeguards, state.safeguardResults);
+  if (finalSafeguardResults !== undefined) {
+    finalDeltaObj.safeguard_results = finalSafeguardResults;
+  }
+
   events.push(
     `event: message_delta\ndata: ${JSON.stringify({
       type: "message_delta",
-      delta: { stop_reason: "end_turn", stop_sequence: null },
+      delta: finalDeltaObj,
       usage: { output_tokens: state.outputTokens || 0 },
     })}\n\n`
   );

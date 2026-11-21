@@ -1,7 +1,13 @@
+import { safeguardResultsFor } from "./types.js";
+
 /**
  * Convert OpenAI non-streaming chat completion to Anthropic Message response
  */
-export function openAiResponseToAnthropic(openAiResponse: any, requestId?: string): any {
+export function openAiResponseToAnthropic(
+  openAiResponse: any,
+  requestId?: string,
+  options?: { safeguards?: any[] }
+): any {
   if (!openAiResponse || typeof openAiResponse !== "object") return openAiResponse;
   const choice = openAiResponse.choices?.[0];
   const message = choice?.message || {};
@@ -41,7 +47,7 @@ export function openAiResponseToAnthropic(openAiResponse: any, requestId?: strin
   const finishReason = choice?.finish_reason;
   const usage = openAiResponse.usage || {};
 
-  return {
+  const result: any = {
     id: requestId ? `msg_${requestId}` : (openAiResponse.id ? `msg_${openAiResponse.id}` : `msg_${Date.now()}`),
     type: "message",
     role: "assistant",
@@ -53,6 +59,13 @@ export function openAiResponseToAnthropic(openAiResponse: any, requestId?: strin
       output_tokens: usage.completion_tokens || usage.output_tokens || 0,
     },
   };
+
+  const safeguardResults = safeguardResultsFor(options?.safeguards, openAiResponse.safeguard_results);
+  if (safeguardResults !== undefined) {
+    result.safeguard_results = safeguardResults;
+  }
+
+  return result;
 }
 
 /**
