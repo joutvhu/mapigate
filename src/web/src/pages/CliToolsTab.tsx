@@ -90,6 +90,14 @@ export const CliToolsTab: React.FC = () => {
   const [isAddingMapping, setIsAddingMapping] = useState(false);
   const [comboNames, setComboNames] = useState<Set<string>>(new Set());
 
+  // Exposure mode & Simulator state
+  const [exposureMode, setExposureMode] = useState<"all" | "connected" | "mapped_only">("all");
+  const [isSimulateOpen, setIsSimulateOpen] = useState(false);
+  const [simModel, setSimModel] = useState("");
+  const [simTool, setSimTool] = useState("");
+  const [simResult, setSimResult] = useState<any>(null);
+  const [simLoading, setSimLoading] = useState(false);
+
   // Fetch real tool statuses from backend
   const fetchStatuses = () => {
     fetch("/api/cli-tools/status")
@@ -179,11 +187,82 @@ export const CliToolsTab: React.FC = () => {
     }
   };
 
+  // Load exposure mode
+  const loadExposureMode = async () => {
+    try {
+      const res = await fetch("/api/model-mappings/exposure-mode");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.mode) setExposureMode(data.mode);
+      }
+    } catch {}
+  };
+
+  const handleUpdateExposureMode = async (mode: "all" | "connected" | "mapped_only") => {
+    setExposureMode(mode);
+    try {
+      await fetch("/api/model-mappings/exposure-mode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      const labels = {
+        all: "Exposing all provider models via /v1/models",
+        connected: "Exposing only connected provider models & combos via /v1/models",
+        mapped_only: "Strict mode: Exposing only mapped models & combos via /v1/models",
+      };
+      setImportToast(labels[mode]);
+      setTimeout(() => setImportToast(null), 3500);
+    } catch {}
+  };
+
+  // Sync all active combos into global mappings
+  const handleImportCombos = async () => {
+    try {
+      const res = await fetch("/api/model-mappings/global-mappings/import-combos", {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.mappings)) {
+          setGlobalMappings(data.mappings);
+        }
+        setImportToast("Synchronized all active combos into Model Mappings!");
+        setTimeout(() => setImportToast(null), 4000);
+      }
+    } catch (err: any) {
+      console.error("Failed to import combos:", err);
+    }
+  };
+
+  // Run Route Simulator
+  const handleRunSimulate = async () => {
+    if (!simModel.trim()) return;
+    setSimLoading(true);
+    setSimResult(null);
+    try {
+      const res = await fetch("/api/model-mappings/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: simModel.trim(), toolId: simTool || undefined }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSimResult(data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSimLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStatuses();
     loadCombos();
     loadGlobalMappings();
     loadEndpointAuth();
+    loadExposureMode();
   }, []);
 
   const copyText = (text: string) => {
@@ -501,7 +580,7 @@ export const CliToolsTab: React.FC = () => {
       {viewMode === "mappings" && (
         <div className="space-y-4">
           {/* Header Bar */}
-          <div className="p-4 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="p-4 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
                 <span className="material-symbols-outlined text-blue-400 text-[20px]">alt_route</span>
@@ -512,8 +591,79 @@ export const CliToolsTab: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Exposure Mode Control */}
+              <div className="flex items-center gap-1 bg-[#080B11] border border-[#1E293B] p-1 rounded-xl text-xs">
+                <span className="text-[11px] text-slate-400 px-2 flex items-center gap-1 font-medium">
+                  <span className="material-symbols-outlined text-[14px] text-slate-500">visibility</span>
+                  /v1/models:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateExposureMode("all")}
+                  className={`px-2 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+                    exposureMode === "all"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Expose all registered and scanned models in /v1/models"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateExposureMode("connected")}
+                  className={`px-2 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+                    exposureMode === "connected"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Expose only connected providers with active accounts + combos"
+                >
+                  Connected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateExposureMode("mapped_only")}
+                  className={`px-2 py-1 rounded-lg text-[11px] transition-all cursor-pointer ${
+                    exposureMode === "mapped_only"
+                      ? "bg-blue-600 text-white font-semibold shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                  title="Strict: Expose ONLY models defined in Mappings + Combos"
+                >
+                  Mappings Only
+                </button>
+              </div>
+
+              {/* Sync Combos Button */}
               <button
+                type="button"
+                onClick={handleImportCombos}
+                className="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-[#1E293B] hover:border-slate-600 text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Automatically import all active combos into Model Mappings"
+              >
+                <span className="material-symbols-outlined text-[16px] text-cyan-400">sync_alt</span>
+                Sync Combos
+              </button>
+
+              {/* Test Route Simulator Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSimulateOpen(true);
+                  setSimResult(null);
+                }}
+                className="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-[#1E293B] hover:border-slate-600 text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Test and simulate which provider and model a client request routes to"
+              >
+                <span className="material-symbols-outlined text-[16px] text-emerald-400">play_circle</span>
+                Test Route
+              </button>
+
+              {/* Add Mapping Button */}
+              <button
+                type="button"
                 onClick={() => setIsAddingMapping(!isAddingMapping)}
                 className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/30 text-white flex items-center gap-1.5 transition-all cursor-pointer"
               >
@@ -1153,6 +1303,145 @@ export const CliToolsTab: React.FC = () => {
             </div>
           </div>
         )}
+      </PortalModal>
+
+      {/* ========================================================================= */}
+      {/* TEST ROUTE SIMULATOR MODAL                                                */}
+      {/* ========================================================================= */}
+      <PortalModal
+        isOpen={isSimulateOpen}
+        onClose={() => setIsSimulateOpen(false)}
+        maxWidthClass="w-full max-w-xl"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#1E293B]">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-emerald-400 text-[20px]">play_circle</span>
+              Route Simulator (Conflict & Target Resolution)
+            </h3>
+            <button
+              onClick={() => setIsSimulateOpen(false)}
+              className="text-slate-400 hover:text-white cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Enter the exact model string a coding assistant (OpenCode, Cursor, Claude Code) sends to see which mapping rule, provider, or combo Mapigate will route to.
+          </p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-slate-300 block mb-1 font-medium">
+                Client Sent Model:
+              </label>
+              <input
+                type="text"
+                value={simModel}
+                onChange={(e) => setSimModel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRunSimulate()}
+                placeholder="e.g. claude-3-7-sonnet, anthropic/claude-3-7-sonnet, gpt-4o"
+                className="bg-[#080B11] border border-[#1E293B] focus:border-blue-400 rounded-xl px-3 py-2 text-xs text-white font-mono w-full focus:outline-none"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-slate-300 block mb-1 font-medium">
+                Calling Assistant / Tool (Optional):
+              </label>
+              <select
+                value={simTool}
+                onChange={(e) => setSimTool(e.target.value)}
+                className="bg-[#080B11] border border-[#1E293B] focus:border-blue-400 rounded-xl px-3 py-2 text-xs text-slate-200 w-full focus:outline-none"
+              >
+                <option value="">Auto Detect / Generic Client</option>
+                <option value="opencode">OpenCode</option>
+                <option value="claude">Claude Code</option>
+                <option value="cursor">Cursor</option>
+                <option value="cline">Cline</option>
+                <option value="copilot">GitHub Copilot</option>
+                <option value="kiro">Kiro IDE</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={handleRunSimulate}
+                disabled={!simModel.trim() || simLoading}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-emerald-600/30"
+              >
+                <span className="material-symbols-outlined text-[16px]">
+                  {simLoading ? "progress_activity" : "route"}
+                </span>
+                {simLoading ? "Simulating..." : "Simulate Route"}
+              </button>
+            </div>
+
+            {simResult && (
+              <div className="mt-4 p-4 rounded-xl bg-[#080B11] border border-[#1E293B] space-y-2.5 animate-rt-scale-in text-xs font-mono">
+                <div className="flex items-center justify-between pb-2 border-b border-[#1E293B]">
+                  <span className="text-slate-400 font-sans">Mapping Rule:</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                    {simResult.matchedRule === "global"
+                      ? "Global Universal Mapping"
+                      : simResult.matchedRule.startsWith("tool")
+                      ? `Tool Specific: ${simResult.matchedRule}`
+                      : "Direct (No Mapping)"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-sans">Resolved Destination:</span>
+                  <span className="text-emerald-300 font-bold">{simResult.effectiveModel}</span>
+                </div>
+
+                {simResult.isCombo ? (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 font-sans">Target Combo:</span>
+                      <span className="text-cyan-300 font-semibold">{simResult.comboName}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Combo Candidates:{" "}
+                      <span className="text-slate-300">{(simResult.comboModels || []).join(", ")}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 font-sans">Target Provider:</span>
+                    <span className={simResult.isFallback ? "text-amber-300 font-semibold" : "text-purple-300 font-semibold"}>
+                      {simResult.targetProviderId} / {simResult.targetModel}
+                      {simResult.isFallback && " (Fallback)"}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-start justify-between pt-2 border-t border-[#1E293B] gap-2">
+                  <span className="text-slate-400 font-sans shrink-0">Model Status:</span>
+                  {simResult.isFallback ? (
+                    <span className="text-amber-400 flex items-center gap-1 font-sans text-[11px] text-right">
+                      <span className="material-symbols-outlined text-[15px] shrink-0 text-amber-400">warning</span>
+                      Unknown model: not recognized in catalog. Will fallback directly to '{simResult.targetProviderId}' (may fail upstream with 404).
+                    </span>
+                  ) : simResult.hasActiveAccount ? (
+                    <span className="text-emerald-400 flex items-center gap-1 font-semibold font-sans">
+                      <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                      Ready ({simResult.activeAccountsCount} active account{simResult.activeAccountsCount > 1 ? "s" : ""})
+                    </span>
+                  ) : (
+                    <span className="text-rose-400 flex items-center gap-1 font-semibold font-sans">
+                      <span className="material-symbols-outlined text-[15px]">error</span>
+                      No active account for '{simResult.targetProviderId}'
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </PortalModal>
     </div>
   );

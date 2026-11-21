@@ -3,6 +3,8 @@ import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
+import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
+import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "../../core/capabilities/index.js";
 import crypto from "node:crypto";
@@ -494,6 +496,8 @@ export function handleOpenAiModelsList(_req: any, res: any) {
       owned_by: string;
     }> = [];
 
+    const exposureMode = SettingsRepository.getModelExposureMode();
+
     const allCombos = ComboRepository.getAllCombos();
     for (const c of allCombos) {
       if (!c.isActive) continue;
@@ -505,7 +509,31 @@ export function handleOpenAiModelsList(_req: any, res: any) {
       });
     }
 
-    const seen = new Set<string>();
+    // Always include mapped models that have a valid target configured
+    const globalMappings = ToolMappingRepository.getGlobalMappings().filter(
+      (m) => m.targetModel && m.targetModel.trim().length > 0
+    );
+    const seen = new Set<string>(list.map((m) => m.id));
+    for (const m of globalMappings) {
+      if (!seen.has(m.sourceModel)) {
+        seen.add(m.sourceModel);
+        list.push({
+          id: m.sourceModel,
+          object: "model",
+          created: Math.floor(Date.now() / 1000),
+          owned_by: "mapped",
+        });
+      }
+    }
+
+    // If exposureMode is "mapped_only", return strictly mapped models and active combos
+    if (exposureMode === "mapped_only") {
+      return res.json({
+        object: "list",
+        data: list,
+      });
+    }
+
     const accounts = ProviderRepository.getAllAccounts();
     const dbProviders = ProviderRepository.getAllProviders();
     const dbProviderMap = new Map<string, (typeof dbProviders)[0]>(
@@ -583,6 +611,12 @@ export function handleOpenAiModelsList(_req: any, res: any) {
     }
 
     for (const p of allProvidersToProcess) {
+      // If exposureMode is "connected", only include providers that have at least one active account
+      if (exposureMode === "connected") {
+        const accIds = providerAccountIdsMap.get(p.id) || [];
+        if (accIds.length === 0) continue;
+      }
+
       const reg = PROVIDER_REGISTRY[p.id] || getRegistryProvider(p.id);
       let pModels = Array.isArray(p.models) ? [...p.models] : [];
       const scannedModels = getScannedAccountModelsForProvider(p.id, reg);
@@ -613,22 +647,24 @@ export function handleOpenAiModelsList(_req: any, res: any) {
       }
     }
 
-    // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models
-    for (const p of Object.values(PROVIDER_REGISTRY)) {
-      if (!p || !p.models) continue;
-      if (hasDbConfiguredModels(p.id, p)) {
-        continue;
-      }
-      for (const m of p.models) {
-        const id = m.id.startsWith(`${p.id}/`) ? m.id : `${p.id}/${m.id}`;
-        if (!seen.has(id)) {
-          seen.add(id);
-          list.push({
-            id,
-            object: "model",
-            created: Math.floor(Date.now() / 1000),
-            owned_by: p.id,
-          });
+    // 2. Fall back to static PROVIDER_REGISTRY presets if provider has no DB models (only in "all" mode)
+    if (exposureMode === "all") {
+      for (const p of Object.values(PROVIDER_REGISTRY)) {
+        if (!p || !p.models) continue;
+        if (hasDbConfiguredModels(p.id, p)) {
+          continue;
+        }
+        for (const m of p.models) {
+          const id = m.id.startsWith(`${p.id}/`) ? m.id : `${p.id}/${m.id}`;
+          if (!seen.has(id)) {
+            seen.add(id);
+            list.push({
+              id,
+              object: "model",
+              created: Math.floor(Date.now() / 1000),
+              owned_by: p.id,
+            });
+          }
         }
       }
     }

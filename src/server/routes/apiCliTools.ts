@@ -8,6 +8,12 @@ import { DEFAULT_PORT } from "../../shared/constants/index.js";
 import { serverLifecycle } from "../lifecycle.js";
 import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
+import { SettingsRepository, type ModelExposureMode } from "../../storage/repositories/settingsRepo.js";
+import { ComboRepository } from "../../storage/repositories/comboRepo.js";
+import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
+import { resolveTargetModelAndProvider } from "../proxy/executorHelpers.js";
+import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
+import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 
 export const cliToolsRouter = Router();
 
@@ -180,9 +186,125 @@ cliToolsRouter.post("/global-mappings/import/:tool", (req, res) => {
   res.json({ success: true, tool, mappings });
 });
 
+cliToolsRouter.post("/global-mappings/import-combos", (_req, res) => {
+  const mappings = ToolMappingRepository.importCombosToGlobal();
+  res.json({ success: true, mappings });
+});
+
 cliToolsRouter.post("/global-mappings/reset", (_req, res) => {
   const mappings = ToolMappingRepository.resetGlobalMappings();
   res.json({ success: true, mappings });
+});
+
+cliToolsRouter.get("/exposure-mode", (_req, res) => {
+  const mode = SettingsRepository.getModelExposureMode();
+  res.json({ mode });
+});
+
+cliToolsRouter.post("/exposure-mode", (req, res) => {
+  const mode = req.body?.mode as ModelExposureMode;
+  if (!mode || !["all", "connected", "mapped_only"].includes(mode)) {
+    res.status(400).json({ error: "Invalid mode. Must be 'all', 'connected', or 'mapped_only'." });
+    return;
+  }
+  SettingsRepository.setModelExposureMode(mode);
+  res.json({ success: true, mode });
+});
+
+cliToolsRouter.post("/simulate", (req, res) => {
+  const model = (req.body?.model || "").trim();
+  const toolId = (req.body?.toolId || "").trim().toLowerCase();
+  if (!model) {
+    res.status(400).json({ error: "Model is required" });
+    return;
+  }
+
+  // 1. Resolve mapping
+  const detailed = ToolMappingRepository.resolveModelMappingDetailed(toolId || "global", model);
+  const mapped = detailed.targetModel;
+  const ruleType = detailed.ruleType;
+
+  const effectiveModel = mapped || model;
+
+  // 2. Resolve Combo or Model
+  const allCombos = ComboRepository.getAllCombos();
+  const comboLookup = effectiveModel.startsWith("combo/") ? effectiveModel.slice(6) : effectiveModel;
+  const isComboCandidate = !effectiveModel.includes("/") || effectiveModel.startsWith("combo/");
+  const activeCombo = isComboCandidate
+    ? allCombos.find(
+        (c) =>
+          c.isActive &&
+          (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
+      )
+    : undefined;
+
+  if (activeCombo) {
+    const candidateModels = [...activeCombo.models];
+    const initialCandidate = candidateModels[0] || effectiveModel;
+    const initialResolved = resolveTargetModelAndProvider(initialCandidate);
+    const pId = initialResolved.providerId || "unknown";
+    const accounts = ProviderRepository.getAccountsByProvider(pId);
+    const activeAccounts = accounts.filter((a) => a.isActive);
+
+    res.json({
+      incomingModel: model,
+      effectiveModel,
+      isCombo: true,
+      comboName: activeCombo.name,
+      comboModels: candidateModels,
+      matchedRule: ruleType,
+      targetProviderId: pId,
+      targetModel: initialResolved.targetModel,
+      hasActiveAccount: activeAccounts.length > 0,
+      activeAccountsCount: activeAccounts.length,
+    });
+    return;
+  }
+
+  // Single model resolution
+  const resolved = resolveTargetModelAndProvider(effectiveModel);
+  const pId = resolved.providerId || "unknown";
+  const accounts = ProviderRepository.getAccountsByProvider(pId);
+  let activeAccounts = accounts.filter((a) => a.isActive);
+
+  if (resolved.targetTag) {
+    const tagLower = resolved.targetTag.toLowerCase();
+    activeAccounts = activeAccounts.filter(
+      (a) => (a.tag || a.providerSpecificData?.tag)?.trim().toLowerCase() === tagLower
+    );
+  }
+
+  const reg = PROVIDER_REGISTRY[pId] || getRegistryProvider(pId);
+  const dbProv = ProviderRepository.getProviderById(pId);
+  const allModelList: any[] = [
+    ...(Array.isArray(dbProv?.models) ? dbProv!.models : []),
+    ...(Array.isArray(reg?.models) ? reg!.models : []),
+  ];
+  const targetCompareKey = normalizeModelCompareKey(resolved.targetModel);
+  const isModelRecognized = allModelList.some((m: any) => {
+    const id = typeof m === "string" ? m : m?.id;
+    return (
+      id &&
+      (id.toLowerCase() === resolved.targetModel.toLowerCase() ||
+        normalizeModelCompareKey(id) === targetCompareKey)
+    );
+  });
+
+  const displayProvider = resolved.targetTag ? `${pId}[${resolved.targetTag}]` : pId;
+
+  res.json({
+    incomingModel: model,
+    effectiveModel,
+    isCombo: false,
+    matchedRule: ruleType,
+    targetProviderId: displayProvider,
+    targetModel: resolved.targetModel,
+    targetTag: resolved.targetTag,
+    isModelRecognized,
+    isFallback: !mapped && !isModelRecognized,
+    hasActiveAccount: activeAccounts.length > 0,
+    activeAccountsCount: activeAccounts.length,
+  });
 });
 
 // ==========================================

@@ -150,6 +150,14 @@ export async function runProxyPipeline(
         detectedToolId = "cursor";
       } else if (ua.includes("cline")) {
         detectedToolId = "cline";
+      } else if (ua.includes("opencode")) {
+        detectedToolId = "opencode";
+      } else if (ua.includes("codex")) {
+        detectedToolId = "codex";
+      } else if (ua.includes("droid")) {
+        detectedToolId = "droid";
+      } else if (ua.includes("openclaw")) {
+        detectedToolId = "openclaw";
       } else if (ua.includes("continue")) {
         detectedToolId = "continue";
       } else if (ua.includes("roo") || ua.includes("roocode")) {
@@ -170,11 +178,19 @@ export async function runProxyPipeline(
       if (mapped) {
         resolvedModel = mapped;
         logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [${detectedToolId}]: '${cleanModel}' -> '${resolvedModel}'`);
+      } else {
+        const globalMapped = ToolMappingRepository.resolveModelMapping("global", cleanModel);
+        if (globalMapped) {
+          resolvedModel = globalMapped;
+          logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [global]: '${cleanModel}' -> '${resolvedModel}'`);
+        }
       }
     } else {
+      // Prioritize Global Universal Mapping before any IDE-specific fallback
+      const globalMapped = ToolMappingRepository.resolveModelMapping("global", cleanModel);
       const claudeMapped = ToolMappingRepository.resolveModelMapping("claude", cleanModel);
       const cursorMapped = ToolMappingRepository.resolveModelMapping("cursor", cleanModel);
-      const fallbackMapped = claudeMapped || cursorMapped;
+      const fallbackMapped = globalMapped || claudeMapped || cursorMapped;
       if (fallbackMapped) {
         resolvedModel = fallbackMapped;
         logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING: '${cleanModel}' -> '${resolvedModel}'`);

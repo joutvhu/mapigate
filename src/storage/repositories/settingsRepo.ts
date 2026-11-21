@@ -104,8 +104,18 @@ function normalizeCapEntry(entry: any, defaultEntry: CapacityAdapterEntry): Capa
 }
 
 export type ObservabilityMode = "off" | "errors_only" | "all";
+export type ModelExposureMode = "all" | "connected" | "mapped_only";
 
 export class SettingsRepository {
+  public static getModelExposureMode(): ModelExposureMode {
+    return this.getSetting<ModelExposureMode>("modelExposureMode", "all") || "all";
+  }
+
+  public static setModelExposureMode(mode: ModelExposureMode): void {
+    const validModes: ModelExposureMode[] = ["all", "connected", "mapped_only"];
+    const safeMode = validModes.includes(mode) ? mode : "all";
+    this.setSetting("modelExposureMode", safeMode);
+  }
   public static getSetting<T = any>(key: string, defaultValue?: T): T | undefined {
     const db = getDatabase();
     const row = db.get<{ key: string; value: string }>("SELECT value FROM settings WHERE key = ?", key);
