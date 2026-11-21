@@ -70,7 +70,26 @@ test("FreeTier - Provider metadata schema extension is populated correctly", () 
   assert.ok(sail?.freeTier, "sail must have freeTier");
   assert.equal(sail.freeTier.limitType, "credits");
 
-  // 7. Local engines
+  // 7. Groq, Cerebras, SambaNova, Mistral
+  const groq = getRegistryProvider("groq");
+  assert.ok(groq?.freeTier, "groq must have freeTier");
+  assert.equal(groq.freeTier.limitType, "per-model");
+  assert.equal(groq.freeTier.scope, "all");
+
+  const cerebras = getRegistryProvider("cerebras");
+  assert.ok(cerebras?.freeTier, "cerebras must have freeTier");
+  assert.equal(cerebras.freeTier.limitType, "requests");
+
+  const sambanova = getRegistryProvider("sambanova");
+  assert.ok(sambanova?.freeTier, "sambanova must have freeTier");
+  assert.equal(sambanova.freeTier.limitType, "requests");
+
+  const mistral = getRegistryProvider("mistral");
+  assert.ok(mistral?.freeTier, "mistral must have freeTier");
+  assert.equal(mistral.freeTier.scope, "models");
+  assert.ok(mistral.freeTier.models?.some((m) => m.id === "codestral-latest"));
+
+  // 8. Local engines
   const jan = getRegistryProvider("jan");
   assert.ok(jan?.freeTier, "jan must have freeTier");
   assert.equal(jan.freeTier.limitType, "local");

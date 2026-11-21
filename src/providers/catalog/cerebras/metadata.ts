@@ -20,6 +20,11 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "requests",
+    note: "30 RPM • 60k TPM • 1M tokens/day developer free tier",
+  },
   "models": [
     {
       "id": "gpt-oss-120b",

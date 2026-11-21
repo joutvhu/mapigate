@@ -20,6 +20,17 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "per-model",
+    note: "30 RPM • 6k-20k TPM • 14,400 RPD per model • Free on Groq Console",
+    models: [
+      { id: "llama-3.3-70b-versatile", limit: "30 RPM • 6k TPM • 14.4k RPD" },
+      { id: "meta-llama/llama-4-maverick-17b-128e-instruct", limit: "30 RPM • 10k TPM • 14.4k RPD" },
+      { id: "qwen/qwen3-32b", limit: "30 RPM • 10k TPM • 14.4k RPD" },
+      { id: "openai/gpt-oss-120b", limit: "30 RPM • 6k TPM • 14.4k RPD" },
+    ],
+  },
   "models": [
     {
       "id": "llama-3.3-70b-versatile",

@@ -30,6 +30,17 @@ export const metadata: ProviderRegistryItem = {
     "content-type": "application/json"
   },
   "thinkingMode": "auto",
+  freeTier: {
+    scope: "models",
+    limitType: "requests",
+    note: "1 RPS (60 RPM) experimentation tier • SMS verified • No credit card",
+    models: [
+      { id: "codestral-latest", limit: "1 RPS • Free coding endpoint" },
+      { id: "codestral-2501", limit: "1 RPS • Free coding endpoint" },
+      { id: "mistral-small-latest", limit: "1 RPS • Experimentation tier" },
+      { id: "ministral-8b-latest", limit: "1 RPS • Experimentation tier" },
+    ],
+  },
   "passthroughModels": true,
   "models": [
     {

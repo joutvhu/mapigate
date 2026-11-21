@@ -27,6 +27,11 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai",
   "defaultHeaders": {},
   "thinkingMode": "auto",
+  freeTier: {
+    scope: "all",
+    limitType: "requests",
+    note: "10-20 RPM developer free tier • No credit card required",
+  },
   "models": [
     {
       "id": "MiniMax-M2.7",

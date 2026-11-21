@@ -12,7 +12,7 @@ export const metadata: ProviderRegistryItem = {
   website: "https://coarena.ai",
   notice: {
     apiKeyUrl: "https://coarena.ai/account/api",
-    text: "Free daily $5 allowance on frontier & arena models for AI agents. Note: Requests may be used for evaluation benchmarks.",
+    text: "The free models are free to call every day, up to a daily allowance (resets midnight UTC). Usage is counted at list price. Rate limit: 10 RPM, 2 concurrent.",
   },
   category: "freeTier",
   authType: "api-key",
@@ -34,11 +34,11 @@ export const metadata: ProviderRegistryItem = {
   freeTier: {
     scope: "models",
     limitType: "credits",
-    note: "Free daily $5 allowance on 3 arena models",
+    note: "Daily allowance (list price, resets midnight UTC) • 10 RPM • 2 concurrent",
     models: [
-      { id: "gpt-6-luna", limit: "Free daily $5 allowance" },
-      { id: "gemini-3-8-flash", limit: "Free daily $5 allowance" },
-      { id: "deepseek-v4-1-flash-1017", limit: "Free daily $5 allowance" },
+      { id: "gpt-6-luna", limit: "Daily allowance • 10 RPM • 2 concurrent" },
+      { id: "gemini-3-8-flash", limit: "Daily allowance • 10 RPM • 2 concurrent" },
+      { id: "deepseek-v4-1-flash-1017", limit: "Daily allowance • 10 RPM • 2 concurrent" },
     ],
   },
   models: [
