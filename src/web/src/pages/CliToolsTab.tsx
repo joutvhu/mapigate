@@ -1387,8 +1387,10 @@ export const CliToolsTab: React.FC = () => {
                   <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/40">
                     {simResult.matchedRule === "global"
                       ? "Global Universal Mapping"
-                      : simResult.matchedRule.startsWith("tool")
-                      ? `Tool Specific: ${simResult.matchedRule}`
+                      : simResult.matchedRule === "tool"
+                      ? `Tool Specific: ${simResult.matchedToolId || "tool"}`
+                      : simResult.matchedRule === "any"
+                      ? `Tool Fallback: ${simResult.matchedToolId || "tool"}`
                       : "Direct (No Mapping)"}
                   </span>
                 </div>
@@ -1421,7 +1423,19 @@ export const CliToolsTab: React.FC = () => {
 
                 <div className="flex items-start justify-between pt-2 border-t border-[#1E293B] gap-2">
                   <span className="text-slate-400 font-sans shrink-0">Model Status:</span>
-                  {simResult.isFallback ? (
+                  {simResult.isCombo ? (
+                    simResult.hasActiveAccount ? (
+                      <span className="text-emerald-400 flex items-center gap-1 font-semibold font-sans">
+                        <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Ready ({simResult.readyCandidatesCount}/{simResult.comboModels?.length || 1} candidates ready, {simResult.activeAccountsCount} accounts)
+                      </span>
+                    ) : (
+                      <span className="text-rose-400 flex items-center gap-1 font-semibold font-sans">
+                        <span className="material-symbols-outlined text-[15px]">error</span>
+                        No active accounts for any combo candidates
+                      </span>
+                    )
+                  ) : simResult.isFallback ? (
                     <span className="text-amber-400 flex items-center gap-1 font-sans text-[11px] text-right">
                       <span className="material-symbols-outlined text-[15px] shrink-0 text-amber-400">warning</span>
                       Unknown model: not recognized in catalog. Will fallback directly to '{simResult.targetProviderId}' (may fail upstream with 404).

@@ -10,6 +10,13 @@ export interface ToolMapping {
   targetModel: string;
 }
 
+export interface ModelMappingResolution {
+  targetModel: string | null;
+  ruleType: "tool" | "global" | "any" | "none";
+  matchedToolId?: string;
+  sourceModel?: string;
+}
+
 export class ToolMappingRepository {
   public static sortMappingsCanonical(mappings: ToolMapping[]): ToolMapping[] {
     return [...mappings].sort((a, b) => {
@@ -351,12 +358,11 @@ export class ToolMappingRepository {
   }
 
   private static matchMappingRows(
-    rows: Array<{ source_model: string; target_model: string }>,
+    rows: Array<{ tool_id?: string; source_model: string; target_model: string }>,
     raw: string,
     tid?: string
-  ): string | null {
-    const validRows = rows.filter((r) => r.target_model && r.target_model.trim().length > 0);
-    if (validRows.length === 0) return null;
+  ): { matched: boolean; targetModel: string | null; sourceModel?: string; toolId?: string } {
+    if (rows.length === 0) return { matched: false, targetModel: null };
 
     const rawLower = raw.toLowerCase();
     const compareKey = normalizeModelCompareKey(raw);
@@ -368,74 +374,74 @@ export class ToolMappingRepository {
 
     // Check if caller explicitly specifies an account tag e.g. "antigravity[pro]/model"
     const hasExplicitTag = Boolean(rawPrefix && /\[[^[\]]+\]/.test(rawPrefix));
+    const isGenericWrapper =
+      rawPrefix === "mapigate" ||
+      rawPrefix === "gateway" ||
+      (Boolean(rawPrefix) && rawPrefix === (tid || "").toLowerCase());
+
+    const resolveRowTarget = (r: { tool_id?: string; source_model: string; target_model: string }) => {
+      const target = r.target_model && r.target_model.trim().length > 0 ? r.target_model.trim() : null;
+      return {
+        matched: true,
+        targetModel: target,
+        sourceModel: r.source_model,
+        toolId: r.tool_id,
+      };
+    };
 
     // 1. Exact case-insensitive match (always respects explicit tagged/provider input)
-    for (const r of validRows) {
+    for (const r of rows) {
       if (r.source_model.toLowerCase() === rawLower) {
-        return r.target_model.trim();
+        return resolveRowTarget(r);
       }
     }
 
     // 2. Dot/dash normalized match
-    for (const r of validRows) {
+    for (const r of rows) {
       if (normalizeModelCompareKey(r.source_model) === compareKey) {
-        return r.target_model.trim();
+        return resolveRowTarget(r);
       }
     }
 
     // 3. Vendor stripped matching
     // Never strip vendor if the caller explicitly specified an account tag like "antigravity[pro]/..."
-    // or an explicit known provider target. We only strip when it's a generic gateway wrapper ("mapigate")
-    // or matches the calling toolId (e.g. claude/sonnet when tool is claude).
-    if (rawStripped && strippedCompareKey && !hasExplicitTag) {
-      const isGenericWrapper =
-        rawPrefix === "mapigate" ||
-        rawPrefix === "gateway" ||
-        (Boolean(rawPrefix) && rawPrefix === (tid || "").toLowerCase());
-      if (isGenericWrapper) {
-        for (const r of validRows) {
-          const rSlash = r.source_model.indexOf("/");
-          const rStripped = rSlash !== -1 ? r.source_model.slice(rSlash + 1).trim() : r.source_model;
-          if (
-            normalizeModelCompareKey(r.source_model) === strippedCompareKey ||
-            normalizeModelCompareKey(rStripped) === strippedCompareKey
-          ) {
-            return r.target_model.trim();
-          }
-        }
-      }
-    } else if (!rawStripped) {
-      // Incoming has no slash, check if any row has vendor prefix that matches base model
-      for (const r of validRows) {
-        if (r.source_model.includes("/")) {
-          const rBase = r.source_model.split("/").pop()!.trim();
-          if (normalizeModelCompareKey(rBase) === compareKey) {
-            return r.target_model.trim();
-          }
+    // We only strip when it's a generic gateway wrapper ("mapigate", "gateway") or matches the calling toolId.
+    if (rawStripped && strippedCompareKey && !hasExplicitTag && isGenericWrapper) {
+      for (const r of rows) {
+        const rSlash = r.source_model.indexOf("/");
+        const rStripped = rSlash !== -1 ? r.source_model.slice(rSlash + 1).trim() : r.source_model;
+        if (
+          normalizeModelCompareKey(r.source_model) === strippedCompareKey ||
+          normalizeModelCompareKey(rStripped) === strippedCompareKey
+        ) {
+          return resolveRowTarget(r);
         }
       }
     }
 
     // 4. Wildcard matching (e.g. "claude-3-7-sonnet*" matches "claude-3-7-sonnet-20250219")
     if (!hasExplicitTag) {
-      for (const r of validRows) {
+      for (const r of rows) {
         if (r.source_model.includes("*")) {
           const regexStr = "^" + r.source_model.toLowerCase().replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&").replace(/\*/g, ".*") + "$";
           const re = new RegExp(regexStr);
           if (re.test(rawLower)) {
-            return r.target_model.trim();
+            return resolveRowTarget(r);
+          }
+          if (isGenericWrapper && rawStripped && re.test(rawStripped.toLowerCase())) {
+            return resolveRowTarget(r);
           }
         }
       }
     }
 
-    return null;
+    return { matched: false, targetModel: null };
   }
 
   public static resolveModelMappingDetailed(
     toolId: string,
     incomingModel?: string | null
-  ): { targetModel: string | null; ruleType: "tool" | "global" | "any" | "none" } {
+  ): ModelMappingResolution {
     if (!incomingModel) return { targetModel: null, ruleType: "none" };
     const tid = (toolId || "").toLowerCase();
     const raw = incomingModel.trim();
@@ -446,30 +452,35 @@ export class ToolMappingRepository {
     // 1. Check specific tool mapping in database if specified
     if (tid && tid !== "global" && tid !== "unknown") {
       const toolRows = db.all<any>(
-        "SELECT source_model, target_model FROM tool_mappings WHERE tool_id = ?",
+        "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = ?",
         tid
       );
-      const toolMatch = this.matchMappingRows(toolRows, raw, tid);
-      if (toolMatch) {
-        return { targetModel: toolMatch, ruleType: "tool" };
+      const match = this.matchMappingRows(toolRows, raw, tid);
+      if (match.matched && match.targetModel) {
+        return { targetModel: match.targetModel, ruleType: "tool", matchedToolId: tid, sourceModel: match.sourceModel };
       }
+      // If tool row matched but targetModel is empty, fall through to global!
     }
 
     // 2. Check Global Universal mapping in database (High priority fallback for all tools)
     const globalRows = db.all<any>(
-      "SELECT source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
+      "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
     );
     const globalMatch = this.matchMappingRows(globalRows, raw, tid);
-    if (globalMatch) {
-      return { targetModel: globalMatch, ruleType: "global" };
+    if (globalMatch.matched) {
+      if (globalMatch.targetModel) {
+        return { targetModel: globalMatch.targetModel, ruleType: "global", matchedToolId: "global", sourceModel: globalMatch.sourceModel };
+      }
+      // Explicitly unmapped in global mappings -> do NOT fall back to other random tools!
+      return { targetModel: null, ruleType: "global", matchedToolId: "global", sourceModel: globalMatch.sourceModel };
     }
 
     // 3. Fallback: check any other tool mapping in database only when tool is unknown/unspecified
     if (!tid || tid === "unknown") {
-      const allRows = db.all<any>("SELECT source_model, target_model FROM tool_mappings");
+      const allRows = db.all<any>("SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id != 'global'");
       const anyMatch = this.matchMappingRows(allRows, raw, tid);
-      if (anyMatch) {
-        return { targetModel: anyMatch, ruleType: "any" };
+      if (anyMatch.matched && anyMatch.targetModel) {
+        return { targetModel: anyMatch.targetModel, ruleType: "any", matchedToolId: anyMatch.toolId, sourceModel: anyMatch.sourceModel };
       }
     }
 

@@ -501,6 +501,49 @@ export function handleOpenAiModelsList(_req: any, res: any) {
     const allCombos = ComboRepository.getAllCombos();
     for (const c of allCombos) {
       if (!c.isActive) continue;
+
+      if (exposureMode === "connected") {
+        let comboHasConnected = false;
+        for (const cand of c.models) {
+          const slash = cand.indexOf("/");
+          let pId = slash !== -1 ? cand.slice(0, slash) : cand;
+          const tagMatch = pId.match(/^([^[\]]+)\[([^[\]]+)\]$/);
+          const cleanPId = tagMatch ? tagMatch[1] : pId;
+          const requiredTag = tagMatch ? tagMatch[2].toLowerCase() : undefined;
+          const reg = PROVIDER_REGISTRY[cleanPId] || getRegistryProvider(cleanPId);
+          const isNoAuth = Boolean(
+            reg?.noAuth ||
+              reg?.requiresApiKey === false ||
+              reg?.authType === "none" ||
+              cleanPId === "opencode" ||
+              cleanPId === "oc"
+          );
+          if (isNoAuth) {
+            comboHasConnected = true;
+            break;
+          }
+          const candidates = new Set<string>([cleanPId]);
+          if (reg?.alias) candidates.add(reg.alias);
+          if (Array.isArray(reg?.aliases)) {
+            for (const a of reg.aliases) candidates.add(a);
+          }
+          let accs: any[] = [];
+          for (const cid of candidates) {
+            accs.push(...ProviderRepository.getAccountsByProvider(cid).filter((a) => a.isActive));
+          }
+          if (requiredTag) {
+            accs = accs.filter(
+              (a) => (a.tag || a.providerSpecificData?.tag)?.trim().toLowerCase() === requiredTag
+            );
+          }
+          if (accs.length > 0) {
+            comboHasConnected = true;
+            break;
+          }
+        }
+        if (!comboHasConnected) continue;
+      }
+
       list.push({
         id: c.name,
         object: "model",
@@ -509,9 +552,9 @@ export function handleOpenAiModelsList(_req: any, res: any) {
       });
     }
 
-    // Always include mapped models that have a valid target configured
+    // Always include mapped models that have a valid target configured (excluding wildcard patterns)
     const globalMappings = ToolMappingRepository.getGlobalMappings().filter(
-      (m) => m.targetModel && m.targetModel.trim().length > 0
+      (m) => m.targetModel && m.targetModel.trim().length > 0 && !m.sourceModel.includes("*")
     );
     const seen = new Set<string>(list.map((m) => m.id));
     for (const m of globalMappings) {
@@ -611,13 +654,29 @@ export function handleOpenAiModelsList(_req: any, res: any) {
     }
 
     for (const p of allProvidersToProcess) {
-      // If exposureMode is "connected", only include providers that have at least one active account
+      const reg = PROVIDER_REGISTRY[p.id] || getRegistryProvider(p.id);
+
+      // If exposureMode is "connected", only include providers that have at least one active account or are noAuth
       if (exposureMode === "connected") {
-        const accIds = providerAccountIdsMap.get(p.id) || [];
-        if (accIds.length === 0) continue;
+        const isNoAuth = Boolean(
+          reg?.noAuth ||
+            reg?.requiresApiKey === false ||
+            reg?.authType === "none" ||
+            p.id === "opencode" ||
+            p.id === "oc"
+        );
+        const candidates = new Set<string>([p.id]);
+        if (reg?.alias) candidates.add(reg.alias);
+        if (Array.isArray(reg?.aliases)) {
+          for (const a of reg.aliases) candidates.add(a);
+        }
+        let accCount = 0;
+        for (const cid of candidates) {
+          accCount += (providerAccountIdsMap.get(cid) || []).length;
+        }
+        if (accCount === 0 && !isNoAuth) continue;
       }
 
-      const reg = PROVIDER_REGISTRY[p.id] || getRegistryProvider(p.id);
       let pModels = Array.isArray(p.models) ? [...p.models] : [];
       const scannedModels = getScannedAccountModelsForProvider(p.id, reg);
       if (scannedModels.length > 0) {

@@ -9,11 +9,7 @@ import { serverLifecycle } from "../lifecycle.js";
 import { checkBinaryInstalled } from "../../providers/core/base/baseProvider.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 import { SettingsRepository, type ModelExposureMode } from "../../storage/repositories/settingsRepo.js";
-import { ComboRepository } from "../../storage/repositories/comboRepo.js";
-import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
-import { resolveTargetModelAndProvider } from "../proxy/executorHelpers.js";
-import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
-import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
+import { simulateModelRoute } from "../proxy/routeSimulator.js";
 
 export const cliToolsRouter = Router();
 
@@ -219,92 +215,8 @@ cliToolsRouter.post("/simulate", (req, res) => {
     return;
   }
 
-  // 1. Resolve mapping
-  const detailed = ToolMappingRepository.resolveModelMappingDetailed(toolId || "global", model);
-  const mapped = detailed.targetModel;
-  const ruleType = detailed.ruleType;
-
-  const effectiveModel = mapped || model;
-
-  // 2. Resolve Combo or Model
-  const allCombos = ComboRepository.getAllCombos();
-  const comboLookup = effectiveModel.startsWith("combo/") ? effectiveModel.slice(6) : effectiveModel;
-  const isComboCandidate = !effectiveModel.includes("/") || effectiveModel.startsWith("combo/");
-  const activeCombo = isComboCandidate
-    ? allCombos.find(
-        (c) =>
-          c.isActive &&
-          (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
-      )
-    : undefined;
-
-  if (activeCombo) {
-    const candidateModels = [...activeCombo.models];
-    const initialCandidate = candidateModels[0] || effectiveModel;
-    const initialResolved = resolveTargetModelAndProvider(initialCandidate);
-    const pId = initialResolved.providerId || "unknown";
-    const accounts = ProviderRepository.getAccountsByProvider(pId);
-    const activeAccounts = accounts.filter((a) => a.isActive);
-
-    res.json({
-      incomingModel: model,
-      effectiveModel,
-      isCombo: true,
-      comboName: activeCombo.name,
-      comboModels: candidateModels,
-      matchedRule: ruleType,
-      targetProviderId: pId,
-      targetModel: initialResolved.targetModel,
-      hasActiveAccount: activeAccounts.length > 0,
-      activeAccountsCount: activeAccounts.length,
-    });
-    return;
-  }
-
-  // Single model resolution
-  const resolved = resolveTargetModelAndProvider(effectiveModel);
-  const pId = resolved.providerId || "unknown";
-  const accounts = ProviderRepository.getAccountsByProvider(pId);
-  let activeAccounts = accounts.filter((a) => a.isActive);
-
-  if (resolved.targetTag) {
-    const tagLower = resolved.targetTag.toLowerCase();
-    activeAccounts = activeAccounts.filter(
-      (a) => (a.tag || a.providerSpecificData?.tag)?.trim().toLowerCase() === tagLower
-    );
-  }
-
-  const reg = PROVIDER_REGISTRY[pId] || getRegistryProvider(pId);
-  const dbProv = ProviderRepository.getProviderById(pId);
-  const allModelList: any[] = [
-    ...(Array.isArray(dbProv?.models) ? dbProv!.models : []),
-    ...(Array.isArray(reg?.models) ? reg!.models : []),
-  ];
-  const targetCompareKey = normalizeModelCompareKey(resolved.targetModel);
-  const isModelRecognized = allModelList.some((m: any) => {
-    const id = typeof m === "string" ? m : m?.id;
-    return (
-      id &&
-      (id.toLowerCase() === resolved.targetModel.toLowerCase() ||
-        normalizeModelCompareKey(id) === targetCompareKey)
-    );
-  });
-
-  const displayProvider = resolved.targetTag ? `${pId}[${resolved.targetTag}]` : pId;
-
-  res.json({
-    incomingModel: model,
-    effectiveModel,
-    isCombo: false,
-    matchedRule: ruleType,
-    targetProviderId: displayProvider,
-    targetModel: resolved.targetModel,
-    targetTag: resolved.targetTag,
-    isModelRecognized,
-    isFallback: !mapped && !isModelRecognized,
-    hasActiveAccount: activeAccounts.length > 0,
-    activeAccountsCount: activeAccounts.length,
-  });
+  const result = simulateModelRoute(model, toolId || undefined);
+  res.json(result);
 });
 
 // ==========================================

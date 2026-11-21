@@ -29,11 +29,17 @@ test("Model Mapping Explicit Tag - Preserves explicit tagged provider intent wit
   const resolved = ToolMappingRepository.resolveModelMapping("generic", "antigravity[pro]/gemini-4-argon");
   assert.equal(resolved, null, "Explicit tagged account input must not be hijacked by un-tagged combo mapping");
 
+  // Conversely: a tagged rule must not match untagged input
+  ToolMappingRepository.saveGlobalMapping("antigravity[pro]/gemini-4-neon", "combo/my-neon-combo");
+  const untaggedResolved = ToolMappingRepository.resolveModelMapping("generic", "gemini-4-neon");
+  assert.equal(untaggedResolved, null, "Untagged input must not match a tagged provider mapping rule");
+
   // Clean up
   ToolMappingRepository.deleteGlobalMapping("gemini-4-argon");
+  ToolMappingRepository.deleteGlobalMapping("antigravity[pro]/gemini-4-neon");
 });
 
-test("Model Mapping Wildcard - Matches model variations with asterisk", () => {
+test("Model Mapping Wildcard - Matches model variations with asterisk and wrapper prefixes", () => {
   ToolMappingRepository.saveGlobalMapping("claude-3-7-sonnet*", "combo/sonnet-wildcard-combo");
 
   const dated = ToolMappingRepository.resolveModelMapping("global", "claude-3-7-sonnet-20250219");
@@ -42,7 +48,24 @@ test("Model Mapping Wildcard - Matches model variations with asterisk", () => {
   const latest = ToolMappingRepository.resolveModelMapping("global", "claude-3-7-sonnet-latest");
   assert.equal(latest, "combo/sonnet-wildcard-combo");
 
+  const withWrapper = ToolMappingRepository.resolveModelMapping("opencode", "mapigate/claude-3-7-sonnet-20250219");
+  assert.equal(withWrapper, "combo/sonnet-wildcard-combo", "Wildcard must match when prefixed with mapigate/ wrapper");
+
   ToolMappingRepository.deleteGlobalMapping("claude-3-7-sonnet*");
+});
+
+test("Model Mapping - Explicit unmapped in global prevents arbitrary tool fallback", () => {
+  // 1. Tool 'claude' has a mapping
+  ToolMappingRepository.saveMapping("claude", "isolated-model-xyz", "claude/isolated-model-target");
+  // 2. Global has the same model explicitly unmapped (empty target)
+  ToolMappingRepository.saveGlobalMapping("isolated-model-xyz", "");
+
+  // Calling with unknown tool must respect that global has it unmapped, and NOT fall back to claude's target!
+  const resolvedUnknown = ToolMappingRepository.resolveModelMapping("unknown", "isolated-model-xyz");
+  assert.equal(resolvedUnknown, null, "Explicitly unmapped global model must not fall back to other tools");
+
+  ToolMappingRepository.deleteMapping("claude", "isolated-model-xyz");
+  ToolMappingRepository.deleteGlobalMapping("isolated-model-xyz");
 });
 
 test("Model Mapping - importCombosToGlobal imports active combos into Global mappings", () => {
@@ -99,6 +122,20 @@ test("handleOpenAiModelsList - Respects mapped_only exposure mode", () => {
     assert.ok(responseData && Array.isArray(responseData.data));
     const hasMapped = responseData.data.some((m: any) => m.id === "my-custom-mapped-model");
     assert.ok(hasMapped, "my-custom-mapped-model must be exposed in mapped_only mode");
+
+    // Wildcard mapping should NOT be exposed as literal * string
+    ToolMappingRepository.saveGlobalMapping("wildcard-model-*", "combo/some-target");
+    let responseWithWildcard: any = null;
+    const mockRes2: any = {
+      json: (data: any) => {
+        responseWithWildcard = data;
+        return mockRes2;
+      },
+    };
+    handleOpenAiModelsList({}, mockRes2);
+    const hasLiteralWildcard = responseWithWildcard.data.some((m: any) => m.id === "wildcard-model-*");
+    assert.equal(hasLiteralWildcard, false, "Literal wildcard pattern must not be exposed in /v1/models");
+    ToolMappingRepository.deleteGlobalMapping("wildcard-model-*");
 
     // In mapped_only mode, static unconfigured models like bedrock/anthropic... should NOT be present
     const hasRandomStatic = responseData.data.some((m: any) => m.id === "bedrock/anthropic.claude-v2");
