@@ -132,6 +132,8 @@ export const ToolIcon: React.FC<ToolIconProps> = ({
           src={src}
           alt={name || "Tool icon"}
           className={`size-full object-contain ${imgClassName}`}
+          loading="lazy"
+          decoding="async"
           onError={() => setHasError(true)}
         />
       ) : (

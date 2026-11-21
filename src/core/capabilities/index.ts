@@ -48,12 +48,31 @@ function normalizeModelCapabilities(
   return caps;
 }
 
+const CAPABILITIES_CACHE = new Map<string, ModelCapabilities>();
+
+/**
+ * Clear cached model capabilities (e.g. for testing or registry reloads).
+ */
+export function clearCapabilitiesCache(): void {
+  CAPABILITIES_CACHE.clear();
+}
+
 /**
  * Resolve capabilities for a given provider/model.
  */
 export function getCapabilitiesForModel(provider?: string | null, model?: string): ModelCapabilities {
   if (!model) return { ...DEFAULT_CAPABILITIES };
 
+  const cacheKey = `${provider || ""}|${model}`;
+  const cached = CAPABILITIES_CACHE.get(cacheKey);
+  if (cached) return cached;
+
+  const resolved = resolveCapabilitiesForModelInternal(provider, model);
+  CAPABILITIES_CACHE.set(cacheKey, resolved);
+  return resolved;
+}
+
+function resolveCapabilitiesForModelInternal(provider: string | null | undefined, model: string): ModelCapabilities {
   const baseModel = model.includes("/") ? model.split("/").pop()! : model;
   const inferredProvider = (!provider && model.includes("/")) ? model.split("/")[0] : provider;
   const cleanProvider = inferredProvider ? inferredProvider.replace(/\[.*?\]$/, "") : null;

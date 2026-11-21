@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback, useDeferredValue } from "react";
 import {
   DndContext,
   closestCenter,
@@ -43,6 +43,8 @@ export interface ModelOption {
   contextLength?: number;
   kind?: string;
   isCustom?: boolean;
+  searchTarget: string;
+  normalizedSearchTarget: string;
 }
 
 export interface ModelSelectModalProps {
@@ -91,6 +93,10 @@ interface SortableModelItemProps {
   isLast: boolean;
 }
 
+const EMPTY_ALIASES: Record<string, string> = {};
+const EMPTY_ARRAY: any[] = [];
+const DEFAULT_PAGE_SIZE = 50;
+
 function formatContextLength(len?: number): string | null {
   if (!len || len <= 0) return null;
   if (len >= 1000000) {
@@ -104,111 +110,316 @@ function formatContextLength(len?: number): string | null {
   return `${len} ctx`;
 }
 
-const SortableModelItem: React.FC<SortableModelItemProps> = ({
-  id,
-  index,
-  onRemove,
-  onMoveUp,
-  onMoveDown,
-  isFirst,
-  isLast,
-}) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+function createModelOption(
+  id: string,
+  value: string,
+  name: string,
+  providerId: string,
+  providerName: string,
+  caps: ModelCapabilities,
+  contextLength?: number,
+  kind = "llm",
+  isCustom = false
+): ModelOption {
+  const searchTarget = `${name} ${id} ${value} ${providerName} ${providerId}`.toLowerCase();
+  const normalizedSearchTarget = searchTarget.replace(/[-_./]/g, " ");
+  return {
     id,
-  });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.6 : 1,
+    value,
+    name,
+    providerId,
+    providerName,
+    caps,
+    contextLength,
+    kind,
+    isCustom,
+    searchTarget,
+    normalizedSearchTarget,
   };
+}
+
+const SortableModelItem = React.memo<SortableModelItemProps>(
+  ({ id, index, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+      id,
+    });
+
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      zIndex: isDragging ? 50 : undefined,
+      opacity: isDragging ? 0.6 : 1,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-[#0A0D14] transition-all ${
+          isDragging
+            ? "border-blue-500 shadow-lg shadow-blue-500/10 bg-blue-950/40"
+            : "border-[#1E293B] hover:border-slate-700"
+        }`}
+      >
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none shrink-0"
+            title="Drag to reorder priority"
+          >
+            <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
+          </button>
+          <span className="size-5 rounded-md bg-[#141B2D] border border-[#1E293B] text-[10px] font-mono text-blue-400 font-bold flex items-center justify-center shrink-0">
+            {index + 1}
+          </span>
+          <div className="min-w-0 flex-1">
+            <span className="font-mono text-xs text-white truncate block" title={id}>
+              {id}
+            </span>
+            <CapacityBadges model={id} size="xs" className="mt-1" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
+            title="Move up"
+          >
+            <span className="material-symbols-outlined text-[15px]">arrow_upward</span>
+          </button>
+          <button
+            type="button"
+            onClick={onMoveDown}
+            disabled={isLast}
+            className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
+            title="Move down"
+          >
+            <span className="material-symbols-outlined text-[15px]">arrow_downward</span>
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
+            title="Remove"
+          >
+            <span className="material-symbols-outlined text-[15px]">close</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+);
+SortableModelItem.displayName = "SortableModelItem";
+
+interface ModelOptionRowProps {
+  item: ModelOption;
+  isSelected: boolean;
+  onToggle: (item: ModelOption) => void;
+}
+
+const ModelOptionRow = React.memo<ModelOptionRowProps>(({ item, isSelected, onToggle }) => {
+  const ctxBadge = formatContextLength(item.contextLength);
 
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border bg-[#0A0D14] transition-all ${
-        isDragging
-          ? "border-blue-500 shadow-lg shadow-blue-500/10 bg-blue-950/40"
-          : "border-[#1E293B] hover:border-slate-700"
+      onClick={() => onToggle(item)}
+      className={`flex items-center justify-between p-2.5 rounded-xl border transition-colors cursor-pointer ${
+        isSelected
+          ? "bg-blue-600/10 border-blue-500/40 text-white"
+          : "bg-[#0A0D14] border-[#1E293B] hover:border-slate-700 text-slate-300"
       }`}
     >
-      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 p-0.5 rounded touch-none shrink-0"
-          title="Drag to reorder priority"
-        >
-          <span className="material-symbols-outlined text-[16px]">drag_indicator</span>
-        </button>
-        <span className="size-5 rounded-md bg-[#141B2D] border border-[#1E293B] text-[10px] font-mono text-blue-400 font-bold flex items-center justify-center shrink-0">
-          {index + 1}
-        </span>
-        <div className="min-w-0 flex-1">
-          <span className="font-mono text-xs text-white truncate block" title={id}>
-            {id}
-          </span>
-          <CapacityBadges model={id} size="xs" className="mt-1" />
+      <div className="min-w-0 pr-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-white truncate">{item.name}</span>
+          {ctxBadge && (
+            <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
+              {ctxBadge}
+            </span>
+          )}
+        </div>
+        <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">{item.value}</div>
+        <div className="mt-1">
+          <CapacityBadges caps={item.caps} size="xs" />
         </div>
       </div>
 
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          type="button"
-          onClick={onMoveUp}
-          disabled={isFirst}
-          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
-          title="Move up"
-        >
-          <span className="material-symbols-outlined text-[15px]">arrow_upward</span>
-        </button>
-        <button
-          type="button"
-          onClick={onMoveDown}
-          disabled={isLast}
-          className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer"
-          title="Move down"
-        >
-          <span className="material-symbols-outlined text-[15px]">arrow_downward</span>
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer"
-          title="Remove"
-        >
-          <span className="material-symbols-outlined text-[15px]">close</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle(item);
+        }}
+        className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
+          isSelected
+            ? "bg-blue-600 border-blue-500 text-white"
+            : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
+        }`}
+      >
+        <span className="material-symbols-outlined text-[16px]">
+          {isSelected ? "check" : "add"}
+        </span>
+      </button>
     </div>
   );
-};
+});
+ModelOptionRow.displayName = "ModelOptionRow";
+
+interface ProviderGroup {
+  providerId: string;
+  providerName: string;
+  color?: string;
+  iconBg?: string;
+  image?: string;
+  models: ModelOption[];
+  selectedCount: number;
+}
+
+interface ProviderAccordionItemProps {
+  group: ProviderGroup;
+  isExpanded: boolean;
+  visibleModelCount: number;
+  selectedSet: Set<string>;
+  selectedModel?: string;
+  onToggleGroup: (pId: string) => void;
+  onToggleModel: (item: ModelOption) => void;
+  onShowMore: () => void;
+  onShowAll: () => void;
+}
+
+const ProviderAccordionItem = React.memo<ProviderAccordionItemProps>(
+  ({
+    group,
+    isExpanded,
+    visibleModelCount,
+    selectedSet,
+    selectedModel,
+    onToggleGroup,
+    onToggleModel,
+    onShowMore,
+    onShowAll,
+  }) => {
+    const displayedModels = isExpanded ? group.models.slice(0, visibleModelCount) : EMPTY_ARRAY;
+
+    return (
+      <div className="rounded-xl border border-[#1E293B] bg-[#0A0D14]/70 overflow-hidden transition-colors">
+        {/* Provider Header Accordion Trigger */}
+        <div
+          onClick={() => onToggleGroup(group.providerId)}
+          className={`flex items-center justify-between p-2.5 cursor-pointer select-none transition-colors ${
+            isExpanded
+              ? "bg-[#141B2D]/80 hover:bg-[#141B2D] border-b border-[#1E293B]"
+              : "hover:bg-white/[0.03]"
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <ToolIcon
+              src={group.image}
+              name={group.providerName}
+              color={group.color}
+              iconBg={group.iconBg}
+              size="sm"
+            />
+            <div className="min-w-0 flex items-center gap-2">
+              <span className="text-xs font-bold text-white truncate">{group.providerName}</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 shrink-0">
+                {group.models.length} model{group.models.length > 1 ? "s" : ""}
+              </span>
+              {group.selectedCount > 0 && (
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold shrink-0">
+                  {group.selectedCount} selected
+                </span>
+              )}
+            </div>
+          </div>
+
+          <span
+            className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform duration-200 shrink-0 ${
+              isExpanded ? "rotate-180 text-blue-400" : ""
+            }`}
+          >
+            expand_more
+          </span>
+        </div>
+
+        {/* Models in Provider - ONLY mounted when expanded */}
+        {isExpanded && (
+          <div className="p-2 space-y-1.5 bg-[#080B12]/60">
+            {displayedModels.map((item) => {
+              const isSelected = selectedSet.has(item.value) || selectedModel === item.value;
+              return (
+                <ModelOptionRow
+                  key={item.value}
+                  item={item}
+                  isSelected={isSelected}
+                  onToggle={onToggleModel}
+                />
+              );
+            })}
+
+            {group.models.length > visibleModelCount && (
+              <div className="pt-2 pb-1 text-center flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShowMore();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600/10 border border-blue-500/30 text-blue-400 hover:bg-blue-600/20 text-xs font-medium cursor-pointer transition-colors"
+                >
+                  Show 50 more ({group.models.length - visibleModelCount} remaining)
+                </button>
+                {group.models.length - visibleModelCount > 50 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowAll();
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#141B2D] border border-[#1E293B] text-slate-400 hover:text-white text-xs font-medium cursor-pointer transition-colors"
+                  >
+                    Show all ({group.models.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+);
+ProviderAccordionItem.displayName = "ProviderAccordionItem";
 
 export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   isOpen,
   onClose,
   title = "Select & Reorder Models",
-  initialSelectedModels = [],
+  initialSelectedModels = EMPTY_ARRAY,
   onConfirm,
   multiSelect = true,
   filterModality = null,
   onSelect,
   onDeselect,
   selectedModel,
-  activeProviders = [],
-  modelAliases = {},
+  activeProviders = EMPTY_ARRAY,
+  modelAliases = EMPTY_ALIASES,
   kindFilter = null,
   capFilter = null,
   addedModelValues,
   closeOnSelect = false,
-  excludeModelIds,
+  excludeModelIds = EMPTY_ARRAY,
   allowCombos = true,
 }) => {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+
   const [selectedProvider, setSelectedProvider] = useState<string>("all");
   const [activeModalityFilter, setActiveModalityFilter] = useState<string>(
     capFilter || filterModality || "all"
@@ -217,6 +428,8 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   const [combos, setCombos] = useState<ComboSummary[]>([]);
   const [availableModels, setAvailableModels] = useState<AvailableModelItem[]>([]);
   const [connectedOnly, setConnectedOnly] = useState<boolean>(true);
+  const [expandedProviderId, setExpandedProviderId] = useState<string | null>(null);
+  const [visibleModelCount, setVisibleModelCount] = useState<number>(DEFAULT_PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(
@@ -239,6 +452,8 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       setSelectedProvider("all");
       setActiveModalityFilter(capFilter || filterModality || "all");
       setCustomModelInput("");
+      setExpandedProviderId(null);
+      setVisibleModelCount(DEFAULT_PAGE_SIZE);
 
       const timer = setTimeout(() => {
         searchInputRef.current?.focus();
@@ -319,6 +534,8 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     return connectedProviderIds.size > 0;
   }, [connectedProviderIds]);
 
+  const selectedSet = useMemo(() => new Set(selectedModels), [selectedModels]);
+
   // Build model catalog prioritizing configured provider models from availableModels
   const allModels: ModelOption[] = useMemo(() => {
     const list: ModelOption[] = [];
@@ -333,23 +550,25 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       providersWithConfiguredModels.add(m.providerId);
 
       const caps = getCapabilitiesForModel(m.providerId, m.id);
-      list.push({
-        id: m.id,
-        value: m.value,
-        name: m.name || m.id,
-        providerId: m.providerId,
-        providerName: m.providerName || m.providerId,
-        caps: {
-          ...caps,
-          vision: Boolean(m.caps?.vision || caps.vision),
-          reasoning: Boolean(m.caps?.reasoning || caps.reasoning),
-          audioInput: Boolean(m.caps?.audio || caps.audioInput),
-          audioOutput: Boolean(m.caps?.audio || caps.audioOutput),
-        },
-        contextLength: m.contextLength || caps.contextWindow,
-        kind: "llm",
-        isCustom: false,
-      });
+      list.push(
+        createModelOption(
+          m.id,
+          m.value,
+          m.name || m.id,
+          m.providerId,
+          m.providerName || m.providerId,
+          {
+            ...caps,
+            vision: Boolean(m.caps?.vision || caps.vision),
+            reasoning: Boolean(m.caps?.reasoning || caps.reasoning),
+            audioInput: Boolean(m.caps?.audio || caps.audioInput),
+            audioOutput: Boolean(m.caps?.audio || caps.audioOutput),
+          },
+          m.contextLength || caps.contextWindow,
+          "llm",
+          false
+        )
+      );
     }
 
     // 2. Fall back to static PROVIDER_REGISTRY presets for models not already in availableModels
@@ -378,17 +597,19 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         seen.add(val);
 
         const caps = getCapabilitiesForModel(providerId, m.id);
-        list.push({
-          id: m.id,
-          value: val,
-          name: m.name || m.id,
-          providerId,
-          providerName: provider.name || providerId,
-          caps,
-          contextLength: m.contextLength,
-          kind: m.kind || "llm",
-          isCustom: false,
-        });
+        list.push(
+          createModelOption(
+            m.id,
+            val,
+            m.name || m.id,
+            providerId,
+            provider.name || providerId,
+            caps,
+            m.contextLength,
+            m.kind || "llm",
+            false
+          )
+        );
       }
     }
 
@@ -401,15 +622,19 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         const modelId = slash === -1 ? fullVal : fullVal.slice(slash + 1);
         const reg = PROVIDER_REGISTRY[providerId];
         const caps = getCapabilitiesForModel(providerId, modelId);
-        list.push({
-          id: modelId,
-          value: fullVal,
-          name: aliasKey,
-          providerId,
-          providerName: reg?.name || providerId,
-          caps,
-          isCustom: true,
-        });
+        list.push(
+          createModelOption(
+            modelId,
+            fullVal,
+            aliasKey,
+            providerId,
+            reg?.name || providerId,
+            caps,
+            undefined,
+            "llm",
+            true
+          )
+        );
       }
     }
 
@@ -419,6 +644,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   const excludeSet = useMemo(() => {
     return new Set((excludeModelIds || []).map((x) => x.toLowerCase()));
   }, [excludeModelIds]);
+
+  const searchTokens = useMemo(() => {
+    return deferredSearchQuery.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  }, [deferredSearchQuery]);
 
   // Distinct providers list
   const providerOptions = useMemo(() => {
@@ -434,9 +663,10 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       }
     }
 
+    const collator = new Intl.Collator(undefined, { sensitivity: "base" });
     const sortedProviders = Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+      .sort((a, b) => collator.compare(a.name, b.name));
 
     if (hasCombos) {
       return [{ id: "combo", name: "Combos" }, ...sortedProviders];
@@ -448,7 +678,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
   const filteredCombos = useMemo(() => {
     if (allowCombos === false) return [];
     if (activeModalityFilter !== "all" || kindFilter) return [];
-    const q = searchQuery.trim().toLowerCase();
+    const q = deferredSearchQuery.trim().toLowerCase();
     const pool = combos.filter(
       (c) =>
         !excludeSet.has(c.id.toLowerCase()) &&
@@ -463,7 +693,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       const fullSearch = `${c.name} ${c.id} ${c.strategy || ""} ${c.models.join(" ")}`;
       return matchesModelQuery(fullSearch, q);
     });
-  }, [combos, searchQuery, activeModalityFilter, kindFilter, allowCombos, excludeSet]);
+  }, [combos, deferredSearchQuery, activeModalityFilter, kindFilter, allowCombos, excludeSet]);
 
   // Filtered available models
   const filteredModels = useMemo(() => {
@@ -510,10 +740,12 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       )
         return false;
 
-      // Search query with flexible token-based matching
-      if (searchQuery.trim()) {
-        const fullSearchString = `${item.name} ${item.id} ${item.value} ${item.providerName} ${item.providerId}`;
-        if (!matchesModelQuery(fullSearchString, searchQuery)) return false;
+      // Fast token-based search query matching against pre-computed search targets
+      if (searchTokens.length > 0) {
+        const matchesAll = searchTokens.every(
+          (tok) => item.searchTarget.includes(tok) || item.normalizedSearchTarget.includes(tok)
+        );
+        if (!matchesAll) return false;
       }
 
       return true;
@@ -523,24 +755,12 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     selectedProvider,
     activeModalityFilter,
     kindFilter,
-    searchQuery,
+    searchTokens,
     connectedOnly,
     hasConnectedAccounts,
     connectedProviderIds,
     excludeSet,
   ]);
-
-  interface ProviderGroup {
-    providerId: string;
-    providerName: string;
-    color?: string;
-    iconBg?: string;
-    image?: string;
-    models: ModelOption[];
-    selectedCount: number;
-  }
-
-  const [expandedProviders, setExpandedProviders] = useState<Set<string>>(new Set());
 
   // Group filtered models by provider
   const providerGroups = useMemo(() => {
@@ -563,16 +783,18 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         map.set(pId, group);
       }
       group.models.push(m);
-      if (selectedModels.includes(m.value) || selectedModel === m.value) {
+      if (selectedSet.has(m.value) || selectedModel === m.value) {
         group.selectedCount++;
       }
     }
+
+    const collator = new Intl.Collator(undefined, { sensitivity: "base" });
 
     // Sort models inside each provider alphabetically by name / id
     const groupsWithSortedModels = Array.from(map.values()).map((group) => ({
       ...group,
       models: [...group.models].sort((a, b) =>
-        (a.name || a.id).localeCompare(b.name || b.id, undefined, { sensitivity: "base" })
+        collator.compare(a.name || a.id, b.name || b.id)
       ),
     }));
 
@@ -583,141 +805,151 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
       const aConn = connectedProviderIds.has(a.providerId) ? 1 : 0;
       const bConn = connectedProviderIds.has(b.providerId) ? 1 : 0;
       if (aConn !== bConn) return bConn - aConn;
-      return a.providerName.localeCompare(b.providerName, undefined, { sensitivity: "base" });
+      return collator.compare(a.providerName, b.providerName);
     });
-  }, [filteredModels, selectedModels, selectedModel, connectedProviderIds]);
+  }, [filteredModels, selectedSet, selectedModel, connectedProviderIds]);
 
-  // Manage accordion expansion behavior
+  // Manage exclusive accordion behavior (opening one collapses others)
   useEffect(() => {
-    if (searchQuery.trim()) {
-      // Auto-expand all matching providers when searching
-      setExpandedProviders(new Set(providerGroups.map((g) => g.providerId)));
+    if (deferredSearchQuery.trim()) {
+      // Auto-expand only the first matching provider if the current one is no longer in filtered groups
+      setExpandedProviderId((prev) => {
+        if (prev && providerGroups.some((g) => g.providerId === prev)) {
+          return prev;
+        }
+        return providerGroups[0]?.providerId || null;
+      });
+      setVisibleModelCount(DEFAULT_PAGE_SIZE);
     } else if (selectedProvider !== "all") {
-      // Auto-expand specific selected provider
-      setExpandedProviders(new Set([selectedProvider]));
+      setExpandedProviderId(selectedProvider);
+      setVisibleModelCount(DEFAULT_PAGE_SIZE);
     }
-  }, [searchQuery, selectedProvider, providerGroups]);
+  }, [deferredSearchQuery, selectedProvider, providerGroups]);
 
   // Initial expansion when modal opens
   useEffect(() => {
-    if (isOpen && !searchQuery.trim() && selectedProvider === "all" && providerGroups.length > 0) {
-      setExpandedProviders((prev) => {
-        if (prev.size > 0) return prev;
-        const initial = new Set<string>();
-        const withSelected = providerGroups.filter((g) => g.selectedCount > 0);
-        if (withSelected.length > 0) {
-          withSelected.forEach((g) => initial.add(g.providerId));
-        } else if (providerGroups[0]) {
-          initial.add(providerGroups[0].providerId);
-        }
-        return initial;
+    if (isOpen && !deferredSearchQuery.trim() && selectedProvider === "all" && providerGroups.length > 0) {
+      setExpandedProviderId((prev) => {
+        if (prev && providerGroups.some((g) => g.providerId === prev)) return prev;
+        const withSelected = providerGroups.find((g) => g.selectedCount > 0);
+        return withSelected ? withSelected.providerId : providerGroups[0]?.providerId || null;
       });
+      setVisibleModelCount(DEFAULT_PAGE_SIZE);
     }
-  }, [isOpen, providerGroups, searchQuery, selectedProvider]);
+  }, [isOpen, providerGroups, deferredSearchQuery, selectedProvider]);
 
-  const toggleProviderGroup = (pId: string) => {
-    setExpandedProviders((prev) => {
-      const next = new Set(prev);
-      if (next.has(pId)) {
-        next.delete(pId);
+  const toggleProviderGroup = useCallback((pId: string) => {
+    setExpandedProviderId((prev) => (prev === pId ? null : pId));
+    setVisibleModelCount(DEFAULT_PAGE_SIZE);
+  }, []);
+
+  const handleCollapseCurrent = useCallback(() => {
+    setExpandedProviderId(null);
+  }, []);
+
+  const handleShowMoreModels = useCallback(() => {
+    setVisibleModelCount((prev) => prev + DEFAULT_PAGE_SIZE);
+  }, []);
+
+  const handleToggleModel = useCallback(
+    (item: ModelOption) => {
+      const val = item.value;
+      const isCurrentlySelected = selectedSet.has(val);
+
+      if (isCurrentlySelected) {
+        if (onDeselect) {
+          onDeselect(item);
+        }
+        setSelectedModels((prev) => prev.filter((m) => m !== val));
       } else {
-        next.add(pId);
+        if (onSelect) {
+          onSelect(item);
+        }
+        if (!multiSelect) {
+          setSelectedModels([val]);
+        } else {
+          setSelectedModels((prev) => [...prev, val]);
+        }
       }
+
+      if (closeOnSelect) {
+        onClose();
+      }
+    },
+    [selectedSet, onDeselect, onSelect, multiSelect, closeOnSelect, onClose]
+  );
+
+  const handleToggleCombo = useCallback(
+    (combo: ComboSummary) => {
+      const val = combo.name;
+      const isCurrentlySelected = selectedSet.has(val);
+
+      const comboCaps = aggregateComboCapabilities(combo.models);
+      const comboOption: ModelOption = createModelOption(
+        combo.name,
+        combo.name,
+        combo.name,
+        "combo",
+        "Combos",
+        comboCaps || getCapabilitiesForModel(null, combo.name),
+        undefined,
+        "combo",
+        false
+      );
+
+      if (isCurrentlySelected) {
+        if (onDeselect) onDeselect(comboOption);
+        setSelectedModels((prev) => prev.filter((m) => m !== val));
+      } else {
+        if (onSelect) onSelect(comboOption);
+        if (!multiSelect) {
+          setSelectedModels([val]);
+        } else {
+          setSelectedModels((prev) => [...prev, val]);
+        }
+      }
+
+      if (closeOnSelect) {
+        onClose();
+      }
+    },
+    [selectedSet, onDeselect, onSelect, multiSelect, closeOnSelect, onClose]
+  );
+
+  const handleRemoveModel = useCallback(
+    (val: string) => {
+      setSelectedModels((prev) => prev.filter((m) => m !== val));
+      const opt = allModels.find((m) => m.value === val);
+      if (opt && onDeselect) {
+        onDeselect(opt);
+      }
+    },
+    [allModels, onDeselect]
+  );
+
+  const handleMoveUp = useCallback((index: number) => {
+    if (index === 0) return;
+    setSelectedModels((prev) => {
+      const next = [...prev];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
       return next;
     });
-  };
+  }, []);
 
-  const handleExpandAll = () => {
-    setExpandedProviders(new Set(providerGroups.map((g) => g.providerId)));
-  };
+  const handleMoveDown = useCallback((index: number) => {
+    setSelectedModels((prev) => {
+      if (index === prev.length - 1) return prev;
+      const next = [...prev];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  }, []);
 
-  const handleCollapseAll = () => {
-    setExpandedProviders(new Set());
-  };
-
-  const handleToggleModel = (item: ModelOption) => {
-    const val = item.value;
-    const isCurrentlySelected = selectedModels.includes(val);
-
-    if (isCurrentlySelected) {
-      if (onDeselect) {
-        onDeselect(item);
-      }
-      setSelectedModels((prev) => prev.filter((m) => m !== val));
-    } else {
-      if (onSelect) {
-        onSelect(item);
-      }
-      if (!multiSelect) {
-        setSelectedModels([val]);
-      } else {
-        setSelectedModels((prev) => [...prev, val]);
-      }
-    }
-
-    if (closeOnSelect) {
-      onClose();
-    }
-  };
-
-  const handleToggleCombo = (combo: ComboSummary) => {
-    const val = combo.name;
-    const isCurrentlySelected = selectedModels.includes(val);
-
-    const comboCaps = aggregateComboCapabilities(combo.models);
-    const comboOption: ModelOption = {
-      id: combo.name,
-      value: combo.name,
-      name: combo.name,
-      providerId: "combo",
-      providerName: "Combos",
-      caps: comboCaps || getCapabilitiesForModel(null, combo.name),
-    };
-
-    if (isCurrentlySelected) {
-      if (onDeselect) onDeselect(comboOption);
-      setSelectedModels((prev) => prev.filter((m) => m !== val));
-    } else {
-      if (onSelect) onSelect(comboOption);
-      if (!multiSelect) {
-        setSelectedModels([val]);
-      } else {
-        setSelectedModels((prev) => [...prev, val]);
-      }
-    }
-
-    if (closeOnSelect) {
-      onClose();
-    }
-  };
-
-  const handleRemoveModel = (val: string) => {
-    setSelectedModels((prev) => prev.filter((m) => m !== val));
-    const opt = allModels.find((m) => m.value === val);
-    if (opt && onDeselect) {
-      onDeselect(opt);
-    }
-  };
-
-  const handleMoveUp = (index: number) => {
-    if (index === 0) return;
-    const next = [...selectedModels];
-    const temp = next[index - 1];
-    next[index - 1] = next[index];
-    next[index] = temp;
-    setSelectedModels(next);
-  };
-
-  const handleMoveDown = (index: number) => {
-    if (index === selectedModels.length - 1) return;
-    const next = [...selectedModels];
-    const temp = next[index + 1];
-    next[index + 1] = next[index];
-    next[index] = temp;
-    setSelectedModels(next);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
       setSelectedModels((items) => {
@@ -729,13 +961,13 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
         return items;
       });
     }
-  };
+  }, []);
 
   const handleAddCustomModel = (e: React.FormEvent) => {
     e.preventDefault();
     const val = customModelInput.trim();
     if (!val) return;
-    if (!selectedModels.includes(val)) {
+    if (!selectedSet.has(val)) {
       if (!multiSelect) {
         setSelectedModels([val]);
       } else {
@@ -925,7 +1157,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {filteredCombos.map((combo) => {
-                    const isSelected = selectedModels.includes(combo.name);
+                    const isSelected = selectedSet.has(combo.name);
                     return (
                       <button
                         key={combo.id}
@@ -966,7 +1198,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
                 ) : (
                   <div className="space-y-2">
                     {filteredCombos.map((combo) => {
-                      const isSelected = selectedModels.includes(combo.name);
+                      const isSelected = selectedSet.has(combo.name);
                       const comboCaps = aggregateComboCapabilities(combo.models);
 
                       return (
@@ -1076,140 +1308,43 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
               </div>
             ) : (
               <div className="flex-1 min-h-0 flex flex-col space-y-2">
-                {/* Header with counts and Expand/Collapse All */}
+                {/* Header with counts and Collapse button */}
                 <div className="flex items-center justify-between text-xs text-slate-400 px-1 shrink-0">
                   <span className="font-medium text-slate-300">
-                    {providerGroups.length} provider{providerGroups.length > 1 ? "s" : ""} • {filteredModels.length} models
+                    {providerGroups.length} provider{providerGroups.length > 1 ? "s" : ""} •{" "}
+                    {filteredModels.length} models
                   </span>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleExpandAll}
-                      className="text-[11px] text-blue-400 hover:text-blue-300 font-medium cursor-pointer hover:underline"
-                    >
-                      Expand All
-                    </button>
-                    <span className="text-slate-600">•</span>
-                    <button
-                      type="button"
-                      onClick={handleCollapseAll}
-                      className="text-[11px] text-slate-400 hover:text-slate-300 font-medium cursor-pointer hover:underline"
-                    >
-                      Collapse All
-                    </button>
+                    {expandedProviderId && (
+                      <button
+                        type="button"
+                        onClick={handleCollapseCurrent}
+                        className="text-[11px] text-slate-400 hover:text-slate-300 font-medium cursor-pointer hover:underline"
+                      >
+                        Collapse
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 {/* Scrollable Provider Groups List */}
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
                   {providerGroups.map((group) => {
-                    const isExpanded = expandedProviders.has(group.providerId);
+                    const isExpanded = expandedProviderId === group.providerId;
 
                     return (
-                      <div
+                      <ProviderAccordionItem
                         key={group.providerId}
-                        className="rounded-xl border border-[#1E293B] bg-[#0A0D14]/70 overflow-hidden transition-colors"
-                      >
-                        {/* Provider Header Accordion Trigger */}
-                        <div
-                          onClick={() => toggleProviderGroup(group.providerId)}
-                          className={`flex items-center justify-between p-2.5 cursor-pointer select-none transition-colors ${
-                            isExpanded
-                              ? "bg-[#141B2D]/80 hover:bg-[#141B2D] border-b border-[#1E293B]"
-                              : "hover:bg-white/[0.03]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <ToolIcon
-                              src={group.image}
-                              name={group.providerName}
-                              color={group.color}
-                              iconBg={group.iconBg}
-                              size="sm"
-                            />
-                            <div className="min-w-0 flex items-center gap-2">
-                              <span className="text-xs font-bold text-white truncate">
-                                {group.providerName}
-                              </span>
-                              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800/80 text-slate-400 border border-slate-700/60 shrink-0">
-                                {group.models.length} model{group.models.length > 1 ? "s" : ""}
-                              </span>
-                              {group.selectedCount > 0 && (
-                                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/40 font-semibold shrink-0">
-                                  {group.selectedCount} selected
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <span
-                            className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform duration-200 shrink-0 ${
-                              isExpanded ? "rotate-180 text-blue-400" : ""
-                            }`}
-                          >
-                            expand_more
-                          </span>
-                        </div>
-
-                        {/* Models in Provider */}
-                        {isExpanded && (
-                          <div className="p-2 space-y-1.5 bg-[#080B12]/60">
-                            {group.models.map((item) => {
-                              const isSelected =
-                                selectedModels.includes(item.value) || selectedModel === item.value;
-                              const ctxBadge = formatContextLength(item.contextLength);
-
-                              return (
-                                <div
-                                  key={item.value}
-                                  onClick={() => handleToggleModel(item)}
-                                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-colors cursor-pointer ${
-                                    isSelected
-                                      ? "bg-blue-600/10 border-blue-500/40 text-white"
-                                      : "bg-[#0A0D14] border-[#1E293B] hover:border-slate-700 text-slate-300"
-                                  }`}
-                                >
-                                  <div className="min-w-0 pr-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-semibold text-white truncate">
-                                        {item.name}
-                                      </span>
-                                      {ctxBadge && (
-                                        <span className="text-[9.5px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60 leading-tight">
-                                          {ctxBadge}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="font-mono text-[11px] text-slate-400 truncate mt-0.5">
-                                      {item.value}
-                                    </div>
-                                    <div className="mt-1">
-                                      <CapacityBadges caps={item.caps} size="xs" />
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleToggleModel(item);
-                                    }}
-                                    className={`size-7 rounded-lg flex items-center justify-center shrink-0 border transition-colors ${
-                                      isSelected
-                                        ? "bg-blue-600 border-blue-500 text-white"
-                                        : "bg-[#141B2D] border-[#1E293B] text-slate-400 hover:text-white hover:border-slate-600"
-                                    }`}
-                                  >
-                                    <span className="material-symbols-outlined text-[16px]">
-                                      {isSelected ? "check" : "add"}
-                                    </span>
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                        group={group}
+                        isExpanded={isExpanded}
+                        visibleModelCount={visibleModelCount}
+                        selectedSet={selectedSet}
+                        selectedModel={selectedModel}
+                        onToggleGroup={toggleProviderGroup}
+                        onToggleModel={handleToggleModel}
+                        onShowMore={handleShowMoreModels}
+                        onShowAll={() => setVisibleModelCount(group.models.length)}
+                      />
                     );
                   })}
                 </div>

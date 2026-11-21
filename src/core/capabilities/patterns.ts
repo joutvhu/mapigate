@@ -11,16 +11,29 @@ export function looksLikeVisionModel(modelId?: string | null): boolean {
   return VISION_NAME.test(id);
 }
 
+const PATTERN_REGEX_CACHE = new Map<string, RegExp>();
+
+/**
+ * Get or compile a RegExp for a glob pattern (* = wildcard).
+ */
+export function getPatternRegex(pattern: string): RegExp {
+  let regex = PATTERN_REGEX_CACHE.get(pattern);
+  if (!regex) {
+    regex = new RegExp(
+      "^" + pattern.split("*").map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$",
+      "i"
+    );
+    PATTERN_REGEX_CACHE.set(pattern, regex);
+  }
+  return regex;
+}
+
 /**
  * Glob pattern match (* = wildcard), case-insensitive and anchored.
  */
 export function matchPattern(pattern: string, model: string): boolean {
   if (!pattern || !model) return false;
-  const regex = new RegExp(
-    "^" + pattern.split("*").map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join(".*") + "$",
-    "i"
-  );
-  return regex.test(model);
+  return getPatternRegex(pattern).test(model);
 }
 
 /**
