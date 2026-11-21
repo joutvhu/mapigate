@@ -38,7 +38,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, onUpg
   const mainNav = [
     { id: "endpoint" as NavTab, label: "Endpoint & Key", icon: "api" },
     { id: "providers" as NavTab, label: "Providers", icon: "dns" },
-    { id: "combos" as NavTab, label: "Combo & Vision Adapter", icon: "layers" },
+    { id: "combos" as NavTab, label: "Combo & Adapter", icon: "layers" },
     { id: "usage" as NavTab, label: "Usage & Analytics", icon: "bar_chart" },
     { id: "quota" as NavTab, label: "Quota Tracker", icon: "data_usage" },
     { id: "tokensaver" as NavTab, label: "Token Saver", icon: "savings" },
