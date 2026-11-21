@@ -52,12 +52,16 @@ export function checkProviderReadiness(
   isNoAuth: boolean;
 } {
   const reg = PROVIDER_REGISTRY[providerId] || getRegistryProvider(providerId);
+  const dbProv = ProviderRepository.getProviderById(providerId);
   const isNoAuth = Boolean(
     reg?.noAuth ||
       reg?.requiresApiKey === false ||
       reg?.authType === "none" ||
-      providerId === "opencode" ||
-      providerId === "oc"
+      reg?.isLocal ||
+      dbProv?.noAuth ||
+      (dbProv as any)?.requiresApiKey === false ||
+      (dbProv as any)?.authType === "none" ||
+      (dbProv as any)?.isLocal
   );
 
   const candidates = new Set<string>([providerId]);

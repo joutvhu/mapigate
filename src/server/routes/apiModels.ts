@@ -108,8 +108,7 @@ modelRouter.get("/available", (req, res) => {
         reg?.noAuth ||
         reg?.requiresApiKey === false ||
         reg?.authType === "none" ||
-        pId === "opencode" ||
-        pId === "oc"
+        reg?.isLocal
       ) {
         return Math.max(1, count);
       }
@@ -498,6 +497,12 @@ export function handleOpenAiModelsList(_req: any, res: any) {
 
     const exposureMode = SettingsRepository.getModelExposureMode();
 
+    const accounts = ProviderRepository.getAllAccounts();
+    const dbProviders = ProviderRepository.getAllProviders();
+    const dbProviderMap = new Map<string, (typeof dbProviders)[0]>(
+      dbProviders.map((p) => [p.id, p])
+    );
+
     const allCombos = ComboRepository.getAllCombos();
     for (const c of allCombos) {
       if (!c.isActive) continue;
@@ -511,12 +516,16 @@ export function handleOpenAiModelsList(_req: any, res: any) {
           const cleanPId = tagMatch ? tagMatch[1] : pId;
           const requiredTag = tagMatch ? tagMatch[2].toLowerCase() : undefined;
           const reg = PROVIDER_REGISTRY[cleanPId] || getRegistryProvider(cleanPId);
+          const dbProv = dbProviderMap.get(cleanPId);
           const isNoAuth = Boolean(
             reg?.noAuth ||
               reg?.requiresApiKey === false ||
               reg?.authType === "none" ||
-              cleanPId === "opencode" ||
-              cleanPId === "oc"
+              reg?.isLocal ||
+              dbProv?.noAuth ||
+              (dbProv as any)?.requiresApiKey === false ||
+              (dbProv as any)?.authType === "none" ||
+              (dbProv as any)?.isLocal
           );
           if (isNoAuth) {
             comboHasConnected = true;
@@ -576,12 +585,6 @@ export function handleOpenAiModelsList(_req: any, res: any) {
         data: list,
       });
     }
-
-    const accounts = ProviderRepository.getAllAccounts();
-    const dbProviders = ProviderRepository.getAllProviders();
-    const dbProviderMap = new Map<string, (typeof dbProviders)[0]>(
-      dbProviders.map((p) => [p.id, p])
-    );
 
     const providerAccountIdsMap = new Map<string, string[]>();
     for (const acc of accounts) {
@@ -662,8 +665,11 @@ export function handleOpenAiModelsList(_req: any, res: any) {
           reg?.noAuth ||
             reg?.requiresApiKey === false ||
             reg?.authType === "none" ||
-            p.id === "opencode" ||
-            p.id === "oc"
+            reg?.isLocal ||
+            p?.noAuth ||
+            (p as any)?.requiresApiKey === false ||
+            (p as any)?.authType === "none" ||
+            (p as any)?.isLocal
         );
         const candidates = new Set<string>([p.id]);
         if (reg?.alias) candidates.add(reg.alias);
