@@ -52,6 +52,11 @@ test("FreeTier - Provider metadata schema extension is populated correctly", () 
   const coarena = getRegistryProvider("coarena");
   assert.ok(coarena?.freeTier, "coarena must have freeTier");
   assert.equal(coarena.freeTier.limitType, "credits");
+  assert.equal(coarena.freeTier.scope, "models");
+  assert.deepEqual(
+    coarena.freeTier.models?.map((m) => m.id),
+    ["gpt-6-luna", "gemini-3-8-flash", "deepseek-v4-1-flash-1017"]
+  );
 
   const itera = getRegistryProvider("iteracompute");
   assert.ok(itera?.freeTier, "iteracompute must have freeTier");

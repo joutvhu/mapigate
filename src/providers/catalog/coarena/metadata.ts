@@ -32,9 +32,14 @@ export const metadata: ProviderRegistryItem = {
   },
   thinkingMode: "auto",
   freeTier: {
-    scope: "all",
+    scope: "models",
     limitType: "credits",
-    note: "Free daily $5 allowance on arena models",
+    note: "Free daily $5 allowance on 3 arena models",
+    models: [
+      { id: "gpt-6-luna", limit: "Free daily $5 allowance" },
+      { id: "gemini-3-8-flash", limit: "Free daily $5 allowance" },
+      { id: "deepseek-v4-1-flash-1017", limit: "Free daily $5 allowance" },
+    ],
   },
   models: [
     {
