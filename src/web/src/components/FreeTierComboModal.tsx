@@ -141,7 +141,7 @@ export const FreeTierComboModal: React.FC<FreeTierComboModalProps> = ({
   };
 
   return (
-    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-4xl" className="max-h-[90vh] flex flex-col">
+    <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="max-w-5xl" className="max-h-[90vh] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-[#1E293B] shrink-0">
         <div className="flex items-center gap-2.5">

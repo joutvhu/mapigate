@@ -416,7 +416,7 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
 
   return (
     <>
-      <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-2xl">
+      <PortalModal isOpen={isOpen} onClose={onClose} maxWidthClass="w-full max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-5 -m-2 sm:-m-4 p-5 sm:p-6">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
