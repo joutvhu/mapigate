@@ -134,6 +134,7 @@ export const MitmTab: React.FC = () => {
   });
   const [sortColumnByTool, setSortColumnByTool] = useState<Record<string, "source" | "target">>({});
   const [sortOrderByTool, setSortOrderByTool] = useState<Record<string, "asc" | "desc">>({});
+  const [mappingSearchByTool, setMappingSearchByTool] = useState<Record<string, string>>({});
 
   // Editing mapping
   const [editingTool, setEditingTool] = useState<string | null>(null);
@@ -1059,6 +1060,21 @@ export const MitmTab: React.FC = () => {
           const sortBy = sortColumnByTool[tool.id] || "source";
           const sortOrder = sortOrderByTool[tool.id] || "asc";
           const toolMappings = sortMitmMappings(mappingsByTool[tool.id] || [], sortBy, sortOrder);
+          const toolSearch = (mappingSearchByTool[tool.id] || "").trim().toLowerCase();
+          const filteredToolMappings = toolSearch
+            ? toolMappings.filter((m) => {
+                const src = m.sourceModel.toLowerCase();
+                const tgt = (m.targetModel || "").toLowerCase();
+                const srcDisp = (resolveModelDisplayName(m.sourceModel) || "").toLowerCase();
+                const tgtDisp = (resolveModelDisplayName(m.targetModel) || "").toLowerCase();
+                return (
+                  src.includes(toolSearch) ||
+                  tgt.includes(toolSearch) ||
+                  srcDisp.includes(toolSearch) ||
+                  tgtDisp.includes(toolSearch)
+                );
+              })
+            : toolMappings;
           const savedMsg = hostsSavedMsgByTool[tool.id];
 
           const toggleSort = (col: "source" | "target") => {
@@ -1247,203 +1263,297 @@ export const MitmTab: React.FC = () => {
                   )}
 
                   {/* Block 2: Model Redirection Mappings */}
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div>
-                        <span className="font-bold text-slate-200 block text-xs">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                          <span className="material-symbols-outlined text-blue-400 text-[20px]">alt_route</span>
                           Model Redirection Mappings ({tool.name})
-                        </span>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
                           Map requested models to your chosen Mapigate providers and upstream model IDs (slashes / supported).
                         </p>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleResetToolMappings(tool.id)}
-                          className="rt-btn rt-btn--secondary text-xs py-1.5 px-3"
+                          className="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-[#1E293B] hover:border-slate-600 text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
                           title="Reset to default mappings"
                         >
-                          <span className="material-symbols-outlined text-[14px]">restart_alt</span>
+                          <span className="material-symbols-outlined text-[15px] text-slate-400">restart_alt</span>
                           Reset to Default
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
                             setModalTool(tool.id);
                             setNewSourceModel("");
                             setNewTargetModel("");
                           }}
-                          className="rt-btn rt-btn--primary text-xs py-1.5 px-3"
+                          className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/30 text-white flex items-center gap-1.5 transition-all cursor-pointer"
                         >
-                          <span className="material-symbols-outlined text-[14px]">add</span>
+                          <span className="material-symbols-outlined text-[16px]">add_circle</span>
                           Add Mapping
                         </button>
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-[#1E293B] overflow-visible bg-[#0A0D14]">
-                      {toolMappings.length === 0 ? (
-                        <div className="p-4 text-xs text-slate-500 italic text-center">
-                          No model mappings configured for {tool.name}. Click 'Add Mapping' or 'Reset to Default'.
+                    {/* Search & Filter Bar */}
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex-1">
+                        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-[18px]">
+                          search
+                        </span>
+                        <input
+                          type="text"
+                          value={mappingSearchByTool[tool.id] || ""}
+                          onChange={(e) =>
+                            setMappingSearchByTool((prev) => ({ ...prev, [tool.id]: e.target.value }))
+                          }
+                          placeholder="Search model alias or destination..."
+                          className="w-full bg-[#0F1420]/80 border border-[#1E293B] focus:border-blue-500 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-200 focus:outline-none"
+                        />
+                      </div>
+                      {(mappingSearchByTool[tool.id] || "") && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMappingSearchByTool((prev) => ({ ...prev, [tool.id]: "" }))
+                          }
+                          className="text-xs text-slate-400 hover:text-white cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-[#1E293B] overflow-hidden bg-[#0F1420]/80">
+                      {filteredToolMappings.length === 0 ? (
+                        <div className="py-14 text-center text-xs text-slate-400 space-y-2">
+                          <span className="material-symbols-outlined text-3xl text-slate-600 block">
+                            alt_route
+                          </span>
+                          <p className="font-semibold text-slate-300">
+                            {mappingSearchByTool[tool.id]
+                              ? `No mappings match "${mappingSearchByTool[tool.id]}"`
+                              : `No model mappings configured for ${tool.name}`}
+                          </p>
+                          <p className="text-slate-500 max-w-md mx-auto text-[11.5px] leading-relaxed">
+                            Click <strong className="text-blue-400">&ldquo;+ Add Mapping&rdquo;</strong> to add a custom mapping or{" "}
+                            <strong className="text-slate-300">&ldquo;Reset to Default&rdquo;</strong> to restore defaults.
+                          </p>
                         </div>
                       ) : (
-                        <table className="w-full text-left text-xs font-mono">
-                          <thead className="bg-[#0D121F] text-slate-400 font-sans text-[11px] uppercase tracking-wider border-b border-[#1E293B]">
-                            <tr>
-                              <th
-                                onClick={() => toggleSort("source")}
-                                className="p-3 font-semibold cursor-pointer hover:text-white select-none transition-colors"
-                                title="Click to sort by Source Model"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <span>Source Model (IDE)</span>
-                                  <span className="material-symbols-outlined text-[14px] text-blue-400">
-                                    {sortBy === "source" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
-                                  </span>
-                                </div>
-                              </th>
-                              <th
-                                onClick={() => toggleSort("target")}
-                                className="p-3 font-semibold cursor-pointer hover:text-white select-none transition-colors"
-                                title="Click to sort by Target Model"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <span>Target Model (Mapigate)</span>
-                                  <span className="material-symbols-outlined text-[14px] text-blue-400">
-                                    {sortBy === "target" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
-                                  </span>
-                                </div>
-                              </th>
-                              <th className="p-3 font-semibold text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#1E293B]">
-                            {toolMappings.map((m, idx) => {
-                              const isEditing = editingTool === tool.id && editingSource === m.sourceModel;
-                              const sourceDisplayName = resolveModelDisplayName(m.sourceModel);
-                              const isSourceDifferent = Boolean(
-                                sourceDisplayName &&
-                                sourceDisplayName !== m.sourceModel
-                              );
-                              const targetDisplayName = m.targetModel
-                                ? resolveModelDisplayName(m.targetModel)
-                                : "";
-                              const isCombo = Boolean(
-                                m.targetModel &&
-                                (m.targetModel.startsWith("combo/") || comboNames.has(m.targetModel.toLowerCase()))
-                              );
-                              const effectiveTargetModel = isCombo && !m.targetModel.startsWith("combo/")
-                                ? `combo/${m.targetModel}`
-                                : m.targetModel;
-                              const isTargetDifferent = Boolean(
-                                effectiveTargetModel &&
-                                targetDisplayName &&
-                                targetDisplayName !== effectiveTargetModel
-                              );
-
-                              return (
-                                <tr
-                                  key={idx}
-                                  className={`transition-colors ${isEditing ? "bg-blue-500/10" : "hover:bg-white/5"}`}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="border-b border-[#1E293B] bg-[#0A0D14] text-slate-400 font-semibold">
+                                <th
+                                  onClick={() => toggleSort("source")}
+                                  className="p-3 pl-4 cursor-pointer hover:text-white select-none transition-colors"
+                                  title="Click to sort by Source Model"
                                 >
-                                  <td className="p-3">
-                                    <div className="flex flex-col gap-0.5">
-                                      <span className="text-slate-100 font-sans font-semibold text-xs leading-snug">
-                                        {sourceDisplayName || m.sourceModel}
-                                      </span>
-                                      {isSourceDifferent && (
-                                        <span className="text-[10.5px] font-mono text-slate-400">
-                                          {m.sourceModel}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="p-3 text-blue-400">
-                                    {isEditing ? (
-                                      <div className="flex items-center gap-1.5 w-full max-w-sm">
-                                        <span className="text-blue-400 font-mono">→</span>
-                                        <ModelAutocompleteInput
-                                          value={targetInput}
-                                          onChange={setTargetInput}
-                                          onEnter={() => handleUpdateMapping(tool.id)}
-                                          placeholder="Search model or type ID..."
-                                          fetchCustomModels={isTargetRemote && remoteModels.length > 0 ? () => Promise.resolve(remoteModels) : undefined}
-                                          className="bg-[#080B11] border border-blue-500/60 focus:border-blue-400 rounded-lg px-2.5 py-1 text-xs text-white font-mono w-full focus:outline-none"
-                                          autoFocus
-                                        />
-                                      </div>
-                                    ) : m.targetModel ? (
-                                      <div className="flex flex-col gap-0.5">
-                                        <div className="inline-flex items-center gap-1.5 flex-wrap">
-                                          <span className="text-slate-500 font-mono">→</span>
-                                          {isCombo && (
-                                            <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 text-[9.5px] font-mono text-cyan-300 font-semibold tracking-wide">
-                                              COMBO
+                                  <div className="flex items-center gap-1.5">
+                                    <span>Source Model (IDE)</span>
+                                    <span className="material-symbols-outlined text-[14px] text-blue-400">
+                                      {sortBy === "source" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                                    </span>
+                                  </div>
+                                </th>
+                                <th
+                                  onClick={() => toggleSort("target")}
+                                  className="p-3 cursor-pointer hover:text-white select-none transition-colors"
+                                  title="Click to sort by Target Destination"
+                                >
+                                  <div className="flex items-center gap-1.5">
+                                    <span>Target Destination (Model or Combo)</span>
+                                    <span className="material-symbols-outlined text-[14px] text-blue-400">
+                                      {sortBy === "target" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                                    </span>
+                                  </div>
+                                </th>
+                                <th className="p-3 pr-4 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#1E293B]">
+                              {filteredToolMappings.map((m, idx) => {
+                                const isEditing = editingTool === tool.id && editingSource === m.sourceModel;
+                                const sourceDisplayName = resolveModelDisplayName(m.sourceModel);
+                                const isSourceDifferent = Boolean(
+                                  sourceDisplayName &&
+                                  sourceDisplayName !== m.sourceModel
+                                );
+                                const targetDisplayName = m.targetModel
+                                  ? resolveModelDisplayName(m.targetModel)
+                                  : "";
+                                const isCombo = Boolean(
+                                  m.targetModel &&
+                                  (m.targetModel.startsWith("combo/") || comboNames.has(m.targetModel.toLowerCase()))
+                                );
+                                const effectiveTargetModel = isCombo && !m.targetModel.startsWith("combo/")
+                                  ? `combo/${m.targetModel}`
+                                  : m.targetModel;
+                                const isTargetDifferent = Boolean(
+                                  effectiveTargetModel &&
+                                  targetDisplayName &&
+                                  targetDisplayName !== effectiveTargetModel
+                                );
+
+                                return (
+                                  <tr
+                                    key={idx}
+                                    className={`transition-colors ${isEditing ? "bg-blue-500/10" : "hover:bg-white/5"}`}
+                                  >
+                                    {/* Source Model */}
+                                    <td className="p-3 pl-4 font-mono text-slate-200">
+                                      <div className="flex items-center gap-2">
+                                        {!isSourceDifferent ? (
+                                          <div className="flex items-center gap-2">
+                                            <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-100 font-medium">
+                                              {m.sourceModel}
                                             </span>
-                                          )}
-                                          <span className="text-emerald-300 font-sans font-semibold text-xs leading-snug">
-                                            {targetDisplayName || effectiveTargetModel}
-                                          </span>
-                                        </div>
-                                        {isTargetDifferent && (
-                                          <span className="text-[10.5px] font-mono text-slate-400 pl-4">
-                                            {effectiveTargetModel}
-                                          </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => copyText(`src-${tool.id}-${m.sourceModel}`, m.sourceModel)}
+                                              className="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer"
+                                              title="Copy source model ID"
+                                            >
+                                              <span className="material-symbols-outlined text-[13px]">
+                                                {copiedKey === `src-${tool.id}-${m.sourceModel}` ? "done" : "content_copy"}
+                                              </span>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex flex-col gap-1">
+                                            <span className="text-slate-100 font-sans font-semibold text-xs leading-snug">
+                                              {sourceDisplayName}
+                                            </span>
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="px-2 py-0.5 rounded-lg bg-slate-800/80 border border-slate-700/60 font-mono text-[11px] text-slate-400">
+                                                {m.sourceModel}
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => copyText(`src-${tool.id}-${m.sourceModel}`, m.sourceModel)}
+                                                className="text-slate-500 hover:text-slate-300 p-0.5 cursor-pointer"
+                                                title="Copy source model ID"
+                                              >
+                                                <span className="material-symbols-outlined text-[13px]">
+                                                  {copiedKey === `src-${tool.id}-${m.sourceModel}` ? "done" : "content_copy"}
+                                                </span>
+                                              </button>
+                                            </div>
+                                          </div>
                                         )}
                                       </div>
-                                    ) : (
-                                      <span className="text-slate-500 italic text-xs px-2 py-0.5 rounded bg-slate-800/60 border border-slate-700/40">
-                                        (unmapped)
-                                      </span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                                    {isEditing ? (
-                                      <>
+                                    </td>
+
+                                    {/* Target Destination */}
+                                    <td className="p-3">
+                                      {isEditing ? (
+                                        <div className="flex items-center gap-2 w-full max-w-md">
+                                          <span className="text-blue-400 font-mono">→</span>
+                                          <ModelAutocompleteInput
+                                            value={targetInput}
+                                            onChange={setTargetInput}
+                                            onEnter={() => handleUpdateMapping(tool.id)}
+                                            placeholder="Search model or combo..."
+                                            fetchCustomModels={isTargetRemote && remoteModels.length > 0 ? () => Promise.resolve(remoteModels) : undefined}
+                                            className="bg-[#080B11] border border-blue-500/60 focus:border-blue-400 rounded-xl px-3 py-1.5 text-xs text-white font-mono w-full focus:outline-none"
+                                            autoFocus
+                                          />
+                                        </div>
+                                      ) : m.targetModel ? (
+                                        <div className="flex flex-col gap-0.5">
+                                          <div className="inline-flex items-center gap-2 flex-wrap">
+                                            <span className="text-slate-500 font-mono">→</span>
+                                            {isCombo && (
+                                              <span className="px-1.5 py-0.2 rounded bg-cyan-500/20 border border-cyan-500/40 text-[9.5px] font-mono text-cyan-300 font-semibold tracking-wide">
+                                                COMBO
+                                              </span>
+                                            )}
+                                            <span className="text-emerald-300 font-mono font-medium text-xs">
+                                              {targetDisplayName || effectiveTargetModel}
+                                            </span>
+                                          </div>
+                                          {isTargetDifferent && (
+                                            <span className="text-[10.5px] font-mono text-slate-400 pl-4">
+                                              {effectiveTargetModel}
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
                                         <button
-                                          onClick={() => handleUpdateMapping(tool.id)}
-                                          className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white font-sans text-[11px] font-medium transition-colors cursor-pointer"
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            setEditingSource(null);
-                                            setEditingTool(null);
-                                            setTargetInput("");
-                                          }}
-                                          className="px-2.5 py-1 rounded bg-[#0E1320] hover:bg-slate-700 border border-[#1E293B] text-slate-400 hover:text-white font-sans text-[11px] transition-colors cursor-pointer"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <button
+                                          type="button"
                                           onClick={() => {
                                             setEditingTool(tool.id);
                                             setEditingSource(m.sourceModel);
-                                            setTargetInput(m.targetModel);
+                                            setTargetInput("");
                                           }}
-                                          className="px-2.5 py-1 rounded bg-[#0E1320] hover:bg-blue-600 hover:text-white border border-[#1E293B] text-slate-300 transition-colors cursor-pointer font-sans text-[11px]"
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/10 text-amber-300 hover:border-amber-400 hover:text-amber-200 text-xs font-medium transition-colors cursor-pointer"
                                         >
-                                          Edit
+                                          <span className="material-symbols-outlined text-[14px]">add</span>
+                                          Click to select target model or combo
                                         </button>
-                                        <button
-                                          onClick={() => deleteMapping(tool.id, m.sourceModel)}
-                                          className="p-1 text-slate-500 hover:text-red-400 transition-colors"
-                                          title="Delete mapping"
-                                        >
-                                          <span className="material-symbols-outlined text-[15px]">close</span>
-                                        </button>
-                                      </>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                      )}
+                                    </td>
+
+                                    {/* Actions */}
+                                    <td className="p-3 pr-4 text-right space-x-2 whitespace-nowrap">
+                                      {isEditing ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateMapping(tool.id)}
+                                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-semibold transition-colors cursor-pointer"
+                                          >
+                                            Save
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingSource(null);
+                                              setEditingTool(null);
+                                              setTargetInput("");
+                                            }}
+                                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-sans text-xs transition-colors cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setEditingTool(tool.id);
+                                              setEditingSource(m.sourceModel);
+                                              setTargetInput(m.targetModel || "");
+                                            }}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors cursor-pointer"
+                                            title="Edit target model"
+                                          >
+                                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => deleteMapping(tool.id, m.sourceModel)}
+                                            className="p-1 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                            title="Delete mapping"
+                                          >
+                                            <span className="material-symbols-outlined text-[16px]">delete</span>
+                                          </button>
+                                        </>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   </div>

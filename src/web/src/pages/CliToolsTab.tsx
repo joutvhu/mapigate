@@ -83,12 +83,23 @@ export const CliToolsTab: React.FC = () => {
   const [globalMappings, setGlobalMappings] = useState<ToolMappingItem[]>([]);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
   const [mappingSearch, setMappingSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"source" | "target">("source");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [editingSourceModel, setEditingSourceModel] = useState<string | null>(null);
   const [editingTargetInput, setEditingTargetInput] = useState("");
   const [newSourceModel, setNewSourceModel] = useState("");
   const [newTargetModel, setNewTargetModel] = useState("");
   const [isAddingMapping, setIsAddingMapping] = useState(false);
   const [comboNames, setComboNames] = useState<Set<string>>(new Set());
+
+  const toggleSort = (col: "source" | "target") => {
+    if (sortBy === col) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(col);
+      setSortOrder("asc");
+    }
+  };
 
   // Exposure mode & Simulator state
   const [exposureMode, setExposureMode] = useState<"all" | "connected" | "mapped_only">("all");
@@ -432,13 +443,30 @@ export const CliToolsTab: React.FC = () => {
   // Filtered Global Mappings
   const filteredMappings = useMemo(() => {
     const q = mappingSearch.trim().toLowerCase();
-    if (!q) return globalMappings;
-    return globalMappings.filter(
-      (m) =>
-        m.sourceModel.toLowerCase().includes(q) ||
-        m.targetModel.toLowerCase().includes(q)
-    );
-  }, [globalMappings, mappingSearch]);
+    const list = q
+      ? globalMappings.filter(
+          (m) =>
+            m.sourceModel.toLowerCase().includes(q) ||
+            m.targetModel.toLowerCase().includes(q)
+        )
+      : [...globalMappings];
+
+    return list.sort((a, b) => {
+      if (sortBy === "target") {
+        const valA = a.targetModel || "";
+        const valB = b.targetModel || "";
+        if (!valA && valB) return 1;
+        if (valA && !valB) return -1;
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: "base" });
+        if (cmp !== 0) return sortOrder === "asc" ? cmp : -cmp;
+      }
+      const cmp = a.sourceModel.localeCompare(b.sourceModel, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
+  }, [globalMappings, mappingSearch, sortBy, sortOrder]);
 
   return (
     <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
@@ -636,6 +664,17 @@ export const CliToolsTab: React.FC = () => {
                 </button>
               </div>
 
+              {/* Reset to Default Button */}
+              <button
+                type="button"
+                onClick={handleResetGlobalMappings}
+                className="px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-[#1E293B] hover:border-slate-600 text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+                title="Reset to default canonical mappings"
+              >
+                <span className="material-symbols-outlined text-[15px] text-slate-400">restart_alt</span>
+                Reset to Default
+              </button>
+
               {/* Sync Combos Button */}
               <button
                 type="button"
@@ -781,8 +820,30 @@ export const CliToolsTab: React.FC = () => {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-[#1E293B] bg-[#0A0D14] text-slate-400 font-semibold">
-                      <th className="p-3 pl-4">Source Model (Client Sends)</th>
-                      <th className="p-3">Target Destination (Model or Combo)</th>
+                      <th
+                        onClick={() => toggleSort("source")}
+                        className="p-3 pl-4 cursor-pointer hover:text-white select-none transition-colors"
+                        title="Click to sort by Source Model"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Source Model (Client Sends)</span>
+                          <span className="material-symbols-outlined text-[14px] text-blue-400">
+                            {sortBy === "source" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                          </span>
+                        </div>
+                      </th>
+                      <th
+                        onClick={() => toggleSort("target")}
+                        className="p-3 cursor-pointer hover:text-white select-none transition-colors"
+                        title="Click to sort by Target Destination"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span>Target Destination (Model or Combo)</span>
+                          <span className="material-symbols-outlined text-[14px] text-blue-400">
+                            {sortBy === "target" ? (sortOrder === "asc" ? "arrow_upward" : "arrow_downward") : "unfold_more"}
+                          </span>
+                        </div>
+                      </th>
                       <th className="p-3 pr-4 text-right">Actions</th>
                     </tr>
                   </thead>
