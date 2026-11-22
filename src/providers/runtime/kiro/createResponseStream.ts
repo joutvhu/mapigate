@@ -37,6 +37,7 @@ export async function streamKiroCreateResponse(
   let promptTokens = context.rtkStats?.compressedTokens || 0;
   let completionTokens = 0;
   let sawToolUse = false;
+  let terminalFinishReason: string | undefined;
   let toolIdxCounter = 0;
   let clientDisconnected = false;
   const itemIdToToolIdx = new Map<string, number>();
@@ -157,11 +158,15 @@ export async function streamKiroCreateResponse(
               ],
             });
           }
-        } else if (ev.type === "response.completed") {
+        } else if (ev.type === "response.completed" || ev.type === "response.incomplete") {
           const u = ev.response?.usage;
           if (u) {
             if (typeof u.input_tokens === "number") promptTokens = u.input_tokens;
             if (typeof u.output_tokens === "number") completionTokens = u.output_tokens;
+          }
+          if (ev.type === "response.incomplete") {
+            const reason = ev.response?.incomplete_details?.reason;
+            terminalFinishReason = reason === "content_filter" ? "content_filter" : "length";
           }
         }
       }
@@ -174,7 +179,13 @@ export async function streamKiroCreateResponse(
           object: "chat.completion.chunk",
           created,
           model: rawModel,
-          choices: [{ index: 0, delta: {}, finish_reason: sawToolUse ? "tool_calls" : "stop" }],
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: terminalFinishReason || (sawToolUse ? "tool_calls" : "stop"),
+            },
+          ],
         });
         if (clientFormat === "anthropic" && anthropicState) {
           const finalEvents = AnthropicAdapter.finalizeStream(anthropicState);

@@ -144,6 +144,7 @@ export async function executeOpenCodeGoResponses(
     const toolMetaByItemId = new Map<string, { id: string; name: string; args: string }>();
     let completedResponse: any = null;
     let usage: any = undefined;
+    let terminalFinishReason: string | undefined;
     let upstreamError: { status: number; message: string } | null = null;
 
     const handleEvent = (ev: any) => {
@@ -191,13 +192,17 @@ export async function executeOpenCodeGoResponses(
             choices: [{ index: 0, delta: { tool_calls: [{ index: idx, function: { arguments: ev.delta } }] }, finish_reason: null }],
           });
         }
-      } else if (t === "response.completed") {
+      } else if (t === "response.completed" || t === "response.incomplete") {
         completedResponse = ev.response || ev;
         const u = completedResponse?.usage;
         if (u) {
           const inTok = u.input_tokens ?? 0;
           const outTok = u.output_tokens ?? 0;
           usage = { prompt_tokens: inTok, completion_tokens: outTok, total_tokens: inTok + outTok };
+        }
+        if (t === "response.incomplete") {
+          const reason = completedResponse?.incomplete_details?.reason;
+          terminalFinishReason = reason === "content_filter" ? "content_filter" : "length";
         }
       }
     };
@@ -237,7 +242,7 @@ export async function executeOpenCodeGoResponses(
       if (clientFormat === "responses") {
         if (!res.writableEnded && !res.destroyed) res.end();
       } else {
-        const finishReason = toolMetaByItemId.size > 0 ? "tool_calls" : "stop";
+        const finishReason = terminalFinishReason || (toolMetaByItemId.size > 0 ? "tool_calls" : "stop");
         emitOpenAiChunk({
           id: responseId,
           object: "chat.completion.chunk",

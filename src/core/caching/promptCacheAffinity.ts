@@ -41,25 +41,31 @@ function normalizeContent(content: unknown): string {
  * Anthropic and OpenAI formats.
  */
 export function extractConversationPrefixHash(body: any): string | null {
-  if (!body || typeof body !== "object") return null;
+  if (!body) return null;
 
   try {
     let systemText = "";
 
     // 1. Anthropic-style system prompt (string or array of blocks)
-    if (body.system) {
+    if (typeof body === "object" && !Array.isArray(body) && body.system) {
       systemText = normalizeContent(body.system);
     }
 
-    // 2. Scan body.messages for system prompt (if not already found) and first user message
+    // 2. Scan messages for system prompt (if not already found) and first user message
     const systemParts: string[] = [];
     let firstUserText = "";
 
-    if (Array.isArray(body.messages)) {
-      for (const msg of body.messages) {
+    const messages = Array.isArray(body)
+      ? body
+      : (body && typeof body === "object" && Array.isArray(body.messages))
+      ? body.messages
+      : null;
+
+    if (messages) {
+      for (const msg of messages) {
         if (!msg || typeof msg !== "object") continue;
         const role = msg.role;
-        if (!body.system && (role === "system" || role === "developer")) {
+        if (!systemText && (role === "system" || role === "developer")) {
           const text = normalizeContent(msg.content);
           if (text) systemParts.push(text);
         } else if (!firstUserText && role === "user") {
@@ -73,7 +79,7 @@ export function extractConversationPrefixHash(body: any): string | null {
     }
 
     // Responses API fallback: body.input
-    if (!firstUserText && typeof body.input === "string") {
+    if (!firstUserText && body && typeof body === "object" && !Array.isArray(body) && typeof body.input === "string") {
       firstUserText = body.input;
     }
 

@@ -1,4 +1,4 @@
-import { DEFAULT_BASE_URL } from "../../helpers.js";
+import { DEFAULT_BASE_URL } from "../../../../shared/constants/network.js";
 import type { CliToolDefinition } from "../../types.js";
 
 export const definition: CliToolDefinition = {

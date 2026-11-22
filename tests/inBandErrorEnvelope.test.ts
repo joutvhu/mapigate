@@ -3,6 +3,7 @@ process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { inBandErrorEnvelope, isZeroContentResponse } from "../src/core/adapters/helpers/zeroContentCheck.js";
+import { AnthropicAdapter } from "../src/core/adapters/anthropicAdapter.js";
 
 test("inBandErrorEnvelope - correctly detects overloaded/rate_limit 200 envelopes", () => {
   // Overloaded envelope -> 503
@@ -50,4 +51,23 @@ test("inBandErrorEnvelope - correctly detects overloaded/rate_limit 200 envelope
 
   // isZeroContentResponse should also identify inBandErrorEnvelope as zero content / failure
   assert.equal(isZeroContentResponse({ error: { code: "overloaded", message: "Busy" } }), true);
+});
+
+test("inBandErrorEnvelope - must inspect upstream payload before client format conversion", () => {
+  const upstreamError = {
+    error: { code: "overloaded", message: "Provider is overloaded" },
+  };
+
+  // 1. Direct upstream envelope is correctly detected
+  const detected = inBandErrorEnvelope(upstreamError);
+  assert.ok(detected);
+  assert.equal(detected?.status, 503);
+
+  // 2. Demonstrating why check must run before adapter conversion:
+  // AnthropicAdapter.openAiResponseToAnthropic converts missing choices to an empty message,
+  // which strips the error field and loses the status 503 / 429 trigger.
+  const convertedAnthropic = AnthropicAdapter.openAiResponseToAnthropic(upstreamError);
+  assert.equal(inBandErrorEnvelope(convertedAnthropic), null);
+  // Consequently, pre-conversion detection prevents it from falling through to empty content 502
+  assert.equal(isZeroContentResponse(convertedAnthropic), true);
 });

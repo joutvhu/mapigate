@@ -44,6 +44,7 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
   // Persist combo changes to backend API
   const persistChanges = useCallback(
     async (patch: Partial<ComboItem>) => {
+      const prevCombo = combo;
       const updated: ComboItem = { ...combo, ...patch };
       setCombo(updated);
       onComboUpdated?.(updated);
@@ -64,9 +65,16 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
           setCombo(saved);
           onComboUpdated?.(saved);
           invalidateAvailableModelsCache();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          console.error("Failed to update combo:", errData.error || res.statusText);
+          setCombo(prevCombo);
+          onComboUpdated?.(prevCombo);
         }
       } catch (err) {
         console.error("Failed to update combo:", err);
+        setCombo(prevCombo);
+        onComboUpdated?.(prevCombo);
       } finally {
         setSaving(false);
       }
@@ -114,19 +122,27 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
 
   const handleQuickAdd = () => {
     const trimmed = newModelInput.trim();
-    if (!trimmed || combo.models.includes(trimmed)) return;
+    if (!trimmed) return;
+    const selfNames = new Set([combo.name, `combo/${combo.name}`, combo.id]);
+    if (selfNames.has(trimmed) || combo.models.includes(trimmed)) return;
     persistChanges({ models: [...combo.models, trimmed] });
     setNewModelInput("");
   };
 
   const handleSelectModalConfirm = (selected: string[]) => {
-    const existing = new Set(combo.models);
-    const toAdd = selected.filter((m) => !existing.has(m));
-    if (toAdd.length > 0) {
-      persistChanges({ models: [...combo.models, ...toAdd] });
-    }
+    persistChanges({ models: selected });
     setShowModelSelectModal(false);
   };
+
+  const excludedComboValues = useMemo(() => {
+    const list: string[] = [];
+    if (combo?.id) list.push(combo.id);
+    if (combo?.name) {
+      list.push(combo.name);
+      list.push(`combo/${combo.name}`);
+    }
+    return list;
+  }, [combo]);
 
   const handleRemoveByProvider = (providerName: string) => {
     const newModels = combo.models.filter((m) => {
@@ -268,8 +284,10 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
         <ModelSelectModal
           isOpen={showModelSelectModal}
           onClose={() => setShowModelSelectModal(false)}
-          title={`Add Models to ${combo.name}`}
+          title={`Manage Models in ${combo.name}`}
+          addedModelValues={combo.models}
           initialSelectedModels={combo.models}
+          excludeModelIds={excludedComboValues}
           onConfirm={handleSelectModalConfirm}
           multiSelect
           allowCombos={false}

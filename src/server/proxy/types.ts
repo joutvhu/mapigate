@@ -19,4 +19,5 @@ export interface ExecuteSingleModelOptions {
   reqTag: string;
   apiKeyId?: string;
   apiKeyName?: string;
+  prefixHash?: string | null;
 }

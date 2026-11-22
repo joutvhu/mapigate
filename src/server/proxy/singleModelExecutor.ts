@@ -110,10 +110,10 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
   const provider = ProviderRegistry.get(providerConfig.id);
   const adjustedBody = body;
-  const sessionMessages = Array.isArray(adjustedBody?.messages)
-    ? extractSessionIdentityMessages(adjustedBody.messages)
-    : [];
-  const prefixHash = extractConversationPrefixHash(sessionMessages.length > 0 ? sessionMessages : adjustedBody);
+  const prefixHash =
+    options.prefixHash !== undefined
+      ? options.prefixHash
+      : extractConversationPrefixHash(adjustedBody);
 
   let targetFormat =
     provider.resolveTargetFormat?.(targetModel, clientFormat) ||

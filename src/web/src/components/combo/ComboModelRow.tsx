@@ -23,8 +23,6 @@ export const ComboModelRow: React.FC<ComboModelRowProps> = ({
   onMoveToBottom,
   onRemove,
 }) => {
-  const caps = getCapabilitiesForModel(model);
-
   // Extract provider prefix if present
   let provider = "";
   let modelName = model;
@@ -33,6 +31,8 @@ export const ComboModelRow: React.FC<ComboModelRowProps> = ({
     provider = model.slice(0, slashIdx);
     modelName = model.slice(slashIdx + 1);
   }
+
+  const caps = getCapabilitiesForModel(provider || null, modelName);
 
   const isFirst = index === 0;
   const isLast = index === total - 1;

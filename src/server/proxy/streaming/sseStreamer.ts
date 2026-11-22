@@ -6,41 +6,26 @@ import {
   openAiChunkToResponsesEvents,
   finalizeResponsesStream,
 } from "../../../core/adapters/responsesAdapter.js";
-import { toolSchemaMap } from "../../../core/adapters/helpers/index.js";
+import {
+  toolSchemaMap,
+  createStreamToolCallTracker,
+  normalizeStreamToolCallIndices,
+  type StreamToolCallTracker,
+} from "../../../core/adapters/helpers/index.js";
 import { logger, LogSymbol } from "../../../shared/logger.js";
 import type { ProviderRequestContext, IProvider, StreamExecutionResult } from "../../../providers/core/types.js";
 import { createStreamTrackingState, extractTokensFromChunk, recordStreamToolCall } from "./streamState.js";
 import { reasoningCache } from "../../../core/caching/reasoningCache.js";
 import { getRegistryProvider } from "../../../providers/core/metadataRegistry.js";
 
-function ensureStreamToolCallIds(chunk: any, seenIds: Map<number, string>): boolean {
+function ensureStreamToolCallIds(chunk: any, tracker: StreamToolCallTracker): boolean {
   if (!chunk?.choices?.length) return false;
   let changed = false;
 
   for (const choice of chunk.choices) {
     const calls = choice?.delta?.tool_calls;
-    if (!Array.isArray(calls)) continue;
-
-    let autoIndex = 0;
-    for (const tc of calls) {
-      if (!tc || typeof tc !== "object") continue;
-
-      if (tc.index === undefined) {
-        tc.index = autoIndex;
-        changed = true;
-      }
-      autoIndex++;
-
-      if (typeof tc.id === "string" && tc.id.length > 0) {
-        seenIds.set(tc.index, tc.id);
-        continue;
-      }
-
-      // Missing id on this fragment. Reuse seen id for this index or mint a fallback id
-      const known = seenIds.get(tc.index);
-      const id = known || `call_${Math.random().toString(36).slice(2, 11)}`;
-      tc.id = id;
-      seenIds.set(tc.index, id);
+    if (!Array.isArray(calls) || calls.length === 0) continue;
+    if (normalizeStreamToolCallIndices(calls, tracker)) {
       changed = true;
     }
   }
@@ -79,7 +64,7 @@ export async function pipeSseStream(
   );
   const responsesState =
     clientFormat === "responses" ? createResponsesStreamState(requestId, rescueToolNames) : null;
-  const seenToolCallIds = new Map<number, string>();
+  const toolCallTracker = createStreamToolCallTracker();
   const claudeToOpenAiState = AnthropicAdapter.createAnthropicToOpenAiState(rescueToolNames);
   const decoder = new TextDecoder();
   let buffer = "";
@@ -241,7 +226,7 @@ export async function pipeSseStream(
             chunkModified = true;
           }
 
-          if (ensureStreamToolCallIds(jsonChunk, seenToolCallIds)) {
+          if (ensureStreamToolCallIds(jsonChunk, toolCallTracker)) {
             chunkModified = true;
           }
 

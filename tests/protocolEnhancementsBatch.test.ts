@@ -12,6 +12,9 @@ import {
   extractSessionIdentityMessages,
 } from "../src/server/proxy/executorHelpers.js";
 import {
+  extractConversationPrefixHash,
+} from "../src/core/caching/promptCacheAffinity.js";
+import {
   advertisedContextWindow,
   CONTEXT_WINDOW_SAFETY_FACTOR,
 } from "../src/server/routes/apiModels.js";
@@ -120,6 +123,42 @@ test("Streamed Tool Calls - ensures continuous sequential indexing for parallel 
   assert.equal(state.funcNames[1], "Read");
   assert.equal(state.funcArgsBuf[0], '{"command":"ls"}');
   assert.equal(state.funcArgsBuf[1], '{"file_path":"app.ts"}');
+
+  // Verify multi-chunk sequential tool calls without index don't overwrite index 0
+  const seqState = createResponsesStreamState("resp-stream-seq");
+  openAiChunkToResponsesEvents(
+    {
+      id: "resp-seq",
+      choices: [{ delta: { tool_calls: [{ function: { name: "Bash" } }] }, finish_reason: null }],
+    },
+    seqState
+  );
+  openAiChunkToResponsesEvents(
+    {
+      id: "resp-seq",
+      choices: [{ delta: { tool_calls: [{ function: { arguments: '{"command":"pwd"}' } }] }, finish_reason: null }],
+    },
+    seqState
+  );
+  openAiChunkToResponsesEvents(
+    {
+      id: "resp-seq",
+      choices: [{ delta: { tool_calls: [{ function: { name: "Read" } }] }, finish_reason: null }],
+    },
+    seqState
+  );
+  openAiChunkToResponsesEvents(
+    {
+      id: "resp-seq",
+      choices: [{ delta: { tool_calls: [{ function: { arguments: '{"file":"b.ts"}' } }] }, finish_reason: null }],
+    },
+    seqState
+  );
+
+  assert.equal(seqState.funcNames[0], "Bash");
+  assert.equal(seqState.funcNames[1], "Read");
+  assert.equal(seqState.funcArgsBuf[0], '{"command":"pwd"}');
+  assert.equal(seqState.funcArgsBuf[1], '{"file":"b.ts"}');
 });
 
 test("Session Identity - preserves first user turn across compression snapshot", () => {
@@ -146,4 +185,26 @@ test("Advertised Context Window - safely scales down by router buffer margin", (
   assert.equal(advertisedContextWindow(null), null);
   assert.equal(advertisedContextWindow(undefined), null);
   assert.equal(advertisedContextWindow(0), null);
+});
+
+test("Prompt Cache Affinity - handles body object, direct messages array, and pre-saver parity", () => {
+  const reqBody = {
+    system: "System instructions",
+    messages: [
+      { role: "user", content: "Hello world" },
+      { role: "assistant", content: "Hi" },
+    ],
+  };
+
+  const bodyHash = extractConversationPrefixHash(reqBody);
+  assert.ok(bodyHash && typeof bodyHash === "string");
+
+  // Direct array of messages (defensive against callers passing messages[])
+  const arrayHash = extractConversationPrefixHash(reqBody.messages);
+  assert.ok(arrayHash && typeof arrayHash === "string");
+
+  // Pre-saver calculation retains hash stability when messages are snapshotted
+  const snapshot = extractSessionIdentityMessages(reqBody.messages);
+  const snapshotBodyHash = extractConversationPrefixHash({ ...reqBody, messages: snapshot });
+  assert.equal(snapshotBodyHash, bodyHash);
 });

@@ -1,5 +1,5 @@
 import type { CliToolDefinition } from "../../types.js";
-import { DEFAULT_PORT, DEFAULT_BASE_URL } from "../../helpers.js";
+import { DEFAULT_PORT, DEFAULT_BASE_URL } from "../../../../shared/constants/network.js";
 
 export const definition: CliToolDefinition = {
   id: "claude",

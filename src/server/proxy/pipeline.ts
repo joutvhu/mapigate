@@ -20,6 +20,7 @@ import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/respons
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
 import { resolveTargetModelAndProvider } from "./executorHelpers.js";
 import { extractUsageTokens } from "../../core/usage/tokenExtractor.js";
+import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import crypto from "node:crypto";
 
 export function formatProxyErrorResponse(
@@ -101,6 +102,8 @@ export async function runProxyPipeline(
     const cleanModel = stripped.model || rawModel;
     resolvedModel = cleanModel;
     candidateModels = [cleanModel];
+
+    const preSaverPrefixHash = extractConversationPrefixHash(body);
 
     const tokenSaverSettings = SettingsRepository.getTokenSaverSettings();
     const tokenSaverSummary = TokenSaverCoordinator.process(
@@ -250,6 +253,7 @@ export async function runProxyPipeline(
         reqTag,
         apiKeyId,
         apiKeyName,
+        prefixHash: preSaverPrefixHash || undefined,
       });
     };
 
@@ -270,6 +274,7 @@ export async function runProxyPipeline(
       rtkStats,
       apiKeyId,
       apiKeyName,
+      prefixHash: preSaverPrefixHash || undefined,
     };
 
     let result: ModelCallResult;

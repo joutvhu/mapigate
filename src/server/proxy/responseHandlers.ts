@@ -38,6 +38,11 @@ export async function handleNonStreamingResponse(
   const requestTools = context.req?.body?.tools || context.body?.tools;
   if (isJson && responseBody && typeof responseBody === "object") {
     responseBody = OpenAiAdapter.rescueAndRepairResponse(responseBody, requestTools);
+
+    const inBandErr = inBandErrorEnvelope(responseBody);
+    if (inBandErr) {
+      return { ok: false, status: inBandErr.status, error: `Upstream returned HTTP 200 with error envelope: ${inBandErr.message}` };
+    }
   }
 
   if (isJson) {
@@ -56,19 +61,11 @@ export async function handleNonStreamingResponse(
     } else if (context.clientFormat === "openai" && (context.targetFormat === "claude" || (responseBody?.type === "message" && Array.isArray(responseBody?.content)))) {
       responseBody = AnthropicAdapter.anthropicResponseToOpenAi(responseBody, context.targetModel);
     }
-    const inBandErr = inBandErrorEnvelope(responseBody);
-    if (inBandErr) {
-      return { ok: false, status: inBandErr.status, error: `Upstream returned HTTP 200 with error envelope: ${inBandErr.message}` };
-    }
     if (isZeroContentResponse(responseBody)) {
       return { ok: false, status: 502, error: "Upstream returned HTTP 200 with empty content" };
     }
     res.status(200).json(responseBody);
   } else {
-    const inBandErr = inBandErrorEnvelope(responseBody);
-    if (inBandErr) {
-      return { ok: false, status: inBandErr.status, error: `Upstream returned HTTP 200 with error envelope: ${inBandErr.message}` };
-    }
     if (isZeroContentResponse(responseBody)) {
       return { ok: false, status: 502, error: "Upstream returned HTTP 200 with empty content" };
     }

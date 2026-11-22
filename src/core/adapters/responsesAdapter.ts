@@ -4,6 +4,11 @@ import {
   type StreamToolCallRescuer,
 } from "./helpers/toolCallRescue.js";
 import { repairPartialToolResponses } from "./helpers/toolResponseRepair.js";
+import {
+  createStreamToolCallTracker,
+  normalizeStreamToolCallIndices,
+  type StreamToolCallTracker,
+} from "./helpers/streamToolCallTracker.js";
 
 function splitToolOutput(output: any): { text: string; images: any[] } {
   if (typeof output === "string") {
@@ -303,6 +308,7 @@ export interface ResponsesStreamState {
   responsesUsage: any | null;
   completionPending: boolean;
   toolRescuer?: StreamToolCallRescuer;
+  toolTracker?: StreamToolCallTracker;
 }
 
 export function createResponsesStreamState(requestId?: string, toolNames?: Set<string>): ResponsesStreamState {
@@ -335,6 +341,7 @@ export function createResponsesStreamState(requestId?: string, toolNames?: Set<s
     responsesUsage: null,
     completionPending: false,
     toolRescuer: toolNames ? createStreamToolCallRescuer(toolNames) : undefined,
+    toolTracker: createStreamToolCallTracker(),
   };
 }
 
@@ -524,6 +531,9 @@ function emitToolCall(state: ResponsesStreamState, emit: (event: string, data: a
 
   if (funcName) state.funcNames[tcIdx] = funcName;
   if (newCallId) state.funcCallIds[tcIdx] = newCallId;
+  else if (!state.funcCallIds[tcIdx] && funcName) {
+    state.funcCallIds[tcIdx] = `call_${Date.now()}_${tcIdx}`;
+  }
 
   const callId = state.funcCallIds[tcIdx];
   if (!state.funcItemAdded[tcIdx] && callId && state.funcNames[tcIdx]) {
@@ -757,12 +767,11 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
   if (delta.tool_calls && delta.tool_calls.length) {
     closeReasoning(state, emit);
     closeMessage(state, emit, idx);
-    let autoIndex = 0;
+    if (!state.toolTracker) {
+      state.toolTracker = createStreamToolCallTracker();
+    }
+    normalizeStreamToolCallIndices(delta.tool_calls, state.toolTracker);
     for (const tc of delta.tool_calls) {
-      if (tc.index === undefined) {
-        tc.index = autoIndex;
-      }
-      autoIndex++;
       emitToolCall(state, emit, tc);
     }
   }

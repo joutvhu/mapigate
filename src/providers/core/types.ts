@@ -159,6 +159,7 @@ export interface ProviderRequestContext {
   rtkStats: { compressedTokens: number; tokensSaved: number };
   apiKeyId?: string;
   apiKeyName?: string;
+  prefixHash?: string | null;
   abortController?: AbortController;
 }
 
