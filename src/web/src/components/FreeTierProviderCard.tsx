@@ -76,9 +76,8 @@ export const FreeTierProviderCard: React.FC<FreeTierProviderCardProps> = ({
 
           {/* Provider icon */}
           <ToolIcon
-            id={provider.id}
+            src={provider.image}
             name={provider.name}
-            image={provider.image}
             color={provider.color}
             iconBg={provider.iconBg}
             size="sm"
