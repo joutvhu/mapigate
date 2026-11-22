@@ -7,10 +7,12 @@ import { LockScreen } from "./components/LockScreen";
 import { RestartModal } from "./components/RestartModal";
 import { UpgradeModal } from "./components/UpgradeModal";
 import type { ProviderItem } from "./constants/providersData";
+import type { ComboItem } from "./components/ComboFormModal";
 
 const ProvidersTab = lazy(() => import("./pages/ProvidersTab").then((m) => ({ default: m.ProvidersTab })));
 const ProviderDetailPage = lazy(() => import("./pages/ProviderDetailPage").then((m) => ({ default: m.ProviderDetailPage })));
 const CombosTab = lazy(() => import("./pages/CombosTab").then((m) => ({ default: m.CombosTab })));
+const ComboDetailPage = lazy(() => import("./pages/ComboDetailPage").then((m) => ({ default: m.ComboDetailPage })));
 const UsageTab = lazy(() => import("./pages/UsageTab").then((m) => ({ default: m.UsageTab })));
 const QuotaTab = lazy(() => import("./pages/QuotaTab").then((m) => ({ default: m.QuotaTab })));
 const CliToolsTab = lazy(() => import("./pages/CliToolsTab").then((m) => ({ default: m.CliToolsTab })));
@@ -70,6 +72,7 @@ function MainApp() {
   const [currentTab, setCurrentTab] = useState<NavTab>("providers");
   const [searchQuery, setSearchQuery] = useState("");
   const [detailProvider, setDetailProvider] = useState<ProviderItem | null>(null);
+  const [detailCombo, setDetailCombo] = useState<ComboItem | null>(null);
   const [isRestartModalOpen, setIsRestartModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const systemInfo = useSystemInfo((s) => s.info);
@@ -77,6 +80,7 @@ function MainApp() {
   const handleSelectTab = (tab: NavTab) => {
     setCurrentTab(tab);
     setDetailProvider(null);
+    setDetailCombo(null);
   };
 
   if (isChecking) {
@@ -109,6 +113,8 @@ function MainApp() {
           onSearchChange={setSearchQuery}
           detailProvider={detailProvider}
           onBackToProviders={() => setDetailProvider(null)}
+          detailCombo={detailCombo}
+          onBackToCombos={() => setDetailCombo(null)}
           onRestartClick={() => setIsRestartModalOpen(true)}
           onSelectTab={handleSelectTab}
         />
@@ -133,7 +139,17 @@ function MainApp() {
                 />
               ))}
 
-            {currentTab === "combos" && <CombosTab />}
+            {currentTab === "combos" &&
+              (detailCombo ? (
+                <ComboDetailPage
+                  combo={detailCombo}
+                  onBack={() => setDetailCombo(null)}
+                  onComboUpdated={(updated) => setDetailCombo(updated)}
+                  onComboDeleted={() => setDetailCombo(null)}
+                />
+              ) : (
+                <CombosTab onSelectCombo={(c) => setDetailCombo(c)} />
+              ))}
             {currentTab === "usage" && <UsageTab />}
             {currentTab === "quota" && (
               <QuotaTab searchQuery={searchQuery} />

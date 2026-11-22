@@ -34,7 +34,11 @@ const DEFAULT_CAPACITY_ADAPTER: CapacityAdapterSettings = {
   },
 };
 
-export const CombosTab: React.FC = () => {
+export interface CombosTabProps {
+  onSelectCombo?: (combo: ComboItem) => void;
+}
+
+export const CombosTab: React.FC<CombosTabProps> = ({ onSelectCombo }) => {
   const [combos, setCombos] = useState<ComboItem[]>([]);
   const [loadingCombos, setLoadingCombos] = useState(true);
   const [capacityAdapter, setCapacityAdapter] = useState<CapacityAdapterSettings>(
@@ -297,7 +301,7 @@ export const CombosTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-8 w-full pb-16 animate-rt-fade-in">
       {/* SECTION 1: Header, Strategies Description & Action Buttons */}
       <div className="w-full p-5 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -507,14 +511,38 @@ export const CombosTab: React.FC = () => {
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-white font-mono">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSelectCombo
+                              ? onSelectCombo(combo)
+                              : (setEditingCombo(combo), setShowComboModal(true))
+                          }
+                          className="text-xs font-bold text-white font-mono hover:text-blue-400 cursor-pointer transition-colors text-left"
+                          title="Open combo details & manage models"
+                        >
                           {combo.name}
-                        </span>
+                        </button>
 
                         {/* Modality capability badges */}
                         {comboCaps && (
                           <CapacityBadges caps={comboCaps} size="xs" />
                         )}
+
+                        {/* Model & Provider count pill */}
+                        {(() => {
+                          const providerCount = new Set(
+                            combo.models.map((m) =>
+                              m.split("/")[0].replace(/\(.*?\)/, "").trim()
+                            )
+                          ).size;
+                          return (
+                            <span className="px-1.5 py-0.5 rounded bg-[#161F30] border border-[#26354D] text-[10px] text-slate-400 font-medium">
+                              {combo.models.length} {combo.models.length === 1 ? "model" : "models"}
+                              {providerCount > 0 && ` · ${providerCount} ${providerCount === 1 ? "provider" : "providers"}`}
+                            </span>
+                          );
+                        })()}
 
                         {!isActive && (
                           <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px] uppercase font-bold">
@@ -523,20 +551,58 @@ export const CombosTab: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Models chips */}
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        {combo.models.map((m, mIdx) => (
-                          <span
-                            key={mIdx}
-                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-[#0A0D14] border border-[#1E293B] text-[11px] text-slate-300 font-mono"
-                          >
-                            <span className="text-[10px] text-blue-400 font-bold">
-                              {mIdx + 1}
-                            </span>
-                            <span>{m}</span>
-                          </span>
-                        ))}
-                      </div>
+                      {/* Models chips - compact display */}
+                      {(() => {
+                        const MAX_VISIBLE = 4;
+                        const q = comboSearchQuery.trim().toLowerCase();
+                        const matched = q
+                          ? combo.models.filter((m) => m.toLowerCase().includes(q))
+                          : [];
+                        const displayList =
+                          q && matched.length > 0
+                            ? matched.slice(0, MAX_VISIBLE)
+                            : combo.models.slice(0, MAX_VISIBLE);
+                        const remaining = combo.models.length - displayList.length;
+
+                        return (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            {displayList.map((m, mIdx) => {
+                              const originalIdx = combo.models.indexOf(m);
+                              return (
+                                <span
+                                  key={mIdx}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-[#0A0D14] border border-[#1E293B] text-[11px] text-slate-300 font-mono"
+                                >
+                                  <span className="text-[10px] text-blue-400 font-bold">
+                                    {originalIdx + 1}
+                                  </span>
+                                  <span className="truncate max-w-[220px] sm:max-w-none">{m}</span>
+                                </span>
+                              );
+                            })}
+
+                            {remaining > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onSelectCombo) {
+                                    onSelectCombo(combo);
+                                  } else {
+                                    setEditingCombo(combo);
+                                    setShowComboModal(true);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-[11px] text-blue-400 font-semibold border border-blue-500/25 transition-colors cursor-pointer"
+                                title={`Click to view and manage all ${combo.models.length} models`}
+                              >
+                                <span>+{remaining} more</span>
+                                <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -577,6 +643,22 @@ export const CombosTab: React.FC = () => {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-1 text-slate-400 border-l border-[#1E293B] pl-2">
+                      <button
+                        type="button"
+                        title="Manage models & details"
+                        onClick={() => {
+                          if (onSelectCombo) {
+                            onSelectCombo(combo);
+                          } else {
+                            setEditingCombo(combo);
+                            setShowComboModal(true);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg hover:bg-blue-500/10 hover:text-blue-400 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">tune</span>
+                      </button>
+
                       <button
                         type="button"
                         title={

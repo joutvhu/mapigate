@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import type { NavTab } from "./Sidebar";
 import type { ProviderItem } from "../constants/providersData";
+import type { ComboItem } from "../components/ComboFormModal.js";
 import { useAuth } from "../hooks/useAuth";
 import { useSystemInfo } from "../hooks/useSystemInfo";
 import { useMitmStatus } from "../hooks/useMitmStatus";
@@ -13,6 +14,8 @@ interface HeaderProps {
   onSearchChange: (query: string) => void;
   detailProvider?: ProviderItem | null;
   onBackToProviders?: () => void;
+  detailCombo?: ComboItem | null;
+  onBackToCombos?: () => void;
   onRestartClick?: () => void;
   onSelectTab?: (tab: NavTab) => void;
 }
@@ -90,6 +93,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   detailProvider,
   onBackToProviders,
+  detailCombo,
+  onBackToCombos,
   onRestartClick,
   onSelectTab,
 }) => {
@@ -194,6 +199,22 @@ export const Header: React.FC<HeaderProps> = ({
                 {detailProvider.name}
               </h2>
             </div>
+          ) : currentTab === "combos" && detailCombo ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={onBackToCombos}
+                className="text-sm font-bold text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer transition-colors"
+                title="Back to Combos"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                Combos
+              </button>
+              <span className="text-slate-600 text-xs">/</span>
+              <h2 className="text-sm font-bold text-white tracking-tight leading-tight font-mono">
+                {detailCombo.name}
+              </h2>
+            </div>
           ) : (
             <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
               {meta.title}
@@ -202,6 +223,8 @@ export const Header: React.FC<HeaderProps> = ({
           <p className="text-[11px] text-slate-400 truncate leading-tight mt-0.5">
             {currentTab === "providers" && detailProvider
               ? `Configure credentials, upstream headers, and fallback strategy for ${detailProvider.name}`
+              : currentTab === "combos" && detailCombo
+              ? `Configure priority order, models, and fallback routing for ${detailCombo.name}`
               : meta.subtitle}
           </p>
         </div>
