@@ -106,8 +106,8 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const reqHeaders: Record<string, string> = {
       ...(context.customHeaders || {}),
       "x-amz-target": "AmazonCodeWhispererService.ListAvailableModels",
-      "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.236 KAS/0.66.119 os/win32 md/appVersion-1.4.236",
-      "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.4.236 KAS/0.66.119 os/win32 md/appVersion-1.4.236",
+      "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
+      "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
       "Content-Type": "application/x-amz-json-1.0",
       "Accept": "application/json",
     };
