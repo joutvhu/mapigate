@@ -38,6 +38,26 @@ export function tryFailover(
   return false;
 }
 
+/**
+ * Extracts a stable snapshot of messages before Token Saver/compression touches them.
+ */
+export function extractSessionIdentityMessages(messages: any[]): any[] {
+  if (!Array.isArray(messages) || messages.length === 0) return [];
+  const out = messages.slice();
+  const firstUserIdx = out.findIndex((m) => m?.role === "user");
+  if (firstUserIdx !== -1) {
+    const firstUser = out[firstUserIdx];
+    const text =
+      typeof firstUser.content === "string"
+        ? firstUser.content
+        : Array.isArray(firstUser.content)
+        ? JSON.stringify(firstUser.content)
+        : String(firstUser.content ?? "");
+    out[firstUserIdx] = { ...firstUser, content: text };
+  }
+  return out;
+}
+
 export function extractSessionId(req?: any, body?: any): string | undefined {
   const headerSessionId =
     req?.headers?.["x-session-id"] ||

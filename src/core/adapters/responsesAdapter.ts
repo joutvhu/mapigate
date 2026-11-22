@@ -596,13 +596,16 @@ function sendCompleted(state: ResponsesStreamState, emit: (event: string, data: 
   if (!state.completedSent) {
     state.completedSent = true;
     state.completionPending = false;
-    emit("response.completed", {
-      type: "response.completed",
+    const incompleteReason = (state as any)._incompleteReason;
+    const terminalEvent = incompleteReason ? "response.incomplete" : "response.completed";
+    emit(terminalEvent, {
+      type: terminalEvent,
       response: {
         id: state.responseId,
         object: "response",
         created_at: state.created,
-        status: "completed",
+        status: incompleteReason ? "incomplete" : "completed",
+        ...(incompleteReason ? { incomplete_details: { reason: incompleteReason } } : {}),
         background: false,
         error: null,
         output: collectCompletedOutputItems(state),
@@ -754,13 +757,22 @@ export function openAiChunkToResponsesEvents(chunk: any, state: ResponsesStreamS
   if (delta.tool_calls && delta.tool_calls.length) {
     closeReasoning(state, emit);
     closeMessage(state, emit, idx);
+    let autoIndex = 0;
     for (const tc of delta.tool_calls) {
+      if (tc.index === undefined) {
+        tc.index = autoIndex;
+      }
+      autoIndex++;
       emitToolCall(state, emit, tc);
     }
   }
 
   // Handle finish reason
   if (choice.finish_reason) {
+    const incReason = getResponsesIncompleteReason(choice.finish_reason);
+    if (incReason) {
+      (state as any)._incompleteReason = incReason;
+    }
     flushToolRescuer(state, emit);
     for (const i of Object.keys(state.msgItemAdded).map(Number)) closeMessage(state, emit, i);
     closeReasoning(state, emit);
@@ -797,11 +809,22 @@ export function finalizeResponsesStream(state: ResponsesStreamState): ResponsesS
   return events;
 }
 
+/**
+ * Returns incomplete_details.reason for an upstream finish reason, or undefined if completed.
+ */
+export function getResponsesIncompleteReason(finishReason?: string | null): "max_output_tokens" | "content_filter" | undefined {
+  if (finishReason === "length") return "max_output_tokens";
+  if (finishReason === "content_filter") return "content_filter";
+  return undefined;
+}
+
 export function convertOpenAiResponseToResponsesApi(openAiResponse: any): any {
   if (!openAiResponse) return openAiResponse;
   const choice = openAiResponse.choices?.[0];
   const message = choice?.message || {};
   const output: any[] = [];
+  const finishReason = choice?.finish_reason;
+  const incompleteReason = getResponsesIncompleteReason(finishReason);
 
   if (message.reasoning_content) {
     output.push({
@@ -817,7 +840,7 @@ export function convertOpenAiResponseToResponsesApi(openAiResponse: any): any {
     output.push({
       id: `msg_${openAiResponse.id || Date.now()}`,
       type: "message",
-      status: "completed",
+      status: incompleteReason ? "incomplete" : "completed",
       role: "assistant",
       content: [
         {
@@ -849,7 +872,8 @@ export function convertOpenAiResponseToResponsesApi(openAiResponse: any): any {
     id: openAiResponse.id ? `resp_${openAiResponse.id}` : `resp_${Date.now()}`,
     object: "response",
     created_at: openAiResponse.created || Math.floor(Date.now() / 1000),
-    status: "completed",
+    status: incompleteReason ? "incomplete" : "completed",
+    ...(incompleteReason ? { incomplete_details: { reason: incompleteReason } } : {}),
     background: false,
     error: null,
     output,

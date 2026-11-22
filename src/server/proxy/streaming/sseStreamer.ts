@@ -21,19 +21,26 @@ function ensureStreamToolCallIds(chunk: any, seenIds: Map<number, string>): bool
     const calls = choice?.delta?.tool_calls;
     if (!Array.isArray(calls)) continue;
 
+    let autoIndex = 0;
     for (const tc of calls) {
       if (!tc || typeof tc !== "object") continue;
 
+      if (tc.index === undefined) {
+        tc.index = autoIndex;
+        changed = true;
+      }
+      autoIndex++;
+
       if (typeof tc.id === "string" && tc.id.length > 0) {
-        if (tc.index !== undefined) seenIds.set(tc.index, tc.id);
+        seenIds.set(tc.index, tc.id);
         continue;
       }
 
       // Missing id on this fragment. Reuse seen id for this index or mint a fallback id
-      const known = tc.index !== undefined ? seenIds.get(tc.index) : undefined;
+      const known = seenIds.get(tc.index);
       const id = known || `call_${Math.random().toString(36).slice(2, 11)}`;
       tc.id = id;
-      if (tc.index !== undefined) seenIds.set(tc.index, id);
+      seenIds.set(tc.index, id);
       changed = true;
     }
   }

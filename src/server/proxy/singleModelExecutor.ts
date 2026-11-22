@@ -25,7 +25,7 @@ import { ensureFreshCredentials } from "../../core/usage/tokenHelper.js";
 import fs from "node:fs";
 import path from "node:path";
 import { getDefaultDataDir } from "../../shared/constants/index.js";
-import { tryFailover, resolveTargetModelAndProvider, extractSessionId } from "./executorHelpers.js";
+import { tryFailover, resolveTargetModelAndProvider, extractSessionId, extractSessionIdentityMessages } from "./executorHelpers.js";
 
 /**
  * Safely clones upstream request body, including messages and their content blocks,
@@ -110,7 +110,10 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
   const provider = ProviderRegistry.get(providerConfig.id);
   const adjustedBody = body;
-  const prefixHash = extractConversationPrefixHash(adjustedBody);
+  const sessionMessages = Array.isArray(adjustedBody?.messages)
+    ? extractSessionIdentityMessages(adjustedBody.messages)
+    : [];
+  const prefixHash = extractConversationPrefixHash(sessionMessages.length > 0 ? sessionMessages : adjustedBody);
 
   let targetFormat =
     provider.resolveTargetFormat?.(targetModel, clientFormat) ||

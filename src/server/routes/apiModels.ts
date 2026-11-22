@@ -11,6 +11,17 @@ import crypto from "node:crypto";
 
 export const modelRouter = Router();
 
+/** Safety factor for advertising usable context window (1.25x buffer) */
+export const CONTEXT_WINDOW_SAFETY_FACTOR = 1.25;
+
+/**
+ * Returns the advertised usable context window (raw window / safety factor)
+ */
+export function advertisedContextWindow(raw?: number | null): number | null {
+  if (typeof raw !== "number" || raw <= 0) return null;
+  return Math.floor(raw / CONTEXT_WINDOW_SAFETY_FACTOR);
+}
+
 // GET all model rules
 modelRouter.get("/", (_req, res) => {
   const rules = ModelRepository.getAllRules();
