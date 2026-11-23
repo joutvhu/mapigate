@@ -6,6 +6,12 @@ import {
   extractKiroConversationId,
 } from "../src/mitm/handlers/kiro/interceptor.js";
 import {
+  KIRO_IDE_VERSION,
+  KIRO_KAS_VERSION,
+  KIRO_USER_AGENT,
+  extractKiroForwardHeaders,
+} from "../src/providers/runtime/kiro/constants.js";
+import {
   codeWhispererToMessages,
   convertUserInputMessage,
 } from "../src/mitm/handlers/kiro/converter.js";
@@ -240,6 +246,47 @@ describe("Kiro Session Extraction, Cache Recovery & Stickiness", () => {
       assert.equal(LoadBalancer.getStickyAccountId(testProviderId, sessionId), pick1.id);
       LoadBalancer.clearSessionStickiness(sessionId, testProviderId);
       assert.equal(LoadBalancer.getStickyAccountId(testProviderId, sessionId), undefined);
+    });
+  });
+
+  describe("5. Kiro Constants & Workflow Header Forwarding (SSOT)", () => {
+    it("maintains expected KIRO_USER_AGENT format matching official Kiro IDE and KAS", () => {
+      assert.equal(KIRO_IDE_VERSION, "1.5.11");
+      assert.equal(KIRO_KAS_VERSION, "0.66.123");
+      assert.equal(
+        KIRO_USER_AGENT,
+        "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11"
+      );
+    });
+
+    it("extractKiroForwardHeaders forwards workflow tracing and agent headers", () => {
+      const incoming = {
+        host: "runtime.us-east-1.kiro.dev",
+        authorization: "Bearer secret",
+        "x-amzn-kiro-agent-mode": "spec",
+        "x-amzn-kiro-agent-name": "wf-coder",
+        "X-Amzn-Kiro-Execution-Id": "exec-abc-123",
+        "x-amzn-kiro-session-id": "sess-xyz-789",
+        "x-amzn-kiro-agent-presentation": "synthetic",
+        "x-amzn-codewhisperer-optout": "true",
+        "content-length": "100",
+      };
+
+      const forwarded = extractKiroForwardHeaders(incoming);
+      assert.deepEqual(forwarded, {
+        "x-amzn-kiro-agent-mode": "spec",
+        "x-amzn-kiro-agent-name": "wf-coder",
+        "x-amzn-kiro-execution-id": "exec-abc-123",
+        "x-amzn-kiro-session-id": "sess-xyz-789",
+        "x-amzn-kiro-agent-presentation": "synthetic",
+        "x-amzn-codewhisperer-optout": "true",
+      });
+    });
+
+    it("extractKiroForwardHeaders handles empty or missing headers safely", () => {
+      assert.deepEqual(extractKiroForwardHeaders(undefined), {});
+      assert.deepEqual(extractKiroForwardHeaders({}), {});
+      assert.deepEqual(extractKiroForwardHeaders({ "user-agent": "curl" }), {});
     });
   });
 });

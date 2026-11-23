@@ -20,6 +20,7 @@ import {
   isKiroUserRateExceeded,
   executeKiroCreateResponse,
 } from "./createResponse.js";
+import { KIRO_USER_AGENT, extractKiroForwardHeaders } from "./constants.js";
 
 interface BufferedToolCall {
   id: string;
@@ -92,14 +93,16 @@ export async function executeKiro(
     logger.errorLine(reqTag, LogSymbol.ERROR, `Kiro account '${accountLabel}' has no active bearer token`);
   }
   const provCustomHeaders = (context.provider as any)?.customHeaders || {};
+  const clientForwardHeaders = extractKiroForwardHeaders(context.req?.headers);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/vnd.amazon.eventstream",
-    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
-    "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
+    "User-Agent": KIRO_USER_AGENT,
+    "x-amz-user-agent": KIRO_USER_AGENT,
     "x-amzn-kiro-agent-mode": "spec",
     "x-amzn-codewhisperer-machine-id": "kiro-desktop",
     ...provCustomHeaders,
+    ...clientForwardHeaders,
   };
 
   if (bearerToken) {

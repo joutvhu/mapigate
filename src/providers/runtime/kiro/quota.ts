@@ -1,6 +1,7 @@
 import type { RawProviderQuotaResult, RawQuotaBucket } from "../../../core/usage/types.js";
 import { parseResetTime } from "../../../core/usage/utils.js";
 import { fetchWithDnsBypass } from "../../../shared/utils/dnsResolver.js";
+import { KIRO_USER_AGENT } from "./constants.js";
 
 export const CW_HOST = "https://codewhisperer.us-east-1.amazonaws.com";
 export const Q_HOST = "https://q.us-east-1.amazonaws.com";
@@ -123,8 +124,8 @@ export async function getKiroUsage(
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/json",
-              "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
-              "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
+              "x-amz-user-agent": KIRO_USER_AGENT,
+              "user-agent": KIRO_USER_AGENT,
               ...apiKeyHeaders,
               ...externalIdpHeaders,
             },
@@ -166,8 +167,8 @@ export async function getKiroUsage(
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
-            "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
-            "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
+            "x-amz-user-agent": KIRO_USER_AGENT,
+            "user-agent": KIRO_USER_AGENT,
             ...apiKeyHeaders,
             ...externalIdpHeaders,
           },

@@ -10,6 +10,7 @@ import { executeKiro } from "./executor.js";
 import { refreshKiroToken } from "./auth.js";
 
 import { normalizeKiroUpstreamModelId, resolveKiroServiceRegion } from "./models.js";
+import { KIRO_USER_AGENT } from "./constants.js";
 export { normalizeKiroUpstreamModelId };
 
 export class KiroProvider extends OpenAiCompatibleProvider {
@@ -106,8 +107,8 @@ export class KiroProvider extends OpenAiCompatibleProvider {
     const reqHeaders: Record<string, string> = {
       ...(context.customHeaders || {}),
       "x-amz-target": "AmazonCodeWhispererService.ListAvailableModels",
-      "x-amz-user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
-      "user-agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
+      "x-amz-user-agent": KIRO_USER_AGENT,
+      "user-agent": KIRO_USER_AGENT,
       "Content-Type": "application/x-amz-json-1.0",
       "Accept": "application/json",
     };

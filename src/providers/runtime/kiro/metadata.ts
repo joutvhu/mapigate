@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { KIRO_USER_AGENT } from "./constants.js";
 
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
@@ -33,8 +34,8 @@ export const metadata: ProviderRegistryItem = {
   "defaultHeaders": {
     "Content-Type": "application/json",
     "Accept": "application/vnd.amazon.eventstream",
-    "User-Agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11",
-    "X-Amz-User-Agent": "aws-sdk-js/3.0.0 KiroIDE/1.5.11 KAS/0.66.123 os/win32 md/appVersion-1.5.11"
+    "User-Agent": KIRO_USER_AGENT,
+    "X-Amz-User-Agent": KIRO_USER_AGENT
   },
   "thinkingMode": "auto",
   "oauth": {
