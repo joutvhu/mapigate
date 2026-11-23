@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.170] - 2026-11-24
+
+### Features
+
+#### Free Tier Multi-Combo Generation & Grouping
+- **Multi-Combos Mode & Grouping**: Added Single Combo and Multi-Combos mode switcher with customizable name prefix input in `FreeTierComboConfigBar`, along with `FreeTierGroupCard` and `FreeTierComboList` components for grouped provider and model candidate selection.
+- **Grouping Utility & Batch Combo Creation**: Added `freeTierGrouping` utility and updated `freeTierHelper`, `useFreeTierProviders`, `FreeTierComboToolbar`, `FreeTierComboModal`, and `CombosTab` to support grouping free tier models by model, family, or role, enabling batch creation of grouped combos.
+
+#### Kiro Client Constants & Workflow Header Forwarding
+- **Centralized Kiro Client Constants**: Added `src/providers/runtime/kiro/constants.ts` as a single source of truth for Kiro IDE and KAS client versions, `KIRO_USER_AGENT`, and default headers across `executor.ts`, `metadata.ts`, `provider.ts`, and `quota.ts`.
+- **Workflow & Tracing Header Forwarding**: Added `FORWARDABLE_KIRO_HEADERS` whitelist and `extractKiroForwardHeaders` helper to forward client workflow, agent, and session tracing headers upstream.
+
+#### Antigravity & Gemini CLI Runtime Support
+- **Runtime Providers & MITM Handlers**: Added MITM handlers and runtime provider implementations for Antigravity and Gemini CLI.
+
+### Fixes
+
+#### Antigravity Auth & Header Handling
+- **403 Auth Retry & Header Cleanup**: Triggered OAuth token refresh and retry on HTTP 403 responses in addition to 401 in executor and provider, logged response body warnings on auth probe failures, and removed `X-Goog-User-Project` header from executor, provider probe, and quota requests.
+- **Platform ID Resolution**: Replaced local `getPlatformId` helper with shared `getPlatformEnum` in routes.
+
 ## [0.5.168] - 2026-11-23
 
 ### Features

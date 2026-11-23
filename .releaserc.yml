@@ -17,6 +17,5 @@ tag:
   sign: false
 
 include:
-  - README.md
   - package.json
   - CHANGELOG.md
