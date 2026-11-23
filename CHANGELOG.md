@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.168] - 2026-11-23
+
+### Features
+
+#### Smart Routing, Route Simulation & Model Exposure
+- **Route Simulation Engine & Diagnostics**: Added `simulateModelRoute` and `resolveModelMappingDetailed` in `ToolMappingRepository` to evaluate routing paths, combo candidates, account readiness, provider recognition, and rule match origins across CLI tools and models API routes, with an interactive route simulator in the CLI tools view.
+- **Model Exposure Modes**: Added configurable model exposure modes (`all`, `connected`, `mapped_only`) to filter models exposed via `/v1/models`, prioritizing global universal mappings when tool-specific mappings are missing, and importing active combos directly into global mappings.
+- **Expanded User-Agent Tool Detection**: Added automatic tool identification for OpenCode, Codex, Droid, and OpenClaw clients.
+
+#### Combos & Free Tier Management
+- **Combo Detail Page & Visual Management**: Added a dedicated `ComboDetailPage` with `ComboDetailHeader`, `ComboModelRow`, and `ComboToolbar` for managing combo models, priority ordering, and routing strategies, complete with breadcrumb navigation.
+- **Free Tier Combo Generator**: Added one-click Free Tier Combo creation in `CombosTab` with `freeTier` metadata across providers (Gemini, OpenRouter, OpenCode Zen/Free, Kilo Gateway, Groq, Cerebras, SambaNova, Mistral, Nvidia, Coarena, Cloudflare, Jan, LM Studio, Ollama), live connection probing, and model candidate resolution.
+- **Mapping Management UI**: Added column sorting by source and target model in the global mappings table, a reset-to-default button for canonical mappings, and per-tool search filtering in MITM model mappings.
+
+#### Protocol Adapters, Safeguards & Streaming
+- **Stream Tool Call Tracking & Responses Truncation**: Added `streamToolCallTracker` to sequentially index and track parallel streamed tool calls, handled response truncation (`finish_reason: length`) by emitting `response.incomplete` in Responses API, and passed advertised context window metadata scaled by router margin.
+- **Claude Auto-Mode Safeguards & Protocol Compatibility**: Added `ANTHROPIC_DEFAULT_THINKING_BUDGET` safeguards, normalized tool schemas, rescued inline tool calls (`toolCallRescue`), supported in-band error envelope detection, and added `doubledV1Middleware` to cleanly handle repeated `/v1/v1` prefixes.
+- **Pre-Saver Session Identity**: Preserved the original first user turn across Token Saver compression snapshots to maintain session identity.
+
+### Performance
+
+#### Capability Caching & UI Responsiveness
+- **Capability Lookups & Pattern Caching**: Cached resolved model capabilities by provider and model ID to prevent redundant resolution, and cached compiled regex instances for faster glob pattern matching.
+- **Modal Rendering Optimization**: Precomputed search targets, memoized sortable items, deferred search inputs, and paginated model lists in `ModelSelectModal` for smoother rendering.
+
+### Fixes
+
+#### Providers & Web UI
+- **Local & No-Auth Provider Readiness**: Generalised provider readiness checks in route simulation and model discovery to properly evaluate local and keyless providers from both registry definitions and database records.
+- **Coarena Free Tier Constraints**: Restricted Coarena free tier candidate models to the 3 verified arena models.
+- **ToolIcon Provider Rendering**: Passed `src` prop properly to `ToolIcon` in `FreeTierProviderCard` to ensure accurate icon rendering.
+
+### Chores
+
+#### Provider Client Versions & Refactoring
+- **Antigravity & Kiro Version Bumps**: Updated Antigravity and Gemini CLI client version and `User-Agent` to `2.34.0`, and updated Kiro `User-Agent` / `x-amz-user-agent` to `KiroIDE 1.5.11` (`KAS 0.66.123`).
+- **Network Constants Centralization**: Centralized `DEFAULT_PORT`, `DEFAULT_BASE_URL`, and `DEFAULT_V1_URL` imports from `shared/constants/network.js` across CLI tool definitions.
+
 ## [0.5.162] - 2026-11-20
 
 ### Features
