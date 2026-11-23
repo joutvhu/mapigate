@@ -13,6 +13,7 @@ import type {
   OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+import { ANTIGRAVITY_USER_AGENT } from "./types.js";
 
 export const ANTIGRAVITY_CLIENT_ID = resolvePublicCred("antigravity_client_id");
 export const ANTIGRAVITY_CLIENT_SECRET = resolvePublicCred("antigravity_client_secret");
@@ -68,8 +69,7 @@ export async function loadCodeAssist(accessToken: string): Promise<{ projectId: 
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
-        "User-Agent": "antigravity/hub/2.34.0 darwin/arm64",
-        "x-request-source": "local",
+        "User-Agent": ANTIGRAVITY_USER_AGENT,
       },
       body: JSON.stringify({ metadata: { ideType: 9, platform: getPlatformId(), pluginType: 2 } }),
     });
@@ -93,8 +93,7 @@ export function onboardUser(accessToken: string, tierId: string): void {
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     "Content-Type": "application/json",
-    "User-Agent": "antigravity/hub/2.34.0 darwin/arm64",
-    "x-request-source": "local",
+    "User-Agent": ANTIGRAVITY_USER_AGENT,
   };
   (async () => {
     for (let i = 0; i < 10; i++) {
@@ -162,7 +161,7 @@ export const antigravityOAuthHandler: ProviderOAuthHandler = {
     let accountName = "Antigravity Google Account";
     try {
       const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
-        headers: { Authorization: `Bearer ${accessToken}`, "x-request-source": "local" },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (userRes.ok) {
         const userData: any = await userRes.json();

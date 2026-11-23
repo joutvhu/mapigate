@@ -117,8 +117,9 @@ export async function fetchAntigravityWeeklyQuota(
           Authorization: `Bearer ${accessToken}`,
           "User-Agent": ANTIGRAVITY_USER_AGENT,
           "Content-Type": "application/json",
-          "X-Client-Name": "antigravity",
-          "X-Client-Version": ANTIGRAVITY_IDE_VERSION,
+          ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
+            ? { "X-Goog-User-Project": projectId }
+            : {}),
         },
         body: JSON.stringify({
           ...(projectId ? { project: projectId } : {}),

@@ -25,8 +25,6 @@ export async function getAntigravitySubscriptionInfo(
         Authorization: `Bearer ${accessToken}`,
         "User-Agent": ANTIGRAVITY_USER_AGENT,
         "Content-Type": "application/json",
-        "X-Client-Name": "antigravity",
-        "X-Client-Version": ANTIGRAVITY_IDE_VERSION,
       },
       body: JSON.stringify({ metadata: CLIENT_METADATA, mode: 1 }),
       signal: AbortSignal.timeout(8000),
@@ -86,8 +84,9 @@ export async function getAntigravityUsage(
             Authorization: `Bearer ${accessToken}`,
             "User-Agent": ANTIGRAVITY_USER_AGENT,
             "Content-Type": "application/json",
-            "X-Client-Name": "antigravity",
-            "X-Client-Version": ANTIGRAVITY_IDE_VERSION,
+            ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
+              ? { "X-Goog-User-Project": projectId }
+              : {}),
           },
           body: JSON.stringify({ ...(projectId ? { project: projectId } : {}) }),
           signal: AbortSignal.timeout(8000),

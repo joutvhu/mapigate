@@ -1,7 +1,29 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 
 export const ANTIGRAVITY_IDE_VERSION = "2.34.0";
-export const ANTIGRAVITY_USER_AGENT = "antigravity/hub/2.34.0 darwin/arm64";
+
+/**
+ * Google Piper Changelist (CL) embedded in the Google Antigravity Go backend binary:
+ * - Desktop: `AppData/Local/Programs/antigravity/resources/bin/language_server.exe`
+ * - IDE Daemon: `~/.gemini/bin/agy.exe`
+ *
+ * When updating to a new Antigravity version:
+ * 1. Run `language_server.exe --stamp` (or `agy.exe --stamp`) to read `Built at CL: <number>`.
+ * 2. Update `ANTIGRAVITY_IDE_VERSION` and `ANTIGRAVITY_CHANGELIST` here.
+ * Format generated matches Go `codeassistclient.userAgent`:
+ * `antigravity/hub/<version> (os_type=<os>; arch=<arch>; cl=<cl>; auth_method=oauth)`
+ */
+export const ANTIGRAVITY_CHANGELIST = "1026637980";
+
+export function getAntigravityUserAgent(): string {
+  const os = typeof process !== "undefined" && process.platform ? process.platform : "darwin";
+  const arch = typeof process !== "undefined" && process.arch ? process.arch : "arm64";
+  const osType = os === "win32" ? "windows" : os;
+  const goArch = arch === "x64" ? "amd64" : arch;
+  return `antigravity/hub/${ANTIGRAVITY_IDE_VERSION} (os_type=${osType}; arch=${goArch}; cl=${ANTIGRAVITY_CHANGELIST}; auth_method=oauth)`;
+}
+
+export const ANTIGRAVITY_USER_AGENT = getAntigravityUserAgent();
 export const ANTIGRAVITY_LOAD_PROJECT_URL = "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 export const ANTIGRAVITY_QUOTA_MODELS_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 export const ANTIGRAVITY_QUOTA_SUMMARY_URL = "https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary";

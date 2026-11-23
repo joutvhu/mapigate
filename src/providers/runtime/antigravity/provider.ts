@@ -16,6 +16,7 @@ import { getPublicDnsAgent } from "../../../shared/utils/dnsResolver.js";
 import { fetch as undiciFetch } from "undici";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { metadata } from "./metadata.js";
+import { ANTIGRAVITY_USER_AGENT } from "./types.js";
 
 export class AntigravityProvider extends BaseProvider {
   public readonly id = "antigravity";
@@ -125,11 +126,11 @@ export class AntigravityProvider extends BaseProvider {
 
     const reqHeaders: Record<string, string> = {
       "Content-Type": "application/json",
-      "User-Agent": "antigravity/hub/2.34.0 darwin/arm64",
-      "X-Client-Name": "antigravity",
-      "X-Client-Version": "2.34.0",
-      "x-request-source": "local",
+      "User-Agent": ANTIGRAVITY_USER_AGENT,
       Accept: "application/json",
+      ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
+        ? { "X-Goog-User-Project": projectId }
+        : {}),
       ...(context.customHeaders || {}),
     };
     delete reqHeaders["x-goog-api-key"];

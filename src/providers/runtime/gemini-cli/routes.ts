@@ -78,7 +78,7 @@ export const geminiCliOAuthHandler: ProviderOAuthHandler = {
     let accountName = "Gemini CLI Google Account";
     try {
       const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo?alt=json", {
-        headers: { Authorization: `Bearer ${accessToken}`, "x-request-source": "local" },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (userRes.ok) {
         const userData: any = await userRes.json();

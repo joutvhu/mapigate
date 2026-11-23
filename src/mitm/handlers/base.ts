@@ -133,6 +133,7 @@ export async function passthroughHttps(
     }
 
     const headers = { ...req.headers, host: targetHost, "x-mapigate-mitm-loop": "1" };
+    delete (headers as Record<string, any>)["x-request-source"];
     if (bodyBuffer.length > 0) {
       headers["content-length"] = String(bodyBuffer.length);
     }

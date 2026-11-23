@@ -1,5 +1,6 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
+import { ANTIGRAVITY_USER_AGENT } from "./types.js";
 
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
@@ -29,7 +30,7 @@ export const metadata: ProviderRegistryItem = {
   "validateUrl": "",
   "format": "antigravity",
   "defaultHeaders": {
-    "User-Agent": "antigravity/hub/2.34.0 darwin/arm64"
+    "User-Agent": ANTIGRAVITY_USER_AGENT
   },
   "thinkingMode": "auto",
   "oauth": {
@@ -47,7 +48,7 @@ export const metadata: ProviderRegistryItem = {
     "apiVersion": "v1internal",
     "loadCodeAssistEndpoint": "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist",
     "onboardUserEndpoint": "https://cloudcode-pa.googleapis.com/v1internal:onboardUser",
-    "loadCodeAssistUserAgent": "antigravity/hub/2.34.0 darwin/arm64",
+    "loadCodeAssistUserAgent": ANTIGRAVITY_USER_AGENT,
     "refreshLeadMs": 300000
   },
   models

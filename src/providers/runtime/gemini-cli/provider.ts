@@ -5,6 +5,7 @@ import { metadata } from "./metadata.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { getPublicDnsAgent } from "../../../shared/utils/dnsResolver.js";
 import { refreshGoogleOAuthToken } from "../../runtime/antigravity/routes.js";
+import { ANTIGRAVITY_USER_AGENT } from "../../runtime/antigravity/types.js";
 import { fetch as undiciFetch } from "undici";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { getGeminiCliUsage } from "./quota.js";
@@ -53,10 +54,7 @@ export class GeminiCliProvider extends OpenAiCompatibleProvider {
 
     const reqHeaders: Record<string, string> = {
       "Content-Type": "application/json",
-      "User-Agent": "antigravity/hub/2.34.0 darwin/arm64",
-      "X-Client-Name": "antigravity",
-      "X-Client-Version": "2.34.0",
-      "x-request-source": "local",
+      "User-Agent": ANTIGRAVITY_USER_AGENT,
       Accept: "application/json",
       ...(context.customHeaders || {}),
     };

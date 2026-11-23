@@ -12,6 +12,7 @@ import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { loadCodeAssist, refreshGoogleOAuthToken } from "./routes.js";
 import { models } from "./models.js";
+import { ANTIGRAVITY_USER_AGENT } from "./types.js";
 import {
   cleanJSONSchemaForAntigravity,
   normalizeGeminiContents,
@@ -427,9 +428,11 @@ export async function executeAntigravity(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${creds.accessToken}`,
-    "User-Agent": "antigravity/hub/2.34.0 darwin/arm64",
+    "User-Agent": ANTIGRAVITY_USER_AGENT,
     Accept: isStreaming ? "text/event-stream" : "application/json",
-    "x-request-source": "local",
+    ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
+      ? { "X-Goog-User-Project": projectId }
+      : {}),
   };
 
   const effectiveProxy = (context.provider?.proxyUrl && context.provider.proxyUrl.trim()) || "";
