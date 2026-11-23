@@ -62,8 +62,8 @@ describe("Upstream 9router Port Fixes", () => {
 
   describe("3. Antigravity hub and Gemini 4 Argon tiers", () => {
     it("uses antigravity client version and User-Agent", () => {
-      assert.equal(ANTIGRAVITY_IDE_VERSION, "2.33.0");
-      assert.ok(ANTIGRAVITY_USER_AGENT.includes("hub/2.33.0"));
+      assert.equal(ANTIGRAVITY_IDE_VERSION, "2.34.0");
+      assert.ok(ANTIGRAVITY_USER_AGENT.includes("hub/2.34.0"));
     });
 
     it("registers gemini-4-argon medium and low tiers", () => {
