@@ -201,3 +201,120 @@ test("FreeTier - Combo creation and persistence", () => {
   ComboRepository.deleteCombo(saved.id);
   assert.equal(ComboRepository.getComboByName(testName), undefined);
 });
+
+test("FreeTier - Non-chat models are excluded from free tier models", () => {
+  const groq = getRegistryProvider("groq")!;
+  const groqFree = resolveFreeModels(groq);
+  // Whisper models must NOT be present
+  assert.ok(!groqFree.some((m) => m.id.includes("whisper")), "Whisper STT models must be excluded");
+  assert.ok(groqFree.some((m) => m.id.includes("llama")), "Chat models like Llama must remain");
+
+  const gemini = getRegistryProvider("gemini")!;
+  const geminiFree = resolveFreeModels(gemini);
+  // Embeddings & Live Transcription must be excluded
+  assert.ok(!geminiFree.some((m) => m.id.includes("embedding")), "Gemini Embeddings must be excluded");
+  assert.ok(!geminiFree.some((m) => m.id.includes("audio") || m.id.includes("tts")), "Gemini audio/tts must be excluded");
+});
+
+test("FreeTier - Canonical model extraction aligns models across providers", async () => {
+  const { extractCanonicalModelKey, formatModelGroupTitle } = await import(
+    "../src/web/src/utils/freeTierGrouping.js"
+  );
+
+  const groqLlama = extractCanonicalModelKey("llama-3.3-70b-versatile");
+  const cerebrasLlama = extractCanonicalModelKey("llama-3.3-70b");
+  const sambaLlama = extractCanonicalModelKey("Meta-Llama-3.3-70B-Instruct");
+  const openrouterLlama = extractCanonicalModelKey("meta-llama/llama-3.3-70b-instruct:free");
+
+  assert.equal(groqLlama, "llama-3-3-70b");
+  assert.equal(cerebrasLlama, "llama-3-3-70b");
+  assert.equal(sambaLlama, "llama-3-3-70b");
+  assert.equal(openrouterLlama, "llama-3-3-70b");
+
+  assert.equal(formatModelGroupTitle(groqLlama), "Llama 3.3 70B");
+
+  // Gemini dot vs dash
+  assert.equal(extractCanonicalModelKey("gemini-3.8-flash"), "gemini-3-8-flash");
+  assert.equal(extractCanonicalModelKey("gemini-3-8-flash"), "gemini-3-8-flash");
+
+  // Qwen 3
+  assert.equal(extractCanonicalModelKey("qwen/qwen3-32b"), "qwen-3-32b");
+  assert.equal(extractCanonicalModelKey("qwen-3-32b"), "qwen-3-32b");
+
+  // Codestral latest vs versioned
+  assert.equal(extractCanonicalModelKey("codestral-latest"), "codestral");
+  assert.equal(extractCanonicalModelKey("codestral-2501"), "codestral");
+});
+
+test("FreeTier - Grouping and prioritization logic", async () => {
+  const {
+    groupFreeTierModels,
+    sortCandidatesByPriority,
+    generateUniqueComboName,
+  } = await import("../src/web/src/utils/freeTierGrouping.js");
+
+  const groq = getRegistryProvider("groq")!;
+  const cerebras = getRegistryProvider("cerebras")!;
+
+  const mockProviderData = [
+    {
+      provider: groq,
+      freeTier: groq.freeTier!,
+      freeModels: resolveFreeModels(groq),
+      accountsCount: 1,
+      connectionStatus: "connected" as const,
+      statusLabel: "Connected",
+      testResult: { success: true, latencyMs: 150 },
+    },
+    {
+      provider: cerebras,
+      freeTier: cerebras.freeTier!,
+      freeModels: resolveFreeModels(cerebras),
+      accountsCount: 1,
+      connectionStatus: "connected" as const,
+      statusLabel: "Connected",
+      testResult: { success: true, latencyMs: 45 },
+    },
+  ];
+
+  // 1. Group by exact model
+  const modelGroups = groupFreeTierModels(mockProviderData as any, "model");
+  const llamaGroup = modelGroups.find((g) => g.id === "llama-3-3-70b");
+  assert.ok(llamaGroup, "Llama 3.3 70B group should exist");
+  assert.ok(llamaGroup.candidates.length >= 2, "Should group groq and cerebras together");
+
+  // Cerebras (45ms) should be prioritized before Groq (150ms)
+  assert.equal(llamaGroup.candidates[0].provider.id, "cerebras");
+  assert.equal(llamaGroup.candidates[1].provider.id, "groq");
+
+  // 2. Group by family
+  const familyGroups = groupFreeTierModels(mockProviderData as any, "family");
+  assert.ok(familyGroups.some((g) => g.id === "llama"));
+  assert.ok(familyGroups.some((g) => g.id === "qwen"));
+
+  // 2.5 Group by role with object/non-array capabilities
+  const dataWithObjectCaps = [
+    {
+      ...mockProviderData[0],
+      freeModels: [
+        {
+          id: "custom-coder",
+          comboModelValue: "groq/custom-coder",
+          name: "Custom Coder",
+          capabilities: { reasoning: true, code: true },
+        },
+      ],
+    },
+  ];
+  const roleGroups = groupFreeTierModels(dataWithObjectCaps as any, "role");
+  assert.ok(roleGroups.some((g) => g.id === "coding"));
+
+  // 3. Unique combo name generator
+  const existing = ["free-llama-70b", "free-llama-70b-2"];
+  const batchSet = new Set<string>();
+  const name1 = generateUniqueComboName("free-llama-70b", existing, batchSet);
+  assert.equal(name1, "free-llama-70b-3");
+
+  const name2 = generateUniqueComboName("free-llama-70b", existing, batchSet);
+  assert.equal(name2, "free-llama-70b-4");
+});

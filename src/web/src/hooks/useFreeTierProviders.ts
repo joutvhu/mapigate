@@ -57,6 +57,7 @@ export function useFreeTierProviders(isOpen: boolean) {
         connectionStatus: conn.status,
         statusLabel: conn.label,
         statusDetail: conn.detail,
+        testResult: testRes,
       };
     });
   }, [backendProviders, testResults]);

@@ -6,6 +6,9 @@ export interface ResolvedFreeModel {
   name: string;
   limit?: string;
   contextLength?: number;
+  kind?: string;
+  capabilities?: any;
+  providerId?: string;
 }
 
 export interface FreeTierProviderData {
@@ -16,6 +19,7 @@ export interface FreeTierProviderData {
   connectionStatus: "connected" | "not_connected" | "error" | "exhausted";
   statusLabel: string;
   statusDetail?: string;
+  testResult?: ConnectionTestResult;
 }
 
 export interface ConnectionTestResult {
@@ -57,32 +61,42 @@ export function isFreeTierProvider(p?: Partial<ProviderRegistryItem> | null): bo
  */
 export function resolveFreeModels(
   provider: ProviderRegistryItem,
-  dbProvider?: { models?: Array<string | { id: string; name?: string; contextLength?: number }> }
+  dbProvider?: { models?: Array<string | { id: string; name?: string; contextLength?: number; kind?: string; capabilities?: string[] }> }
 ): ResolvedFreeModel[] {
   const freeTier = provider.freeTier;
   const rawModels = provider.models || [];
   const dbModels = dbProvider?.models || [];
 
-  // Normalize models into a unified pool
-  const allKnownModels = new Map<string, { id: string; name: string; contextLength?: number }>();
+  // Normalize models into a unified pool (filtering out non-chat models like embedding/stt/tts/image/video)
+  const allKnownModels = new Map<
+    string,
+    { id: string; name: string; contextLength?: number; kind?: string; capabilities?: string[] }
+  >();
 
   for (const m of rawModels) {
     if (!m || !m.id) continue;
+    if (m.kind && m.kind !== "chat") continue;
     allKnownModels.set(m.id, {
       id: m.id,
       name: m.name || m.id,
       contextLength: m.contextLength,
+      kind: m.kind,
+      capabilities: m.capabilities,
     });
   }
 
   for (const dm of dbModels) {
     const id = typeof dm === "string" ? dm : dm?.id;
     if (!id) continue;
+    const kind = typeof dm === "object" ? dm.kind : undefined;
+    if (kind && kind !== "chat") continue;
     if (!allKnownModels.has(id)) {
       allKnownModels.set(id, {
         id,
         name: typeof dm === "string" ? dm : dm.name || id,
         contextLength: typeof dm === "object" ? dm.contextLength : undefined,
+        kind,
+        capabilities: typeof dm === "object" ? dm.capabilities : undefined,
       });
     }
   }
@@ -105,6 +119,9 @@ export function resolveFreeModels(
           name: m.name,
           limit: provider.isLocal ? "Local inference" : undefined,
           contextLength: m.contextLength,
+          kind: m.kind,
+          capabilities: m.capabilities,
+          providerId: provider.id,
         });
       }
     }
@@ -116,15 +133,19 @@ export function resolveFreeModels(
     for (const fm of freeTier.models) {
       if (!fm || !fm.id) continue;
       const id = fm.id;
+      const known = allKnownModels.get(id);
+      if (known?.kind && known.kind !== "chat") continue;
       if (!seenIds.has(id)) {
         seenIds.add(id);
-        const known = allKnownModels.get(id);
         freeModels.push({
           id,
           comboModelValue: toComboValue(id),
           name: known?.name || id,
           limit: fm.limit || freeTier.note,
           contextLength: known?.contextLength,
+          kind: known?.kind,
+          capabilities: known?.capabilities,
+          providerId: provider.id,
         });
       }
     }
@@ -134,6 +155,7 @@ export function resolveFreeModels(
   if (Array.isArray(freeTier.match) && freeTier.match.length > 0) {
     for (const [id, m] of allKnownModels.entries()) {
       if (seenIds.has(id)) continue;
+      if (m.kind && m.kind !== "chat") continue;
       const matched = freeTier.match.some((pat) => matchesWildcard(pat, id));
       if (matched) {
         seenIds.add(id);
@@ -143,6 +165,9 @@ export function resolveFreeModels(
           name: m.name,
           limit: freeTier.note || "Free tier",
           contextLength: m.contextLength,
+          kind: m.kind,
+          capabilities: m.capabilities,
+          providerId: provider.id,
         });
       }
     }
@@ -152,6 +177,7 @@ export function resolveFreeModels(
   if (freeTier.scope === "all") {
     for (const [id, m] of allKnownModels.entries()) {
       if (!seenIds.has(id)) {
+        if (m.kind && m.kind !== "chat") continue;
         seenIds.add(id);
         freeModels.push({
           id,
@@ -159,6 +185,9 @@ export function resolveFreeModels(
           name: m.name,
           limit: freeTier.note,
           contextLength: m.contextLength,
+          kind: m.kind,
+          capabilities: m.capabilities,
+          providerId: provider.id,
         });
       }
     }

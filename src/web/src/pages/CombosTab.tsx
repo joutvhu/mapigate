@@ -946,6 +946,24 @@ export const CombosTab: React.FC<CombosTabProps> = ({ onSelectCombo }) => {
             isActive: true,
           });
         }}
+        onSaveBatch={async (combosToCreate) => {
+          for (const item of combosToCreate) {
+            const res = await fetch("/api/combos", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: item.name,
+                models: item.models,
+                strategy: item.strategy,
+              }),
+            });
+            if (!res.ok) {
+              const err = await res.json();
+              throw new Error(err.error || `Failed to create combo ${item.name}`);
+            }
+          }
+          await fetchCombos();
+        }}
         existingComboNames={combos.map((c) => c.name)}
       />
 
