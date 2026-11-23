@@ -84,9 +84,6 @@ export async function getAntigravityUsage(
             Authorization: `Bearer ${accessToken}`,
             "User-Agent": ANTIGRAVITY_USER_AGENT,
             "Content-Type": "application/json",
-            ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
-              ? { "X-Goog-User-Project": projectId }
-              : {}),
           },
           body: JSON.stringify({ ...(projectId ? { project: projectId } : {}) }),
           signal: AbortSignal.timeout(8000),

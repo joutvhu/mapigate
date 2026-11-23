@@ -430,9 +430,6 @@ export async function executeAntigravity(
     Authorization: `Bearer ${creds.accessToken}`,
     "User-Agent": ANTIGRAVITY_USER_AGENT,
     Accept: isStreaming ? "text/event-stream" : "application/json",
-    ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
-      ? { "X-Goog-User-Project": projectId }
-      : {}),
   };
 
   const effectiveProxy = (context.provider?.proxyUrl && context.provider.proxyUrl.trim()) || "";
@@ -444,9 +441,9 @@ export async function executeAntigravity(
     effectiveProxy
   );
 
-  // 401 Auth Retry
-  if (!upstreamRes.ok && upstreamRes.status === 401 && providerInstance.handleAuthRefresh) {
-    const refreshed = await providerInstance.handleAuthRefresh(context, 401);
+  // 401 / 403 Auth Retry
+  if (!upstreamRes.ok && (upstreamRes.status === 401 || upstreamRes.status === 403) && providerInstance.handleAuthRefresh) {
+    const refreshed = await providerInstance.handleAuthRefresh(context, upstreamRes.status);
     if (refreshed) {
       const refreshedCreds = resolveAccountCredentials(context);
       if (refreshedCreds?.accessToken) {

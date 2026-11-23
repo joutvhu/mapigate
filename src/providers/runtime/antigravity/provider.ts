@@ -46,7 +46,7 @@ export class AntigravityProvider extends BaseProvider {
     context: ProviderRequestContext,
     status: number
   ): Promise<boolean> {
-    if (status !== 401 || !context.account) return false;
+    if ((status !== 401 && status !== 403) || !context.account) return false;
 
     const psd = context.account.providerSpecificData || {};
     let refreshToken = psd.refreshToken;
@@ -128,9 +128,6 @@ export class AntigravityProvider extends BaseProvider {
       "Content-Type": "application/json",
       "User-Agent": ANTIGRAVITY_USER_AGENT,
       Accept: "application/json",
-      ...(projectId && projectId !== "cloudaicompanion-default" && projectId !== "aicode-consumers"
-        ? { "X-Goog-User-Project": projectId }
-        : {}),
       ...(context.customHeaders || {}),
     };
     delete reqHeaders["x-goog-api-key"];
@@ -155,7 +152,7 @@ export class AntigravityProvider extends BaseProvider {
 
         let response = ((await undiciFetch(ep.url, fetchOptions)) as unknown as globalThis.Response);
 
-        if (response.status === 401) {
+        if (response.status === 401 || response.status === 403) {
           let rToken = psd.refreshToken || psd.refresh_token;
           if (!rToken && account?.rawApiKey?.startsWith("{")) {
             try {
@@ -239,6 +236,10 @@ export class AntigravityProvider extends BaseProvider {
         }
 
         if (response.status === 401 || response.status === 403) {
+          const errBody = await response.text().catch(() => "");
+          if (errBody) {
+            logger.warn("ANTIGRAVITY", `Probe returned ${response.status} from ${ep.url}: ${errBody}`);
+          }
           authError = `Authentication failed (HTTP ${response.status}) for account "${account?.name || this.name}". Please verify credentials.`;
         } else {
           lastError = `Endpoint ${ep.url} returned HTTP ${response.status}: ${response.statusText}`;

@@ -16,8 +16,8 @@ export const ANTIGRAVITY_IDE_VERSION = "2.34.0";
 export const ANTIGRAVITY_CHANGELIST = "1026637980";
 
 export function getAntigravityUserAgent(): string {
-  const os = typeof process !== "undefined" && process.platform ? process.platform : "darwin";
-  const arch = typeof process !== "undefined" && process.arch ? process.arch : "arm64";
+  const os = typeof process !== "undefined" && process.platform ? process.platform : "win32";
+  const arch = typeof process !== "undefined" && process.arch ? process.arch : "x64";
   const osType = os === "win32" ? "windows" : os;
   const goArch = arch === "x64" ? "amd64" : arch;
   return `antigravity/hub/${ANTIGRAVITY_IDE_VERSION} (os_type=${osType}; arch=${goArch}; cl=${ANTIGRAVITY_CHANGELIST}; auth_method=oauth)`;
@@ -51,12 +51,13 @@ export const PLUGIN_TYPE = {
 } as const;
 
 export function getPlatformEnum(): number {
+  if (typeof process === "undefined" || !process.platform) return PLATFORM.WINDOWS_AMD64;
   const os = process.platform;
   const architecture = process.arch;
   if (os === "darwin") return architecture === "arm64" ? PLATFORM.DARWIN_ARM64 : PLATFORM.DARWIN_AMD64;
   if (os === "linux") return architecture === "arm64" ? PLATFORM.LINUX_ARM64 : PLATFORM.LINUX_AMD64;
   if (os === "win32") return PLATFORM.WINDOWS_AMD64;
-  return PLATFORM.UNSPECIFIED;
+  return PLATFORM.WINDOWS_AMD64;
 }
 
 export const CLIENT_METADATA = {

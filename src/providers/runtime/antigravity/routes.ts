@@ -13,7 +13,7 @@ import type {
   OAuthRefreshTokenResult,
 } from "../../core/oauthTypes.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
-import { ANTIGRAVITY_USER_AGENT } from "./types.js";
+import { ANTIGRAVITY_USER_AGENT, getPlatformEnum } from "./types.js";
 
 export const ANTIGRAVITY_CLIENT_ID = resolvePublicCred("antigravity_client_id");
 export const ANTIGRAVITY_CLIENT_SECRET = resolvePublicCred("antigravity_client_secret");
@@ -24,12 +24,6 @@ export const ANTIGRAVITY_SCOPES = [
   "https://www.googleapis.com/auth/cclog",
   "https://www.googleapis.com/auth/experimentsandconfigs",
 ];
-
-function getPlatformId(): number {
-  if (process.platform === "win32") return 5;
-  if (process.platform === "darwin") return process.arch === "arm64" ? 2 : 1;
-  return process.arch === "arm64" ? 4 : 3;
-}
 
 export async function refreshGoogleOAuthToken(
   refreshToken: string,
@@ -71,7 +65,7 @@ export async function loadCodeAssist(accessToken: string): Promise<{ projectId: 
         "Content-Type": "application/json",
         "User-Agent": ANTIGRAVITY_USER_AGENT,
       },
-      body: JSON.stringify({ metadata: { ideType: 9, platform: getPlatformId(), pluginType: 2 } }),
+      body: JSON.stringify({ metadata: { ideType: 9, platform: getPlatformEnum(), pluginType: 2 } }),
     });
     if (res.ok) {
       const data: any = await res.json();
@@ -101,7 +95,7 @@ export function onboardUser(accessToken: string, tierId: string): void {
         const res = await fetchWithDnsBypass("https://cloudcode-pa.googleapis.com/v1internal:onboardUser", {
           method: "POST",
           headers,
-          body: JSON.stringify({ tierId, metadata: { ideType: 9, platform: getPlatformId(), pluginType: 2 } }),
+          body: JSON.stringify({ tierId, metadata: { ideType: 9, platform: getPlatformEnum(), pluginType: 2 } }),
         });
         if (res.ok) {
           const data: any = await res.json();
