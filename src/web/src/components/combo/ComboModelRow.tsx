@@ -13,7 +13,7 @@ export interface ComboModelRowProps {
   onRemove: (index: number) => void;
 }
 
-export const ComboModelRow: React.FC<ComboModelRowProps> = ({
+export const ComboModelRow: React.FC<ComboModelRowProps> = React.memo(({
   model,
   index,
   total,
@@ -126,4 +126,5 @@ export const ComboModelRow: React.FC<ComboModelRowProps> = ({
       </div>
     </div>
   );
-};
+});
+ComboModelRow.displayName = "ComboModelRow";

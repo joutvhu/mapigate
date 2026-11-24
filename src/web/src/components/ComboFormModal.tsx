@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -52,16 +52,16 @@ interface SortableComboModelRowProps {
   id: string;
   model: string;
   index: number;
-  onEdit: (newModel: string) => void;
-  onRemove: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  onEdit: (index: number, newModel: string) => void;
+  onRemove: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
   isFirst: boolean;
   isLast: boolean;
   excludeValues?: string[];
 }
 
-const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
+const SortableComboModelRow: React.FC<SortableComboModelRowProps> = React.memo(({
   id,
   model,
   index,
@@ -84,21 +84,11 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
     const target = typeof customVal === "string" ? customVal : draft;
     const trimmed = target.trim();
     if (trimmed && trimmed !== model) {
-      onEdit(trimmed);
+      onEdit(index, trimmed);
     } else {
       setDraft(model);
     }
     setEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commit();
-    } else if (e.key === "Escape") {
-      setDraft(model);
-      setEditing(false);
-    }
   };
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -153,7 +143,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
             </div>
             <button
               type="button"
-              onClick={commit}
+              onClick={() => commit()}
               className="p-1 text-emerald-400 hover:text-emerald-300 cursor-pointer"
               title="Save changes"
             >
@@ -192,7 +182,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
       <div className="flex items-center gap-1 shrink-0">
         <button
           type="button"
-          onClick={onMoveUp}
+          onClick={() => onMoveUp(index)}
           disabled={isFirst}
           className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer transition-colors"
           title="Move up"
@@ -201,7 +191,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
         </button>
         <button
           type="button"
-          onClick={onMoveDown}
+          onClick={() => onMoveDown(index)}
           disabled={isLast}
           className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 cursor-pointer transition-colors"
           title="Move down"
@@ -210,7 +200,7 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
         </button>
         <button
           type="button"
-          onClick={onRemove}
+          onClick={() => onRemove(index)}
           className="p-1 text-slate-400 hover:text-rose-400 cursor-pointer transition-colors"
           title="Remove model"
         >
@@ -219,7 +209,8 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = ({
       </div>
     </div>
   );
-};
+});
+SortableComboModelRow.displayName = "SortableComboModelRow";
 
 export const ComboFormModal: React.FC<ComboFormModalProps> = ({
   isOpen,
@@ -307,49 +298,61 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
     return list;
   }, [combo, name]);
 
-  const isCircularReference = (val: string): boolean => {
-    const v = val.trim().toLowerCase();
-    const stripped = v.startsWith("combo/") ? v.slice(6) : v;
-    return excludedComboValues.some((ex) => {
-      const exLower = ex.toLowerCase();
-      const exStripped = exLower.startsWith("combo/") ? exLower.slice(6) : exLower;
-      return v === exLower || stripped === exStripped;
-    });
-  };
+  const isCircularReference = useCallback(
+    (val: string): boolean => {
+      const v = val.trim().toLowerCase();
+      const stripped = v.startsWith("combo/") ? v.slice(6) : v;
+      return excludedComboValues.some((ex) => {
+        const exLower = ex.toLowerCase();
+        const exStripped = exLower.startsWith("combo/") ? exLower.slice(6) : exLower;
+        return v === exLower || stripped === exStripped;
+      });
+    },
+    [excludedComboValues]
+  );
 
-  const handleEditModel = (index: number, newModel: string) => {
-    const val = newModel.trim();
-    if (isCircularReference(val)) {
-      setModelsError("A combo cannot bundle itself (circular reference).");
-      return;
-    }
-    const updated = [...models];
-    updated[index] = val;
-    setModels(updated);
-    setModelsError("");
-  };
+  const handleEditModel = useCallback(
+    (index: number, newModel: string) => {
+      const val = newModel.trim();
+      if (isCircularReference(val)) {
+        setModelsError("A combo cannot bundle itself (circular reference).");
+        return;
+      }
+      setModels((prev) => {
+        const updated = [...prev];
+        updated[index] = val;
+        return updated;
+      });
+      setModelsError("");
+    },
+    [isCircularReference]
+  );
 
-  const handleRemoveModel = (index: number) => {
-    setModels(models.filter((_, idx) => idx !== index));
-  };
+  const handleRemoveModel = useCallback((index: number) => {
+    setModels((prev) => prev.filter((_, idx) => idx !== index));
+  }, []);
 
-  const handleMoveUp = (index: number) => {
+  const handleMoveUp = useCallback((index: number) => {
     if (index === 0) return;
-    const next = [...models];
-    const temp = next[index - 1];
-    next[index - 1] = next[index];
-    next[index] = temp;
-    setModels(next);
-  };
+    setModels((prev) => {
+      const next = [...prev];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  }, []);
 
-  const handleMoveDown = (index: number) => {
-    if (index === models.length - 1) return;
-    const next = [...models];
-    const temp = next[index + 1];
-    next[index + 1] = next[index];
-    next[index] = temp;
-    setModels(next);
-  };
+  const handleMoveDown = useCallback((index: number) => {
+    setModels((prev) => {
+      if (index >= prev.length - 1) return prev;
+      const next = [...prev];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -559,10 +562,10 @@ export const ComboFormModal: React.FC<ComboFormModalProps> = ({
                             id={`${m}-${idx}`}
                             model={m}
                             index={idx}
-                            onEdit={(newVal) => handleEditModel(idx, newVal)}
-                            onRemove={() => handleRemoveModel(idx)}
-                            onMoveUp={() => handleMoveUp(idx)}
-                            onMoveDown={() => handleMoveDown(idx)}
+                            onEdit={handleEditModel}
+                            onRemove={handleRemoveModel}
+                            onMoveUp={handleMoveUp}
+                            onMoveDown={handleMoveDown}
                             isFirst={idx === 0}
                             isLast={idx === models.length - 1}
                             excludeValues={excludedComboValues}
