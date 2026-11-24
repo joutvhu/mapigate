@@ -962,7 +962,8 @@ export const CombosTab: React.FC<CombosTabProps> = ({ onSelectCombo }) => {
               throw new Error(err.error || `Failed to create combo ${item.name}`);
             }
           }
-          await fetchCombos();
+          await loadCombos();
+          invalidateAvailableModelsCache();
         }}
         existingComboNames={combos.map((c) => c.name)}
       />

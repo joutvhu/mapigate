@@ -81,7 +81,7 @@ export function resolveFreeModels(
       name: m.name || m.id,
       contextLength: m.contextLength,
       kind: m.kind,
-      capabilities: m.capabilities,
+      capabilities: Array.isArray(m.capabilities) ? m.capabilities : undefined,
     });
   }
 

@@ -49,11 +49,14 @@ export function useFreeTierProviders(isOpen: boolean) {
       const freeModels = resolveFreeModels(provider, dbProv);
       const testRes = testResults[provider.id];
       const conn = getProviderConnectionStatus(provider, dbProv, testRes);
+      const accountsCount =
+        dbProv?.accountsCount ?? (Array.isArray(dbProv?.accounts) ? dbProv.accounts.length : 0);
 
       return {
         provider,
         freeTier,
         freeModels,
+        accountsCount,
         connectionStatus: conn.status,
         statusLabel: conn.label,
         statusDetail: conn.detail,
