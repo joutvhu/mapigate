@@ -1,22 +1,19 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
-import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import type { ModelCallResult, ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import type { ProviderUsageContext, RawProviderQuotaResult } from "../../../core/usage/types.js";
 import { getCodexUsage } from "./quota.js";
-import {
-  sanitizeCodexTools,
-  convertSystemToDeveloperRole,
-  stripStoredItemReferences,
-} from "./schemaSanitizer.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { checkBinaryInstalled } from "../../core/base/baseProvider.js";
 import { metadata } from "./metadata.js";
-import { CODEX_CLIENT_ID } from "./routes.js";
+import { CODEX_CLIENT_ID, codexOAuthHandler } from "./routes.js";
+import { buildCodexResponsesPayload } from "./responsesPayload.js";
+import { executeCodexResponses } from "./responses.js";
 
 export class CodexProvider extends OpenAiCompatibleProvider {
   public override readonly id = "codex";
   public override readonly name = "OpenAI Codex";
-  public override readonly defaultFormat = "openai";
+  public override readonly defaultFormat = metadata.format || "openai-responses";
 
   public override supportsQuota(): boolean {
     return true;
@@ -26,14 +23,78 @@ export class CodexProvider extends OpenAiCompatibleProvider {
     return await getCodexUsage(context.account.rawApiKey, context.account.providerSpecificData);
   }
 
-  public override transformRequestBody(context: ProviderRequestContext): any {
-    const body = super.transformRequestBody(context);
-    if (body && typeof body === "object") {
-      sanitizeCodexTools(body);
-      convertSystemToDeveloperRole(body);
-      stripStoredItemReferences(body);
+  public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
+    const headers = await super.buildHeaders(context);
+    const rawKey = (context.account?.rawApiKey || "").trim();
+    if (!headers["chatgpt-account-id"] && rawKey.startsWith("{") && rawKey.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(rawKey);
+        const chatgptAccountId = parsed.chatgptAccountId || parsed.accountId;
+        if (chatgptAccountId) {
+          headers["chatgpt-account-id"] = chatgptAccountId;
+          headers["ChatGPT-Account-Id"] = chatgptAccountId;
+        }
+      } catch {}
     }
-    return body;
+    return headers;
+  }
+
+  public override transformRequestBody(context: ProviderRequestContext): any {
+    const upstreamModel = this.resolveUpstreamModelId(context);
+    return buildCodexResponsesPayload(context, upstreamModel);
+  }
+
+  public async execute(context: ProviderRequestContext): Promise<ModelCallResult> {
+    return await executeCodexResponses(context, this);
+  }
+
+  public async handleAuthRefresh(context: ProviderRequestContext, status: number): Promise<boolean> {
+    if (status !== 401 || !context.account) return false;
+    const account = context.account;
+    const psd = ((account.providerSpecificData || {}) as Record<string, any>);
+    let rToken = psd.refreshToken || psd.refresh_token;
+    let parsedRaw: Record<string, any> | null = null;
+    const trimmedRaw = (account.rawApiKey || "").trim();
+    if (trimmedRaw.startsWith("{") && trimmedRaw.endsWith("}")) {
+      try {
+        parsedRaw = JSON.parse(trimmedRaw);
+        rToken = rToken || parsedRaw?.refreshToken || parsedRaw?.refresh_token;
+      } catch {}
+    }
+    if (!rToken || !codexOAuthHandler.refreshToken) return false;
+
+    try {
+      const refreshed = await codexOAuthHandler.refreshToken({ refreshToken: rToken, providerSpecificData: psd });
+      if (!refreshed?.accessToken) return false;
+
+      const newExpiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
+      const newRefreshToken = refreshed.refreshToken || rToken;
+      const updatedRawApiKey = parsedRaw
+        ? JSON.stringify({
+            ...parsedRaw,
+            accessToken: refreshed.accessToken,
+            refreshToken: newRefreshToken,
+            expiresAt: newExpiresAt,
+          })
+        : refreshed.accessToken;
+      const updatedPsd = {
+        ...psd,
+        refreshToken: newRefreshToken,
+        expiresAt: newExpiresAt,
+      };
+
+      account.rawApiKey = updatedRawApiKey;
+      account.providerSpecificData = updatedPsd;
+      if (account.id) {
+        ProviderRepository.updateAccount(account.id, {
+          rawApiKey: updatedRawApiKey,
+          providerSpecificData: updatedPsd,
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {

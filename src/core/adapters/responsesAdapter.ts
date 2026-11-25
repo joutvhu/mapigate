@@ -249,6 +249,17 @@ export function convertResponsesApiFormat(body: any): any {
   }
   delete result.max_output_tokens;
 
+  if (
+    body.reasoning &&
+    typeof body.reasoning === "object" &&
+    !Array.isArray(body.reasoning) &&
+    typeof body.reasoning.effort === "string" &&
+    body.reasoning.effort.trim() &&
+    result.reasoning_effort === undefined
+  ) {
+    result.reasoning_effort = body.reasoning.effort.trim();
+  }
+
   delete result.input;
   delete result.instructions;
   delete result.include;
