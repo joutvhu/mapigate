@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { StructuredLogEntry } from "../../../../shared/types/logging.js";
 import type { RequestDetail } from "../../../../shared/types/index.js";
+import { PortalDrawer } from "../PortalDrawer.js";
 import { ToolIcon } from "../ui/ToolIcon.js";
 import { TokenEconomicsPanel } from "./TokenEconomicsPanel.js";
 import { ToolCallsPanel } from "./ToolCallsPanel.js";
 import { LogPayloadViewer } from "./LogPayloadViewer.js";
 import { useSystemInfo } from "../../hooks/useSystemInfo.js";
-import { useBackdropClose } from "../../hooks/useBackdropClose.js";
+import { copyToClipboard as copyTextToClipboard } from "../../utils/clipboard.js";
 import { DEFAULT_PORT, DEFAULT_HOST } from "../../../../shared/constants/network.js";
 import {
   X,
@@ -45,22 +45,6 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
   const [requestDetail, setRequestDetail] = useState<RequestDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const { backdropProps } = useBackdropClose(onClose, !isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    const origOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = origOverflow;
-    };
-  }, [isOpen, onClose]);
-
   // Fetch full request details when an entry with requestId/id is opened
   useEffect(() => {
     if (!isOpen || !entry) {
@@ -94,7 +78,7 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
     };
   }, [isOpen, entry]);
 
-  if (!isOpen || !entry || typeof document === "undefined") return null;
+  if (!isOpen || !entry) return null;
 
   const { gateway, error, level, category, rawText, reqTag, id, requestId } = entry;
   const status = gateway?.statusCode || error?.status || requestDetail?.status;
@@ -109,7 +93,7 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
     Boolean(entry.requestId);
 
   const copyToClipboard = (text: string, type: "id" | "json" | "curl") => {
-    navigator.clipboard.writeText(text);
+    void copyTextToClipboard(text);
     if (type === "id") {
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
@@ -139,15 +123,8 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
     return `curl -X POST http://${effectiveHost}:${effectivePort}${route} \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer [REDACTED]" \\\n  -d '${bodyStr}'`;
   };
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-xs animate-rt-fade-in"
-      {...backdropProps}
-    >
-      <div
-        className="w-full max-w-2xl sm:max-w-3xl h-full bg-[#0D121F] border-l border-[#1E293B] shadow-2xl flex flex-col text-slate-100 overflow-hidden animate-rt-slide-in-right"
-        onClick={(e) => e.stopPropagation()}
-      >
+  return (
+    <PortalDrawer isOpen={isOpen} onClose={onClose}>
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#0A0E18]">
           <div className="flex items-center gap-3">
@@ -194,6 +171,7 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close"
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="size-5" />
@@ -247,7 +225,7 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
                 </span>
                 <p
                   className="mt-1 text-xs font-bold text-slate-200 font-mono truncate"
-                  title={gateway?.actualModel || gateway?.requestedModel || requestDetail?.model}
+                  title={gateway?.actualModel || gateway?.requestedModel || requestDetail?.model || undefined}
                 >
                   {gateway?.actualModel || gateway?.requestedModel || requestDetail?.model || "-"}
                 </p>
@@ -368,8 +346,6 @@ export const LogDetailDrawer: React.FC<LogDetailDrawerProps> = ({
             Close
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </PortalDrawer>
   );
 };

@@ -7,6 +7,7 @@ import { useSystemInfo } from "../hooks/useSystemInfo";
 import { useMitmStatus } from "../hooks/useMitmStatus";
 import { Github } from "lucide-react";
 import { DEFAULT_PORT } from "../../../shared/constants/network.js";
+import { MITM_TOOLS } from "../../../mitm/handlers/generated/toolsConfig.js";
 
 interface HeaderProps {
   currentTab: NavTab;
@@ -20,12 +21,9 @@ interface HeaderProps {
   onSelectTab?: (tab: NavTab) => void;
 }
 
-const TOOL_NAME_MAP: Record<string, string> = {
-  antigravity: "Antigravity",
-  kiro: "Kiro",
-  copilot: "GitHub Copilot",
-  cursor: "Cursor",
-};
+const TOOL_NAME_MAP: Record<string, string> = Object.fromEntries(
+  MITM_TOOLS.map((t) => [t.id, t.name])
+);
 
 function formatToolList(tools: string[]): string {
   if (!tools || tools.length === 0) return "";
@@ -103,7 +101,6 @@ export const Header: React.FC<HeaderProps> = ({
   const lock = useAuth((s) => s.lock);
   const systemInfo = useSystemInfo((s) => s.info);
   const fetchSystemInfo = useSystemInfo((s) => s.fetchSystemInfo);
-  const version = systemInfo?.version;
 
   const mitmStatus = useMitmStatus((s) => s.status);
   const fetchMitmStatus = useMitmStatus((s) => s.fetchStatus);
@@ -145,14 +142,12 @@ export const Header: React.FC<HeaderProps> = ({
   let networkColorClass = isLanExposed
     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20"
     : "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20";
-  let networkLabel = isLanExposed ? "LAN Active" : "Local Only";
   let networkIcon = isLanExposed ? "wifi" : "shield";
 
   if (isRestartRequired) {
     const targetMode = configuredHost === "0.0.0.0" ? "LAN Active" : "Local Only";
     networkTooltip = `⚠️ Restart Required: Configured for ${targetMode} (${configuredHost}), but running on ${listeningHost}. Click Restart button to apply.`;
     networkColorClass = "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25 animate-pulse";
-    networkLabel = "Restart to apply";
     networkIcon = "restart_alt";
   }
 

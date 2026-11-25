@@ -10,6 +10,7 @@ import { RawTerminalView } from "../components/console/RawTerminalView.js";
 import { LogDetailDrawer } from "../components/console/LogDetailDrawer.js";
 import { Layers } from "lucide-react";
 import { AuthService } from "../services/authService.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 import { DEFAULT_BASE_URL } from "../../../shared/constants/network.js";
 
 export const ConsoleLogTab: React.FC = () => {
@@ -289,11 +290,11 @@ export const ConsoleLogTab: React.FC = () => {
         : filteredStructuredLogs.map((l) => l.rawText).join("\n");
     if (!textToCopy) return;
 
-    try {
-      await navigator.clipboard.writeText(textToCopy);
+    const ok = await copyToClipboard(textToCopy);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    }
   };
 
   const handleInspectLog = (entry: StructuredLogEntry) => {
@@ -302,7 +303,7 @@ export const ConsoleLogTab: React.FC = () => {
   };
 
   return (
-    <div className="w-full px-2 sm:px-4 space-y-3 animate-rt-fade-in flex flex-col h-[calc(100vh-140px)] min-h-[500px]">
+    <div className="w-full space-y-3 animate-rt-fade-in flex flex-col h-[calc(100vh-140px)] min-h-[500px]">
       {/* Unified Toolbar */}
       <ConsoleToolbar
         connected={connected}

@@ -107,7 +107,7 @@ export const CursorAuthModal: React.FC<CursorAuthModalProps> = ({
               <p className="text-xs text-slate-400">Import session token from local Cursor database</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
+          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>

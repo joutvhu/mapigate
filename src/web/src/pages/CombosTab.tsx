@@ -7,6 +7,7 @@ import { CapacityBadges } from "../components/CapacityBadges.js";
 import { Select } from "../components/Select.js";
 import { aggregateComboCapabilities } from "../../../core/capabilities/index.js";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 export interface CapacityAdapterEntry {
   enabled: boolean;
@@ -295,7 +296,7 @@ export const CombosTab: React.FC<CombosTabProps> = ({ onSelectCombo }) => {
   };
 
   const handleCopyCombo = (name: string, id: string) => {
-    navigator.clipboard.writeText(name);
+    void copyToClipboard(name);
     setCopiedComboId(id);
     setTimeout(() => setCopiedComboId(null), 2000);
   };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
 import { ToolIcon } from "./ui/ToolIcon";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 interface KiroAuthModalProps {
   isOpen: boolean;
@@ -99,7 +100,7 @@ export const KiroAuthModal: React.FC<KiroAuthModalProps> = ({
   }, []);
 
   const handleCopyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
+    void copyToClipboard(code);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };

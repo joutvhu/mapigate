@@ -261,7 +261,7 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
           message={`Are you sure you want to delete combo "${combo.name}"? This action cannot be undone.`}
           confirmText="Delete Combo"
           variant="danger"
-          onClose={() => setConfirmDelete(false)}
+          onCancel={() => setConfirmDelete(false)}
           onConfirm={handleDeleteCombo}
         />
       )}
@@ -274,7 +274,7 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
           message={`Remove all models belonging to provider "${providerToRemove}" from this combo?`}
           confirmText="Remove Models"
           variant="danger"
-          onClose={() => setProviderToRemove(null)}
+          onCancel={() => setProviderToRemove(null)}
           onConfirm={() => handleRemoveByProvider(providerToRemove)}
         />
       )}

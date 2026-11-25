@@ -13,6 +13,7 @@ import { ToolIcon } from "../components/ui/ToolIcon";
 import { invalidateAvailableModelsCache } from "../components/ModelAutocompleteInput.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 import { EditAccountModal, type EditAccountData } from "../components/EditAccountModal.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 interface ProviderDetailPageProps {
   provider: ProviderItem;
@@ -205,7 +206,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
         setModels(regModels);
         setConnections([]);
       });
-  }, [provider.id, provider.name, registryItem]);
+  }, [provider.id, registryItem]);
 
   useEffect(() => {
     loadProviderDetails();
@@ -495,7 +496,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
   };
 
   const handleCopyModel = (modelId: string) => {
-    navigator.clipboard.writeText(modelId);
+    void copyToClipboard(modelId);
     setCopiedModelId(modelId);
     setTimeout(() => {
       setCopiedModelId((curr) => (curr === modelId ? null : curr));
@@ -568,7 +569,7 @@ export const ProviderDetailPage: React.FC<ProviderDetailPageProps> = ({ provider
     : "Sign up / Learn more";
 
   return (
-    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full pb-16 animate-rt-fade-in">
       {/* Top Breadcrumb & Provider Header */}
       <div className="space-y-3">
         <button

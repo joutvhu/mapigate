@@ -401,7 +401,7 @@ export const ProvidersTab: React.FC<ProvidersTabProps> = ({ searchQuery, onSelec
   };
 
   return (
-    <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-8 w-full pb-16 animate-rt-fade-in">
       {/* Top Filter & Metrics Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#0F1420]/70 border border-[#1E293B]">
         <div className="flex items-center gap-3 text-xs">

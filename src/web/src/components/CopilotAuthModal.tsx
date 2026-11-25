@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PortalModal } from "./PortalModal";
 import { ToolIcon } from "./ui/ToolIcon";
+import { copyToClipboard as copyTextToClipboard } from "../utils/clipboard.js";
 
 interface CopilotAuthModalProps {
   isOpen: boolean;
@@ -32,40 +33,23 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
   const [tokenName, setTokenName] = useState("");
   const [savingToken, setSavingToken] = useState(false);
 
-  const pollIntervalRef = useRef<any>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flowIdRef = useRef(0);
+  const onSuccessRef = useRef(onSuccess);
+  onSuccessRef.current = onSuccess;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  const stopPolling = () => {
+  const stopPolling = useCallback(() => {
     if (pollIntervalRef.current) {
       clearTimeout(pollIntervalRef.current);
-      clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    if (!isOpen) {
-      stopPolling();
-      setDeviceData(null);
-      setStatus("idle");
-      setManualToken("");
-      setTokenName("");
-      setErrorMessage(null);
-      return;
-    }
-    setManualToken("");
-    setTokenName("");
-    setErrorMessage(null);
-
-    if (tab === "device") {
-      startDeviceFlow();
-    }
-
-    return () => {
-      stopPolling();
-    };
-  }, [isOpen, tab]);
-
-  const startDeviceFlow = async () => {
+  const startDeviceFlow = useCallback(async () => {
+    const flowId = ++flowIdRef.current;
+    const isStale = () => flowId !== flowIdRef.current;
     stopPolling();
     setLoadingCode(true);
     setErrorMessage(null);
@@ -78,16 +62,17 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
         throw new Error(text || "Failed to initiate GitHub device flow");
       }
       const data = await res.json();
+      if (isStale()) return;
       setDeviceData(data);
       setStatus("polling");
 
       let intervalSec = Math.max(data.interval || 5, 5);
-      let isPollingActive = true;
 
       const schedulePoll = (delaySec: number) => {
+        if (isStale()) return;
         if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
         pollIntervalRef.current = setTimeout(async () => {
-          if (!isPollingActive) return;
+          if (isStale()) return;
           try {
             const pollRes = await fetch("/api/oauth/github/poll", {
               method: "POST",
@@ -95,12 +80,13 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
               body: JSON.stringify({ device_code: data.device_code }),
             });
             const pollJson = await pollRes.json();
+            if (isStale()) return;
             if (pollJson.ok) {
-              isPollingActive = false;
               setStatus("success");
               setTimeout(() => {
-                onSuccess();
-                onClose();
+                if (isStale()) return;
+                onSuccessRef.current();
+                onCloseRef.current();
               }, 1200);
               return;
             }
@@ -118,12 +104,11 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
             }
 
             // Fatal error (expired_token, access_denied, etc.)
-            isPollingActive = false;
             setStatus("error");
             setErrorMessage(pollJson.error_description || pollJson.error);
           } catch {
             // Transient network error, retry next cycle
-            if (isPollingActive) {
+            if (!isStale()) {
               schedulePoll(intervalSec);
             }
           }
@@ -132,15 +117,47 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
 
       schedulePoll(intervalSec);
     } catch (err: any) {
+      if (isStale()) return;
       setStatus("error");
       setErrorMessage(err.message || "Failed to request device code");
     } finally {
-      setLoadingCode(false);
+      if (!isStale()) {
+        setLoadingCode(false);
+      }
     }
-  };
+  }, [stopPolling]);
+
+  useEffect(() => {
+    const idRef = flowIdRef;
+    if (!isOpen) {
+      idRef.current += 1;
+      stopPolling();
+      setDeviceData(null);
+      setStatus("idle");
+      setManualToken("");
+      setTokenName("");
+      setErrorMessage(null);
+      return;
+    }
+    setManualToken("");
+    setTokenName("");
+    setErrorMessage(null);
+
+    if (tab === "device") {
+      startDeviceFlow();
+    } else {
+      idRef.current += 1;
+      stopPolling();
+    }
+
+    return () => {
+      idRef.current += 1;
+      stopPolling();
+    };
+  }, [isOpen, tab, startDeviceFlow, stopPolling]);
 
   const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+    void copyTextToClipboard(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -194,7 +211,7 @@ export const CopilotAuthModal: React.FC<CopilotAuthModalProps> = ({
               <p className="text-xs text-slate-400">Authorize via official GitHub Device Flow</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
+          <button type="button" onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>

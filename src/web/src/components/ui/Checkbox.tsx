@@ -4,11 +4,12 @@ export type CheckboxSize = "sm" | "md" | "lg";
 export type CheckboxVariant = "primary" | "emerald" | "cyan";
 
 export interface CheckboxProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size" | "onChange"> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size" | "onChange" | "onClick"> {
   size?: CheckboxSize;
   variant?: CheckboxVariant;
   indeterminate?: boolean;
   onChange?: (checked: boolean, event: React.ChangeEvent<HTMLInputElement>) => void;
+  onClick?: React.MouseEventHandler<HTMLLabelElement>;
   label?: React.ReactNode;
   description?: React.ReactNode;
   checkboxClassName?: string;
@@ -134,7 +135,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         } ${
           disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
         } ${sizeCfg.gap} ${wrapperClassName || className}`}
-        onClick={onClick as React.MouseEventHandler<HTMLLabelElement>}
+        onClick={onClick}
       >
         <div
           className={`relative inline-flex items-center justify-center shrink-0 ${

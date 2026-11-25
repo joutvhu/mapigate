@@ -127,7 +127,7 @@ export const UsageTab: React.FC = () => {
   const providerNames = Object.keys(stats?.byProvider || {});
 
   return (
-    <div className="w-full min-w-0 space-y-6 px-2 sm:px-4 lg:px-6 pb-20 animate-rt-fade-in">
+    <div className="w-full min-w-0 space-y-6 pb-20 animate-rt-fade-in">
       {/* Top Filter and Navigation Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0B0F19] border border-[#1E293B] rounded-2xl p-2 sm:p-2.5 shadow-sm">
         {/* Main Segmented Control: Overview / Details */}

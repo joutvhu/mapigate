@@ -3,6 +3,7 @@ import { Select } from "../components/Select.js";
 import { ConfirmModal } from "../components/ConfirmModal.js";
 import { PortalModal } from "../components/PortalModal.js";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
 
 interface EndpointSettings {
@@ -257,13 +258,13 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
   };
 
   const copy = (val: string, field: string) => {
-    navigator.clipboard.writeText(val);
+    void copyToClipboard(val);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
 
   const copyKeyToken = (token: string, id: string) => {
-    navigator.clipboard.writeText(token);
+    void copyToClipboard(token);
     setCopiedKeyId(id);
     setTimeout(() => setCopiedKeyId(null), 2000);
   };
@@ -320,7 +321,7 @@ export const EndpointTab: React.FC<EndpointTabProps> = ({ onRestartClick }) => {
   };
 
   return (
-    <div className="space-y-8 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-8 w-full pb-16 animate-rt-fade-in">
       {/* CARD 1: Gateway Base URLs & Quick Connectivity Ping */}
       <div className="w-full p-6 rounded-2xl bg-[#0F1420]/80 border border-[#1E293B] space-y-6">
         <div>

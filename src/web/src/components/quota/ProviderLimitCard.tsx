@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import type { AccountQuotaResult } from "../../../core/usage/types.js";
+import type { AccountQuotaResult } from "../../../../core/usage/types.js";
 import { sortNormalizedQuotas } from "../../../../shared/constants/quotaOrder";
 import { getRegistryProvider } from "../../../../shared/constants/providerRegistry";
 import { ToolIcon } from "../ui/ToolIcon";
@@ -13,27 +13,6 @@ export interface ProviderLimitCardProps {
   onToggle: (accountId: string, isActive: boolean) => Promise<void>;
 }
 
-const PROVIDER_COLORS: Record<string, string> = {
-  antigravity: "#4285F4",
-  gemini: "#1A73E8",
-  "gemini-cli": "#1A73E8",
-  claude: "#D97757",
-  codex: "#10A37F",
-  openai: "#10A37F",
-  github: "#24292F",
-  copilot: "#24292F",
-  kiro: "#FF9900",
-  deepseek: "#4D6BFE",
-  grok: "#E11D48",
-  "grok-cli": "#E11D48",
-  minimax: "#7C3AED",
-  "minimax-cn": "#7C3AED",
-  qoder: "#EC4899",
-  "qoder-cn": "#EC4899",
-  glm: "#0055FF",
-  "glm-cn": "#0055FF",
-};
-
 export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
   account,
   loading = false,
@@ -44,7 +23,7 @@ export const ProviderLimitCard: React.FC<ProviderLimitCardProps> = ({
   const [refreshing, setRefreshing] = useState(false);
 
   const regProvider = getRegistryProvider(account.providerId);
-  const providerColor = regProvider?.color || PROVIDER_COLORS[account.providerId.toLowerCase()] || "#3B82F6";
+  const providerColor = regProvider?.color || "#3B82F6";
 
   const handleRefresh = async () => {
     if (refreshing || loading) return;

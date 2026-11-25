@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { PortalModal } from "./PortalModal";
 import { ToolIcon } from "./ui/ToolIcon";
 import { Checkbox } from "./ui/Checkbox";
@@ -48,15 +48,26 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
   const [showOverrides, setShowOverrides] = useState(false);
   const [customBaseUrl, setCustomBaseUrl] = useState(initialBaseUrl);
 
+  const customBaseUrlRef = useRef(customBaseUrl);
+  customBaseUrlRef.current = customBaseUrl;
+  const existingModelsRef = useRef(existingModels);
+  existingModelsRef.current = existingModels;
+  const onApplyModelsRef = useRef(onApplyModels);
+  onApplyModelsRef.current = onApplyModels;
+  const scanSeqRef = useRef(0);
+
   const triggerScan = useCallback(async (forcedBaseUrl?: string) => {
+    const seq = ++scanSeqRef.current;
     setIsScanning(true);
     setErrorMsg(null);
     setNoAccountsConfigured(false);
     try {
+      const targetBaseUrl = forcedBaseUrl !== undefined ? forcedBaseUrl : customBaseUrlRef.current;
       const result = await scanProviderModels({
         providerId: provider.id,
-        baseUrl: (forcedBaseUrl !== undefined ? forcedBaseUrl : customBaseUrl).trim() || undefined,
+        baseUrl: targetBaseUrl.trim() || undefined,
       });
+      if (seq !== scanSeqRef.current) return;
 
       if (result.success) {
         setScannedModels(result.models);
@@ -70,9 +81,9 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         // Automatically merge newly discovered models into provider if auto-scan discovered them
         if (result.models.length > 0) {
           const discoveredIds = result.models.map((m) => m.id);
-          const hasNew = discoveredIds.some((id) => !existingModels.includes(id));
+          const hasNew = discoveredIds.some((id) => !existingModelsRef.current.includes(id));
           if (hasNew) {
-            onApplyModels(discoveredIds, "merge");
+            onApplyModelsRef.current(discoveredIds, "merge");
           }
         }
       } else {
@@ -86,18 +97,22 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
         setErrorMsg(result.error || "Failed to scan models from upstream provider.");
       }
     } catch (err: unknown) {
+      if (seq !== scanSeqRef.current) return;
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMsg(msg);
     } finally {
-      setIsScanning(false);
+      if (seq === scanSeqRef.current) {
+        setIsScanning(false);
+      }
     }
-  }, [provider.id, customBaseUrl]);
+  }, [provider.id]);
 
   // Auto scan on initial open using stored accounts
   useEffect(() => {
     if (isOpen) {
       const initialUrl = provider.modelsUrl || provider.baseUrl || "";
       setCustomBaseUrl(initialUrl);
+      customBaseUrlRef.current = initialUrl;
       setSearchQuery("");
       setShowOverrides(false);
       setScannedAccounts([]);
@@ -105,6 +120,7 @@ export const ScanModelsModal: React.FC<ScanModelsModalProps> = ({
       setNoAccountsConfigured(false);
       triggerScan(initialUrl || undefined);
     } else {
+      scanSeqRef.current++;
       setScannedModels([]);
       setSelectedIds(new Set());
       setErrorMsg(null);

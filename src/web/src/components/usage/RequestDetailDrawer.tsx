@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useState } from "react";
 import type { RequestDetail } from "../../../../shared/types/index.js";
-import { useBackdropClose } from "../../hooks/useBackdropClose.js";
+import { PortalDrawer } from "../PortalDrawer.js";
+import { copyToClipboard as copyTextToClipboard } from "../../utils/clipboard.js";
 import {
   X,
   Copy,
@@ -31,26 +31,10 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
   const [openHeaders, setOpenHeaders] = useState(false);
   const [activeTab, setActiveTab] = useState<"client" | "providerReq" | "response">("client");
 
-  const { backdropProps } = useBackdropClose(onClose, !isOpen);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    const origOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = origOverflow;
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen || !detail || typeof document === "undefined") return null;
+  if (!isOpen || !detail) return null;
 
   const copyToClipboard = (text: string, type: "id" | string) => {
-    navigator.clipboard.writeText(text);
+    void copyTextToClipboard(text);
     if (type === "id") {
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 2000);
@@ -86,15 +70,8 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
     );
   };
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-xs animate-rt-fade-in"
-      {...backdropProps}
-    >
-      <div
-        className="w-full max-w-2xl sm:max-w-3xl h-full bg-[#0D121F] border-l border-[#1E293B] shadow-2xl flex flex-col text-slate-100 overflow-hidden animate-rt-slide-in-right"
-        onClick={(e) => e.stopPropagation()}
-      >
+  return (
+    <PortalDrawer isOpen={isOpen} onClose={onClose}>
         {/* Drawer Header */}
         <div className="p-4 sm:p-5 border-b border-[#1E293B] flex items-center justify-between bg-[#0A0E18]">
           <div className="flex items-center gap-3">
@@ -124,8 +101,10 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+            aria-label="Close"
+            className="p-2 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -327,8 +306,6 @@ export const RequestDetailDrawer: React.FC<RequestDetailDrawerProps> = ({
             </div>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+    </PortalDrawer>
   );
 };

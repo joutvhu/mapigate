@@ -1,6 +1,6 @@
 {
   "name": "mapigate",
-  "version": "0.5.172",
+  "version": "0.5.173",
   "description": "AI Model API Gateway & Token Optimizer for coding tools",
   "author": "Giao Ho",
   "main": "dist/server/index.js",
@@ -32,7 +32,7 @@
     "pretest": "npm run codegen",
     "test": "node --import tsx/esm --import ./tests/setup.ts --test --test-concurrency=1 tests/**/*.test.ts",
     "cli": "tsx src/cli/index.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p src/web/tsconfig.json --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "bump": "npm version patch --no-git-tag-version && npm install",

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { PortalModal } from "../components/PortalModal";
-import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput.js";
+import { ModelAutocompleteInput, type AvailableModelItem } from "../components/ModelAutocompleteInput.js";
 import { SourceModelAutocompleteInput } from "../components/SourceModelAutocompleteInput.js";
 import { resolveModelDisplayName } from "../../../core/capabilities/index.js";
 import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 interface MitmMappingRow {
   sourceModel: string;
@@ -68,6 +69,7 @@ interface PortOwnerInfo {
   processName?: string;
   commandLine?: string;
   isSystemProcess?: boolean;
+  isTransient?: boolean;
   remediationHint?: string;
 }
 
@@ -176,12 +178,32 @@ export const MitmTab: React.FC = () => {
   }, []);
 
   const copyText = (key: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    void copyToClipboard(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const loadStatus = () => {
+  const fetchRemoteModelsList = useCallback(() => {
+    fetch("/api/mitm/router-target/models")
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((data) => {
+        const list = (data.models || []).map((m: any) => ({
+          id: m.id,
+          value: m.id,
+          name: m.name || m.id,
+          providerId: m.provider || "remote",
+          providerName: m.provider || "Remote Gateway",
+          hasConnectedAccount: true,
+          accountsCount: 1,
+          caps: { vision: true, reasoning: true, audio: false },
+          contextLength: 128000,
+        }));
+        setRemoteModels(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  const loadStatus = useCallback(() => {
     fetch("/api/mitm/status")
       .then((r) => r.json())
       .then((d: MitmStatusData) => {
@@ -222,27 +244,7 @@ export const MitmTab: React.FC = () => {
         }
       })
       .catch(() => {});
-  };
-
-  const fetchRemoteModelsList = () => {
-    fetch("/api/mitm/router-target/models")
-      .then((r) => (r.ok ? r.json() : { models: [] }))
-      .then((data) => {
-        const list = (data.models || []).map((m: any) => ({
-          id: m.id,
-          value: m.id,
-          name: m.name || m.id,
-          providerId: m.provider || "remote",
-          providerName: m.provider || "Remote Gateway",
-          hasConnectedAccount: true,
-          accountsCount: 1,
-          caps: { vision: true, reasoning: true, audio: false },
-          contextLength: 128000,
-        }));
-        setRemoteModels(list);
-      })
-      .catch(() => {});
-  };
+  }, [fetchRemoteModelsList]);
 
   const handleTestTargetConnection = async () => {
     setTestingTarget(true);
@@ -304,7 +306,7 @@ export const MitmTab: React.FC = () => {
     }
   };
 
-  const loadToolData = () => {
+  const loadToolData = useCallback(() => {
     MITM_TOOLS.forEach((tool) => {
       fetch(`/api/mitm/hosts/${tool.id}`)
         .then((r) => r.json())
@@ -324,12 +326,12 @@ export const MitmTab: React.FC = () => {
         })
         .catch(() => {});
     });
-  };
+  }, []);
 
   useEffect(() => {
     loadStatus();
     loadToolData();
-  }, []);
+  }, [loadStatus, loadToolData]);
 
   const toggleServer = async (forceKill = false, portOverride?: number) => {
     setServerToggleError(null);
@@ -630,7 +632,7 @@ export const MitmTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full pb-16 animate-rt-fade-in">
       {/* Warning Notice Banner */}
       <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 leading-relaxed">
         <span className="material-symbols-outlined text-[18px] text-amber-400 shrink-0">warning</span>
@@ -1056,7 +1058,7 @@ export const MitmTab: React.FC = () => {
           const isExpanded = expandedTool === tool.id;
           const isDnsOn = Boolean(dnsStatus[tool.id]);
           const isEditingHosts = Boolean(editingHostsByTool[tool.id]);
-          const toolHosts = hostsByTool[tool.id] || tool.defaultHost;
+          const toolHosts = hostsByTool[tool.id] || tool.defaultHost || "";
           const sortBy = sortColumnByTool[tool.id] || "source";
           const sortOrder = sortOrderByTool[tool.id] || "asc";
           const toolMappings = sortMitmMappings(mappingsByTool[tool.id] || [], sortBy, sortOrder);
@@ -1228,7 +1230,7 @@ export const MitmTab: React.FC = () => {
                   </div>
 
                   {/* Block 1.5: Expand / Augment Models in IDE */}
-                  {(tool.id === "kiro" || Boolean(tool.isModelListRequest)) && (
+                  {Boolean(tool.isModelListRequest) && (
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-[#0A0D14] border border-[#1E293B]">
                       <div className="flex items-start sm:items-center gap-3">
                         <div className="size-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">

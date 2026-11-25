@@ -75,7 +75,7 @@ export const TokenSaverTab: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="w-full px-2 sm:px-4 py-8 space-y-4 animate-rt-fade-in">
+      <div className="w-full py-8 space-y-4 animate-rt-fade-in">
         <div className="rt-card p-6 h-32 animate-pulse bg-[#0F1420]" />
         <div className="rt-card p-6 h-48 animate-pulse bg-[#0F1420]" />
         <div className="rt-card p-6 h-48 animate-pulse bg-[#0F1420]" />
@@ -84,7 +84,7 @@ export const TokenSaverTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full pb-16 animate-rt-fade-in">
       {/* Top Header & Auto-Save Status */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

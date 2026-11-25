@@ -4,18 +4,9 @@ import { RestartModal } from "../components/RestartModal";
 import { MasterPasswordModal, type MasterPasswordModalMode } from "../components/MasterPasswordModal";
 import { BackupCard } from "../components/BackupCard.js";
 import { useAuth } from "../hooks/useAuth";
+import { useSystemInfo } from "../hooks/useSystemInfo";
 import { Github } from "lucide-react";
 import { DEFAULT_PORT } from "../../../shared/constants/network.js";
-
-interface SystemInfo {
-  dataDir: string;
-  dbPath: string;
-  isDevelopmentMode: boolean;
-  appName?: string;
-  version?: string;
-  port?: number;
-  host?: string;
-}
 
 export interface SettingsTabProps {
   onRestartClick?: () => void;
@@ -23,7 +14,8 @@ export interface SettingsTabProps {
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgradeClick }) => {
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const systemInfo = useSystemInfo((s) => s.info);
+  const fetchSystemInfo = useSystemInfo((s) => s.fetchSystemInfo);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRestartOpenInternal, setIsRestartOpenInternal] = useState(false);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
@@ -44,14 +36,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
   const handleOpenRestart = onRestartClick || (() => setIsRestartOpenInternal(true));
 
   useEffect(() => {
-    fetch("/api/settings/system-info")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && (data.dbPath || data.dataDir)) {
-          setSystemInfo(data);
-        }
-      })
-      .catch(() => {});
+    if (!useSystemInfo.getState().info) {
+      fetchSystemInfo();
+    }
 
     fetch("/api/settings/autostart")
       .then((res) => res.json())
@@ -70,7 +57,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
         }
       })
       .catch(() => {});
-  }, []);
+  }, [fetchSystemInfo]);
 
   const handleToggleAutostart = async () => {
     if (!autostartInfo || isUpdatingAutostart) return;
@@ -139,7 +126,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
 
   if (isStopped) {
     return (
-      <div className="w-full px-2 sm:px-4 py-8 animate-rt-fade-in">
+      <div className="w-full py-8 animate-rt-fade-in">
         <div className="max-w-xl mx-auto rt-card p-8 text-center space-y-4 border border-rose-500/20 bg-[#0F1420]">
           <div className="size-14 mx-auto rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center">
             <span className="material-symbols-outlined text-[32px]">power_off</span>
@@ -162,7 +149,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({ onRestartClick, onUpgr
   }
 
   return (
-    <div className="w-full px-2 sm:px-4 space-y-6 animate-rt-fade-in pb-16">
+    <div className="w-full space-y-6 animate-rt-fade-in pb-16">
       {/* System & Storage Preferences Card */}
       <div className="rt-card p-6 space-y-6">
         <div className="flex items-center gap-3 pb-3 border-b border-[#1E293B]">

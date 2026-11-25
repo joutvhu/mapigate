@@ -3,6 +3,7 @@ import { PortalModal } from "./PortalModal";
 import { Select } from "./Select";
 import { getRegistryProvider } from "../../../shared/constants/providerRegistry";
 import { useSystemInfo } from "../hooks/useSystemInfo.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 import { DEFAULT_PORT } from "../../../shared/constants/network.js";
 
 interface DeviceCodeData {
@@ -302,9 +303,10 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       setDeviceData(null);
       return;
     }
+    const idRef = flowIdRef;
     loadOAuth();
     return () => {
-      flowIdRef.current++;
+      idRef.current += 1;
       stopPolling();
     };
   }, [isOpen, providerId, loadOAuth, stopPolling]);
@@ -412,20 +414,20 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
       window.removeEventListener("storage", onStorage);
       if (channel) channel.close();
     };
-  }, [isOpen, exchangeCode]);
+  }, [isOpen, exchangeCode, stopPolling]);
 
   if (!isOpen) return null;
 
   const handleCopyUrl = () => {
     if (!authUrl) return;
-    navigator.clipboard.writeText(authUrl);
+    void copyToClipboard(authUrl);
     setCopiedUrl(true);
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
   const handleCopyCode = (code: string) => {
     if (!code) return;
-    navigator.clipboard.writeText(code);
+    void copyToClipboard(code);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -460,6 +462,7 @@ export const OAuthModal: React.FC<OAuthModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>

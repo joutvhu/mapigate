@@ -7,6 +7,7 @@ import { ToolIcon } from "../components/ui/ToolIcon";
 import { useSystemInfo } from "../hooks/useSystemInfo";
 import { ModelAutocompleteInput } from "../components/ModelAutocompleteInput";
 import { DEFAULT_PORT, DEFAULT_HOST } from "../../../shared/constants/network.js";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 interface ToolMappingItem {
   toolId: string;
@@ -277,7 +278,7 @@ export const CliToolsTab: React.FC = () => {
   }, []);
 
   const copyText = (text: string) => {
-    navigator.clipboard.writeText(text);
+    void copyToClipboard(text);
     setCopiedCmd(text);
     setTimeout(() => setCopiedCmd(null), 2000);
   };
@@ -469,7 +470,7 @@ export const CliToolsTab: React.FC = () => {
   }, [globalMappings, mappingSearch, sortBy, sortOrder]);
 
   return (
-    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full pb-16 animate-rt-fade-in">
       {/* Toast Notification */}
       {importToast && (
         <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-center justify-between gap-3 shadow-lg animate-rt-scale-in">

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { copyToClipboard } from "../utils/clipboard.js";
 
 export function CallbackPage() {
   const [status, setStatus] = useState<"processing" | "success" | "error" | "manual">("processing");
@@ -203,7 +204,7 @@ export function CallbackPage() {
             <button
               type="button"
               onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
+                void copyToClipboard(window.location.href);
               }}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-medium transition-colors"
             >

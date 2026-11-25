@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import type { AccountQuotaResult } from "../../core/usage/types.js";
+import type { AccountQuotaResult } from "../../../core/usage/types.js";
 import { ProviderLimitCard } from "../components/quota/ProviderLimitCard.js";
 import {
   QuotaToolbar,
@@ -428,7 +428,7 @@ export const QuotaTab: React.FC<QuotaTabProps> = ({
   };
 
   return (
-    <div className="space-y-6 w-full px-2 sm:px-4 pb-16 animate-rt-fade-in">
+    <div className="space-y-6 w-full pb-16 animate-rt-fade-in">
       {/* Top Controls Toolbar */}
       <QuotaToolbar
         providers={uniqueProviders}

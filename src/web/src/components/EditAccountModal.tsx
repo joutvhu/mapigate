@@ -8,6 +8,7 @@ export interface EditAccountData {
   id: string;
   providerId: string;
   name: string;
+  tag?: string;
   isActive: boolean;
   rawApiKey?: string;
   providerSpecificData?: Record<string, any>;
@@ -76,13 +77,17 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
   const isXiaomiTokenPlan = pId === "xiaomi-tokenplan";
   const isAlibaba = pId === "alicode" || pId === "alibaba";
 
-  const availableRegions: { id: string; label: string }[] = isXiaomiTokenPlan
-    ? [
-        { id: "sgp", label: "Singapore (新加坡)" },
-        { id: "cn", label: "China (中国大陆)" },
-        { id: "ams", label: "Amsterdam (阿姆斯特丹)" },
-      ]
-    : regProvider?.regions || [];
+  const availableRegions: { id: string; label: string }[] = React.useMemo(
+    () =>
+      isXiaomiTokenPlan
+        ? [
+            { id: "sgp", label: "Singapore (新加坡)" },
+            { id: "cn", label: "China (中国大陆)" },
+            { id: "ams", label: "Amsterdam (阿姆斯特丹)" },
+          ]
+        : regProvider?.regions || [],
+    [isXiaomiTokenPlan, regProvider?.regions]
+  );
 
   useEffect(() => {
     if (account) {
@@ -121,7 +126,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
       setBedrockAccessKeyId(psd.accessKeyId || "");
       setBedrockSessionToken(psd.sessionToken || "");
     }
-  }, [account]);
+  }, [account, availableRegions, isOllamaLocal, pId]);
 
   if (!account) return null;
 
@@ -228,6 +233,7 @@ export const EditAccountModal: React.FC<EditAccountModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
