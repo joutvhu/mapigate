@@ -9,6 +9,15 @@ export class PerplexityProvider extends OpenAiCompatibleProvider {
   public override readonly name = metadata.name;
   public override readonly defaultFormat = metadata.format || "openai";
 
+  public override buildUrl(context: ProviderRequestContext): string {
+    const accountBase = (context.account?.providerSpecificData?.baseUrl || "").trim();
+    const rawBase = (accountBase || context.provider?.baseUrl || metadata.baseUrl || "").trim();
+    if (/\/(?:v1\/)?agent(?:$|\?)/i.test(rawBase)) {
+      return rawBase;
+    }
+    return super.buildUrl(context);
+  }
+
   private isResponsesOrAgentUrl(context: ProviderRequestContext): boolean {
     const url = this.buildUrl(context).toLowerCase();
     return /\/(?:v1\/)?(?:agent|responses)(?:$|\?)/.test(url);
