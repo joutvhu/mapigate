@@ -1,6 +1,6 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 
-export const ANTIGRAVITY_IDE_VERSION = "2.34.0";
+export const ANTIGRAVITY_IDE_VERSION = "2.35.1";
 
 /**
  * Google Piper Changelist (CL) embedded in the Google Antigravity Go backend binary:

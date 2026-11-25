@@ -88,8 +88,10 @@ export const PATTERN_CAPABILITIES: Array<{ pattern: string; caps: Partial<ModelC
   { pattern: "*gemma*", caps: { vision: true, contextWindow: 128000 } },
 
   // ── OpenAI GPT ──
+  { pattern: "*gpt-6.2-sol*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 128000 } },
+  { pattern: "*gpt-6.2-astra*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 } },
   { pattern: "*gpt-6.1-terra*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 128000 } },
-  { pattern: "*gpt-6.1-sol*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 272000, maxOutput: 128000 } },
+  { pattern: "*gpt-6.1-sol*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 500000, maxOutput: 128000 } },
   { pattern: "*gpt-6*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 1050000, maxOutput: 128000 } },
   { pattern: "*gpt-5*", caps: { vision: true, reasoning: true, search: true, thinkingFormat: "openai", contextWindow: 400000, maxOutput: 128000 } },
   { pattern: "*gpt-4o*", caps: { vision: true, search: true, contextWindow: 128000, maxOutput: 16384 } },

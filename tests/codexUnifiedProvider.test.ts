@@ -3,8 +3,9 @@ process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ProviderRegistry } from "../src/providers/core/registry.js";
-import { metadata as codexMetadata } from "../src/providers/runtime/codex/metadata.js";
+import { metadata as codexMetadata, CODEX_CLIENT_VERSION } from "../src/providers/runtime/codex/metadata.js";
 import { getRegistryProvider } from "../src/shared/constants/providerRegistry.js";
+import { resolveCandidateUrls } from "../src/core/scanner/urlResolver.js";
 
 test("OpenAI Codex Unified Provider - Merged App-Server and Aliases Resolution", () => {
   // 1. Canonical provider resolution
@@ -19,8 +20,14 @@ test("OpenAI Codex Unified Provider - Merged App-Server and Aliases Resolution",
   assert.ok(codexMetadata.baseUrls.includes("codex-app-server://cli/websocket"));
 
   // 3. Models verification
+  assert.ok(codexMetadata.models.some((m) => m.id === "gpt-6.2-sol"));
+  assert.ok(codexMetadata.models.some((m) => m.id === "gpt-6.2-astra"));
   assert.ok(codexMetadata.models.some((m) => m.id === "gpt-6.1-terra"));
   assert.ok(codexMetadata.models.some((m) => m.id === "gpt-daybreak-blue-latest"));
+  assert.equal(codexMetadata.defaultHeaders?.["User-Agent"], `codex_cli_rs/${CODEX_CLIENT_VERSION}`);
+  assert.equal(codexMetadata.defaultHeaders?.["version"], CODEX_CLIENT_VERSION);
+  const resolvedUrls = resolveCandidateUrls("https://chatgpt.com/backend-api/codex/responses", "openai-responses", "codex");
+  assert.equal(resolvedUrls[0], `https://chatgpt.com/backend-api/codex/models?client_version=${CODEX_CLIENT_VERSION}`);
 
   // 4. Aliases resolution
   for (const alias of ["codex-app-server", "cxa"]) {

@@ -3,8 +3,8 @@
  * Single Source of Truth (SSOT) for Kiro runtime provider.
  */
 
-export const KIRO_IDE_VERSION = "1.5.11";
-export const KIRO_KAS_VERSION = "0.66.123";
+export const KIRO_IDE_VERSION = "1.5.44";
+export const KIRO_KAS_VERSION = "0.66.123-hotfix.2";
 export const KIRO_OS_PLATFORM = "win32";
 
 /**

@@ -5,7 +5,7 @@ import { getCodexUsage } from "./quota.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
 import { checkBinaryInstalled } from "../../core/base/baseProvider.js";
-import { metadata } from "./metadata.js";
+import { metadata, CODEX_CLIENT_VERSION } from "./metadata.js";
 import { CODEX_CLIENT_ID, codexOAuthHandler } from "./routes.js";
 import { buildCodexResponsesPayload } from "./responsesPayload.js";
 import { executeCodexResponses } from "./responses.js";
@@ -131,15 +131,13 @@ export class CodexProvider extends OpenAiCompatibleProvider {
 
     const timeoutMs = context.timeoutMs || 6000;
     const endpoints = [
-      "https://chatgpt.com/backend-api/codex/models?client_version=0.159.0",
+      `https://chatgpt.com/backend-api/codex/models?client_version=${CODEX_CLIENT_VERSION}`,
       "https://chatgpt.com/backend-api/models",
       "https://chatgpt.com/backend-api/wham/usage",
     ];
 
     const reqHeaders: Record<string, string> = {
-      originator: "codex_cli_rs",
-      "User-Agent": "codex_cli_rs/0.159.0",
-      version: "0.159.0",
+      ...(metadata.defaultHeaders || {}),
       Accept: "application/json",
       ...(context.customHeaders || {}),
     };

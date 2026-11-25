@@ -2,6 +2,8 @@ import type { ProviderRegistryItem } from "../../core/types.js";
 import { models } from "./models.js";
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
 
+export const CODEX_CLIENT_VERSION = "0.171.0";
+
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
       "Session",
@@ -37,8 +39,8 @@ export const metadata: ProviderRegistryItem = {
   "format": "openai-responses",
   "defaultHeaders": {
     "originator": "codex_cli_rs",
-    "User-Agent": "codex_cli_rs/0.159.0",
-    "version": "0.159.0"
+    "User-Agent": `codex_cli_rs/${CODEX_CLIENT_VERSION}`,
+    "version": CODEX_CLIENT_VERSION
   },
   "thinkingMode": "auto",
   "thinkingOptions": [

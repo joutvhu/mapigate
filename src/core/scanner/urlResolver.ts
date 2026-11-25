@@ -1,4 +1,5 @@
 import type { ProviderRegistryItem } from "../../providers/core/types.js";
+import { getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 
 const VALID_REGION_RE = /^[a-zA-Z0-9._-]+$/;
 
@@ -96,7 +97,13 @@ export function resolveCandidateUrls(
     lowerBase.includes("chatgpt.com/backend-api");
 
   if (isCodex && !isCustomHost) {
-    add("https://chatgpt.com/backend-api/codex/models?client_version=0.159.0");
+    const codexMeta = registryItem?.id === "codex" ? registryItem : getRegistryProvider("codex");
+    const codexVersion = codexMeta?.defaultHeaders?.version;
+    add(
+      codexVersion
+        ? `https://chatgpt.com/backend-api/codex/models?client_version=${encodeURIComponent(codexVersion)}`
+        : "https://chatgpt.com/backend-api/codex/models"
+    );
     add("https://chatgpt.com/backend-api/models");
     add("https://chatgpt.com/backend-api/wham/usage");
     return candidates;

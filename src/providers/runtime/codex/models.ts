@@ -1,8 +1,10 @@
 import type { RegistryModel } from "../../core/types.js";
 
 export const models: RegistryModel[] = [
+  {"id":"gpt-6.2-sol","name":"GPT 6.2 Sol","isDefault":false,"contextLength":500000},
+  {"id":"gpt-6.2-astra","name":"GPT 6.2 Astra","isDefault":false,"contextLength":272000},
   {"id":"gpt-6.1-terra","name":"GPT 6.1 Terra","isDefault":false,"contextLength":500000},
-  {"id":"gpt-6.1-sol","name":"GPT 6.1 Sol","isDefault":false,"contextLength":272000},
+  {"id":"gpt-6.1-sol","name":"GPT 6.1 Sol","isDefault":false,"contextLength":500000},
   {"id":"gpt-6-astra","name":"GPT 6.0 Astra","isDefault":false},
   {"id":"gpt-6-astra[1m]","name":"GPT 6.0 Astra (extended context)","upstreamModelId":"gpt-6-astra","isDefault":false},
   {"id":"gpt-6-sol","name":"GPT 6.0 Sol","isDefault":false},
