@@ -1,8 +1,130 @@
+import type { Response } from "express";
 import type { ModelCallResult, ProviderRequestContext } from "../types.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
-import { convertOpenAiResponseToResponsesApi } from "../../../core/adapters/responsesAdapter.js";
+import {
+  convertOpenAiResponseToResponsesApi,
+  createResponsesStreamState,
+  finalizeResponsesStream,
+  openAiChunkToResponsesEvents,
+} from "../../../core/adapters/responsesAdapter.js";
 import { ResponseLogger } from "../../../server/proxy/responseLogger.js";
 import { formatDoneLine, logger, LogSymbol } from "../../../shared/logger.js";
+
+export function formatOpenAiResponseForClient(
+  openAiJson: any,
+  clientFormat: "openai" | "anthropic" | "responses" | string,
+  requestId: string
+): any {
+  if (clientFormat === "responses") {
+    return convertOpenAiResponseToResponsesApi(openAiJson);
+  }
+  if (clientFormat === "anthropic") {
+    return AnthropicAdapter.openAiResponseToAnthropic(openAiJson, requestId);
+  }
+  return openAiJson;
+}
+
+export interface OpenAiClientStreamWriter {
+  writeChunk(openAiChunk: any): void;
+  finalize(finishReason?: string, usage?: any): void;
+  hasHeadersSent(): boolean;
+}
+
+export function createOpenAiClientStreamWriter(
+  res: Response,
+  clientFormat: "openai" | "anthropic" | "responses" | string,
+  requestId: string,
+  targetModel: string,
+  tools?: any[]
+): OpenAiClientStreamWriter {
+  const anthropicState =
+    clientFormat === "anthropic"
+      ? AnthropicAdapter.createStreamState(`msg_${requestId}`, tools)
+      : undefined;
+  const responsesState =
+    clientFormat === "responses" ? createResponsesStreamState(requestId) : undefined;
+  let headersSent = Boolean(res.headersSent);
+
+  const ensureHeaders = () => {
+    if (res.writableEnded || res.destroyed) return;
+    if (!res.headersSent) {
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.setHeader("X-Accel-Buffering", "no");
+      res.flushHeaders?.();
+    }
+    headersSent = true;
+    if (clientFormat === "anthropic" && anthropicState && !anthropicState.messageStartSent) {
+      anthropicState.messageStartSent = true;
+      res.write(
+        `event: message_start\ndata: ${JSON.stringify({
+          type: "message_start",
+          message: { id: `msg_${requestId}`, type: "message", role: "assistant", model: targetModel, content: [] },
+        })}\n\n`
+      );
+    }
+  };
+
+  return {
+    hasHeadersSent: () => headersSent,
+    writeChunk(openAiChunk: any) {
+      if (res.writableEnded || res.destroyed) return;
+      ensureHeaders();
+      if (clientFormat === "responses" && responsesState) {
+        const events = openAiChunkToResponsesEvents(openAiChunk, responsesState);
+        for (const ev of events) {
+          res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+        }
+      } else if (clientFormat === "anthropic" && anthropicState) {
+        for (const ev of AnthropicAdapter.openAiChunkToAnthropicEvent(openAiChunk, `msg_${requestId}`, anthropicState)) {
+          res.write(ev);
+        }
+      } else {
+        res.write(`data: ${JSON.stringify(openAiChunk)}\n\n`);
+      }
+    },
+    finalize(finishReason?: string, usage?: any) {
+      if (res.writableEnded || res.destroyed) return;
+      ensureHeaders();
+      if (finishReason) {
+        const endChunk: any = {
+          id: `chatcmpl-${requestId}`,
+          object: "chat.completion.chunk",
+          created: Math.floor(Date.now() / 1000),
+          model: targetModel,
+          choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+          ...(usage ? { usage } : {}),
+        };
+        if (clientFormat === "responses" && responsesState) {
+          for (const ev of openAiChunkToResponsesEvents(endChunk, responsesState)) {
+            res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+          }
+        } else if (clientFormat === "anthropic" && anthropicState) {
+          for (const ev of AnthropicAdapter.openAiChunkToAnthropicEvent(endChunk, `msg_${requestId}`, anthropicState)) {
+            res.write(ev);
+          }
+        } else {
+          res.write(`data: ${JSON.stringify(endChunk)}\n\n`);
+        }
+      }
+
+      if (clientFormat === "responses" && responsesState) {
+        for (const ev of finalizeResponsesStream(responsesState)) {
+          res.write(`event: ${ev.event}\ndata: ${JSON.stringify(ev.data)}\n\n`);
+        }
+        res.write("data: [DONE]\n\n");
+      } else if (clientFormat === "anthropic" && anthropicState) {
+        for (const ev of AnthropicAdapter.finalizeStream(anthropicState)) {
+          res.write(ev);
+        }
+      } else {
+        res.write("data: [DONE]\n\n");
+      }
+      res.end();
+    },
+  };
+}
 
 export interface FinalizeCustomNonStreamingOptions {
   providerId: string;

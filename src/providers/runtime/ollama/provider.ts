@@ -9,6 +9,14 @@ export class OllamaProvider extends BaseProvider {
   public readonly defaultFormat = "openai";
   public override readonly requiresAccount = false;
 
+  public shouldExecute(context: ProviderRequestContext): boolean {
+    return this.buildUrl(context).endsWith("/api/chat");
+  }
+
+  public async execute(context: ProviderRequestContext): Promise<ModelCallResult> {
+    return await executeOllamaNativeChat(context, this);
+  }
+
   public override buildUrl(context: ProviderRequestContext): string {
     const psd = context.account?.providerSpecificData || {};
     const host = (psd.baseUrl || context.provider?.baseUrl || "https://ollama.com").replace(/\/+$/, "");

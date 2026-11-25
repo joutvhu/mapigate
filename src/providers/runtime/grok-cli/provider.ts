@@ -1,6 +1,17 @@
 import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
-import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import type { ModelCallResult, ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import { buildResponsesRequestPayload } from "../../core/base/responsesPayloadBuilder.js";
+import { executeResponsesUpstream } from "../../core/base/responsesExecution.js";
+import { executeGrokWeb } from "../grok/provider.js";
+import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { grokCliOAuthHandler } from "./routes.js";
 import { metadata } from "./metadata.js";
+
+function isGrokCookieSession(context: ProviderRequestContext): boolean {
+  const psd = ((context.account?.providerSpecificData || {}) as any);
+  const token = context.account?.rawApiKey || "";
+  return psd.authType === "cookie" || token.includes("sso=") || token.includes("connect.sid");
+}
 
 export class GrokSubscriptionProvider extends OpenAiCompatibleProvider {
   public override readonly id = metadata.id;
@@ -8,10 +19,7 @@ export class GrokSubscriptionProvider extends OpenAiCompatibleProvider {
   public override readonly defaultFormat = metadata.format || "openai-responses";
 
   public override buildUrl(context: ProviderRequestContext): string {
-    const psd = ((context.account?.providerSpecificData || {}) as any);
-    const token = context.account?.rawApiKey || "";
-    const isCookie = psd.authType === "cookie" || token.includes("sso=") || token.includes("connect.sid");
-    if (isCookie) {
+    if (isGrokCookieSession(context)) {
       return "https://grok.com/rest/app-chat/conversations/new";
     }
     return super.buildUrl(context);
@@ -20,13 +28,73 @@ export class GrokSubscriptionProvider extends OpenAiCompatibleProvider {
   public override async buildHeaders(context: ProviderRequestContext): Promise<Record<string, string>> {
     const headers = await super.buildHeaders(context);
     const token = (context.account?.rawApiKey || "").trim();
-    const isCookie = token.includes("sso=") || token.includes("connect.sid");
 
-    if (isCookie) {
+    if (isGrokCookieSession(context)) {
       headers["Cookie"] = token;
       delete headers["Authorization"];
     }
     return headers;
+  }
+
+  public override transformRequestBody(context: ProviderRequestContext): any {
+    if (isGrokCookieSession(context)) {
+      return super.transformRequestBody(context);
+    }
+    return buildResponsesRequestPayload(context, this.resolveUpstreamModelId(context), {
+      forceStoreFalse: true,
+      allowMaxOutputTokens: true,
+      allowSamplingParams: true,
+    });
+  }
+
+  public async execute(context: ProviderRequestContext): Promise<ModelCallResult> {
+    if (isGrokCookieSession(context)) {
+      return await executeGrokWeb(context);
+    }
+    return await executeResponsesUpstream(context, this);
+  }
+
+  public async handleAuthRefresh(context: ProviderRequestContext, status: number): Promise<boolean> {
+    if (status !== 401 || !context.account || isGrokCookieSession(context)) return false;
+    const account = context.account;
+    const psd = ((account.providerSpecificData || {}) as Record<string, any>);
+    let rToken = psd.refreshToken || psd.refresh_token;
+    let parsedRaw: Record<string, any> | null = null;
+    const trimmedRaw = (account.rawApiKey || "").trim();
+    if (trimmedRaw.startsWith("{") && trimmedRaw.endsWith("}")) {
+      try {
+        parsedRaw = JSON.parse(trimmedRaw);
+        rToken = rToken || parsedRaw?.refreshToken || parsedRaw?.refresh_token;
+      } catch {}
+    }
+    if (!rToken || !grokCliOAuthHandler.refreshToken) return false;
+
+    try {
+      const refreshed = await grokCliOAuthHandler.refreshToken({ refreshToken: rToken, providerSpecificData: psd });
+      if (!refreshed?.accessToken) return false;
+      const newExpiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
+      const newRefreshToken = refreshed.refreshToken || rToken;
+      const updatedRawApiKey = parsedRaw
+        ? JSON.stringify({
+            ...parsedRaw,
+            accessToken: refreshed.accessToken,
+            refreshToken: newRefreshToken,
+            expiresAt: newExpiresAt,
+          })
+        : refreshed.accessToken;
+      const updatedPsd = { ...psd, refreshToken: newRefreshToken, expiresAt: newExpiresAt };
+      account.rawApiKey = updatedRawApiKey;
+      account.providerSpecificData = updatedPsd;
+      if (account.id) {
+        ProviderRepository.updateAccount(account.id, {
+          rawApiKey: updatedRawApiKey,
+          providerSpecificData: updatedPsd,
+        });
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   public override async probeModels(context: ProviderProbeContext): Promise<ProviderProbeResult | null> {
