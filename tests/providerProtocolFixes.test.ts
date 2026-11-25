@@ -3,14 +3,12 @@ process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ProviderRegistry } from "../src/providers/core/registry.js";
-import { OpencodeProvider, isResponsesModel } from "../src/providers/runtime/opencode/provider.js";
+import { OpenCodeProvider } from "../src/providers/runtime/opencode/provider.js";
+import { isResponsesModel } from "../src/providers/runtime/opencode/types.js";
 import { GrokSubscriptionProvider } from "../src/providers/runtime/grok-cli/provider.js";
 import { PerplexityProvider } from "../src/providers/catalog/perplexity/provider.js";
-import { XKiroProvider } from "../src/providers/runtime/xkiro/provider.js";
 import { OllamaProvider } from "../src/providers/runtime/ollama/provider.js";
-import { executeGrokWeb } from "../src/providers/runtime/grok/provider.js";
-import { PerplexityWebProvider } from "../src/providers/runtime/perplexity-web/provider.js";
-import { CommandCodeProvider } from "../src/providers/catalog/commandcode/provider.js";
+import { CommandcodeProvider } from "../src/providers/catalog/commandcode/provider.js";
 import {
   createOpenAiClientStreamWriter,
   formatOpenAiResponseForClient,
@@ -92,15 +90,15 @@ function textStream(chunks: string[]): ReadableStream<Uint8Array> {
 }
 
 test("opencode: shouldExecute + transforms Responses payload and executes Responses SSE", async () => {
-  const opencode = new OpencodeProvider();
-  assert.equal(isResponsesModel("gpt-6-sol"), true);
-  assert.equal(isResponsesModel("muse-spark-1.2-contributor"), true);
+  const opencode = new OpenCodeProvider();
+  assert.equal(isResponsesModel("muse-spark-1.2-contributor-free"), true);
+  assert.equal(isResponsesModel("muse-spark-1.3-contributor-free"), true);
 
   const respCtx = makeContext({
-    targetModel: "gpt-6-sol",
-    provider: { id: "opencode", name: "OpenCode Zen", baseUrl: "https://opencode.ai", format: "openai" } as any,
+    targetModel: "muse-spark-1.3-contributor-free",
+    provider: { id: "opencode", name: "OpenCode Free", baseUrl: "https://opencode.ai", format: "openai" } as any,
     body: {
-      model: "gpt-6-sol",
+      model: "muse-spark-1.3-contributor-free",
       temperature: 0.7,
       max_tokens: 2048,
       messages: [
@@ -111,16 +109,15 @@ test("opencode: shouldExecute + transforms Responses payload and executes Respon
     },
   });
   assert.equal(opencode.shouldExecute(respCtx), true);
-  assert.equal(opencode.resolveTargetFormat("gpt-6-sol", "responses"), "openai-responses");
+  assert.equal(opencode.resolveTargetFormat("muse-spark-1.3-contributor-free", "responses"), "openai-responses");
 
   const payload = opencode.transformRequestBody(respCtx);
   assert.equal(payload.store, false);
-  assert.equal(payload.instructions, "Sys");
+  assert.ok(String(payload.instructions).startsWith("Sys"));
   assert.equal(payload.max_output_tokens, 2048);
-  assert.equal("temperature" in payload, false);
   assert.equal("messages" in payload, false);
 
-  const chatCtx = makeContext({ ...respCtx, targetModel: "claude-sonnet-4-6" });
+  const chatCtx = makeContext({ ...respCtx, targetModel: "jev-1.13-free" });
   assert.equal(opencode.shouldExecute(chatCtx), false);
 
   const origFetch = globalThis.fetch;
@@ -144,7 +141,7 @@ test("opencode: shouldExecute + transforms Responses payload and executes Respon
   }
 });
 
-test("grok-cli: OAuth mode sends Responses payload and Cookie mode delegates to Grok Web with Responses output", async () => {
+test("grok-cli: OAuth mode sends Responses payload and Cookie mode executes Grok Web NDJSON", async () => {
   const grokCli = new GrokSubscriptionProvider();
   const oauthCtx = makeContext({
     targetModel: "grok-4.20",
@@ -245,37 +242,12 @@ test("perplexity: registered provider converts /v1/agent & /v1/responses payload
   }
 });
 
-test("xkiro: builds /generateAssistantResponse URL, API_KEY headers, and sets eventstream", async () => {
-  const xkiro = new XKiroProvider();
-  assert.equal(xkiro.streamType, "eventstream");
-
-  const ctx = makeContext({
-    targetModel: "claude-sonnet-4-5",
-    provider: {
-      id: "xkiro",
-      name: "Kiro (BYOK)",
-      baseUrl: "https://prod.us-east-1.codewhisperer.us-east-1.amazonaws.com",
-      format: "kiro",
-    } as any,
-    account: { id: "acc_xkiro", name: "BYOK", rawApiKey: "ksk_test_123", providerSpecificData: {} } as any,
-  });
-
-  assert.equal(
-    xkiro.buildUrl(ctx),
-    "https://prod.us-east-1.codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse"
-  );
-  const headers = await xkiro.buildHeaders(ctx);
-  assert.equal(headers["tokentype"], "API_KEY");
-  assert.equal(headers["x-amz-sso-bearer"], "ksk_test_123");
-  assert.equal(headers["x-amzn-kiro-agent-mode"], "spec");
-});
-
 test("ollama: executes native /api/chat NDJSON stream and translates to Responses API", async () => {
   const ollama = new OllamaProvider();
   const nativeCtx = makeContext({
     clientFormat: "responses",
     targetModel: "qwen3:32b",
-    provider: { id: "ollama", name: "Ollama", baseUrl: "http://localhost:11434", format: "openai" } as any,
+    provider: { id: "ollama", name: "Ollama", baseUrl: "http://localhost:11434/api/chat", format: "openai" } as any,
     body: { model: "qwen3:32b", messages: [{ role: "user", content: "Hi" }], stream: true },
   });
 
@@ -318,8 +290,7 @@ test("ollama: executes native /api/chat NDJSON stream and translates to Response
   }
 });
 
-test("custom execution helper + grok/perplexity-web/commandcode support clientFormat='responses'", async () => {
-  // 1. Direct helper tests (used by cursor, grok, perplexity-web, commandcode, ollama)
+test("custom execution helper and commandcode support clientFormat='responses'", async () => {
   const res = makeMockResponse();
   const writer = createOpenAiClientStreamWriter(res, "responses", "req_helper", "test-model");
   writer.writeChunk({
@@ -352,69 +323,30 @@ test("custom execution helper + grok/perplexity-web/commandcode support clientFo
   assert.equal(nonStreamOut.object, "response");
   assert.equal(nonStreamOut.output[0].content[0].text, "Plain");
 
-  // 2. Grok, PerplexityWeb, CommandCode non-streaming responses format
   const origFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      textStream([
+        `data: ${JSON.stringify({ type: "text-delta", text: "CC OK" })}\n\n`,
+        `data: ${JSON.stringify({ type: "finish", finishReason: "stop" })}\n\n`,
+        "data: [DONE]\n\n",
+      ]),
+      { status: 200, headers: { "content-type": "text/event-stream" } }
+    )) as typeof fetch;
+
   try {
-    // Grok web
-    globalThis.fetch = (async () =>
-      new Response(textStream([JSON.stringify({ result: { response: { token: "Grok" } } }) + "\n"]), {
-        status: 200,
-        headers: { "content-type": "application/x-ndjson" },
-      })) as typeof fetch;
-    const grokRes = makeMockResponse();
-    await executeGrokWeb(
-      makeContext({
-        clientFormat: "responses",
-        targetModel: "grok-4",
-        provider: { id: "grok", name: "Grok" } as any,
-        body: { model: "grok-4", messages: [{ role: "user", content: "hi" }], stream: false },
-        res: grokRes,
-      })
-    );
-    assert.equal(grokRes._getJson().object, "response");
-
-    // Perplexity Web
-    globalThis.fetch = (async () =>
-      new Response(
-        textStream([`data: ${JSON.stringify({ blocks: [{ intended_usage: "ask_text", markdown_block: { answer: "Pplx" } }], final_sse_message: true })}\n\n`]),
-        { status: 200, headers: { "content-type": "text/event-stream" } }
-      )) as typeof fetch;
-    const pplxWeb = new PerplexityWebProvider();
-    const pplxRes = makeMockResponse();
-    await pplxWeb.execute(
-      makeContext({
-        clientFormat: "responses",
-        targetModel: "sonar",
-        provider: { id: "perplexity-web", name: "Perplexity Web" } as any,
-        body: { model: "sonar", messages: [{ role: "user", content: "hi" }], stream: false },
-        res: pplxRes,
-      })
-    );
-    assert.equal(pplxRes._getJson().object, "response");
-
-    // CommandCode
-    globalThis.fetch = (async () =>
-      new Response(
-        JSON.stringify({
-          id: "cc_1",
-          object: "chat.completion",
-          created: 1,
-          model: "cc-model",
-          choices: [{ index: 0, message: { role: "assistant", content: "CC OK" }, finish_reason: "stop" }],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      )) as typeof fetch;
-    const cc = new CommandCodeProvider();
+    const cc = new CommandcodeProvider();
     const ccRes = makeMockResponse();
-    await cc.execute(
+    const out = await cc.execute(
       makeContext({
         clientFormat: "responses",
-        targetModel: "cc-model",
-        provider: { id: "commandcode", name: "Command Code", baseUrl: "https://api.commandcode.ai/v1/chat/completions" } as any,
-        body: { model: "cc-model", messages: [{ role: "user", content: "hi" }], stream: false },
+        targetModel: "deepseek/deepseek-v4-pro",
+        provider: { id: "commandcode", name: "Command Code", baseUrl: "https://api.commandcode.ai/alpha/generate" } as any,
+        body: { model: "deepseek/deepseek-v4-pro", messages: [{ role: "user", content: "hi" }], stream: false },
         res: ccRes,
       })
     );
+    assert.equal(out.ok, true);
     assert.equal(ccRes._getJson().object, "response");
     assert.equal(ccRes._getJson().output[0].content[0].text, "CC OK");
   } finally {

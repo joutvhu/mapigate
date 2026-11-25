@@ -2,9 +2,8 @@ import { OpenAiCompatibleProvider } from "../../core/base/openAiProvider.js";
 import type { ModelCallResult, ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import { buildResponsesRequestPayload } from "../../core/base/responsesPayloadBuilder.js";
 import { executeResponsesUpstream } from "../../core/base/responsesExecution.js";
-import { executeGrokWeb } from "../grok/provider.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
-import { grokCliOAuthHandler } from "./routes.js";
+import { executeGrokWebCookie } from "./grokWeb.js";
 import { metadata } from "./metadata.js";
 
 function isGrokCookieSession(context: ProviderRequestContext): boolean {
@@ -49,7 +48,7 @@ export class GrokSubscriptionProvider extends OpenAiCompatibleProvider {
 
   public async execute(context: ProviderRequestContext): Promise<ModelCallResult> {
     if (isGrokCookieSession(context)) {
-      return await executeGrokWeb(context);
+      return await executeGrokWebCookie(context);
     }
     return await executeResponsesUpstream(context, this);
   }
@@ -67,21 +66,37 @@ export class GrokSubscriptionProvider extends OpenAiCompatibleProvider {
         rToken = rToken || parsedRaw?.refreshToken || parsedRaw?.refresh_token;
       } catch {}
     }
-    if (!rToken || !grokCliOAuthHandler.refreshToken) return false;
+    const tokenUrl = metadata.oauth?.refreshUrl || metadata.oauth?.tokenUrl;
+    const clientId = metadata.oauth?.clientId;
+    if (!rToken || !tokenUrl || !clientId) return false;
 
     try {
-      const refreshed = await grokCliOAuthHandler.refreshToken({ refreshToken: rToken, providerSpecificData: psd });
-      if (!refreshed?.accessToken) return false;
-      const newExpiresAt = Date.now() + (refreshed.expiresIn || 3600) * 1000;
-      const newRefreshToken = refreshed.refreshToken || rToken;
+      const refreshRes = await fetch(tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          ...(metadata.defaultHeaders || {}),
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: clientId,
+          refresh_token: rToken,
+        }),
+      });
+      if (!refreshRes.ok) return false;
+      const data: any = await refreshRes.json();
+      if (!data?.access_token) return false;
+      const newExpiresAt = Date.now() + (Number(data.expires_in) || 3600) * 1000;
+      const newRefreshToken = data.refresh_token || rToken;
       const updatedRawApiKey = parsedRaw
         ? JSON.stringify({
             ...parsedRaw,
-            accessToken: refreshed.accessToken,
+            accessToken: data.access_token,
             refreshToken: newRefreshToken,
             expiresAt: newExpiresAt,
           })
-        : refreshed.accessToken;
+        : data.access_token;
       const updatedPsd = { ...psd, refreshToken: newRefreshToken, expiresAt: newExpiresAt };
       account.rawApiKey = updatedRawApiKey;
       account.providerSpecificData = updatedPsd;

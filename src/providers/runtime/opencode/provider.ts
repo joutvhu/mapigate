@@ -1,6 +1,8 @@
 import { BaseProvider } from "../../core/base/baseProvider.js";
-import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import type { ModelCallResult, ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { buildResponsesRequestPayload } from "../../core/base/responsesPayloadBuilder.js";
+import { executeResponsesUpstream } from "../../core/base/responsesExecution.js";
 import {
   OPENCODE_UA,
   OPENCODE_CLIENT,
@@ -70,6 +72,21 @@ export class OpenCodeProvider extends BaseProvider {
 
   private toolMaps = new WeakMap<object, Map<string, string>>();
 
+  public override resolveTargetFormat(targetModel: string, _clientFormat: string): string | undefined {
+    const modelId = targetModel || "";
+    if (isResponsesModel(modelId)) return "openai-responses";
+    if (isMessagesModel(modelId)) return "claude";
+    return undefined;
+  }
+
+  public shouldExecute(context: ProviderRequestContext): boolean {
+    return isResponsesModel(this.resolveUpstreamModelId(context));
+  }
+
+  public async execute(context: ProviderRequestContext): Promise<ModelCallResult> {
+    return await executeResponsesUpstream(context, this);
+  }
+
   public override buildUrl(context: ProviderRequestContext): string {
     return buildOpenCodeUrl(context.targetModel, context.provider?.baseUrl);
   }
@@ -89,6 +106,22 @@ export class OpenCodeProvider extends BaseProvider {
   }
 
   public override transformRequestBody(context: ProviderRequestContext): any {
+    const upstreamModel = this.resolveUpstreamModelId(context);
+    if (isResponsesModel(upstreamModel)) {
+      const payload = buildResponsesRequestPayload(context, upstreamModel, {
+        forceStoreFalse: true,
+        allowMaxOutputTokens: true,
+        allowSamplingParams: true,
+        stripGptTemperature: true,
+        maxToolNameLen: 128,
+      });
+      const toolMap = applyFingerprintTools(payload, "flat");
+      if (context.req) {
+        this.toolMaps.set(context.req, toolMap);
+      }
+      return payload;
+    }
+
     const body = { ...context.body };
     body.stream = Boolean(context.body?.stream);
     const format = context.targetFormat === "claude" ? "claude" : false;

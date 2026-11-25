@@ -1,7 +1,8 @@
 import { BaseProvider } from "../../core/base/baseProvider.js";
-import type { ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
+import type { ModelCallResult, ProviderRequestContext, ProviderProbeContext, ProviderProbeResult } from "../../core/types.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { extractModelsFromPayload } from "../../../core/scanner/payloadExtractor.js";
+import { executeOllamaNativeChat } from "./nativeChat.js";
 
 export class OllamaProvider extends BaseProvider {
   public readonly id = "ollama";

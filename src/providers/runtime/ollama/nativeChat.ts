@@ -94,7 +94,10 @@ export async function executeOllamaNativeChat(
     clientFormat === "anthropic"
       ? AnthropicAdapter.anthropicToOpenAi(context.body)
       : { ...(context.body || {}) };
-  const upstreamModel = provider.resolveUpstreamModelId(context);
+  const upstreamModel =
+    typeof (provider as any).resolveUpstreamModelId === "function"
+      ? (provider as any).resolveUpstreamModelId(context)
+      : context.targetModel;
   const isStreaming = baseBody.stream !== false && !isPanel;
 
   const ollamaOptions: Record<string, any> = {};
