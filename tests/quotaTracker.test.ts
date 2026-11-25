@@ -237,8 +237,8 @@ test("Antigravity - parseWeeklyQuotaSummary accurately extracts weekly and sessi
 
   assert.ok(parsed.gemini_weekly);
   assert.equal(parsed.gemini_weekly.remainingPercentage, 85);
-  assert.equal(parsed.gemini_weekly.used, 450);
-  assert.equal(parsed.gemini_weekly.total, 3000);
+  assert.equal(parsed.gemini_weekly.used, 600);
+  assert.equal(parsed.gemini_weekly.total, 4000);
 
   assert.ok(parsed.gemini_session);
   assert.equal(parsed.gemini_session.remainingPercentage, 50);
@@ -312,7 +312,7 @@ test("Antigravity - parseWeeklyQuotaSummary extracts Gemini 4 Argon weekly quota
   assert.equal(parsedSupported.gemini_4_argon_weekly.displayName, "Gemini 4 Argon (Weekly)");
   assert.equal(parsedSupported.gemini_4_argon_weekly.remainingPercentage, 100);
   assert.equal(parsedSupported.gemini_4_argon_weekly.used, 0);
-  assert.equal(parsedSupported.gemini_4_argon_weekly.total, 3000);
+  assert.equal(parsedSupported.gemini_4_argon_weekly.total, 4000);
 
   // When account does not support Argon, gemini_4_argon_weekly must NOT be present
   const unsupportedPayload = {

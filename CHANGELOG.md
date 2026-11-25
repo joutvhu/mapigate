@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.5.174] - 2026-11-25
+
+### Features
+
+#### Unified Responses API & Codex Execution
+- **Shared Responses Execution & Payload Builder**: Extracted `responsesExecution.ts` and `responsesPayloadBuilder.ts` in `src/providers/core/base/`, along with `formatOpenAiResponseForClient` and `createOpenAiClientStreamWriter` in `customExecutionHelper.ts`, to handle OpenAI, Anthropic, and Responses client formats across streaming and non-streaming upstreams.
+- **Codex Responses API & OAuth Refresh**: Added `responses.ts` and `responsesPayload.ts` for `CodexProvider`, defaulting to `openai-responses` format, injecting `chatgpt-account-id` headers from JSON credentials, and implementing `handleAuthRefresh` on HTTP 401 responses.
+- **Reasoning Effort Mapping**: Mapped `reasoning.effort` to `reasoning_effort` in `convertResponsesApiFormat`.
+
+#### Provider Runtime Protocols & Native Execution
+- **Grok Web & OAuth Refresh**: Added `executeGrokWebCookie` in `src/providers/runtime/grok-cli/grokWeb.ts` for cookie-authenticated Grok Web chat requests and integrated Responses API execution and `handleAuthRefresh` in `GrokSubscriptionProvider`.
+- **Ollama Native Chat & OpenCode Responses**: Added `executeOllamaNativeChat` in `src/providers/runtime/ollama/nativeChat.ts` for `/api/chat` endpoints and added Responses API routing and execution in `OpenCodeProvider`.
+- **Perplexity Responses & Agent Support**: Added `/responses` and `/agent` endpoint detection, payload transformation, and unified Responses execution in `PerplexityProvider`.
+
+### Fixes
+
+#### Provider Endpoints & Quotas
+- **Perplexity Agent URLs**: Overrode `buildUrl` in `PerplexityProvider` to preserve raw `/agent` and `/v1/agent` endpoint URLs without appending `/chat/completions`.
+- **Antigravity Weekly Quota**: Updated the weekly quota total from `3000` to `4000` in `parseWeeklyQuotaSummary` (`src/providers/runtime/antigravity/weekly.ts`) and aligned `tests/quotaTracker.test.ts` assertions.
+
+### Refactor
+
+#### Web Dashboard Modals & Typechecking
+- **ModelSelectModal Modularization**: Extracted `ModelSelectModal` into dedicated components (`CatalogPane`, `CatalogToolbar`, `ComboSelectorList`, `ModelOptionRow`, `ProviderSidebar`, `SelectedModelsPanel`, `VirtualModelList`), hooks (`useModelCatalog`, `useModelSelection`), and `catalogUtils`, and memoized `SortableComboModelRow` in `ComboFormModal`.
+- **FreeTierComboModal Modularization**: Extracted `FreeTierComboModal` subcomponents into `src/web/src/components/freeTier/` (`BatchCombosPreviewPanel`, `FreeTierCatalogPane`, `FreeTierModelRow`, `FreeTierSidebar`, `freeTierModalUtils`), removing legacy `FreeTierComboList`, `FreeTierGroupCard`, and `FreeTierProviderCard`.
+- **Shared UI Utilities & Web Typecheck**: Added `PortalDrawer` component and `clipboard` helper across web views, prevented stale device-flow polling in `CopilotAuthModal`, and included `src/web/tsconfig.json` in `npm run typecheck`.
+
 ## [0.5.170] - 2026-11-24
 
 ### Features
