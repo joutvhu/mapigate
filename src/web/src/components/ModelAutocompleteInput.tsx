@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { CapacityBadges } from "./CapacityBadges.js";
+import {
+  EffortSelector,
+  joinModelEffort,
+  resolveSupportedEffortsForValue,
+  splitModelEffort,
+} from "./EffortSelector.js";
 
 export interface AvailableModelItem {
   id: string;
@@ -14,6 +20,7 @@ export interface AvailableModelItem {
     reasoning: boolean;
     audio: boolean;
   };
+  supportedEfforts?: string[];
   contextLength: number;
   isCombo?: boolean;
   strategy?: "round-robin" | "fallback" | "fusion" | string;
@@ -31,6 +38,7 @@ export interface ModelAutocompleteInputProps {
   disabled?: boolean;
   excludeValues?: string[];
   allowCombos?: boolean;
+  allowEffortSelector?: boolean;
   fetchCustomModels?: () => Promise<AvailableModelItem[]>;
 }
 
@@ -103,6 +111,7 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
   disabled = false,
   excludeValues,
   allowCombos = true,
+  allowEffortSelector = true,
   fetchCustomModels,
 }) => {
   const [models, setModels] = useState<AvailableModelItem[]>([]);
@@ -178,9 +187,22 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
     [models]
   );
 
+  const { baseValue, effort: selectedEffort } = useMemo(
+    () => splitModelEffort(value),
+    [value]
+  );
+
+  const activeSupportedEfforts = useMemo(
+    () =>
+      allowEffortSelector
+        ? resolveSupportedEffortsForValue(value, models)
+        : undefined,
+    [allowEffortSelector, value, models]
+  );
+
   // If filterConnected is on but no providers have accounts, we don't forcefully blank the list if user wants to see catalog
   const filteredModels = useMemo(() => {
-    const q = (value || "").trim().toLowerCase();
+    const q = baseValue.trim().toLowerCase();
     const excludeSet = new Set((excludeValues || []).map((v) => v.toLowerCase()));
 
     let pool = models;
@@ -231,7 +253,7 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
     });
 
     return matches.slice(0, 50);
-  }, [models, value, filterConnected, hasAnyConnected, excludeValues, allowCombos]);
+  }, [models, baseValue, filterConnected, hasAnyConnected, excludeValues, allowCombos]);
 
   // Keep highlighted item in view
   useEffect(() => {
@@ -268,10 +290,14 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
       if (isOpen && highlightIndex >= 0 && filteredModels[highlightIndex]) {
         e.preventDefault();
         const selected = filteredModels[highlightIndex];
-        onChange(selected.value);
+        const nextVal =
+          selectedEffort && selected.supportedEfforts?.includes(selectedEffort)
+            ? joinModelEffort(selected.value, selectedEffort)
+            : selected.value;
+        onChange(nextVal);
         setIsOpen(false);
         setHighlightIndex(-1);
-        if (onEnter) onEnter(selected.value);
+        if (onEnter) onEnter(nextVal);
       } else {
         setIsOpen(false);
         if (onEnter) {
@@ -286,52 +312,73 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
     }
   };
 
-  const handleSelect = (val: string) => {
-    onChange(val);
+  const handleSelect = (item: AvailableModelItem) => {
+    const nextVal =
+      selectedEffort && item.supportedEfforts?.includes(selectedEffort)
+        ? joinModelEffort(item.value, selectedEffort)
+        : item.value;
+    onChange(nextVal);
     setIsOpen(false);
     setHighlightIndex(-1);
   };
 
+  const showEffortPicker =
+    allowEffortSelector &&
+    (Boolean(activeSupportedEfforts && activeSupportedEfforts.length > 0) || Boolean(selectedEffort));
+
   return (
     <div ref={containerRef} className="relative w-full">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          if (!isOpen) setIsOpen(true);
-          setHighlightIndex(-1);
-        }}
-        onFocus={() => {
-          if (models.length === 0 || !cachedModelsData) {
-            getAvailableModelsCached()
-              .then((data) => setModels(data))
-              .catch(() => {});
-          }
-          setIsOpen(true);
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder={placeholder}
-        disabled={disabled}
-        autoFocus={autoFocus}
-        className={
-          className ||
-          "w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-3 pr-8 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
-        }
-      />
-      {value && !disabled && (
-        <button
-          type="button"
-          onClick={() => {
-            onChange("");
-            setHighlightIndex(-1);
-          }}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
-          title="Clear input"
-        >
-          <span className="material-symbols-outlined text-[15px]">close</span>
-        </button>
-      )}
+      <div className="flex items-center gap-1.5 w-full">
+        <div className="relative flex-1 min-w-0">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value);
+              if (!isOpen) setIsOpen(true);
+              setHighlightIndex(-1);
+            }}
+            onFocus={() => {
+              if (models.length === 0 || !cachedModelsData) {
+                getAvailableModelsCached()
+                  .then((data) => setModels(data))
+                  .catch(() => {});
+              }
+              setIsOpen(true);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            autoFocus={autoFocus}
+            className={
+              className ||
+              "w-full bg-[#0A0D14] border border-[#1E293B] rounded-xl pl-3 pr-8 py-2 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+            }
+          />
+          {value && !disabled && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setHighlightIndex(-1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
+              title="Clear input"
+            >
+              <span className="material-symbols-outlined text-[15px]">close</span>
+            </button>
+          )}
+        </div>
+
+        {showEffortPicker && (
+          <EffortSelector
+            value={value}
+            supportedEfforts={activeSupportedEfforts}
+            onChange={onChange}
+            disabled={disabled}
+          />
+        )}
+      </div>
 
       {isOpen && (
         <div
@@ -393,14 +440,14 @@ export const ModelAutocompleteInput: React.FC<ModelAutocompleteInputProps> = ({
             ) : (
               filteredModels.map((item, idx) => {
                 const isHighlighted = idx === highlightIndex;
-                const isSelected = item.value === value;
+                const isSelected = item.value === baseValue;
 
                 return (
                   <div
                     key={item.value}
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      handleSelect(item.value);
+                      handleSelect(item);
                     }}
                     onMouseEnter={() => setHighlightIndex(idx)}
                     className={`px-3 py-2 cursor-pointer transition-colors flex items-center justify-between gap-2.5 ${

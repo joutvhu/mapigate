@@ -33,6 +33,15 @@ export const metadata: ProviderRegistryItem = {
     "User-Agent": ANTIGRAVITY_USER_AGENT
   },
   "thinkingMode": "auto",
+  "thinkingOptions": [
+    "auto",
+    "none",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+  ],
   "oauth": {
     "authorizeUrl": "https://accounts.google.com/o/oauth2/v2/auth",
     "tokenUrl": "https://oauth2.googleapis.com/token",

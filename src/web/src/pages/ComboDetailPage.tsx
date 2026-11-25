@@ -247,6 +247,11 @@ export const ComboDetailPage: React.FC<ComboDetailPageProps> = ({
                 onMoveDown={handleMoveDown}
                 onMoveToBottom={handleMoveToBottom}
                 onRemove={handleRemove}
+                onUpdateModel={(idx, nextModel) => {
+                  const updated = [...combo.models];
+                  updated[idx] = nextModel;
+                  persistChanges({ models: updated });
+                }}
               />
             ))
           )}

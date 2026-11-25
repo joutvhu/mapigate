@@ -30,9 +30,11 @@ export const metadata: ProviderRegistryItem = {
   "thinkingOptions": [
     "auto",
     "none",
+    "minimal",
     "low",
     "medium",
-    "high"
+    "high",
+    "xhigh"
   ]
 ,
   models

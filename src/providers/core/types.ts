@@ -11,6 +11,7 @@ export interface RegistryModel {
   capabilities?: Partial<ModelCapabilities> | string[];
   kind?: "llm" | "image" | "embedding" | "systemone" | "video" | string;
   contextLength?: number;
+  supportedEfforts?: string[];
 }
 
 export type ProviderModelInput = string | (Partial<RegistryModel> & { id: string });
@@ -143,6 +144,8 @@ export interface ProviderRequestContext {
   req: Request;
   res?: Response;
   targetModel: string;
+  targetEffort?: string;
+  resolvedEffort?: string;
   clientFormat: "openai" | "anthropic" | "responses";
   targetFormat: "openai" | "claude" | string;
   body: any;

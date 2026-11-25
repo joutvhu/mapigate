@@ -241,6 +241,7 @@ export interface ScannedModel {
     reasoning?: boolean;
     audio?: boolean;
   };
+  supportedEfforts?: string[];
   raw?: any;
 }
 

@@ -46,9 +46,13 @@ export const metadata: ProviderRegistryItem = {
   "thinkingOptions": [
     "auto",
     "none",
+    "minimal",
     "low",
     "medium",
-    "high"
+    "high",
+    "xhigh",
+    "max",
+    "ultra"
   ],
   "oauth": {
     "clientId": resolvePublicCred("codex_client_id"),

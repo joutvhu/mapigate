@@ -21,6 +21,7 @@ import { CapacityBadges } from "./CapacityBadges.js";
 import { ModelSelectModal } from "./ModelSelectModal.js";
 import { Select } from "./Select.js";
 import { ModelAutocompleteInput, invalidateAvailableModelsCache } from "./ModelAutocompleteInput.js";
+import { EffortSelector, resolveSupportedEffortsForValue } from "./EffortSelector.js";
 
 export interface ComboItem {
   id: string;
@@ -176,7 +177,17 @@ const SortableComboModelRow: React.FC<SortableComboModelRowProps> = React.memo((
           </div>
         )}
 
-        {!editing && <CapacityBadges model={model} size="xs" />}
+        {!editing && (
+          <>
+            <EffortSelector
+              value={model}
+              supportedEfforts={resolveSupportedEffortsForValue(model)}
+              onChange={(nextVal) => onEdit(index, nextVal)}
+              size="xs"
+            />
+            <CapacityBadges model={model} size="xs" />
+          </>
+        )}
       </div>
 
       <div className="flex items-center gap-1 shrink-0">

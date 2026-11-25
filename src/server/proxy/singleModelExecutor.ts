@@ -70,6 +70,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
 
   const resolved = resolveTargetModelAndProvider(modelStr);
   const targetModel = resolved.targetModel;
+  const targetEffort = resolved.targetEffort;
   const providerId = resolved.providerId;
   const targetTag = resolved.targetTag;
   const is1mContext = Boolean(optionIs1m || resolved.is1mContext);
@@ -254,6 +255,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       req,
       res: isPanel ? mockPanelRes : res,
       targetModel,
+      ...(targetEffort ? { targetEffort } : {}),
       clientFormat,
       targetFormat,
       body: cloneBodyForUpstream(adjustedBody),

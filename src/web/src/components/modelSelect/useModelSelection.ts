@@ -172,6 +172,17 @@ export function useModelSelection({
     [selectedSet, multiSelect]
   );
 
+  const handleUpdateModel = useCallback((index: number, nextVal: string) => {
+    const trimmed = nextVal.trim();
+    if (!trimmed) return;
+    setSelectedModels((prev) => {
+      if (index < 0 || index >= prev.length) return prev;
+      const next = [...prev];
+      next[index] = trimmed;
+      return next;
+    });
+  }, []);
+
   return {
     selectedModels,
     setSelectedModels,
@@ -186,5 +197,6 @@ export function useModelSelection({
     handleDragEnd,
     handleClearAll,
     addCustomModel,
+    handleUpdateModel,
   };
 }

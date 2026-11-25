@@ -7,6 +7,7 @@ import { rescueInlineToolCalls } from "../helpers/toolCallRescue.js";
 import { normalizeToolParameters } from "../helpers/toolSchemaNormalize.js";
 import { convertOpenAiContentToAnthropic } from "./imageUtils.js";
 import { getCapabilitiesForModel } from "../../capabilities/index.js";
+import { getSupportedEffortsForTarget, resolveEffortForTarget } from "../../thinking/effortResolver.js";
 import { extractPlainTextContent } from "../../../shared/utils/extractText.js";
 
 export const DEFAULT_MAX_TOKENS = 64000;
@@ -289,8 +290,12 @@ export function translateOpenAiToAnthropic(
     stream: Boolean(openAiBody.stream),
   };
 
-  if (openAiBody.reasoning_effort) {
-    result.output_config = { effort: openAiBody.reasoning_effort };
+  if (openAiBody.reasoning_effort && caps?.thinkingFormat === "claude-adaptive") {
+    const supported = getSupportedEffortsForTarget(providerId || undefined, targetModel, caps);
+    const resolvedEffort = resolveEffortForTarget(openAiBody.reasoning_effort, supported, caps);
+    if (typeof resolvedEffort === "string") {
+      result.output_config = { effort: resolvedEffort };
+    }
   }
 
   if (openAiBody.stop) {

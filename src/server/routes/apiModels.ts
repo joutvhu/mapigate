@@ -7,6 +7,7 @@ import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 import { getCapabilitiesForModel, aggregateComboCapabilities } from "../../core/capabilities/index.js";
+import { getSupportedEffortsForTarget, isFixedVariantModel } from "../../core/thinking/effortResolver.js";
 import crypto from "node:crypto";
 
 export const modelRouter = Router();
@@ -139,6 +140,7 @@ modelRouter.get("/available", (req, res) => {
         reasoning: boolean;
         audio: boolean;
       };
+      supportedEfforts?: string[];
       contextLength: number;
       isCombo?: boolean;
       strategy?: string;
@@ -318,6 +320,10 @@ modelRouter.get("/available", (req, res) => {
         seenValues.add(val);
 
         const modelCaps = getCapabilitiesForModel(p.id, modelId);
+        const supportedEfforts =
+          modelCaps.reasoning && !isFixedVariantModel(modelId, [])
+            ? getSupportedEffortsForTarget(p.id, modelId, modelCaps, reg)
+            : undefined;
         availableModels.push({
           id: modelId,
           value: val,
@@ -331,6 +337,7 @@ modelRouter.get("/available", (req, res) => {
             reasoning: Boolean(modelCaps.reasoning),
             audio: Boolean(modelCaps.audioInput || modelCaps.audioOutput),
           },
+          ...(supportedEfforts && supportedEfforts.length > 0 ? { supportedEfforts } : {}),
           contextLength: modelCaps.contextWindow || 0,
         });
 
@@ -354,6 +361,7 @@ modelRouter.get("/available", (req, res) => {
                   reasoning: Boolean(modelCaps.reasoning),
                   audio: Boolean(modelCaps.audioInput || modelCaps.audioOutput),
                 },
+                ...(supportedEfforts && supportedEfforts.length > 0 ? { supportedEfforts } : {}),
                 contextLength: modelCaps.contextWindow || 0,
               });
             }
@@ -409,6 +417,10 @@ modelRouter.get("/available", (req, res) => {
             ? modelAny.audio
             : (hasCap("audio") || modelCaps.audioInput || modelCaps.audioOutput)
         );
+        const supportedEfforts =
+          reasoning && !isFixedVariantModel(model.id, [])
+            ? getSupportedEffortsForTarget(provider.id, model.id, modelCaps, provider)
+            : undefined;
 
         availableModels.push({
           id: model.id,
@@ -423,6 +435,7 @@ modelRouter.get("/available", (req, res) => {
             reasoning,
             audio,
           },
+          ...(supportedEfforts && supportedEfforts.length > 0 ? { supportedEfforts } : {}),
           contextLength: model.contextLength || 0,
         });
 
@@ -446,6 +459,7 @@ modelRouter.get("/available", (req, res) => {
                   reasoning,
                   audio,
                 },
+                ...(supportedEfforts && supportedEfforts.length > 0 ? { supportedEfforts } : {}),
                 contextLength: model.contextLength || 0,
               });
             }

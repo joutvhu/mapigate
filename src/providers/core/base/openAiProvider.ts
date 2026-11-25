@@ -3,6 +3,7 @@ import type { ProviderRequestContext } from "../types.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { normalizeToolsToOpenAi } from "../../../core/adapters/helpers/toolSchemaNormalize.js";
 import { shouldPreserveCacheControl } from "../../../core/caching/cacheControlPolicy.js";
+import { resolveTargetEffortFromContext } from "../../../core/thinking/effortResolver.js";
 
 export class OpenAiCompatibleProvider extends BaseProvider {
   public readonly id: string;
@@ -45,7 +46,20 @@ export class OpenAiCompatibleProvider extends BaseProvider {
       body = AnthropicAdapter.anthropicToOpenAi(body, { preserveCacheControl });
     }
     const modelToUse = this.resolveUpstreamModelId(context);
+    const effortRes = resolveTargetEffortFromContext({
+      providerId: context.provider?.id || this.id,
+      targetModel: modelToUse || context.targetModel,
+      targetEffort: context.targetEffort,
+      body,
+      providerThinkingMode: context.provider?.thinkingMode,
+    });
     const converted: any = { ...body, model: modelToUse };
+    if (typeof effortRes.effort === "string") {
+      converted.reasoning_effort = effortRes.effort;
+    } else if (effortRes.effort === null) {
+      delete converted.reasoning_effort;
+      delete converted.reasoning;
+    }
     if (Array.isArray(converted.tools)) {
       converted.tools = normalizeToolsToOpenAi(converted.tools);
       if (!converted.tools || converted.tools.length === 0) {

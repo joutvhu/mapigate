@@ -128,6 +128,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
     handleDragEnd,
     handleClearAll,
     addCustomModel,
+    handleUpdateModel,
   } = useModelSelection({
     multiSelect,
     closeOnSelect,
@@ -318,6 +319,7 @@ export const ModelSelectModal: React.FC<ModelSelectModalProps> = ({
             onMoveUp={handleMoveUp}
             onMoveDown={handleMoveDown}
             onDragEnd={handleDragEnd}
+            onUpdateModel={handleUpdateModel}
             className={`lg:col-span-4 ${mobileTab === "selected" ? "flex" : "hidden lg:flex"}`}
           />
         </div>

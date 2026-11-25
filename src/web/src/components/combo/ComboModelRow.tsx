@@ -1,6 +1,11 @@
 import React from "react";
 import { CapacityBadges } from "../CapacityBadges.js";
 import { getCapabilitiesForModel } from "../../../../core/capabilities/index.js";
+import {
+  EffortSelector,
+  resolveSupportedEffortsForValue,
+  splitModelEffort,
+} from "../EffortSelector.js";
 
 export interface ComboModelRowProps {
   model: string;
@@ -11,6 +16,7 @@ export interface ComboModelRowProps {
   onMoveDown: (index: number) => void;
   onMoveToBottom: (index: number) => void;
   onRemove: (index: number) => void;
+  onUpdateModel?: (index: number, nextModel: string) => void;
 }
 
 export const ComboModelRow: React.FC<ComboModelRowProps> = React.memo(({
@@ -22,17 +28,20 @@ export const ComboModelRow: React.FC<ComboModelRowProps> = React.memo(({
   onMoveDown,
   onMoveToBottom,
   onRemove,
+  onUpdateModel,
 }) => {
+  const { baseValue } = splitModelEffort(model);
   // Extract provider prefix if present
   let provider = "";
-  let modelName = model;
-  if (model.includes("/")) {
-    const slashIdx = model.indexOf("/");
-    provider = model.slice(0, slashIdx);
-    modelName = model.slice(slashIdx + 1);
+  let modelName = baseValue;
+  if (baseValue.includes("/")) {
+    const slashIdx = baseValue.indexOf("/");
+    provider = baseValue.slice(0, slashIdx);
+    modelName = baseValue.slice(slashIdx + 1);
   }
 
   const caps = getCapabilitiesForModel(provider || null, modelName);
+  const supportedEfforts = resolveSupportedEffortsForValue(model);
 
   const isFirst = index === 0;
   const isLast = index === total - 1;
@@ -63,6 +72,15 @@ export const ComboModelRow: React.FC<ComboModelRowProps> = React.memo(({
         <span className="text-xs text-white font-mono font-semibold truncate flex-1 min-w-0">
           {modelName}
         </span>
+
+        {onUpdateModel && (
+          <EffortSelector
+            value={model}
+            supportedEfforts={supportedEfforts}
+            onChange={(nextModel) => onUpdateModel(index, nextModel)}
+            size="xs"
+          />
+        )}
 
         {caps && (
           <div className="shrink-0 hidden sm:block">

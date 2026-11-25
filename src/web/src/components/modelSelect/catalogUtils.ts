@@ -44,6 +44,9 @@ export function buildModelCatalog(
           reasoning: Boolean(m.caps?.reasoning || caps.reasoning),
           audioInput: Boolean(m.caps?.audio || caps.audioInput),
           audioOutput: Boolean(m.caps?.audio || caps.audioOutput),
+          ...(Array.isArray(m.supportedEfforts) && m.supportedEfforts.length > 0
+            ? { supportedEfforts: m.supportedEfforts }
+            : {}),
         },
         m.contextLength || caps.contextWindow,
         "llm",

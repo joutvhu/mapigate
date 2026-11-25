@@ -17,6 +17,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { CapacityBadges } from "../CapacityBadges.js";
 import type { ModelCapabilities } from "../../../../core/capabilities/index.js";
+import {
+  EffortSelector,
+  resolveSupportedEffortsForValue,
+  splitModelEffort,
+} from "../EffortSelector.js";
 
 interface SortableModelItemProps {
   id: string;
@@ -25,12 +30,13 @@ interface SortableModelItemProps {
   onRemove: (id: string) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
+  onUpdateModel?: (index: number, nextVal: string) => void;
   isFirst: boolean;
   isLast: boolean;
 }
 
 const SortableModelItem = React.memo<SortableModelItemProps>(
-  ({ id, index, caps, onRemove, onMoveUp, onMoveDown, isFirst, isLast }) => {
+  ({ id, index, caps, onRemove, onMoveUp, onMoveDown, onUpdateModel, isFirst, isLast }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
       id,
     });
@@ -75,7 +81,19 @@ const SortableModelItem = React.memo<SortableModelItemProps>(
             <span className="font-mono text-xs text-white truncate block" title={id}>
               {id}
             </span>
-            <CapacityBadges caps={caps} model={caps ? undefined : id} size="xs" className="mt-0.5" />
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+              <CapacityBadges caps={caps} model={caps ? undefined : id} size="xs" />
+              {onUpdateModel && (
+                <EffortSelector
+                  value={id}
+                  supportedEfforts={
+                    caps?.supportedEfforts || resolveSupportedEffortsForValue(id)
+                  }
+                  onChange={(nextVal) => onUpdateModel(index, nextVal)}
+                  size="xs"
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -121,6 +139,7 @@ export interface SelectedModelsPanelProps {
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onDragEnd: (event: DragEndEvent) => void;
+  onUpdateModel?: (index: number, nextVal: string) => void;
   className?: string;
 }
 
@@ -133,6 +152,7 @@ export const SelectedModelsPanel: React.FC<SelectedModelsPanelProps> = React.mem
     onMoveUp,
     onMoveDown,
     onDragEnd,
+    onUpdateModel,
     className = "",
   }) => {
     const sensors = useSensors(
@@ -183,19 +203,23 @@ export const SelectedModelsPanel: React.FC<SelectedModelsPanelProps> = React.mem
             >
               <SortableContext items={selectedModels} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1.5">
-                  {selectedModels.map((modelId, index) => (
-                    <SortableModelItem
-                      key={modelId}
-                      id={modelId}
-                      index={index}
-                      caps={capsMap.get(modelId)}
-                      onRemove={onRemoveModel}
-                      onMoveUp={onMoveUp}
-                      onMoveDown={onMoveDown}
-                      isFirst={index === 0}
-                      isLast={index === selectedModels.length - 1}
-                    />
-                  ))}
+                  {selectedModels.map((modelId, index) => {
+                    const baseId = splitModelEffort(modelId).baseValue;
+                    return (
+                      <SortableModelItem
+                        key={modelId}
+                        id={modelId}
+                        index={index}
+                        caps={capsMap.get(modelId) || capsMap.get(baseId)}
+                        onRemove={onRemoveModel}
+                        onMoveUp={onMoveUp}
+                        onMoveDown={onMoveDown}
+                        onUpdateModel={onUpdateModel}
+                        isFirst={index === 0}
+                        isLast={index === selectedModels.length - 1}
+                      />
+                    );
+                  })}
                 </div>
               </SortableContext>
             </DndContext>

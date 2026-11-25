@@ -152,6 +152,12 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
         id.includes("reasoning") ||
         description?.toLowerCase().includes("reasoning");
 
+      const supportedEfforts = Array.isArray(rec.supported_reasoning_levels)
+        ? rec.supported_reasoning_levels
+            .map((lvl: any) => (typeof lvl?.effort === "string" ? lvl.effort.trim().toLowerCase() : ""))
+            .filter(Boolean)
+        : undefined;
+
       const caps = getCapabilitiesForModel(providerId || "openai", id);
       results.push({
         id,
@@ -162,6 +168,7 @@ export function extractModelsFromPayload(data: unknown, providerId?: string): Sc
           reasoning: isReasoning || Boolean(caps.reasoning),
           audio: Boolean(caps.audioInput || caps.audioOutput),
         },
+        ...(supportedEfforts && supportedEfforts.length > 0 ? { supportedEfforts } : {}),
         contextLength: contextLength || caps.contextWindow || undefined,
         raw: item,
       });

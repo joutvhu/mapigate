@@ -73,28 +73,36 @@ export function getCapabilitiesForModel(provider?: string | null, model?: string
 }
 
 function resolveCapabilitiesForModelInternal(provider: string | null | undefined, model: string): ModelCapabilities {
-  const baseModel = model.includes("/") ? model.split("/").pop()! : model;
-  const inferredProvider = (!provider && model.includes("/")) ? model.split("/")[0] : provider;
+  const cleanEffortModel = model.replace(/\([a-z][a-z0-9_-]*\)$/i, "").trim() || model;
+  const baseModel = cleanEffortModel.includes("/") ? cleanEffortModel.split("/").pop()! : cleanEffortModel;
+  const inferredProvider = (!provider && cleanEffortModel.includes("/")) ? cleanEffortModel.split("/")[0] : provider;
   const cleanProvider = inferredProvider ? inferredProvider.replace(/\[.*?\]$/, "") : null;
 
   // 1. Primary Source of Truth: Provider Metadata Registry
   const targetKey = normalizeModelCompareKey(baseModel);
+  let registrySupportedEfforts: string[] | undefined;
   if (cleanProvider) {
     const regProvider = getRegistryProvider(cleanProvider);
     if (regProvider?.models) {
       const match = regProvider.models.find(
         (m) =>
-          m.id === model ||
+          m.id === cleanEffortModel ||
           m.id === baseModel ||
-          (m.upstreamModelId && (m.upstreamModelId === model || m.upstreamModelId === baseModel)) ||
+          (m.upstreamModelId && (m.upstreamModelId === cleanEffortModel || m.upstreamModelId === baseModel)) ||
           normalizeModelCompareKey(m.id) === targetKey ||
           (m.upstreamModelId && normalizeModelCompareKey(m.upstreamModelId) === targetKey)
       );
+      if (Array.isArray(match?.supportedEfforts) && match.supportedEfforts.length > 0) {
+        registrySupportedEfforts = match.supportedEfforts;
+      }
       if (match?.capabilities) {
         const normalized = normalizeModelCapabilities(match.capabilities);
         if (normalized) {
           const res = { ...DEFAULT_CAPABILITIES, ...normalized };
-          if (!res.vision && looksLikeVisionModel(model)) res.vision = true;
+          if (registrySupportedEfforts && !res.supportedEfforts) {
+            res.supportedEfforts = registrySupportedEfforts;
+          }
+          if (!res.vision && looksLikeVisionModel(cleanEffortModel)) res.vision = true;
           return res;
         }
       }
@@ -105,9 +113,9 @@ function resolveCapabilitiesForModelInternal(provider: string | null | undefined
       if (!regProvider.models) continue;
       const match = regProvider.models.find(
         (m) =>
-          m.id === model ||
+          m.id === cleanEffortModel ||
           m.id === baseModel ||
-          (m.upstreamModelId && (m.upstreamModelId === model || m.upstreamModelId === baseModel)) ||
+          (m.upstreamModelId && (m.upstreamModelId === cleanEffortModel || m.upstreamModelId === baseModel)) ||
           normalizeModelCompareKey(m.id) === targetKey ||
           (m.upstreamModelId && normalizeModelCompareKey(m.upstreamModelId) === targetKey)
       );
@@ -115,44 +123,56 @@ function resolveCapabilitiesForModelInternal(provider: string | null | undefined
         const normalized = normalizeModelCapabilities(match.capabilities);
         if (normalized) {
           const res = { ...DEFAULT_CAPABILITIES, ...normalized };
-          if (!res.vision && looksLikeVisionModel(model)) res.vision = true;
+          if (Array.isArray(match.supportedEfforts) && !res.supportedEfforts) {
+            res.supportedEfforts = match.supportedEfforts;
+          }
+          if (!res.vision && looksLikeVisionModel(cleanEffortModel)) res.vision = true;
           return res;
         }
       }
     }
   }
 
+  const withRegistryEfforts = (res: ModelCapabilities): ModelCapabilities =>
+    registrySupportedEfforts
+      ? { ...res, supportedEfforts: registrySupportedEfforts }
+      : res;
+
   // 2. Provider-specific runtime override
   if (cleanProvider && PROVIDER_CAPABILITIES[cleanProvider]) {
     const pCaps = PROVIDER_CAPABILITIES[cleanProvider];
-    if (pCaps[model]) return { ...DEFAULT_CAPABILITIES, ...pCaps[model] };
-    if (pCaps[baseModel]) return { ...DEFAULT_CAPABILITIES, ...pCaps[baseModel] };
+    if (pCaps[cleanEffortModel]) return withRegistryEfforts({ ...DEFAULT_CAPABILITIES, ...pCaps[cleanEffortModel] });
+    if (pCaps[baseModel]) return withRegistryEfforts({ ...DEFAULT_CAPABILITIES, ...pCaps[baseModel] });
   }
 
   // 3. Canonical exact model match fallback
   if (MODEL_CAPABILITIES[baseModel]) {
     const res = { ...DEFAULT_CAPABILITIES, ...MODEL_CAPABILITIES[baseModel] };
-    if (!res.vision && looksLikeVisionModel(model)) res.vision = true;
-    return res;
+    if (!res.vision && looksLikeVisionModel(cleanEffortModel)) res.vision = true;
+    return withRegistryEfforts(res);
   }
-  if (MODEL_CAPABILITIES[model]) {
-    const res = { ...DEFAULT_CAPABILITIES, ...MODEL_CAPABILITIES[model] };
-    if (!res.vision && looksLikeVisionModel(model)) res.vision = true;
-    return res;
+  if (MODEL_CAPABILITIES[cleanEffortModel]) {
+    const res = { ...DEFAULT_CAPABILITIES, ...MODEL_CAPABILITIES[cleanEffortModel] };
+    if (!res.vision && looksLikeVisionModel(cleanEffortModel)) res.vision = true;
+    return withRegistryEfforts(res);
   }
 
   // 4. Glob Pattern match
   for (const { pattern, caps } of PATTERN_CAPABILITIES) {
-    if (matchPattern(pattern, baseModel) || matchPattern(pattern, model)) {
+    if (matchPattern(pattern, baseModel) || matchPattern(pattern, cleanEffortModel)) {
       const res = { ...DEFAULT_CAPABILITIES, ...caps };
-      if (!res.vision && looksLikeVisionModel(model)) res.vision = true;
-      return res;
+      if (!res.vision && looksLikeVisionModel(cleanEffortModel)) res.vision = true;
+      return withRegistryEfforts(res);
     }
   }
 
   // 5. Fallback floor + name heuristic
   const res = { ...DEFAULT_CAPABILITIES };
-  if (!res.vision && looksLikeVisionModel(model)) res.vision = true;
+  if (registrySupportedEfforts) {
+    res.reasoning = true;
+    res.supportedEfforts = registrySupportedEfforts;
+  }
+  if (!res.vision && looksLikeVisionModel(cleanEffortModel)) res.vision = true;
   return res;
 }
 

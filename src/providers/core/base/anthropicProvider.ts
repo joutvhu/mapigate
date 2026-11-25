@@ -1,6 +1,7 @@
 import { BaseProvider, extractTokenFromAccount } from "./baseProvider.js";
 import type { ProviderRequestContext } from "../types.js";
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
+import { resolveTargetEffortFromContext } from "../../../core/thinking/effortResolver.js";
 
 export class AnthropicCompatibleProvider extends BaseProvider {
   public readonly id: string;
@@ -67,15 +68,44 @@ export class AnthropicCompatibleProvider extends BaseProvider {
 
   public override transformRequestBody(context: ProviderRequestContext): any {
     const modelToUse = this.resolveUpstreamModelId(context);
-    if (context.clientFormat === "openai" || context.clientFormat === "responses") {
-      const converted = AnthropicAdapter.openAiToAnthropic(
-        context.body,
-        modelToUse || context.targetModel,
-        context.provider?.id || this.id
-      );
-      converted.model = modelToUse;
-      return converted;
+    const providerId = context.provider?.id || this.id;
+    const effortRes = resolveTargetEffortFromContext({
+      providerId,
+      targetModel: modelToUse || context.targetModel,
+      targetEffort: context.targetEffort,
+      body: context.body,
+      providerThinkingMode: context.provider?.thinkingMode,
+    });
+    const out =
+      context.clientFormat === "openai" || context.clientFormat === "responses"
+        ? AnthropicAdapter.openAiToAnthropic(context.body, effortRes.cleanModel, providerId)
+        : { ...context.body };
+
+    out.model = effortRes.cleanModel;
+    delete out.reasoning_effort;
+
+    if (effortRes.caps.thinkingFormat === "claude-adaptive") {
+      if (typeof effortRes.effort === "string") {
+        out.output_config = { ...(out.output_config || {}), effort: effortRes.effort };
+      } else if (effortRes.effort === null && out.output_config && typeof out.output_config === "object") {
+        const nextOc = { ...out.output_config };
+        delete nextOc.effort;
+        if (Object.keys(nextOc).length === 0) {
+          delete out.output_config;
+        } else {
+          out.output_config = nextOc;
+        }
+      }
+    } else if (out.output_config && typeof out.output_config === "object" && "effort" in out.output_config) {
+      const nextOc = { ...out.output_config };
+      delete nextOc.effort;
+      if (Object.keys(nextOc).length === 0) {
+        delete out.output_config;
+      } else {
+        out.output_config = nextOc;
+      }
     }
-    return { ...context.body, model: modelToUse };
+
+    return out;
   }
 }

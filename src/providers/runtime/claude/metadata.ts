@@ -47,6 +47,13 @@ export const metadata: ProviderRegistryItem = {
     "X-Stainless-Timeout": "600"
   },
   "thinkingMode": "auto",
+  "thinkingOptions": [
+    "auto",
+    "low",
+    "medium",
+    "high",
+    "max"
+  ],
   "oauth": {
     "clientId": resolvePublicCred("claude_client_id"),
     "authorizeUrl": "https://claude.ai/oauth/authorize",

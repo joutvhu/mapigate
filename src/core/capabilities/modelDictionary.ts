@@ -266,12 +266,16 @@ export const STANDARD_MODELS: Record<string, string> = {
   "gpt-oss-120b": "GPT-OSS 120B",
 };
 
-// Suffix matcher: dates (8 digits), thinking tiers (xhigh, high, medium, low, extra-low, thinking), version/tags (:free, -preview, -beta, -latest, @date, etc.)
-const SUFFIX_REGEX = /[-_:@](extra-low|high-thinking|medium-thinking|low-thinking|xhigh|high|medium|low|thinking|free|preview|latest|beta|eco|instruct|chat|v[0-9]+(?:\.[0-9]+)*|[0-9]{8})$/i;
+// Suffix matcher: dates (8 digits), thinking tiers (ultra, max, xhigh, high, medium, low, extra-low, disabled, thinking), version/tags (:free, -preview, -beta, -latest, @date, etc.)
+const SUFFIX_REGEX = /[-_:@](extra-low|high-thinking|medium-thinking|low-thinking|ultra|max|xhigh|high|medium|low|disabled|thinking|free|preview|latest|beta|eco|instruct|chat|v[0-9]+(?:\.[0-9]+)*|[0-9]{8})$/i;
 
 function formatSuffixTag(raw: string): string {
   const s = raw.toLowerCase();
   switch (s) {
+    case "ultra":
+      return " (Ultra)";
+    case "max":
+      return " (Max)";
     case "xhigh":
       return " (Extra)";
     case "high":
@@ -280,6 +284,8 @@ function formatSuffixTag(raw: string): string {
       return " (Medium)";
     case "low":
       return " (Low)";
+    case "disabled":
+      return " (Disabled)";
     case "extra-low":
       return " (Extra Low)";
     case "thinking":
@@ -379,17 +385,23 @@ export function resolveModelDisplayName(rawId?: string | null): string {
   let cleanId = rawId.includes("/") ? rawId.split("/").pop()! : rawId;
   cleanId = cleanId.trim();
 
-  // Strip brackets like [1m]
+  // Strip brackets like [1m] and parenthesized effort like (ultra)
   let contextTag = "";
   if (/\[1m\]/i.test(cleanId)) {
     contextTag = " (1M Context)";
     cleanId = cleanId.replace(/\[1m\]/i, "");
   }
+  let effortTag = "";
+  const effortMatch = cleanId.match(/\(([a-z][a-z0-9_-]*)\)$/i);
+  if (effortMatch) {
+    effortTag = formatSuffixTag(effortMatch[1]) || ` (${effortMatch[1]})`;
+    cleanId = cleanId.slice(0, -effortMatch[0].length).trim();
+  }
 
   // 2. Direct exact match in standard dictionary
   const directMatch = lookupStandardModel(cleanId);
   if (directMatch) {
-    return `${directMatch}${contextTag}`;
+    return `${directMatch}${effortTag}${contextTag}`;
   }
 
   // 3. Suffix separation in a loop (supports multiple suffixes like -high:free or -thinking-high)
@@ -419,7 +431,7 @@ export function resolveModelDisplayName(rawId?: string | null): string {
   const combinedSuffixTag = suffixTags.join("");
 
   if (baseMatch) {
-    return `${baseMatch}${combinedSuffixTag}${contextTag}`;
+    return `${baseMatch}${combinedSuffixTag}${effortTag}${contextTag}`;
   }
 
   // 4. Fallback formatting

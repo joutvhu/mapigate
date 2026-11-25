@@ -18,6 +18,7 @@ export interface ModelCapabilities {
   forcedToolChoice?: boolean;
   thinkingRange: { min: number; max: number } | null;
   thinkingEffortSupported: boolean;
+  supportedEfforts?: string[];
   contextWindow: number;
   maxOutput: number;
   [key: string]: any;

@@ -1,4 +1,5 @@
 import { stripModelContextMarker, RuleEngine } from "../../core/router/ruleEngine.js";
+import { stripModelEffortSuffix } from "../../core/thinking/effortResolver.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
@@ -94,12 +95,15 @@ function isKnownProviderOrAlias(pName: string): boolean {
 
 export function resolveTargetModelAndProvider(modelStr: string): {
   targetModel: string;
+  targetEffort?: string;
   providerId?: string;
   targetTag?: string;
   is1mContext: boolean;
 } {
   const { model: cleanModelStr, is1mContext } = stripModelContextMarker(modelStr);
-  const effective = cleanModelStr || modelStr;
+  const effortStripped = stripModelEffortSuffix(cleanModelStr || modelStr);
+  const effective = effortStripped.model || cleanModelStr || modelStr;
+  let targetEffort = effortStripped.effort;
   let targetModel = effective;
   let providerId: string | undefined;
   let targetTag: string | undefined;
@@ -137,6 +141,11 @@ export function resolveTargetModelAndProvider(modelStr: string): {
 
   const cleanTarget = stripModelContextMarker(targetModel).model;
   if (cleanTarget) targetModel = cleanTarget;
+  const targetEffortStripped = stripModelEffortSuffix(targetModel);
+  if (targetEffortStripped.effort) {
+    targetEffort = targetEffortStripped.effort;
+    targetModel = targetEffortStripped.model;
+  }
   if (!providerId) {
     const activeProviders = ProviderRepository.getAllProviders().filter((p) => p.isActive);
     const targetLower = targetModel.toLowerCase();
@@ -212,5 +221,11 @@ export function resolveTargetModelAndProvider(modelStr: string): {
     }
   }
 
-  return { targetModel, providerId, targetTag, is1mContext: Boolean(is1mContext) };
+  return {
+    targetModel,
+    ...(targetEffort ? { targetEffort } : {}),
+    providerId,
+    targetTag,
+    is1mContext: Boolean(is1mContext),
+  };
 }

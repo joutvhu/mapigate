@@ -10,6 +10,13 @@ import {
 } from "../../../core/adapters/responsesAdapter.js";
 import { logger, LogSymbol, formatDoneLine } from "../../../shared/logger.js";
 import { ProviderRepository } from "../../../storage/repositories/providerRepo.js";
+import { AccountModelRepository } from "../../../storage/repositories/accountModelRepo.js";
+import {
+  isFixedVariantModel,
+  resolveEffectiveEffort,
+  resolveVariantModelForEffort,
+  stripModelEffortSuffix,
+} from "../../../core/thinking/effortResolver.js";
 import { loadCodeAssist, refreshGoogleOAuthToken } from "./routes.js";
 import { models } from "./models.js";
 import { ANTIGRAVITY_USER_AGENT } from "./types.js";
@@ -181,12 +188,43 @@ export async function executeAntigravity(
 
   // 2. Resolve Target Model and Thinking Override
   const cleanModelName = (targetModel || "gemini-3.8-flash").replace(/^(antigravity|ag)\//, "");
-  const modelEntry = models.find((m) => m.id === cleanModelName);
-  const rawUpstream = modelEntry?.upstreamModelId || cleanModelName;
+  const strippedTarget = stripModelEffortSuffix(cleanModelName);
+  const baseTargetModel = strippedTarget.model || cleanModelName;
+
+  const availableModelsSet = new Set<string>();
+  try {
+    if (context.account?.id) {
+      const accModels = AccountModelRepository.getAccountModels(context.account.id);
+      if (accModels) {
+        for (const m of accModels) availableModelsSet.add(m);
+      }
+    }
+  } catch {}
+  if (Array.isArray(context.provider?.models)) {
+    for (const m of context.provider.models) {
+      if (typeof m === "string" && m.trim()) availableModelsSet.add(m.trim());
+    }
+  }
+  for (const m of models) {
+    if (m?.id) availableModelsSet.add(m.id);
+  }
+  const availableModels = Array.from(availableModelsSet);
+  const fixedVariant = isFixedVariantModel(baseTargetModel, availableModels);
+  const requestedEffort = resolveEffectiveEffort({
+    targetEffort: context.targetEffort || strippedTarget.effort,
+    body,
+    providerThinkingMode: context.provider?.thinkingMode,
+    hasFixedVariant: fixedVariant,
+  });
+  const variantResolution = resolveVariantModelForEffort(baseTargetModel, requestedEffort, availableModels);
+  const selectedModelName = variantResolution.matchedVariant ? variantResolution.model : baseTargetModel;
+
+  const modelEntry = models.find((m) => m.id === selectedModelName);
+  const rawUpstream = modelEntry?.upstreamModelId || selectedModelName;
 
   const match = rawUpstream.match(/^(.*)\(([^()]+)\)\s*$/);
   const upstreamModel = match ? match[1].trim() : rawUpstream;
-  const _thinkingLevel = match ? match[2].trim() : undefined;
+  const _thinkingLevel = match ? match[2].trim() : requestedEffort;
 
   // 3. Build Google Cloud Code PA Request Envelope
   const accountIdentifier =

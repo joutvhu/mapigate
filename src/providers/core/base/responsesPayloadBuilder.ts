@@ -1,9 +1,8 @@
 import { AnthropicAdapter } from "../../../core/adapters/anthropicAdapter.js";
 import { extractSessionId } from "../../../server/proxy/executorHelpers.js";
+import { resolveTargetEffortFromContext } from "../../../core/thinking/effortResolver.js";
 import type { ProviderRequestContext } from "../types.js";
 
-const THINKING_SUFFIX_RE = /^(.*?)\((none|minimal|low|medium|high|xhigh)\)$/i;
-const VALID_REASONING_EFFORTS = new Set(["none", "minimal", "low", "medium", "high", "xhigh"]);
 const MAX_CALL_ID_LEN = 64;
 
 export interface ResponsesPayloadOptions {
@@ -273,9 +272,14 @@ export function buildResponsesRequestPayload(
       ? AnthropicAdapter.anthropicToOpenAi(rawBody)
       : { ...rawBody };
 
-  const suffixMatch = (upstreamModel || context.targetModel || "").match(THINKING_SUFFIX_RE);
-  const cleanModel = suffixMatch ? suffixMatch[1] : upstreamModel || context.targetModel;
-  const suffixEffort = suffixMatch ? suffixMatch[2].toLowerCase() : undefined;
+  const effortRes = resolveTargetEffortFromContext({
+    providerId: context.provider?.id,
+    targetModel: upstreamModel || context.targetModel,
+    targetEffort: context.targetEffort,
+    body: baseBody,
+    providerThinkingMode: context.provider?.thinkingMode,
+  });
+  const cleanModel = effortRes.cleanModel;
 
   let input: any[] = [];
   let instructions =
@@ -365,16 +369,19 @@ export function buildResponsesRequestPayload(
     out.text = textConfig;
   }
 
-  if (baseBody.reasoning && typeof baseBody.reasoning === "object" && !Array.isArray(baseBody.reasoning)) {
+  if (typeof effortRes.effort === "string") {
+    const existingReasoning =
+      baseBody.reasoning && typeof baseBody.reasoning === "object" && !Array.isArray(baseBody.reasoning)
+        ? baseBody.reasoning
+        : {};
+    out.reasoning = { summary: "auto", ...existingReasoning, effort: effortRes.effort };
+  } else if (
+    effortRes.effort === undefined &&
+    baseBody.reasoning &&
+    typeof baseBody.reasoning === "object" &&
+    !Array.isArray(baseBody.reasoning)
+  ) {
     out.reasoning = { summary: "auto", ...baseBody.reasoning };
-  } else {
-    const effort =
-      typeof baseBody.reasoning_effort === "string"
-        ? baseBody.reasoning_effort.toLowerCase().trim()
-        : suffixEffort;
-    if (effort && VALID_REASONING_EFFORTS.has(effort)) {
-      out.reasoning = { effort, summary: "auto" };
-    }
   }
 
   if (Array.isArray(baseBody.tools) && baseBody.tools.length > 0) {
