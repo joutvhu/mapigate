@@ -146,6 +146,26 @@ test("Provider transformers handle Codex ultra/max, Claude output_config, OpenAI
   assert.deepEqual(claudeOut.output_config, { effort: "max" });
   assert.equal("reasoning_effort" in claudeOut, false);
 
+  // Claude 4.7+ / 5+ preserves xhigh effort directly
+  const claudeXhigh = claude.transformRequestBody(
+    makeCtx({
+      targetModel: "claude-opus-4-7",
+      body: { messages: [{ role: "user", content: "hi" }], reasoning_effort: "xhigh" },
+      provider: { id: "claude", name: "Claude", baseUrl: "", format: "claude", thinkingMode: "auto" } as any,
+    })
+  );
+  assert.deepEqual(claudeXhigh.output_config, { effort: "xhigh" });
+
+  // Claude 4.6 caps at max (no xhigh)
+  const claude46Xhigh = claude.transformRequestBody(
+    makeCtx({
+      targetModel: "claude-opus-4-6",
+      body: { messages: [{ role: "user", content: "hi" }], reasoning_effort: "xhigh" },
+      provider: { id: "claude", name: "Claude", baseUrl: "", format: "claude", thinkingMode: "auto" } as any,
+    })
+  );
+  assert.deepEqual(claude46Xhigh.output_config, { effort: "max" });
+
   // Claude 3.7 budget-only must NOT receive output_config.effort
   const claude37 = claude.transformRequestBody(
     makeCtx({

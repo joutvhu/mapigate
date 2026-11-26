@@ -8,6 +8,8 @@ import {
   extractHeader,
   mergeAnthropicBeta,
 } from "../src/server/proxy/chatProxy.js";
+import { metadata as claudeMetadata } from "../src/providers/runtime/claude/metadata.js";
+import { ClaudeProvider } from "../src/providers/runtime/claude/provider.js";
 import type { ModelMappingRule } from "../src/shared/types/index.js";
 import type { Request } from "express";
 
@@ -122,3 +124,58 @@ test("Anthropic Header Forwarding - extractHeader extracts headers case-insensit
   assert.equal(extractHeader(mockReq, "custom-list"), "val1,val2");
   assert.equal(extractHeader(mockReq, "non-existent"), undefined);
 });
+
+test("Claude Provider - defaultHeaders detects host Stainless OS/Arch/RuntimeVersion and honors overrides", async () => {
+  const expectedOs =
+    process.platform === "win32"
+      ? "Windows"
+      : process.platform === "darwin"
+        ? "MacOS"
+        : process.platform === "linux"
+          ? "Linux"
+          : "MacOS";
+  const expectedArch =
+    process.arch === "arm64"
+      ? "arm64"
+      : process.arch === "x64"
+        ? "x64"
+        : expectedOs === "MacOS"
+          ? "arm64"
+          : "x64";
+
+  assert.equal(claudeMetadata.defaultHeaders?.["X-Stainless-Os"], expectedOs);
+  assert.equal(claudeMetadata.defaultHeaders?.["X-Stainless-Arch"], expectedArch);
+  assert.equal(claudeMetadata.defaultHeaders?.["X-Stainless-Runtime-Version"], "v24.22.0");
+  assert.equal(claudeMetadata.defaultHeaders?.["X-Stainless-Package-Version"], "0.137.0");
+  assert.equal(claudeMetadata.defaultHeaders?.["User-Agent"], "claude-cli/2.1.309 (external, sdk-cli)");
+
+  const provider = new ClaudeProvider();
+  const headers = await provider.buildHeaders({
+    requestId: "req_hdr_1",
+    startTime: Date.now(),
+    clientFormat: "claude",
+    targetFormat: "claude",
+    targetModel: "claude-opus-5-5",
+    rawModel: "claude-opus-5-5",
+    body: { messages: [] },
+    req: { headers: {} } as any,
+    clientTool: "claude",
+    rtkStats: { compressedTokens: 0, tokensSaved: 0 },
+    provider: {
+      id: "claude",
+      name: "Claude Code",
+      baseUrl: "https://api.anthropic.com/v1/messages",
+      format: "claude",
+      customHeaders: {
+        "X-Stainless-Os": "CustomOS",
+        "X-Stainless-Arch": "",
+      },
+    } as any,
+    account: { id: "acc_1", name: "test", rawApiKey: "sk-ant-test" } as any,
+  });
+
+  assert.equal(headers["X-Stainless-Os"], "CustomOS");
+  assert.equal("X-Stainless-Arch" in headers, false);
+  assert.equal(headers["X-Stainless-Runtime-Version"], "v24.22.0");
+});
+

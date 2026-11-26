@@ -74,9 +74,22 @@ test("Capabilities - getCapabilitiesForModel accurately classifies models", () =
   assert.equal(gemini.vision, true);
   assert.equal(gemini.search, true);
 
-  // Haiku 5+ adaptive thinking
+  // Haiku 5+ adaptive thinking with xhigh, Haiku 4.5 non-thinking 200k
   const haiku5 = getCapabilitiesForModel("claude", "claude-haiku-5-5");
   assert.equal(haiku5.thinkingFormat, "claude-adaptive");
+  assert.deepEqual(haiku5.supportedEfforts, ["low", "medium", "high", "xhigh", "max"]);
+  assert.equal(haiku5.contextWindow, 1000000);
+
+  const haiku45 = getCapabilitiesForModel("claude", "claude-haiku-4-5-20251001");
+  assert.equal(haiku45.reasoning, false);
+  assert.equal(haiku45.contextWindow, 200000);
+  assert.equal(haiku45.maxOutput, 64000);
+
+  const fable5 = getCapabilitiesForModel("claude", "claude-fable-5");
+  assert.equal(fable5.thinkingFormat, "claude-adaptive");
+  assert.deepEqual(fable5.supportedEfforts, ["low", "medium", "high", "xhigh", "max"]);
+  assert.equal(fable5.contextWindow, 1000000);
+  assert.equal(fable5.maxOutput, 128000);
 
   // Kimi K3.1 Pro
   const kimiK31 = getCapabilitiesForModel("opencode-go", "kimi-k3.1-pro");

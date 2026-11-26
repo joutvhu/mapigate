@@ -1,6 +1,10 @@
 import type { ProviderRegistryItem } from "../../core/types.js";
 
 import { resolvePublicCred } from "../../../shared/utils/publicCreds.js";
+import {
+  resolveStainlessArch,
+  resolveStainlessOs,
+} from "./stainlessHeaders.js";
 
 export const metadata: ProviderRegistryItem = {
   quotaOrder: [
@@ -34,16 +38,16 @@ export const metadata: ProviderRegistryItem = {
     "Anthropic-Version": "2023-06-01",
     "Anthropic-Beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advanced-tool-use-2025-11-20,effort-2025-11-24,structured-outputs-2025-12-15,fast-mode-2026-02-01,redact-thinking-2026-02-12,token-efficient-tools-2026-03-28",
     "Anthropic-Dangerous-Direct-Browser-Access": "true",
-    "User-Agent": "claude-cli/2.1.280 (external, sdk-cli)",
+    "User-Agent": "claude-cli/2.1.309 (external, sdk-cli)",
     "X-App": "cli",
     "X-Stainless-Helper-Method": "stream",
     "X-Stainless-Retry-Count": "0",
-    "X-Stainless-Runtime-Version": "v24.14.0",
-    "X-Stainless-Package-Version": "0.80.0",
+    "X-Stainless-Runtime-Version": "v24.22.0",
+    "X-Stainless-Package-Version": "0.137.0",
     "X-Stainless-Runtime": "node",
     "X-Stainless-Lang": "js",
-    "X-Stainless-Arch": "arm64",
-    "X-Stainless-Os": "MacOS",
+    "X-Stainless-Arch": resolveStainlessArch(),
+    "X-Stainless-Os": resolveStainlessOs(),
     "X-Stainless-Timeout": "600"
   },
   "thinkingMode": "auto",
@@ -52,6 +56,7 @@ export const metadata: ProviderRegistryItem = {
     "low",
     "medium",
     "high",
+    "xhigh",
     "max"
   ],
   "oauth": {
@@ -76,9 +81,11 @@ export const metadata: ProviderRegistryItem = {
       "isDefault": false,
       "capabilities": {
         "vision": true,
+        "pdf": true,
         "reasoning": true,
         "search": true,
         "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
         "contextWindow": 1000000,
         "maxOutput": 128000,
         "thinkingCanDisable": false
@@ -90,9 +97,11 @@ export const metadata: ProviderRegistryItem = {
       "isDefault": false,
       "capabilities": {
         "vision": true,
+        "pdf": true,
         "reasoning": true,
         "search": true,
         "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
         "contextWindow": 1000000,
         "maxOutput": 128000
       }
@@ -103,9 +112,11 @@ export const metadata: ProviderRegistryItem = {
       "isDefault": false,
       "capabilities": {
         "vision": true,
+        "pdf": true,
         "reasoning": true,
         "search": true,
         "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
         "thinkingCanDisable": false,
         "contextWindow": 1000000,
         "maxOutput": 128000
@@ -114,7 +125,17 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "claude-fable-5",
       "name": "Claude Fable 5",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
     },
     {
       "id": "claude-sonnet-5-5",
@@ -122,9 +143,11 @@ export const metadata: ProviderRegistryItem = {
       "isDefault": false,
       "capabilities": {
         "vision": true,
+        "pdf": true,
         "reasoning": true,
         "search": true,
         "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
         "contextWindow": 1000000,
         "maxOutput": 128000
       }
@@ -135,9 +158,86 @@ export const metadata: ProviderRegistryItem = {
       "isDefault": false,
       "capabilities": {
         "vision": true,
+        "pdf": true,
         "reasoning": true,
         "search": true,
         "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "name": "Claude Haiku 5.5",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-opus-4-8",
+      "name": "Claude Opus 4.8",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-opus-4-7",
+      "name": "Claude Opus 4.7",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "xhigh", "max"],
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-opus-4-6",
+      "name": "Claude Opus 4.6",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "max"],
+        "contextWindow": 1000000,
+        "maxOutput": 128000
+      }
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "name": "Claude Sonnet 4.6",
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": true,
+        "search": true,
+        "thinkingFormat": "claude-adaptive",
+        "supportedEfforts": ["low", "medium", "high", "max"],
         "contextWindow": 1000000,
         "maxOutput": 128000
       }
@@ -158,7 +258,15 @@ export const metadata: ProviderRegistryItem = {
     {
       "id": "claude-haiku-4-5-20251001",
       "name": "Claude 4.5 Haiku",
-      "isDefault": false
+      "isDefault": false,
+      "capabilities": {
+        "vision": true,
+        "pdf": true,
+        "reasoning": false,
+        "search": true,
+        "contextWindow": 200000,
+        "maxOutput": 64000
+      }
     }
   ]
 };
