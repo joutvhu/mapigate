@@ -195,7 +195,7 @@ export async function executeGrokWebCookie(context: ProviderRequestContext): Pro
       clientResponse: { status: 200, headers: { "content-type": "text/event-stream" }, body: { text: "Stream completed" } },
     });
     logger.line(reqTag, LogSymbol.SUCCESS, `${context.provider?.id || "grok-cli"}/${targetModel} · ${formatDoneLine({ durationMs, promptTokens: inTok, completionTokens: outTok, tokensSaved: rtkStats?.tokensSaved || 0, cost })}`);
-    return { ok: true, status: 200, logged: true, modelUsed: targetModel, text: fullText };
+    return { ok: true, status: 200, isStream: true, logged: true, modelUsed: targetModel, text: fullText };
   }
 
   const openAiResp = {

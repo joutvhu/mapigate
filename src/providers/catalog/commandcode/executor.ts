@@ -248,7 +248,7 @@ export async function executeCommandCode(context: ProviderRequestContext): Promi
         headers: { "content-type": "text/event-stream" },
         body: { text: "Stream completed" },
       });
-      return { ok: true, status: 200, logged: true, modelUsed: targetModel, text: contentText };
+      return { ok: true, status: 200, isStream: true, logged: true, modelUsed: targetModel, text: contentText };
     }
 
     // Non-streaming / isPanel

@@ -3,6 +3,7 @@ process.env.NODE_ENV = "test";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CodexProvider } from "../src/providers/runtime/codex/provider.js";
+import { handleFallbackChat } from "../src/providers/composite/combo/fallbackStrategy.js";
 import { convertResponsesApiFormat } from "../src/core/adapters/responsesAdapter.js";
 import type { ProviderRequestContext } from "../src/providers/core/types.js";
 
@@ -415,6 +416,158 @@ test("CodexProvider.execute returns ok=false without sending headers on initial 
     assert.equal(result.ok, false);
     assert.equal(result.status, 429);
     assert.equal(res.headersSent, false);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("CodexProvider.execute inside combo does not misclassify tool-call-only SSE stream as HTTP 200 zero content", async () => {
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    return new Response(
+      sseStream([
+        { event: "response.created", data: { type: "response.created", response: { id: "resp_tool_only" } } },
+        {
+          event: "response.reasoning_summary_text.delta",
+          data: { type: "response.reasoning_summary_text.delta", delta: "Inspecting workspace..." },
+        },
+        {
+          event: "response.output_item.added",
+          data: {
+            type: "response.output_item.added",
+            item: { id: "fc_tool_1", call_id: "call_tool_1", type: "function_call", name: "read_file" },
+          },
+        },
+        {
+          event: "response.function_call_arguments.delta",
+          data: { type: "response.function_call_arguments.delta", item_id: "fc_tool_1", delta: '{"path":"src/index.ts"}' },
+        },
+        {
+          event: "response.completed",
+          data: {
+            type: "response.completed",
+            response: {
+              id: "resp_tool_only",
+              object: "response",
+              status: "completed",
+              output: [
+                {
+                  type: "function_call",
+                  id: "fc_tool_1",
+                  call_id: "call_tool_1",
+                  name: "read_file",
+                  arguments: '{"path":"src/index.ts"}',
+                },
+              ],
+              usage: { input_tokens: 120, output_tokens: 24, total_tokens: 144 },
+            },
+          },
+        },
+        { data: "[DONE]" },
+      ]),
+      { status: 200, headers: { "content-type": "text/event-stream" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    const provider = new CodexProvider();
+    const res = makeMockResponse();
+    const result = await handleFallbackChat({
+      body: { model: "gpt-6.2-sol", messages: [{ role: "user", content: "read index" }], stream: true },
+      models: ["codex/gpt-6.2-sol(xhigh)"],
+      comboName: "gpt-6.2-sol",
+      comboStrategy: "fallback",
+      handleSingleModel: async (mBody) =>
+        provider.execute(
+          makeContext({
+            clientFormat: "openai",
+            targetModel: "gpt-6.2-sol",
+            targetEffort: "xhigh",
+            body: mBody,
+            res,
+          })
+        ),
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.status, 200);
+    assert.equal(result.isStream, true);
+    const written = res._getChunks().join("");
+    assert.ok(written.includes('"name":"read_file"'));
+    assert.ok(written.includes("data: [DONE]"));
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("CodexProvider.execute fails cleanly before sending headers when SSE stream has empty output, allowing combo failover", async () => {
+  const origFetch = globalThis.fetch;
+  let attempt = 0;
+  globalThis.fetch = (async () => {
+    attempt++;
+    if (attempt === 1) {
+      return new Response(
+        sseStream([
+          { event: "response.created", data: { type: "response.created", response: { id: "resp_empty", status: "in_progress" } } },
+          {
+            event: "response.completed",
+            data: {
+              type: "response.completed",
+              response: { id: "resp_empty", object: "response", status: "completed", output: [] },
+            },
+          },
+          { data: "[DONE]" },
+        ]),
+        { status: 200, headers: { "content-type": "text/event-stream" } }
+      );
+    }
+    return new Response(
+      sseStream([
+        { event: "response.created", data: { type: "response.created", response: { id: "resp_ok" } } },
+        { event: "response.output_text.delta", data: { type: "response.output_text.delta", delta: "Fallback OK" } },
+        {
+          event: "response.completed",
+          data: {
+            type: "response.completed",
+            response: {
+              id: "resp_ok",
+              object: "response",
+              status: "completed",
+              output: [{ type: "message", role: "assistant", content: [{ type: "output_text", text: "Fallback OK" }] }],
+            },
+          },
+        },
+        { data: "[DONE]" },
+      ]),
+      { status: 200, headers: { "content-type": "text/event-stream" } }
+    );
+  }) as typeof fetch;
+
+  try {
+    const provider = new CodexProvider();
+    const res = makeMockResponse();
+    const result = await handleFallbackChat({
+      body: { model: "gpt-6.2-sol", messages: [{ role: "user", content: "hi" }], stream: true },
+      models: ["codex/gpt-6.2-sol(xhigh)", "codex/gpt-6.1-sol(high)"],
+      comboName: "gpt-6.2-sol",
+      comboStrategy: "fallback",
+      handleSingleModel: async (mBody, mStr) =>
+        provider.execute(
+          makeContext({
+            clientFormat: "responses",
+            targetModel: mStr.includes("6.2") ? "gpt-6.2-sol" : "gpt-6.1-sol",
+            body: mBody,
+            res,
+          })
+        ),
+    });
+
+    assert.equal(attempt, 2);
+    assert.equal(result.ok, true);
+    assert.equal(result.modelUsed, "codex/gpt-6.1-sol(high)");
+    const written = res._getChunks().join("");
+    assert.ok(written.includes("Fallback OK"));
+    assert.ok(!written.includes("resp_empty"));
   } finally {
     globalThis.fetch = origFetch;
   }

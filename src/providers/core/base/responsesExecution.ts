@@ -12,6 +12,7 @@ import { SettingsRepository } from "../../../storage/repositories/settingsRepo.j
 import { getDefaultDataDir } from "../../../shared/constants/index.js";
 import { formatDoneLine, logger, LogSymbol } from "../../../shared/logger.js";
 import { sanitizeErrorMessage, sanitizeHeaders } from "../../../shared/utils/errorSanitizer.js";
+import { isZeroContentResponse } from "../../../core/adapters/helpers/zeroContentCheck.js";
 import { formatOpenAiResponseForClient } from "./customExecutionHelper.js";
 
 function writeDebugFailedRequest(
@@ -364,6 +365,15 @@ export async function executeResponsesUpstream(
         ? parsedJson
         : formatOpenAiResponseForClient(openAiResp, clientFormat, requestId);
 
+    if (isZeroContentResponse(outBody)) {
+      return {
+        ok: false,
+        status: 502,
+        error: "Upstream returned HTTP 200 with empty content",
+        accountName: account?.name || account?.id,
+      };
+    }
+
     if (clientStreaming) {
       res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Cache-Control", "no-cache");
@@ -417,7 +427,14 @@ export async function executeResponsesUpstream(
       toolCallIds,
       reasoningText
     );
-    return { ok: true, status: 200, json: outBody, text: fullText, logged: true, modelUsed: targetModel };
+    return {
+      ok: true,
+      status: 200,
+      ...(clientStreaming ? { isStream: true } : { json: outBody }),
+      text: fullText,
+      logged: true,
+      modelUsed: targetModel,
+    };
   }
 
   const reader = upstreamRes.body?.getReader();
@@ -513,17 +530,14 @@ export async function executeResponsesUpstream(
     }
 
     sawValidStreamEvent = true;
-    if (ttftMs === undefined && (t === "response.output_text.delta" || t === "response.reasoning_summary_text.delta" || t === "response.output_item.added")) {
+    if (
+      ttftMs === undefined &&
+      (t === "response.output_text.delta" ||
+        t === "response.reasoning_summary_text.delta" ||
+        t === "response.reasoning_text.delta" ||
+        t === "response.output_item.added")
+    ) {
       ttftMs = Date.now() - startTime;
-    }
-
-    if (clientStreaming && clientFormat === "responses" && rawBlock) {
-      if (headersSent) {
-        if (!res.writableEnded && !res.destroyed) res.write(rawBlock);
-      } else {
-        pendingPassthroughEvents.push(rawBlock);
-        flushPendingPassthrough();
-      }
     }
 
     if (t === "response.output_text.delta" && typeof ev.delta === "string") {
@@ -531,7 +545,12 @@ export async function executeResponsesUpstream(
       const delta: any = { content: ev.delta };
       if (!sentRole) { delta.role = "assistant"; sentRole = true; }
       emitOpenAiChunk({ id: responseId, object: "chat.completion.chunk", created, model: targetModel, choices: [{ index: 0, delta, finish_reason: null }] });
-    } else if (t === "response.reasoning_summary_text.delta" && typeof ev.delta === "string") {
+    } else if (t === "response.output_text.done" && typeof ev.text === "string" && ev.text && !fullText) {
+      fullText = ev.text;
+      const delta: any = { content: ev.text };
+      if (!sentRole) { delta.role = "assistant"; sentRole = true; }
+      emitOpenAiChunk({ id: responseId, object: "chat.completion.chunk", created, model: targetModel, choices: [{ index: 0, delta, finish_reason: null }] });
+    } else if ((t === "response.reasoning_summary_text.delta" || t === "response.reasoning_text.delta") && typeof ev.delta === "string") {
       reasoningText += ev.delta;
       const delta: any = { reasoning_content: ev.delta };
       if (!sentRole) { delta.role = "assistant"; sentRole = true; }
@@ -542,8 +561,9 @@ export async function executeResponsesUpstream(
       const name = ev.item.name || "";
       const idx = toolIndexByItemId.has(itemId) ? toolIndexByItemId.get(itemId)! : toolIdx++;
       toolIndexByItemId.set(itemId, idx);
-      toolMetaByItemId.set(itemId, { id: callId, name, args: "" });
-      const delta: any = { tool_calls: [{ index: idx, id: callId, type: "function", function: { name, arguments: "" } }] };
+      const initialArgs = typeof ev.item.arguments === "string" ? ev.item.arguments : "";
+      toolMetaByItemId.set(itemId, { id: callId, name, args: initialArgs });
+      const delta: any = { tool_calls: [{ index: idx, id: callId, type: "function", function: { name, arguments: initialArgs } }] };
       if (!sentRole) { delta.role = "assistant"; sentRole = true; }
       emitOpenAiChunk({ id: responseId, object: "chat.completion.chunk", created, model: targetModel, choices: [{ index: 0, delta, finish_reason: null }] });
     } else if (t === "response.function_call_arguments.delta" && typeof ev.delta === "string") {
@@ -559,12 +579,73 @@ export async function executeResponsesUpstream(
           choices: [{ index: 0, delta: { tool_calls: [{ index: idx, function: { arguments: ev.delta } }] }, finish_reason: null }],
         });
       }
+    } else if (t === "response.function_call_arguments.done" && typeof ev.arguments === "string") {
+      const idx = toolIndexByItemId.get(ev.item_id);
+      const meta = toolMetaByItemId.get(ev.item_id);
+      if (idx !== undefined && meta && !meta.args && ev.arguments) {
+        meta.args = ev.arguments;
+        emitOpenAiChunk({
+          id: responseId,
+          object: "chat.completion.chunk",
+          created,
+          model: targetModel,
+          choices: [{ index: 0, delta: { tool_calls: [{ index: idx, function: { arguments: ev.arguments } }] }, finish_reason: null }],
+        });
+      }
     } else if (t === "response.completed" || t === "response.incomplete") {
       completedResponse = ev.response || ev;
       usage = buildUsageFromResponses(completedResponse?.usage);
       if (t === "response.incomplete") {
         const reason = completedResponse?.incomplete_details?.reason;
         terminalFinishReason = reason === "content_filter" ? "content_filter" : "length";
+      }
+      if (!fullText && !reasoningText && toolMetaByItemId.size === 0 && Array.isArray(completedResponse?.output) && completedResponse.output.length > 0) {
+        const extracted = extractOpenAiFromJsonResponse(completedResponse, targetModel, requestId);
+        const msg = extracted.openAiResp?.choices?.[0]?.message;
+        if (extracted.fullText) {
+          fullText = extracted.fullText;
+          const delta: any = { content: fullText };
+          if (!sentRole) { delta.role = "assistant"; sentRole = true; }
+          emitOpenAiChunk({ id: responseId, object: "chat.completion.chunk", created, model: targetModel, choices: [{ index: 0, delta, finish_reason: null }] });
+        }
+        if (extracted.reasoningText) {
+          reasoningText = extracted.reasoningText;
+          const delta: any = { reasoning_content: reasoningText };
+          if (!sentRole) { delta.role = "assistant"; sentRole = true; }
+          emitOpenAiChunk({ id: responseId, object: "chat.completion.chunk", created, model: targetModel, choices: [{ index: 0, delta, finish_reason: null }] });
+        }
+        if (Array.isArray(msg?.tool_calls)) {
+          for (const tc of msg.tool_calls) {
+            const idx = toolIdx++;
+            const itemId = tc.id || `item_${idx}`;
+            toolIndexByItemId.set(itemId, idx);
+            toolMetaByItemId.set(itemId, { id: tc.id, name: tc.function?.name || "", args: tc.function?.arguments || "" });
+            const delta: any = { tool_calls: [{ index: idx, id: tc.id, type: "function", function: { name: tc.function?.name || "", arguments: tc.function?.arguments || "" } }] };
+            if (!sentRole) { delta.role = "assistant"; sentRole = true; }
+            emitOpenAiChunk({ id: responseId, object: "chat.completion.chunk", created, model: targetModel, choices: [{ index: 0, delta, finish_reason: null }] });
+          }
+        }
+      }
+    }
+
+    if (clientStreaming && clientFormat === "responses" && rawBlock) {
+      if (headersSent) {
+        if (!res.writableEnded && !res.destroyed) res.write(rawBlock);
+      } else {
+        pendingPassthroughEvents.push(rawBlock);
+        const isPreamble = t === "response.created" || t === "response.in_progress";
+        const isTerminal = t === "response.completed" || t === "response.incomplete";
+        const shouldFlush =
+          (!isPreamble && !isTerminal) ||
+          (isTerminal &&
+            (Boolean(fullText) ||
+              Boolean(reasoningText) ||
+              toolMetaByItemId.size > 0 ||
+              terminalFinishReason === "content_filter" ||
+              (completedResponse != null && !isZeroContentResponse(completedResponse))));
+        if (shouldFlush) {
+          flushPendingPassthrough();
+        }
       }
     }
   };
@@ -627,8 +708,22 @@ export async function executeResponsesUpstream(
   }
 
   const toolCallIds = Array.from(toolMetaByItemId.values()).map((tc) => tc.id).filter(Boolean);
+  const hasUsableStreamOutput =
+    Boolean(fullText.trim()) ||
+    Boolean(reasoningText.trim()) ||
+    toolMetaByItemId.size > 0 ||
+    terminalFinishReason === "content_filter" ||
+    (completedResponse != null && !isZeroContentResponse(completedResponse));
 
   if (clientStreaming) {
+    if (!headersSent && !hasUsableStreamOutput) {
+      return {
+        ok: false,
+        status: 502,
+        error: "Upstream returned HTTP 200 with empty content",
+        accountName: account?.name || account?.id,
+      };
+    }
     if (clientFormat === "responses") {
       flushPendingPassthrough();
       ensureSseHeaders();
@@ -669,7 +764,7 @@ export async function executeResponsesUpstream(
       toolCallIds,
       reasoningText
     );
-    return { ok: true, status: 200, logged: true, modelUsed: targetModel, text: fullText };
+    return { ok: true, status: 200, isStream: true, logged: true, modelUsed: targetModel, text: fullText };
   }
 
   const toolCalls = Array.from(toolMetaByItemId.values()).map((tc) => ({
@@ -705,6 +800,15 @@ export async function executeResponsesUpstream(
     clientFormat === "responses"
       ? completedResponse || convertOpenAiResponseToResponsesApi(openAiResp)
       : formatOpenAiResponseForClient(openAiResp, clientFormat, requestId);
+
+  if (isZeroContentResponse(outBody)) {
+    return {
+      ok: false,
+      status: 502,
+      error: "Upstream returned HTTP 200 with empty content",
+      accountName: account?.name || account?.id,
+    };
+  }
 
   res.status(200).json(outBody);
   logResponsesSuccess(

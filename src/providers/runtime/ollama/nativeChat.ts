@@ -319,5 +319,5 @@ export async function executeOllamaNativeChat(
   });
   logger.line(reqTag, LogSymbol.USAGE, `${provider.id}/${targetModel} · ${formatDoneLine({ durationMs, promptTokens, completionTokens, tokensSaved: rtkStats?.tokensSaved || 0, cost })}`);
 
-  return { ok: true, status: 200, logged: true, modelUsed: targetModel, text: fullText };
+  return { ok: true, status: 200, isStream: true, logged: true, modelUsed: targetModel, text: fullText };
 }

@@ -265,7 +265,7 @@ export async function executeOpenCodeGoResponses(
         headers: { "content-type": "text/event-stream" },
         body: { text: "Stream completed" },
       });
-      return { ok: true, status: 200, logged: true, modelUsed: targetModel, text: fullText };
+      return { ok: true, status: 200, isStream: true, logged: true, modelUsed: targetModel, text: fullText };
     }
 
     const toolCalls = Array.from(toolMetaByItemId.values()).map((tc) => ({
