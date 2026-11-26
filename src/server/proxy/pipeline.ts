@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
+import { extractClientEffort, stripModelEffortSuffix } from "../../core/thinking/effortResolver.js";
 import { TokenSaverCoordinator } from "../../core/tokenSaver/index.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
@@ -176,13 +177,24 @@ export async function runProxyPipeline(
       }
     }
 
-    const mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
+    const modelEffortStripped = stripModelEffortSuffix(cleanModel);
+    const clientEffort = extractClientEffort(body) || modelEffortStripped.effort;
+    let mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
       detectedToolId || "unknown",
-      cleanModel
+      cleanModel,
+      clientEffort
     );
+    if (mappingRes.ruleType === "none" && modelEffortStripped.effort && modelEffortStripped.model) {
+      mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
+        detectedToolId || "unknown",
+        modelEffortStripped.model,
+        clientEffort
+      );
+    }
     if (mappingRes.targetModel) {
       resolvedModel = mappingRes.targetModel;
-      const tag = mappingRes.ruleType === "tool" ? (detectedToolId || "tool") : mappingRes.ruleType;
+      const baseTag = mappingRes.ruleType === "tool" ? (detectedToolId || "tool") : mappingRes.ruleType;
+      const tag = mappingRes.matchedEffort ? `${baseTag}@${mappingRes.matchedEffort}` : baseTag;
       logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [${tag}]: '${cleanModel}' -> '${resolvedModel}'`);
     }
 

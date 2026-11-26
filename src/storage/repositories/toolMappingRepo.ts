@@ -3,11 +3,23 @@ import { getDefaultMappings as getMitmDefaultMappings } from "../../mitm/toolsHe
 import { CLI_TOOLS } from "../../shared/constants/cliTools.js";
 import { ComboRepository } from "./comboRepo.js";
 import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
+import { inferMappingGroupName } from "../../core/router/mappingGrouping.js";
+
+export { inferMappingGroupName };
 
 export interface ToolMapping {
   toolId: string;
   sourceModel: string;
   targetModel: string;
+  groupName?: string;
+  isEnabled?: boolean;
+  effortTargets?: Record<string, string>;
+}
+
+export interface SaveToolMappingOptions {
+  groupName?: string | null;
+  isEnabled?: boolean;
+  effortTargets?: Record<string, string> | null;
 }
 
 export interface ModelMappingResolution {
@@ -15,6 +27,49 @@ export interface ModelMappingResolution {
   ruleType: "tool" | "global" | "any" | "none";
   matchedToolId?: string;
   sourceModel?: string;
+  matchedEffort?: string;
+  groupName?: string;
+}
+
+function parseEffortTargets(raw: unknown): Record<string, string> | undefined {
+  if (!raw) return undefined;
+  let obj: unknown = raw;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    try {
+      obj = JSON.parse(trimmed);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const key = String(k || "").trim().toLowerCase();
+    const val = typeof v === "string" ? v.trim() : "";
+    if (key && val) {
+      out[key] = val;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function serializeEffortTargets(raw?: Record<string, string> | null): string | null {
+  const parsed = parseEffortTargets(raw);
+  return parsed ? JSON.stringify(parsed) : null;
+}
+
+function rowToToolMapping(r: any, toolIdOverride?: string): ToolMapping {
+  const effortTargets = parseEffortTargets(r.effort_targets);
+  return {
+    toolId: toolIdOverride || r.tool_id,
+    sourceModel: r.source_model,
+    targetModel: r.target_model || "",
+    ...(r.group_name ? { groupName: r.group_name } : {}),
+    isEnabled: r.is_enabled === null || r.is_enabled === undefined ? true : Number(r.is_enabled) !== 0,
+    ...(effortTargets ? { effortTargets } : {}),
+  };
 }
 
 export class ToolMappingRepository {
@@ -90,7 +145,10 @@ export class ToolMappingRepository {
   public static getMappings(toolId: string): ToolMapping[] {
     const tid = (toolId || "").toLowerCase();
     const db = getDatabase();
-    const rows = db.all<any>("SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = ?", tid);
+    const rows = db.all<any>(
+      "SELECT tool_id, source_model, target_model, group_name, is_enabled, effort_targets FROM tool_mappings WHERE tool_id = ?",
+      tid
+    );
 
     if (rows.length === 0) {
       const defaults = this.getDefaultMappings(tid);
@@ -101,22 +159,16 @@ export class ToolMappingRepository {
       return [];
     }
 
-    const list: ToolMapping[] = rows.map((r) => ({
-      toolId: r.tool_id,
-      sourceModel: r.source_model,
-      targetModel: r.target_model,
-    }));
+    const list: ToolMapping[] = rows.map((r) => rowToToolMapping(r));
     return this.sortMappingsCanonical(list);
   }
 
   public static getAllMappings(): ToolMapping[] {
     const db = getDatabase();
-    const rows = db.all<any>("SELECT tool_id, source_model, target_model FROM tool_mappings");
-    return rows.map((r) => ({
-      toolId: r.tool_id,
-      sourceModel: r.source_model,
-      targetModel: r.target_model,
-    }));
+    const rows = db.all<any>(
+      "SELECT tool_id, source_model, target_model, group_name, is_enabled, effort_targets FROM tool_mappings"
+    );
+    return rows.map((r) => rowToToolMapping(r));
   }
 
   public static initDefaultMappings(toolId: string, mappings: ToolMapping[]): void {
@@ -151,17 +203,61 @@ export class ToolMappingRepository {
     return raw;
   }
 
-  public static saveMapping(toolId: string, sourceModel: string, targetModel: string): void {
+  public static saveMapping(
+    toolId: string,
+    sourceModel: string,
+    targetModel: string,
+    options?: SaveToolMappingOptions
+  ): void {
     const tid = (toolId || "").toLowerCase();
     const normalizedTarget = this.normalizeTargetModel(targetModel);
     const db = getDatabase();
+
+    const existing = db.get<any>(
+      "SELECT group_name, is_enabled, effort_targets FROM tool_mappings WHERE tool_id = ? AND source_model = ?",
+      tid,
+      sourceModel
+    );
+
+    const groupName =
+      options?.groupName !== undefined
+        ? (typeof options.groupName === "string" ? options.groupName.trim() || null : null)
+        : existing?.group_name ?? null;
+    const isEnabledInt =
+      options?.isEnabled !== undefined
+        ? (options.isEnabled ? 1 : 0)
+        : existing?.is_enabled ?? 1;
+
+    let effortTargetsJson: string | null = existing?.effort_targets ?? null;
+    if (options?.effortTargets !== undefined) {
+      if (options.effortTargets === null) {
+        effortTargetsJson = null;
+      } else if (typeof options.effortTargets === "object" && !Array.isArray(options.effortTargets)) {
+        const normalizedEfforts: Record<string, string> = {};
+        for (const [k, v] of Object.entries(options.effortTargets)) {
+          const key = String(k || "").trim().toLowerCase();
+          if (typeof v !== "string") continue;
+          const val = this.normalizeTargetModel(v);
+          if (key && val) normalizedEfforts[key] = val;
+        }
+        effortTargetsJson = serializeEffortTargets(normalizedEfforts);
+      }
+    }
+
     db.run(
-      `INSERT INTO tool_mappings (tool_id, source_model, target_model)
-       VALUES (?, ?, ?)
-       ON CONFLICT(tool_id, source_model) DO UPDATE SET target_model = excluded.target_model`,
+      `INSERT INTO tool_mappings (tool_id, source_model, target_model, group_name, is_enabled, effort_targets)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(tool_id, source_model) DO UPDATE SET
+         target_model = excluded.target_model,
+         group_name = excluded.group_name,
+         is_enabled = excluded.is_enabled,
+         effort_targets = excluded.effort_targets`,
       tid,
       sourceModel,
-      normalizedTarget
+      normalizedTarget,
+      groupName,
+      isEnabledInt,
+      effortTargetsJson
     );
 
     // Keep legacy mitm_mappings table synchronized
@@ -256,19 +352,112 @@ export class ToolMappingRepository {
   public static getGlobalMappings(): ToolMapping[] {
     const db = getDatabase();
     const rows = db.all<any>(
-      "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
+      "SELECT tool_id, source_model, target_model, group_name, is_enabled, effort_targets FROM tool_mappings WHERE tool_id = 'global'"
     );
 
-    const list: ToolMapping[] = rows.map((r) => ({
-      toolId: "global",
-      sourceModel: r.source_model,
-      targetModel: r.target_model || "",
-    }));
+    const list: ToolMapping[] = rows.map((r) => rowToToolMapping(r, "global"));
     return this.sortMappingsCanonical(list);
   }
 
-  public static saveGlobalMapping(sourceModel: string, targetModel: string): void {
-    this.saveMapping("global", sourceModel, targetModel);
+  public static saveGlobalMapping(
+    sourceModel: string,
+    targetModel: string,
+    options?: SaveToolMappingOptions
+  ): void {
+    this.saveMapping("global", sourceModel, targetModel, options);
+  }
+
+  public static toggleMappingEnabled(toolId: string, sourceModel: string, isEnabled: boolean): void {
+    const tid = (toolId || "").toLowerCase();
+    const db = getDatabase();
+    db.run(
+      "UPDATE tool_mappings SET is_enabled = ? WHERE tool_id = ? AND source_model = ?",
+      isEnabled ? 1 : 0,
+      tid,
+      sourceModel
+    );
+  }
+
+  public static toggleGroupEnabled(toolId: string, groupName: string, isEnabled: boolean): void {
+    const tid = (toolId || "").toLowerCase();
+    const db = getDatabase();
+    const trimmed = groupName.trim();
+    if (!trimmed || trimmed.toLowerCase() === "ungrouped") {
+      db.run(
+        "UPDATE tool_mappings SET is_enabled = ? WHERE tool_id = ? AND (group_name IS NULL OR TRIM(group_name) = '' OR LOWER(TRIM(group_name)) = 'ungrouped')",
+        isEnabled ? 1 : 0,
+        tid
+      );
+      return;
+    }
+    db.run(
+      "UPDATE tool_mappings SET is_enabled = ? WHERE tool_id = ? AND LOWER(TRIM(group_name)) = LOWER(?)",
+      isEnabled ? 1 : 0,
+      tid,
+      trimmed
+    );
+  }
+
+  public static autoGroupMappings(toolId: string = "global"): ToolMapping[] {
+    const tid = (toolId || "").toLowerCase();
+    const db = getDatabase();
+    const rows = db.all<any>(
+      "SELECT source_model, group_name FROM tool_mappings WHERE tool_id = ?",
+      tid
+    );
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      for (const r of rows) {
+        if (!r.group_name || !String(r.group_name).trim()) {
+          const inferred = inferMappingGroupName(r.source_model);
+          db.run(
+            "UPDATE tool_mappings SET group_name = ? WHERE tool_id = ? AND source_model = ?",
+            inferred,
+            tid,
+            r.source_model
+          );
+        }
+      }
+      db.exec("COMMIT;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK;");
+      } catch {}
+      throw err;
+    }
+    return tid === "global" ? this.getGlobalMappings() : this.getMappings(tid);
+  }
+
+  public static setGroupForMappings(
+    toolId: string,
+    sourceModels: string[],
+    groupName: string | null
+  ): ToolMapping[] {
+    const tid = (toolId || "").toLowerCase();
+    const db = getDatabase();
+    const normalizedGroup = typeof groupName === "string" ? groupName.trim() || null : null;
+
+    db.exec("BEGIN TRANSACTION;");
+    try {
+      for (const sm of sourceModels) {
+        const clean = typeof sm === "string" ? sm.trim() : "";
+        if (!clean) continue;
+        db.run(
+          "UPDATE tool_mappings SET group_name = ? WHERE tool_id = ? AND source_model = ?",
+          normalizedGroup,
+          tid,
+          clean
+        );
+      }
+      db.exec("COMMIT;");
+    } catch (err) {
+      try {
+        db.exec("ROLLBACK;");
+      } catch {}
+      throw err;
+    }
+
+    return tid === "global" ? this.getGlobalMappings() : this.getMappings(tid);
   }
 
   public static deleteGlobalMapping(sourceModel: string): void {
@@ -358,10 +547,26 @@ export class ToolMappingRepository {
   }
 
   private static matchMappingRows(
-    rows: Array<{ tool_id?: string; source_model: string; target_model: string }>,
+    rows: Array<{
+      tool_id?: string;
+      source_model: string;
+      target_model: string;
+      group_name?: string | null;
+      is_enabled?: number | null;
+      effort_targets?: string | null;
+    }>,
     raw: string,
-    tid?: string
-  ): { matched: boolean; targetModel: string | null; sourceModel?: string; toolId?: string } {
+    tid?: string,
+    normalizedEffort?: string
+  ): {
+    matched: boolean;
+    isDisabled?: boolean;
+    targetModel: string | null;
+    sourceModel?: string;
+    toolId?: string;
+    matchedEffort?: string;
+    groupName?: string;
+  } {
     if (rows.length === 0) return { matched: false, targetModel: null };
 
     const rawLower = raw.toLowerCase();
@@ -379,13 +584,47 @@ export class ToolMappingRepository {
       rawPrefix === "gateway" ||
       (Boolean(rawPrefix) && rawPrefix === (tid || "").toLowerCase());
 
-    const resolveRowTarget = (r: { tool_id?: string; source_model: string; target_model: string }) => {
+    const resolveRowTarget = (r: {
+      tool_id?: string;
+      source_model: string;
+      target_model: string;
+      group_name?: string | null;
+      is_enabled?: number | null;
+      effort_targets?: string | null;
+    }) => {
+      const isEnabled =
+        r.is_enabled === null || r.is_enabled === undefined ? true : Number(r.is_enabled) !== 0;
+      const groupName = r.group_name ? String(r.group_name) : undefined;
+      if (!isEnabled) {
+        return {
+          matched: true,
+          isDisabled: true,
+          targetModel: null,
+          sourceModel: r.source_model,
+          toolId: r.tool_id,
+          groupName,
+        };
+      }
+
+      const effortTargets = parseEffortTargets(r.effort_targets);
+      if (normalizedEffort && effortTargets && effortTargets[normalizedEffort]) {
+        return {
+          matched: true,
+          targetModel: effortTargets[normalizedEffort],
+          sourceModel: r.source_model,
+          toolId: r.tool_id,
+          matchedEffort: normalizedEffort,
+          groupName,
+        };
+      }
+
       const target = r.target_model && r.target_model.trim().length > 0 ? r.target_model.trim() : null;
       return {
         matched: true,
         targetModel: target,
         sourceModel: r.source_model,
         toolId: r.tool_id,
+        groupName,
       };
     };
 
@@ -440,54 +679,99 @@ export class ToolMappingRepository {
 
   public static resolveModelMappingDetailed(
     toolId: string,
-    incomingModel?: string | null
+    incomingModel?: string | null,
+    clientEffort?: string | null
   ): ModelMappingResolution {
     if (!incomingModel) return { targetModel: null, ruleType: "none" };
     const tid = (toolId || "").toLowerCase();
     const raw = incomingModel.trim();
     if (!raw) return { targetModel: null, ruleType: "none" };
+    const normalizedEffort = (clientEffort || "").trim().toLowerCase() || undefined;
 
     const db = getDatabase();
+    const selectCols = "tool_id, source_model, target_model, group_name, is_enabled, effort_targets";
 
     // 1. Check specific tool mapping in database if specified
     if (tid && tid !== "global" && tid !== "unknown") {
       const toolRows = db.all<any>(
-        "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = ?",
+        `SELECT ${selectCols} FROM tool_mappings WHERE tool_id = ?`,
         tid
       );
-      const match = this.matchMappingRows(toolRows, raw, tid);
+      const match = this.matchMappingRows(toolRows, raw, tid, normalizedEffort);
+      if (match.matched && match.isDisabled) {
+        return {
+          targetModel: null,
+          ruleType: "tool",
+          matchedToolId: tid,
+          sourceModel: match.sourceModel,
+          ...(match.groupName ? { groupName: match.groupName } : {}),
+        };
+      }
       if (match.matched && match.targetModel) {
-        return { targetModel: match.targetModel, ruleType: "tool", matchedToolId: tid, sourceModel: match.sourceModel };
+        return {
+          targetModel: match.targetModel,
+          ruleType: "tool",
+          matchedToolId: tid,
+          sourceModel: match.sourceModel,
+          ...(match.matchedEffort ? { matchedEffort: match.matchedEffort } : {}),
+          ...(match.groupName ? { groupName: match.groupName } : {}),
+        };
       }
       // If tool row matched but targetModel is empty, fall through to global!
     }
 
     // 2. Check Global Universal mapping in database (High priority fallback for all tools)
     const globalRows = db.all<any>(
-      "SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id = 'global'"
+      `SELECT ${selectCols} FROM tool_mappings WHERE tool_id = 'global'`
     );
-    const globalMatch = this.matchMappingRows(globalRows, raw, tid);
+    const globalMatch = this.matchMappingRows(globalRows, raw, tid, normalizedEffort);
     if (globalMatch.matched) {
-      if (globalMatch.targetModel) {
-        return { targetModel: globalMatch.targetModel, ruleType: "global", matchedToolId: "global", sourceModel: globalMatch.sourceModel };
+      if (!globalMatch.isDisabled && globalMatch.targetModel) {
+        return {
+          targetModel: globalMatch.targetModel,
+          ruleType: "global",
+          matchedToolId: "global",
+          sourceModel: globalMatch.sourceModel,
+          ...(globalMatch.matchedEffort ? { matchedEffort: globalMatch.matchedEffort } : {}),
+          ...(globalMatch.groupName ? { groupName: globalMatch.groupName } : {}),
+        };
       }
-      // Explicitly unmapped in global mappings -> do NOT fall back to other random tools!
-      return { targetModel: null, ruleType: "global", matchedToolId: "global", sourceModel: globalMatch.sourceModel };
+      // Disabled or explicitly unmapped in global mappings -> do NOT fall back to other random tools!
+      return {
+        targetModel: null,
+        ruleType: "global",
+        matchedToolId: "global",
+        sourceModel: globalMatch.sourceModel,
+        ...(globalMatch.groupName ? { groupName: globalMatch.groupName } : {}),
+      };
     }
 
     // 3. Fallback: check any other tool mapping in database only when tool is unknown/unspecified
     if (!tid || tid === "unknown") {
-      const allRows = db.all<any>("SELECT tool_id, source_model, target_model FROM tool_mappings WHERE tool_id != 'global'");
-      const anyMatch = this.matchMappingRows(allRows, raw, tid);
-      if (anyMatch.matched && anyMatch.targetModel) {
-        return { targetModel: anyMatch.targetModel, ruleType: "any", matchedToolId: anyMatch.toolId, sourceModel: anyMatch.sourceModel };
+      const allRows = db.all<any>(
+        `SELECT ${selectCols} FROM tool_mappings WHERE tool_id != 'global' AND COALESCE(is_enabled, 1) != 0`
+      );
+      const anyMatch = this.matchMappingRows(allRows, raw, tid, normalizedEffort);
+      if (anyMatch.matched && !anyMatch.isDisabled && anyMatch.targetModel) {
+        return {
+          targetModel: anyMatch.targetModel,
+          ruleType: "any",
+          matchedToolId: anyMatch.toolId,
+          sourceModel: anyMatch.sourceModel,
+          ...(anyMatch.matchedEffort ? { matchedEffort: anyMatch.matchedEffort } : {}),
+          ...(anyMatch.groupName ? { groupName: anyMatch.groupName } : {}),
+        };
       }
     }
 
     return { targetModel: null, ruleType: "none" };
   }
 
-  public static resolveModelMapping(toolId: string, incomingModel?: string | null): string | null {
-    return this.resolveModelMappingDetailed(toolId, incomingModel).targetModel;
+  public static resolveModelMapping(
+    toolId: string,
+    incomingModel?: string | null,
+    clientEffort?: string | null
+  ): string | null {
+    return this.resolveModelMappingDetailed(toolId, incomingModel, clientEffort).targetModel;
   }
 }

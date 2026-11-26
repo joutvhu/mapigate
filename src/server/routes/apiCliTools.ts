@@ -141,19 +141,142 @@ cliToolsRouter.get("/all-statuses", async (_req, res) => {
 // Universal / Global Model Mappings API
 // ==========================================
 
+function validateMappingSaveBody(
+  body: any,
+  toolId: string
+):
+  | {
+      ok: true;
+      sourceModel: string;
+      targetModel: string;
+      options: {
+        groupName?: string | null;
+        isEnabled?: boolean;
+        effortTargets?: Record<string, string> | null;
+      };
+    }
+  | { ok: false; error: string } {
+  const { sourceModel, targetModel, groupName, isEnabled, effortTargets } = body || {};
+  if (typeof sourceModel !== "string" || !sourceModel.trim()) {
+    return { ok: false, error: "Missing or invalid sourceModel" };
+  }
+  if (targetModel !== undefined && targetModel !== null && typeof targetModel !== "string") {
+    return { ok: false, error: "Invalid targetModel: must be a string" };
+  }
+  if (groupName !== undefined && groupName !== null && typeof groupName !== "string") {
+    return { ok: false, error: "Invalid groupName: must be a string or null" };
+  }
+  if (isEnabled !== undefined && typeof isEnabled !== "boolean") {
+    return { ok: false, error: "Invalid isEnabled: must be a boolean" };
+  }
+  if (
+    effortTargets !== undefined &&
+    effortTargets !== null &&
+    (typeof effortTargets !== "object" ||
+      Array.isArray(effortTargets) ||
+      Object.values(effortTargets).some((v) => typeof v !== "string"))
+  ) {
+    return { ok: false, error: "Invalid effortTargets: must be a map of effort -> targetModel string" };
+  }
+
+  const cleanSource = sourceModel.trim();
+  const cleanTarget = typeof targetModel === "string" ? targetModel.trim() : "";
+  const hasPayloadEffortTargets =
+    effortTargets &&
+    typeof effortTargets === "object" &&
+    Object.values(effortTargets).some((v) => typeof v === "string" && v.trim().length > 0);
+
+  let hasPreservedEffortTargets = false;
+  if (effortTargets === undefined && !cleanTarget) {
+    const existingList =
+      toolId === "global"
+        ? ToolMappingRepository.getGlobalMappings()
+        : ToolMappingRepository.getMappings(toolId);
+    const existing = existingList.find((m) => m.sourceModel === cleanSource);
+    hasPreservedEffortTargets = Boolean(
+      existing?.effortTargets && Object.keys(existing.effortTargets).length > 0
+    );
+  }
+
+  if (!cleanTarget && !hasPayloadEffortTargets && !hasPreservedEffortTargets) {
+    return { ok: false, error: "Missing sourceModel or targetModel" };
+  }
+
+  return {
+    ok: true,
+    sourceModel: cleanSource,
+    targetModel: cleanTarget,
+    options: {
+      ...(groupName !== undefined ? { groupName } : {}),
+      ...(isEnabled !== undefined ? { isEnabled } : {}),
+      ...(effortTargets !== undefined ? { effortTargets } : {}),
+    },
+  };
+}
+
 cliToolsRouter.get("/global-mappings", (_req, res) => {
   const mappings = ToolMappingRepository.getGlobalMappings();
   res.json(mappings);
 });
 
 cliToolsRouter.post("/global-mappings", (req, res) => {
-  const { sourceModel, targetModel } = req.body;
-  if (!sourceModel || !targetModel) {
-    res.status(400).json({ error: "Missing sourceModel or targetModel" });
+  const parsed = validateMappingSaveBody(req.body, "global");
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
     return;
   }
-  ToolMappingRepository.saveGlobalMapping(sourceModel, targetModel);
-  res.json({ success: true, sourceModel, targetModel });
+  ToolMappingRepository.saveGlobalMapping(parsed.sourceModel, parsed.targetModel, parsed.options);
+  res.json({ success: true, sourceModel: parsed.sourceModel, targetModel: parsed.targetModel });
+});
+
+cliToolsRouter.patch("/global-mappings/toggle", (req, res) => {
+  const { sourceModel, isEnabled } = req.body || {};
+  if (typeof sourceModel !== "string" || !sourceModel.trim() || typeof isEnabled !== "boolean") {
+    res.status(400).json({ error: "Missing sourceModel or boolean isEnabled" });
+    return;
+  }
+  ToolMappingRepository.toggleMappingEnabled("global", sourceModel.trim(), isEnabled);
+  res.json({ success: true, sourceModel: sourceModel.trim(), isEnabled });
+});
+
+cliToolsRouter.patch("/global-mappings/toggle-group", (req, res) => {
+  const { groupName, isEnabled } = req.body || {};
+  if (typeof groupName !== "string" || !groupName.trim() || typeof isEnabled !== "boolean") {
+    res.status(400).json({ error: "Missing groupName or boolean isEnabled" });
+    return;
+  }
+  ToolMappingRepository.toggleGroupEnabled("global", groupName.trim(), isEnabled);
+  res.json({ success: true, groupName: groupName.trim(), isEnabled });
+});
+
+cliToolsRouter.post("/global-mappings/auto-group", (_req, res) => {
+  const mappings = ToolMappingRepository.autoGroupMappings("global");
+  res.json({ success: true, mappings });
+});
+
+cliToolsRouter.patch("/global-mappings/group", (req, res) => {
+  const { sourceModels, groupName } = req.body || {};
+  if (!Array.isArray(sourceModels) || sourceModels.length === 0) {
+    res.status(400).json({ error: "sourceModels must be a non-empty array of strings" });
+    return;
+  }
+  const cleanModels = sourceModels
+    .filter((m): m is string => typeof m === "string" && m.trim().length > 0)
+    .map((m) => m.trim());
+  if (cleanModels.length === 0) {
+    res.status(400).json({ error: "sourceModels must contain at least one valid model name" });
+    return;
+  }
+  if (groupName !== undefined && groupName !== null && typeof groupName !== "string") {
+    res.status(400).json({ error: "Invalid groupName: must be a string or null" });
+    return;
+  }
+  const mappings = ToolMappingRepository.setGroupForMappings(
+    "global",
+    cleanModels,
+    groupName ?? null
+  );
+  res.json({ success: true, mappings });
 });
 
 cliToolsRouter.delete("/global-mappings", (req, res) => {
@@ -210,12 +333,13 @@ cliToolsRouter.post("/exposure-mode", (req, res) => {
 cliToolsRouter.post("/simulate", (req, res) => {
   const model = (req.body?.model || "").trim();
   const toolId = (req.body?.toolId || "").trim().toLowerCase();
+  const effort = (req.body?.effort || "").trim().toLowerCase();
   if (!model) {
     res.status(400).json({ error: "Model is required" });
     return;
   }
 
-  const result = simulateModelRoute(model, toolId || undefined);
+  const result = simulateModelRoute(model, toolId || undefined, effort || undefined);
   res.json(result);
 });
 
@@ -230,14 +354,23 @@ cliToolsRouter.get("/mappings/:tool", (req, res) => {
 });
 
 cliToolsRouter.post("/mappings", (req, res) => {
-  const tool = req.body.tool || req.body.toolId || req.body.ide;
-  const { sourceModel, targetModel } = req.body;
-  if (!tool || !sourceModel || !targetModel) {
+  const tool = req.body?.tool || req.body?.toolId || req.body?.ide;
+  if (typeof tool !== "string" || !tool.trim()) {
     res.status(400).json({ error: "Missing tool, sourceModel, or targetModel" });
     return;
   }
-  ToolMappingRepository.saveMapping(tool, sourceModel, targetModel);
-  res.json({ success: true, tool, sourceModel, targetModel });
+  const parsed = validateMappingSaveBody(req.body, tool.trim());
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  ToolMappingRepository.saveMapping(tool.trim(), parsed.sourceModel, parsed.targetModel, parsed.options);
+  res.json({
+    success: true,
+    tool: tool.trim(),
+    sourceModel: parsed.sourceModel,
+    targetModel: parsed.targetModel,
+  });
 });
 
 cliToolsRouter.post("/mappings/reset", (req, res) => {

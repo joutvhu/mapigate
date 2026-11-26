@@ -586,10 +586,15 @@ export function handleOpenAiModelsList(_req: any, res: any) {
       });
     }
 
-    // Always include mapped models that have a valid target configured (excluding wildcard patterns)
-    const globalMappings = ToolMappingRepository.getGlobalMappings().filter(
-      (m) => m.targetModel && m.targetModel.trim().length > 0 && !m.sourceModel.includes("*")
-    );
+    // Always include enabled mapped models that have a valid target configured (excluding wildcard patterns)
+    const globalMappings = ToolMappingRepository.getGlobalMappings().filter((m) => {
+      if (m.isEnabled === false || m.sourceModel.includes("*")) return false;
+      const hasDefaultTarget = Boolean(m.targetModel && m.targetModel.trim().length > 0);
+      const hasEffortTargets = Boolean(
+        m.effortTargets && Object.values(m.effortTargets).some((v) => v && v.trim().length > 0)
+      );
+      return hasDefaultTarget || hasEffortTargets;
+    });
     const seen = new Set<string>(list.map((m) => m.id));
     for (const m of globalMappings) {
       if (!seen.has(m.sourceModel)) {

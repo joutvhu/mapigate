@@ -4,6 +4,7 @@ import { ToolMappingRepository } from "../../storage/repositories/toolMappingRep
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
 import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
+import { extractClientEffort } from "../../core/thinking/effortResolver.js";
 import { resolveTargetModelAndProvider } from "./executorHelpers.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
@@ -160,7 +161,7 @@ export async function handleCountTokens(req: Request, res: Response): Promise<vo
     let resolvedModel = cleanModel;
     const toolId = clientTool.toLowerCase().includes("claude") ? "claude" : "";
     if (toolId) {
-      const mapped = ToolMappingRepository.resolveModelMapping(toolId, cleanModel);
+      const mapped = ToolMappingRepository.resolveModelMapping(toolId, cleanModel, extractClientEffort(body));
       if (mapped) resolvedModel = mapped;
     }
 

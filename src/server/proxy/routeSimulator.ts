@@ -4,6 +4,7 @@ import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
 import { resolveTargetModelAndProvider } from "./executorHelpers.js";
 import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
+import { resolveTargetEffortFromContext, stripModelEffortSuffix } from "../../core/thinking/effortResolver.js";
 import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 
@@ -12,6 +13,7 @@ export interface ComboCandidateStatus {
   providerId: string;
   targetModel: string;
   targetTag?: string;
+  resolvedEffort?: string | null;
   hasActiveAccount: boolean;
   activeAccountsCount: number;
   isNoAuth: boolean;
@@ -30,6 +32,8 @@ export interface RouteSimulationResult {
   readyCandidatesCount?: number;
   matchedRule: "tool" | "global" | "any" | "none";
   matchedToolId?: string;
+  matchedEffort?: string;
+  resolvedEffort?: string | null;
   targetProviderId: string;
   baseProviderId: string;
   targetTag?: string;
@@ -127,18 +131,30 @@ export function checkModelRecognized(
 
 export function simulateModelRoute(
   rawModelInput: string,
-  toolId?: string
+  toolId?: string,
+  effort?: string
 ): RouteSimulationResult {
   const model = (rawModelInput || "").trim();
   const stripped = stripModelContextMarker(model);
   const cleanModel = stripped.model || model;
   const is1mContext = Boolean(stripped.is1mContext);
+  const modelEffortStripped = stripModelEffortSuffix(cleanModel);
+  const normalizedEffort = (effort || "").trim().toLowerCase() || modelEffortStripped.effort || undefined;
+  const simBody = normalizedEffort ? { reasoning_effort: normalizedEffort } : {};
 
   const tid = (toolId || "").trim().toLowerCase();
-  const resolution: ModelMappingResolution = ToolMappingRepository.resolveModelMappingDetailed(
+  let resolution: ModelMappingResolution = ToolMappingRepository.resolveModelMappingDetailed(
     tid || "unknown",
-    cleanModel
+    cleanModel,
+    normalizedEffort
   );
+  if (resolution.ruleType === "none" && modelEffortStripped.effort && modelEffortStripped.model) {
+    resolution = ToolMappingRepository.resolveModelMappingDetailed(
+      tid || "unknown",
+      modelEffortStripped.model,
+      normalizedEffort
+    );
+  }
 
   const mapped = resolution.targetModel;
   const effectiveModel = mapped || cleanModel;
@@ -161,11 +177,20 @@ export function simulateModelRoute(
       const candPId = candResolved.providerId || "unknown";
       const readiness = checkProviderReadiness(candPId, candResolved.targetTag);
       const recognized = checkModelRecognized(candPId, candResolved.targetModel, readiness.accounts);
+      const dbCandProv = ProviderRepository.getProviderById(candPId);
+      const candEffortRes = resolveTargetEffortFromContext({
+        providerId: candPId,
+        targetModel: candResolved.targetModel,
+        targetEffort: candResolved.targetEffort,
+        body: simBody,
+        providerThinkingMode: dbCandProv?.thinkingMode,
+      });
       return {
         candidate: cand,
         providerId: candPId,
         targetModel: candResolved.targetModel,
         targetTag: candResolved.targetTag,
+        resolvedEffort: candEffortRes.effort ?? null,
         hasActiveAccount: readiness.hasActiveAccount,
         activeAccountsCount: readiness.activeAccountsCount,
         isNoAuth: readiness.isNoAuth,
@@ -192,6 +217,8 @@ export function simulateModelRoute(
       readyCandidatesCount: readyCandidates.length,
       matchedRule: resolution.ruleType,
       matchedToolId: resolution.matchedToolId,
+      matchedEffort: resolution.matchedEffort,
+      resolvedEffort: primaryStatus?.resolvedEffort ?? null,
       targetProviderId: "combo",
       baseProviderId: primaryPId,
       targetTag: primaryStatus?.targetTag,
@@ -210,6 +237,14 @@ export function simulateModelRoute(
   const readiness = checkProviderReadiness(pId, resolved.targetTag);
   const isModelRecognized = checkModelRecognized(pId, resolved.targetModel, readiness.accounts);
   const displayProvider = resolved.targetTag ? `${pId}[${resolved.targetTag}]` : pId;
+  const dbProv = ProviderRepository.getProviderById(pId);
+  const effortRes = resolveTargetEffortFromContext({
+    providerId: pId,
+    targetModel: resolved.targetModel,
+    targetEffort: resolved.targetEffort,
+    body: simBody,
+    providerThinkingMode: dbProv?.thinkingMode,
+  });
 
   return {
     incomingModel: model,
@@ -219,6 +254,8 @@ export function simulateModelRoute(
     isCombo: false,
     matchedRule: resolution.ruleType,
     matchedToolId: resolution.matchedToolId,
+    matchedEffort: resolution.matchedEffort,
+    resolvedEffort: effortRes.effort ?? null,
     targetProviderId: displayProvider,
     baseProviderId: pId,
     targetTag: resolved.targetTag,

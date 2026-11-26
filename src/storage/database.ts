@@ -328,6 +328,9 @@ function initSchema(db: DatabaseDriver) {
       tool_id TEXT NOT NULL,
       source_model TEXT NOT NULL,
       target_model TEXT NOT NULL,
+      group_name TEXT,
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      effort_targets TEXT,
       PRIMARY KEY (tool_id, source_model)
     );
 
@@ -398,6 +401,23 @@ function initSchema(db: DatabaseDriver) {
     }
     if (!colNames.has("sticky_limit")) {
       db.exec("ALTER TABLE providers ADD COLUMN sticky_limit INTEGER");
+    }
+  } catch {
+    // Fail-open
+  }
+
+  // Ensure legacy databases have group_name, is_enabled, and effort_targets columns on tool_mappings
+  try {
+    const tmCols = db.all<{ name: string }>("PRAGMA table_info(tool_mappings)");
+    const tmColNames = new Set(tmCols.map((c) => c.name));
+    if (!tmColNames.has("group_name")) {
+      db.exec("ALTER TABLE tool_mappings ADD COLUMN group_name TEXT");
+    }
+    if (!tmColNames.has("is_enabled")) {
+      db.exec("ALTER TABLE tool_mappings ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 1");
+    }
+    if (!tmColNames.has("effort_targets")) {
+      db.exec("ALTER TABLE tool_mappings ADD COLUMN effort_targets TEXT");
     }
   } catch {
     // Fail-open
