@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
-import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
-import { extractClientEffort, stripModelEffortSuffix } from "../../core/thinking/effortResolver.js";
+import { extractClientEffort, parseModelRequestModifiers } from "../../core/thinking/effortResolver.js";
 import { TokenSaverCoordinator } from "../../core/tokenSaver/index.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
@@ -19,7 +18,7 @@ import { appendStructuredLog } from "../utils/consoleLogBuffer.js";
 import { AnthropicAdapter } from "../../core/adapters/anthropicAdapter.js";
 import { convertOpenAiResponseToResponsesApi } from "../../core/adapters/responsesAdapter.js";
 import { sanitizeErrorMessage } from "../../shared/utils/errorSanitizer.js";
-import { resolveTargetModelAndProvider } from "./executorHelpers.js";
+import { resolveTargetModelAndProvider, detectClientToolId, findActiveComboForModel } from "./executorHelpers.js";
 import { extractUsageTokens } from "../../core/usage/tokenExtractor.js";
 import { extractConversationPrefixHash } from "../../core/caching/promptCacheAffinity.js";
 import crypto from "node:crypto";
@@ -95,12 +94,12 @@ export async function runProxyPipeline(
   let resolvedModel = rawModel;
 
   try {
-    const stripped = stripModelContextMarker(body.model);
-    is1mContext = stripped.is1mContext;
-    if (stripped.contextMarker && stripped.model) {
-      body.model = stripped.model;
+    const modifiers = parseModelRequestModifiers(body.model);
+    is1mContext = modifiers.is1mContext;
+    if (modifiers.contextMarker && modifiers.modelWithoutContext) {
+      body.model = modifiers.modelWithoutContext;
     }
-    const cleanModel = stripped.model || rawModel;
+    const cleanModel = modifiers.modelWithoutContext || rawModel;
     resolvedModel = cleanModel;
     candidateModels = [cleanModel];
 
@@ -143,51 +142,18 @@ export async function runProxyPipeline(
     }
 
     // 1. Resolve client tool and tool model mappings (e.g. sonnet -> claude/claude-sonnet-4-6 or combo/my-combo)
-    const explicitTool = (req.headers["x-client-tool"] as string)?.toLowerCase().trim();
-    const ua = ((req.headers["user-agent"] as string) || "").toLowerCase();
-    let detectedToolId = explicitTool || "";
+    const detectedToolId = detectClientToolId(req as any, clientFormat);
 
-    if (!detectedToolId) {
-      if (ua.includes("claude-code") || ua.includes("claude_cli") || ua.includes("@anthropic-ai/claude-code")) {
-        detectedToolId = "claude";
-      } else if (ua.includes("cursor")) {
-        detectedToolId = "cursor";
-      } else if (ua.includes("cline")) {
-        detectedToolId = "cline";
-      } else if (ua.includes("opencode")) {
-        detectedToolId = "opencode";
-      } else if (ua.includes("codex")) {
-        detectedToolId = "codex";
-      } else if (ua.includes("droid")) {
-        detectedToolId = "droid";
-      } else if (ua.includes("openclaw")) {
-        detectedToolId = "openclaw";
-      } else if (ua.includes("continue")) {
-        detectedToolId = "continue";
-      } else if (ua.includes("roo") || ua.includes("roocode")) {
-        detectedToolId = "roo";
-      } else if (ua.includes("copilot")) {
-        detectedToolId = "copilot";
-      } else if (ua.includes("kiro")) {
-        detectedToolId = "kiro";
-      } else if (ua.includes("antigravity")) {
-        detectedToolId = "antigravity";
-      } else if (clientFormat === "anthropic" || (typeof req.path === "string" && req.path.includes("/messages"))) {
-        detectedToolId = "claude";
-      }
-    }
-
-    const modelEffortStripped = stripModelEffortSuffix(cleanModel);
-    const clientEffort = extractClientEffort(body) || modelEffortStripped.effort;
+    const clientEffort = extractClientEffort(body) || modifiers.effort;
     let mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
       detectedToolId || "unknown",
       cleanModel,
       clientEffort
     );
-    if (mappingRes.ruleType === "none" && modelEffortStripped.effort && modelEffortStripped.model) {
+    if (mappingRes.ruleType === "none" && modifiers.effort && modifiers.baseModel) {
       mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
         detectedToolId || "unknown",
-        modelEffortStripped.model,
+        modifiers.baseModel,
         clientEffort
       );
     }
@@ -198,16 +164,10 @@ export async function runProxyPipeline(
       logger.line(reqTag, LogSymbol.DISPATCH, `TOOL MAPPING [${tag}]: '${cleanModel}' -> '${resolvedModel}'`);
     }
 
-    const allCombos = ComboRepository.getAllCombos();
-    const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
-    const isComboCandidate = !resolvedModel.includes("/") || resolvedModel.startsWith("combo/");
-    const activeCombo = isComboCandidate
-      ? allCombos.find(
-          (c) =>
-            c.isActive &&
-            (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
-        )
-      : undefined;
+    const comboMatch = findActiveComboForModel(resolvedModel);
+    const activeCombo = comboMatch?.combo;
+    const effectiveClientEffort =
+      mappingRes.targetModel && comboMatch?.effort ? comboMatch.effort : clientEffort;
 
     if (activeCombo && activeCombo.models.length > 0) {
       candidateModels = [...activeCombo.models];
@@ -266,6 +226,7 @@ export async function runProxyPipeline(
         apiKeyId,
         apiKeyName,
         prefixHash: preSaverPrefixHash || undefined,
+        ...(effectiveClientEffort ? { clientEffort: effectiveClientEffort } : {}),
       });
     };
 
@@ -273,6 +234,7 @@ export async function runProxyPipeline(
       req,
       res,
       targetModel: comboName ? comboName : resolvedModel,
+      ...(effectiveClientEffort ? { clientEffort: effectiveClientEffort } : {}),
       clientFormat,
       targetFormat: clientFormat === "anthropic" ? "claude" : "openai",
       body,

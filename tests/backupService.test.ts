@@ -153,3 +153,36 @@ test("BackupService - strips sensitive tokens from providerSpecificData when inc
   assert.ok(!exportedAccEnc?.providerSpecificData?.includes("secret-refresh-token-xyz"), "plaintext tokens must not appear");
 });
 
+test("BackupService - preserves mapping groupName, isEnabled, effortTargets, and effort-only mappings on restore", async () => {
+  ToolMappingRepository.saveGlobalMapping("backup-grouped-disabled", "codex/gpt-6.2-sol", {
+    groupName: "Codex",
+    isEnabled: false,
+    effortTargets: { low: "codex/gpt-6.2-astra(low)" },
+  });
+  ToolMappingRepository.saveGlobalMapping("backup-effort-only", "", {
+    groupName: "EffortOnly",
+    isEnabled: true,
+    effortTargets: { high: "codex/gpt-6.2-sol(high)" },
+  });
+
+  const backup = await BackupService.exportConfig({ includeCredentials: false });
+  ToolMappingRepository.deleteGlobalMapping("backup-grouped-disabled");
+  ToolMappingRepository.deleteGlobalMapping("backup-effort-only");
+
+  const importResult = await BackupService.importConfig(backup, { mode: "merge" });
+  assert.equal(importResult.success, true);
+
+  const globals = ToolMappingRepository.getGlobalMappings();
+  const restoredDisabled = globals.find((m) => m.sourceModel === "backup-grouped-disabled");
+  assert.ok(restoredDisabled);
+  assert.equal(restoredDisabled.groupName, "Codex");
+  assert.equal(restoredDisabled.isEnabled, false);
+  assert.deepEqual(restoredDisabled.effortTargets, { low: "codex/gpt-6.2-astra(low)" });
+
+  const restoredEffortOnly = globals.find((m) => m.sourceModel === "backup-effort-only");
+  assert.ok(restoredEffortOnly);
+  assert.equal(restoredEffortOnly.targetModel, "");
+  assert.equal(restoredEffortOnly.groupName, "EffortOnly");
+  assert.deepEqual(restoredEffortOnly.effortTargets, { high: "codex/gpt-6.2-sol(high)" });
+});
+

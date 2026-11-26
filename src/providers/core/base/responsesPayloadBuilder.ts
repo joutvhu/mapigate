@@ -276,6 +276,7 @@ export function buildResponsesRequestPayload(
     providerId: context.provider?.id,
     targetModel: upstreamModel || context.targetModel,
     targetEffort: context.targetEffort,
+    clientEffort: context.clientEffort,
     body: baseBody,
     providerThinkingMode: context.provider?.thinkingMode,
   });

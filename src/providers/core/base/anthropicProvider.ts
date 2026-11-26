@@ -73,6 +73,7 @@ export class AnthropicCompatibleProvider extends BaseProvider {
       providerId,
       targetModel: modelToUse || context.targetModel,
       targetEffort: context.targetEffort,
+      clientEffort: context.clientEffort,
       body: context.body,
       providerThinkingMode: context.provider?.thinkingMode,
     });

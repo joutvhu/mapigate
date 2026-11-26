@@ -516,13 +516,18 @@ cliToolsRouter.get("/:tool/mappings", (req, res) => {
 // POST update mapping for a tool
 cliToolsRouter.post("/:tool/mappings", (req, res) => {
   const { tool } = req.params;
-  const { sourceModel, targetModel } = req.body;
-  if (!sourceModel || !targetModel) {
-    res.status(400).json({ error: "Missing sourceModel or targetModel" });
+  const parsed = validateMappingSaveBody(req.body, tool);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
     return;
   }
-  ToolMappingRepository.saveMapping(tool, sourceModel, targetModel);
-  res.json({ success: true, tool, sourceModel, targetModel });
+  ToolMappingRepository.saveMapping(tool, parsed.sourceModel, parsed.targetModel, parsed.options);
+  res.json({
+    success: true,
+    tool,
+    sourceModel: parsed.sourceModel,
+    targetModel: parsed.targetModel,
+  });
 });
 
 // POST reset tool mappings to defaults

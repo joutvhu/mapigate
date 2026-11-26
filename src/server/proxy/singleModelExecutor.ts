@@ -66,6 +66,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
     reqTag = options.req.reqTag || tagForSession(options.requestId),
     apiKeyId,
     apiKeyName,
+    clientEffort,
   } = options;
 
   const resolved = resolveTargetModelAndProvider(modelStr);
@@ -256,6 +257,7 @@ export async function executeSingleModel(options: ExecuteSingleModelOptions): Pr
       res: isPanel ? mockPanelRes : res,
       targetModel,
       ...(targetEffort ? { targetEffort } : {}),
+      ...(clientEffort ? { clientEffort } : {}),
       clientFormat,
       targetFormat,
       body: cloneBodyForUpstream(adjustedBody),

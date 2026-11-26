@@ -62,6 +62,9 @@ export interface BackupPayload {
       toolId: string;
       sourceModel: string;
       targetModel: string;
+      groupName?: string;
+      isEnabled?: boolean;
+      effortTargets?: Record<string, string>;
     }>;
     modelRules: Array<{
       id?: string;
@@ -429,9 +432,21 @@ export class BackupService {
     // 3. Model Mappings
     if (Array.isArray(payload.data.mappings)) {
       for (const m of payload.data.mappings) {
-        if (!m.toolId || !m.sourceModel || !m.targetModel) continue;
+        if (!m.toolId || !m.sourceModel) continue;
+        const target = typeof m.targetModel === "string" ? m.targetModel : "";
+        const hasEffortTargets = Boolean(
+          m.effortTargets &&
+            typeof m.effortTargets === "object" &&
+            !Array.isArray(m.effortTargets) &&
+            Object.values(m.effortTargets).some((v) => typeof v === "string" && v.trim().length > 0)
+        );
+        if (!target.trim() && !hasEffortTargets) continue;
         try {
-          ToolMappingRepository.saveMapping(m.toolId, m.sourceModel, m.targetModel);
+          ToolMappingRepository.saveMapping(m.toolId, m.sourceModel, target, {
+            ...(m.groupName !== undefined ? { groupName: m.groupName } : {}),
+            ...(m.isEnabled !== undefined ? { isEnabled: m.isEnabled } : {}),
+            ...(m.effortTargets !== undefined ? { effortTargets: m.effortTargets } : {}),
+          });
           restored.mappingsCount++;
         } catch (err: any) {
           warnings.push(`Failed restoring mapping '${m.toolId}/${m.sourceModel}': ${err.message}`);

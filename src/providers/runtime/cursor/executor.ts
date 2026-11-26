@@ -1,4 +1,5 @@
 import type { ProviderRequestContext, ModelCallResult } from "../../core/types.js";
+import { resolveTargetEffortFromContext } from "../../../core/thinking/effortResolver.js";
 import { buildCursorHeaders } from "./cursorChecksum.js";
 import { buildAgentRunFrame, tailOnlyCursorMessages } from "./cursorProtobuf.js";
 import { resolveCursorModels, resolveAutoModelSelection } from "./cursorModels.js";
@@ -41,9 +42,18 @@ export async function executeCursor(context: ProviderRequestContext): Promise<Mo
     if (selection) runModel = selection.modelId;
   }
 
+  const effortRes = resolveTargetEffortFromContext({
+    providerId: context.provider?.id || "cursor",
+    targetModel: runModel,
+    targetEffort: context.targetEffort,
+    clientEffort: context.clientEffort,
+    body,
+    providerThinkingMode: context.provider?.thinkingMode,
+  });
+
   const openSession = (msgs: any[]) => {
     const sess = openAgentHttp2Stream(AGENT_RUN_URL, headers, context.abortController?.signal);
-    sess.write(buildAgentRunFrame(msgs, runModel, tools, body.reasoning_effort || body.reasoning?.effort));
+    sess.write(buildAgentRunFrame(msgs, runModel, tools, effortRes.effort || null));
     return sess;
   };
 

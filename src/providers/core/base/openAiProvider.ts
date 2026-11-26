@@ -50,6 +50,7 @@ export class OpenAiCompatibleProvider extends BaseProvider {
       providerId: context.provider?.id || this.id,
       targetModel: modelToUse || context.targetModel,
       targetEffort: context.targetEffort,
+      clientEffort: context.clientEffort,
       body,
       providerThinkingMode: context.provider?.thinkingMode,
     });

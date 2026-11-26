@@ -3,9 +3,8 @@ import { SettingsRepository } from "../../storage/repositories/settingsRepo.js";
 import { ToolMappingRepository } from "../../storage/repositories/toolMappingRepo.js";
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
-import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
-import { extractClientEffort } from "../../core/thinking/effortResolver.js";
-import { resolveTargetModelAndProvider } from "./executorHelpers.js";
+import { extractClientEffort, parseModelRequestModifiers } from "../../core/thinking/effortResolver.js";
+import { detectClientToolId, findActiveComboForModel, resolveTargetModelAndProvider } from "./executorHelpers.js";
 import { executeUpstreamFetch } from "./proxyDispatcher.js";
 import { logger, LogSymbol, tagForSession } from "../../shared/logger.js";
 import crypto from "node:crypto";
@@ -153,24 +152,31 @@ export async function handleCountTokens(req: Request, res: Response): Promise<vo
     }
 
     const rawModel = body.model || "default";
-    const { model: strippedModel } = stripModelContextMarker(rawModel);
-    const cleanModel = strippedModel || rawModel;
+    const modifiers = parseModelRequestModifiers(rawModel);
+    const cleanModel = modifiers.modelWithoutContext || rawModel;
 
-    // Resolve tool mapping
-    const clientTool = (req.headers["x-client-tool"] as string) || (req.headers["user-agent"] as string) || "";
+    // Resolve tool mapping (matching runProxyPipeline logic)
+    const detectedToolId = detectClientToolId(req as any, "anthropic");
+    const clientEffort = extractClientEffort(body) || modifiers.effort;
     let resolvedModel = cleanModel;
-    const toolId = clientTool.toLowerCase().includes("claude") ? "claude" : "";
-    if (toolId) {
-      const mapped = ToolMappingRepository.resolveModelMapping(toolId, cleanModel, extractClientEffort(body));
-      if (mapped) resolvedModel = mapped;
+    let mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
+      detectedToolId || "unknown",
+      cleanModel,
+      clientEffort
+    );
+    if (mappingRes.ruleType === "none" && modifiers.effort && modifiers.baseModel) {
+      mappingRes = ToolMappingRepository.resolveModelMappingDetailed(
+        detectedToolId || "unknown",
+        modifiers.baseModel,
+        clientEffort
+      );
+    }
+    if (mappingRes.targetModel) {
+      resolvedModel = mappingRes.targetModel;
     }
 
     // Resolve combo if target is combo
-    const allCombos = ComboRepository.getAllCombos();
-    const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
-    const activeCombo = allCombos.find(
-      (c) => c.isActive && (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
-    );
+    const activeCombo = findActiveComboForModel(resolvedModel)?.combo;
 
     const candidateModel = activeCombo && activeCombo.models[0] ? activeCombo.models[0] : resolvedModel;
     const resolved = resolveTargetModelAndProvider(candidateModel);
@@ -182,6 +188,10 @@ export async function handleCountTokens(req: Request, res: Response): Promise<vo
       if (account && account.rawApiKey) {
         try {
           const upstreamUrl = "https://api.anthropic.com/v1/messages/count_tokens";
+          const upstreamBody =
+            resolved.targetModel && resolved.targetModel !== body.model
+              ? { ...body, model: resolved.targetModel }
+              : body;
           const upstreamRes = await executeUpstreamFetch(
             upstreamUrl,
             {
@@ -192,7 +202,7 @@ export async function handleCountTokens(req: Request, res: Response): Promise<vo
                 "anthropic-beta": "token-counting-2024-11-01",
                 "content-type": "application/json",
               },
-              body: JSON.stringify(body),
+              body: JSON.stringify(upstreamBody),
             },
             ""
           );

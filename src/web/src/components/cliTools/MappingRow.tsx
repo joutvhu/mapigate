@@ -94,7 +94,9 @@ export const MappingRow: React.FC<MappingRowProps> = ({
             onClick={() => onToggleMapping(m.sourceModel, !isEnabled)}
             title={
               isEnabled
-                ? "Exposed in /v1/models (click to hide)"
+                ? isCombo
+                  ? "Mapping exposed in /v1/models (click to disable mapping; active combos remain listed separately)"
+                  : "Exposed in /v1/models (click to hide)"
                 : "Hidden from /v1/models (click to enable)"
             }
             className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors cursor-pointer ${

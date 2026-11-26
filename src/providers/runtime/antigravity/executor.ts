@@ -212,6 +212,7 @@ export async function executeAntigravity(
   const fixedVariant = isFixedVariantModel(baseTargetModel, availableModels);
   const requestedEffort = resolveEffectiveEffort({
     targetEffort: context.targetEffort || strippedTarget.effort,
+    clientEffort: context.clientEffort,
     body,
     providerThinkingMode: context.provider?.thinkingMode,
     hasFixedVariant: fixedVariant,

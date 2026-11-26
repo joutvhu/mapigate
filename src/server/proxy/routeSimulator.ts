@@ -2,9 +2,8 @@ import { ToolMappingRepository, type ModelMappingResolution } from "../../storag
 import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { AccountModelRepository } from "../../storage/repositories/accountModelRepo.js";
-import { resolveTargetModelAndProvider } from "./executorHelpers.js";
-import { stripModelContextMarker } from "../../core/router/ruleEngine.js";
-import { resolveTargetEffortFromContext, stripModelEffortSuffix } from "../../core/thinking/effortResolver.js";
+import { resolveTargetModelAndProvider, findActiveComboForModel } from "./executorHelpers.js";
+import { parseModelRequestModifiers, resolveTargetEffortFromContext } from "../../core/thinking/effortResolver.js";
 import { normalizeModelCompareKey } from "../../shared/utils/modelUtils.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
 
@@ -135,12 +134,10 @@ export function simulateModelRoute(
   effort?: string
 ): RouteSimulationResult {
   const model = (rawModelInput || "").trim();
-  const stripped = stripModelContextMarker(model);
-  const cleanModel = stripped.model || model;
-  const is1mContext = Boolean(stripped.is1mContext);
-  const modelEffortStripped = stripModelEffortSuffix(cleanModel);
-  const normalizedEffort = (effort || "").trim().toLowerCase() || modelEffortStripped.effort || undefined;
-  const simBody = normalizedEffort ? { reasoning_effort: normalizedEffort } : {};
+  const modifiers = parseModelRequestModifiers(model);
+  const cleanModel = modifiers.modelWithoutContext || model;
+  const is1mContext = Boolean(modifiers.is1mContext);
+  const normalizedEffort = (effort || "").trim().toLowerCase() || modifiers.effort || undefined;
 
   const tid = (toolId || "").trim().toLowerCase();
   let resolution: ModelMappingResolution = ToolMappingRepository.resolveModelMappingDetailed(
@@ -148,10 +145,10 @@ export function simulateModelRoute(
     cleanModel,
     normalizedEffort
   );
-  if (resolution.ruleType === "none" && modelEffortStripped.effort && modelEffortStripped.model) {
+  if (resolution.ruleType === "none" && modifiers.effort && modifiers.baseModel) {
     resolution = ToolMappingRepository.resolveModelMappingDetailed(
       tid || "unknown",
-      modelEffortStripped.model,
+      modifiers.baseModel,
       normalizedEffort
     );
   }
@@ -159,16 +156,9 @@ export function simulateModelRoute(
   const mapped = resolution.targetModel;
   const effectiveModel = mapped || cleanModel;
 
-  const allCombos = ComboRepository.getAllCombos();
-  const comboLookup = effectiveModel.startsWith("combo/") ? effectiveModel.slice(6) : effectiveModel;
-  const isComboCandidate = !effectiveModel.includes("/") || effectiveModel.startsWith("combo/");
-  const activeCombo = isComboCandidate
-    ? allCombos.find(
-        (c) =>
-          c.isActive &&
-          (c.name.toLowerCase() === comboLookup.toLowerCase() || c.id.toLowerCase() === comboLookup.toLowerCase())
-      )
-    : undefined;
+  const comboMatch = findActiveComboForModel(effectiveModel);
+  const activeCombo = comboMatch?.combo;
+  const effectiveEffort = mapped && comboMatch?.effort ? comboMatch.effort : normalizedEffort;
 
   if (activeCombo) {
     const candidateModels = [...activeCombo.models];
@@ -182,7 +172,8 @@ export function simulateModelRoute(
         providerId: candPId,
         targetModel: candResolved.targetModel,
         targetEffort: candResolved.targetEffort,
-        body: simBody,
+        clientEffort: effectiveEffort,
+        body: {},
         providerThinkingMode: dbCandProv?.thinkingMode,
       });
       return {
@@ -242,7 +233,8 @@ export function simulateModelRoute(
     providerId: pId,
     targetModel: resolved.targetModel,
     targetEffort: resolved.targetEffort,
-    body: simBody,
+    clientEffort: normalizedEffort,
+    body: {},
     providerThinkingMode: dbProv?.thinkingMode,
   });
 

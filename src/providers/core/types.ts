@@ -145,6 +145,7 @@ export interface ProviderRequestContext {
   res?: Response;
   targetModel: string;
   targetEffort?: string;
+  clientEffort?: string;
   resolvedEffort?: string;
   clientFormat: "openai" | "anthropic" | "responses";
   targetFormat: "openai" | "claude" | string;

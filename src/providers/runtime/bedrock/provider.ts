@@ -29,6 +29,7 @@ export class BedrockProvider extends BaseProvider {
       providerId: context.provider?.id || this.id,
       targetModel: context.targetModel,
       targetEffort: context.targetEffort,
+      clientEffort: context.clientEffort,
       body,
       providerThinkingMode: context.provider?.thinkingMode,
     });

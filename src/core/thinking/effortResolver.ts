@@ -66,6 +66,40 @@ export function stripModelEffortSuffix(modelStr?: string): {
 }
 
 /**
+ * Parses both `[1m]` context markers and `(<effort>)` suffixes in any order
+ * (e.g. `alias(low)[1m]` or `alias[1m](low)`).
+ */
+export function parseModelRequestModifiers(modelStr?: string): {
+  baseModel: string;
+  modelWithoutContext: string;
+  effort?: string;
+  contextMarker: string | null;
+  is1mContext: boolean;
+} {
+  if (typeof modelStr !== "string") {
+    return { baseModel: "", modelWithoutContext: "", contextMarker: null, is1mContext: false };
+  }
+  const trimmed = modelStr.trim();
+  if (!trimmed) {
+    return { baseModel: "", modelWithoutContext: "", contextMarker: null, is1mContext: false };
+  }
+
+  const effortStripped = stripModelEffortSuffix(trimmed);
+  const ctxStripped = stripModelContextMarker(effortStripped.model || trimmed);
+  const baseModel = (ctxStripped.model || effortStripped.model || trimmed).trim();
+  const effort = effortStripped.effort;
+  const modelWithoutContext = effort ? `${baseModel}(${effort})` : baseModel;
+
+  return {
+    baseModel,
+    modelWithoutContext,
+    ...(effort ? { effort } : {}),
+    contextMarker: ctxStripped.contextMarker,
+    is1mContext: Boolean(ctxStripped.is1mContext),
+  };
+}
+
+/**
  * Extracts explicit reasoning effort from an incoming client request body.
  */
 export function extractClientEffort(body?: any): string | undefined {
@@ -82,11 +116,12 @@ export function extractClientEffort(body?: any): string | undefined {
 /**
  * Resolves the requested effort intent with priority:
  * 1. Explicit target suffix (e.g. `model(ultra)`) or fixed variant ID
- * 2. Explicit client request effort (`reasoning.effort` / `reasoning_effort` / `output_config.effort`)
+ * 2. Explicit client request effort (`reasoning.effort` / `reasoning_effort` / `output_config.effort` / model suffix)
  * 3. Provider-level `thinkingMode` (when !== "auto")
  */
 export function resolveEffectiveEffort(options: {
   targetEffort?: string;
+  clientEffort?: string;
   body?: any;
   providerThinkingMode?: string;
   hasFixedVariant?: boolean;
@@ -97,7 +132,9 @@ export function resolveEffectiveEffort(options: {
   if (options.targetEffort && options.targetEffort.trim()) {
     return options.targetEffort.trim().toLowerCase();
   }
-  const clientEffort = extractClientEffort(options.body);
+  const clientEffort =
+    extractClientEffort(options.body) ||
+    (typeof options.clientEffort === "string" ? options.clientEffort.trim().toLowerCase() : "");
   if (clientEffort) {
     return clientEffort;
   }
@@ -297,6 +334,7 @@ export function resolveTargetEffortFromContext(options: {
   providerId?: string;
   targetModel: string;
   targetEffort?: string;
+  clientEffort?: string;
   body?: any;
   providerThinkingMode?: string;
   hasFixedVariant?: boolean;
@@ -310,6 +348,7 @@ export function resolveTargetEffortFromContext(options: {
   const effectiveTargetEffort = options.targetEffort || stripped.effort;
   const requested = resolveEffectiveEffort({
     targetEffort: effectiveTargetEffort,
+    clientEffort: options.clientEffort,
     body: options.body,
     providerThinkingMode: options.providerThinkingMode,
     hasFixedVariant: options.hasFixedVariant,

@@ -20,4 +20,5 @@ export interface ExecuteSingleModelOptions {
   apiKeyId?: string;
   apiKeyName?: string;
   prefixHash?: string | null;
+  clientEffort?: string;
 }

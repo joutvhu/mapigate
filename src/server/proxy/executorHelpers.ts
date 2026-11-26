@@ -1,6 +1,7 @@
 import { stripModelContextMarker, RuleEngine } from "../../core/router/ruleEngine.js";
 import { stripModelEffortSuffix } from "../../core/thinking/effortResolver.js";
 import { LoadBalancer } from "../../core/router/loadBalancer.js";
+import { ComboRepository } from "../../storage/repositories/comboRepo.js";
 import { ModelRepository } from "../../storage/repositories/modelRepo.js";
 import { ProviderRepository } from "../../storage/repositories/providerRepo.js";
 import { PROVIDER_REGISTRY, getRegistryProvider } from "../../shared/constants/providerRegistry.js";
@@ -42,6 +43,33 @@ export function tryFailover(
 /**
  * Extracts a stable snapshot of messages before Token Saver/compression touches them.
  */
+export function findActiveComboForModel(
+  resolvedModel: string,
+  combos = ComboRepository.getAllCombos()
+): { combo: ReturnType<typeof ComboRepository.getAllCombos>[number]; effort?: string } | undefined {
+  const isComboCandidate = !resolvedModel.includes("/") || resolvedModel.startsWith("combo/");
+  if (!isComboCandidate) return undefined;
+
+  const comboLookup = resolvedModel.startsWith("combo/") ? resolvedModel.slice(6) : resolvedModel;
+  const matchByNameOrId = (lookup: string) =>
+    combos.find(
+      (c) =>
+        c.isActive &&
+        (c.name.toLowerCase() === lookup.toLowerCase() || c.id.toLowerCase() === lookup.toLowerCase())
+    );
+
+  const exact = matchByNameOrId(comboLookup);
+  if (exact) return { combo: exact };
+
+  const stripped = stripModelEffortSuffix(comboLookup);
+  if (stripped.effort && stripped.model) {
+    const byBase = matchByNameOrId(stripped.model);
+    if (byBase) return { combo: byBase, effort: stripped.effort };
+  }
+
+  return undefined;
+}
+
 export function extractSessionIdentityMessages(messages: any[]): any[] {
   if (!Array.isArray(messages) || messages.length === 0) return [];
   const out = messages.slice();
@@ -57,6 +85,34 @@ export function extractSessionIdentityMessages(messages: any[]): any[] {
     out[firstUserIdx] = { ...firstUser, content: text };
   }
   return out;
+}
+
+export function detectClientToolId(
+  req?: { headers?: Record<string, any>; path?: string },
+  clientFormat?: "openai" | "anthropic" | "responses"
+): string {
+  const explicitTool = String(req?.headers?.["x-client-tool"] || "").toLowerCase().trim();
+  if (explicitTool) return explicitTool;
+
+  const ua = String(req?.headers?.["user-agent"] || "").toLowerCase();
+  if (ua.includes("claude-code") || ua.includes("claude_cli") || ua.includes("@anthropic-ai/claude-code")) {
+    return "claude";
+  }
+  if (ua.includes("cursor")) return "cursor";
+  if (ua.includes("cline")) return "cline";
+  if (ua.includes("opencode")) return "opencode";
+  if (ua.includes("codex")) return "codex";
+  if (ua.includes("droid")) return "droid";
+  if (ua.includes("openclaw")) return "openclaw";
+  if (ua.includes("continue")) return "continue";
+  if (ua.includes("roo") || ua.includes("roocode")) return "roo";
+  if (ua.includes("copilot")) return "copilot";
+  if (ua.includes("kiro")) return "kiro";
+  if (ua.includes("antigravity")) return "antigravity";
+  if (clientFormat === "anthropic" || (typeof req?.path === "string" && req.path.includes("/messages"))) {
+    return "claude";
+  }
+  return "";
 }
 
 export function extractSessionId(req?: any, body?: any): string | undefined {

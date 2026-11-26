@@ -12,6 +12,10 @@ import { SettingsRepository } from "../src/storage/repositories/settingsRepo.js"
 import { handleOpenAiModelsList } from "../src/server/routes/apiModels.js";
 import { cliToolsRouter } from "../src/server/routes/apiCliTools.js";
 import { simulateModelRoute } from "../src/server/proxy/routeSimulator.js";
+import { runProxyPipeline } from "../src/server/proxy/pipeline.js";
+import { handleCountTokens } from "../src/server/proxy/countTokens.js";
+import { ProviderRegistry } from "../src/providers/core/registry.js";
+import { CodexProvider } from "../src/providers/runtime/codex/provider.js";
 
 function createTestServer() {
   const app = express();
@@ -277,4 +281,207 @@ test("PATCH /global-mappings/group selectively groups and ungroups chosen models
   const byName2 = new Map<string, any>(ungroupRes.data.mappings.map((m: any) => [m.sourceModel, m]));
   assert.equal(byName2.get("sol")?.groupName, undefined);
   assert.equal(byName2.get("astra")?.groupName, undefined);
+});
+
+test("runProxyPipeline forwards model-suffix effort and [1m](effort) modifiers matching simulateModelRoute", async () => {
+  const db = getDatabase();
+  db.run("DELETE FROM provider_accounts WHERE provider_id = 'codex'");
+  ProviderRepository.addAccount({
+    id: "test-codex-effort-acc",
+    providerId: "codex",
+    name: "Test Codex",
+    rawApiKey: "test-codex-key",
+  });
+
+  ToolMappingRepository.saveGlobalMapping("alias-eff", "codex/gpt-6.2-sol", {
+    effortTargets: { low: "codex/gpt-6.2-astra" },
+  });
+
+  const dispatches: Array<{ model: string; reasoningEffort: string | null; is1mContext: boolean }> = [];
+  const codex = new CodexProvider();
+  ProviderRegistry.initializeBuiltins();
+  ProviderRegistry.register({
+    id: "codex",
+    name: "Codex Mock",
+    async execute(context) {
+      const payload = codex.transformRequestBody(context);
+      dispatches.push({
+        model: payload.model,
+        reasoningEffort: payload.reasoning?.effort ?? null,
+        is1mContext: Boolean(context.is1mContext),
+      });
+      return { ok: true, logged: true, status: 200 };
+    },
+  });
+
+  try {
+    const mkRes = () => ({ headersSent: false, status: () => mkRes(), json: () => mkRes() }) as any;
+
+    // 1. alias-eff(low) -> codex/gpt-6.2-astra (no explicit suffix on target) must preserve effort "low"
+    await runProxyPipeline(
+      { path: "/v1/responses", headers: { "x-client-tool": "codex" }, body: { model: "alias-eff(low)", input: "hi" } } as any,
+      mkRes(),
+      "responses"
+    );
+
+    // 2. alias-eff[1m](low) must detect 1m context and match alias-eff with effort "low"
+    await runProxyPipeline(
+      { path: "/v1/responses", headers: { "x-client-tool": "codex" }, body: { model: "alias-eff[1m](low)", input: "hi" } } as any,
+      mkRes(),
+      "responses"
+    );
+
+    assert.deepEqual(dispatches, [
+      { model: "gpt-6.2-astra", reasoningEffort: "low", is1mContext: false },
+      { model: "gpt-6.2-astra", reasoningEffort: "low", is1mContext: true },
+    ]);
+
+    const sim = simulateModelRoute("alias-eff[1m](low)", "codex");
+    assert.equal(sim.is1mContext, true);
+    assert.equal(sim.matchedRule, "global");
+    assert.equal(sim.matchedEffort, "low");
+    assert.equal(sim.targetModel, "gpt-6.2-astra");
+    assert.equal(sim.resolvedEffort, "low");
+  } finally {
+    ProviderRegistry.clear();
+    ProviderRegistry.initializeBuiltins();
+    db.run("DELETE FROM provider_accounts WHERE provider_id = 'codex'");
+  }
+});
+
+test("handleCountTokens resolves global mappings and effort suffixes for non-Claude clients and forwards targetModel", async () => {
+  const db = getDatabase();
+  db.run("DELETE FROM provider_accounts WHERE provider_id = 'claude'");
+  ProviderRepository.ensureProviderExists("claude");
+  ProviderRepository.addAccount({
+    id: "test-claude-ct-acc",
+    providerId: "claude",
+    name: "Test Claude",
+    rawApiKey: "sk-ant-test-key",
+  });
+
+  ToolMappingRepository.saveGlobalMapping("my-universal-alias", "codex/gpt-6.2-sol", {
+    effortTargets: { low: "claude/claude-sonnet-4-6" },
+  });
+
+  const originalFetch = globalThis.fetch;
+  let forwardedModel: string | undefined;
+  globalThis.fetch = (async (_url: any, init: any) => {
+    const body = JSON.parse(init.body);
+    forwardedModel = body.model;
+    return new Response(JSON.stringify({ input_tokens: 42 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    let statusCode = 200;
+    let jsonPayload: any;
+    const res = {
+      headersSent: false,
+      status(code: number) {
+        statusCode = code;
+        return this;
+      },
+      json(data: any) {
+        jsonPayload = data;
+        this.headersSent = true;
+        return this;
+      },
+    } as any;
+
+    await handleCountTokens(
+      {
+        path: "/v1/messages/count_tokens",
+        headers: { "x-client-tool": "opencode" },
+        body: {
+          model: "my-universal-alias(low)",
+          messages: [{ role: "user", content: "hello" }],
+        },
+      } as any,
+      res
+    );
+
+    assert.equal(statusCode, 200);
+    assert.equal(forwardedModel, "claude-sonnet-4-6");
+    assert.deepEqual(jsonPayload, { input_tokens: 42 });
+  } finally {
+    globalThis.fetch = originalFetch;
+    db.run("DELETE FROM provider_accounts WHERE provider_id = 'claude'");
+  }
+});
+
+test("POST /api/model-mappings/:tool/mappings supports effortTargets, groupName, and isEnabled", async () => {
+  const app = createTestServer();
+  const res = await requestJson(app, "POST", "/api/model-mappings/claude/mappings", {
+    sourceModel: "sonnet",
+    targetModel: "",
+    groupName: "Claude",
+    isEnabled: true,
+    effortTargets: { low: "claude/claude-haiku-4-5" },
+  });
+  assert.equal(res.status, 200);
+
+  const claudeMappings = ToolMappingRepository.getMappings("claude");
+  const sonnet = claudeMappings.find((m) => m.sourceModel === "sonnet");
+  assert.ok(sonnet);
+  assert.equal(sonnet.groupName, "Claude");
+  assert.equal(sonnet.isEnabled, true);
+  assert.deepEqual(sonnet.effortTargets, { low: "claude/claude-haiku-4-5" });
+});
+
+test("Direct combo with (effort) suffix resolves combo and effort in simulateModelRoute and runProxyPipeline", async () => {
+  const db = getDatabase();
+  db.run("DELETE FROM provider_accounts WHERE provider_id = 'codex'");
+  ProviderRepository.addAccount({
+    id: "test-codex-combo-eff",
+    providerId: "codex",
+    name: "Test Codex",
+    rawApiKey: "test-codex-key",
+  });
+
+  ComboRepository.saveCombo({
+    id: "combo_direct_eff",
+    name: "direct-combo",
+    models: ["codex/gpt-6.2-sol"],
+    strategy: "fallback",
+    isActive: true,
+    createdAt: Date.now(),
+  });
+
+  const simDirect = simulateModelRoute("direct-combo(low)");
+  assert.equal(simDirect.isCombo, true);
+  assert.equal(simDirect.comboName, "direct-combo");
+  assert.equal(simDirect.resolvedEffort, "low");
+
+  const dispatches: Array<{ model: string; reasoningEffort: string | null }> = [];
+  const codex = new CodexProvider();
+  ProviderRegistry.initializeBuiltins();
+  ProviderRegistry.register({
+    id: "codex",
+    name: "Codex Mock",
+    async execute(context) {
+      const payload = codex.transformRequestBody(context);
+      dispatches.push({
+        model: payload.model,
+        reasoningEffort: payload.reasoning?.effort ?? null,
+      });
+      return { ok: true, logged: true, status: 200 };
+    },
+  });
+
+  try {
+    const mkRes = () => ({ headersSent: false, status: () => mkRes(), json: () => mkRes() }) as any;
+    await runProxyPipeline(
+      { path: "/v1/responses", headers: {}, body: { model: "direct-combo(low)", input: "hi" } } as any,
+      mkRes(),
+      "responses"
+    );
+    assert.deepEqual(dispatches, [{ model: "gpt-6.2-sol", reasoningEffort: "low" }]);
+  } finally {
+    ProviderRegistry.clear();
+    ProviderRegistry.initializeBuiltins();
+    db.run("DELETE FROM provider_accounts WHERE provider_id = 'codex'");
+  }
 });
