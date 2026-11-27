@@ -1,6 +1,6 @@
 import type { RawQuotaBucket } from "../../../core/usage/types.js";
 
-export const ANTIGRAVITY_IDE_VERSION = "2.35.1";
+export const ANTIGRAVITY_IDE_VERSION = "2.35.2";
 
 /**
  * Google Piper Changelist (CL) embedded in the Google Antigravity Go backend binary:
@@ -13,7 +13,7 @@ export const ANTIGRAVITY_IDE_VERSION = "2.35.1";
  * Format generated matches Go `codeassistclient.userAgent`:
  * `antigravity/hub/<version> (os_type=<os>; arch=<arch>; cl=<cl>; auth_method=oauth)`
  */
-export const ANTIGRAVITY_CHANGELIST = "1026637980";
+export const ANTIGRAVITY_CHANGELIST = "1029311855";
 
 export function getAntigravityUserAgent(): string {
   const os = typeof process !== "undefined" && process.platform ? process.platform : "win32";

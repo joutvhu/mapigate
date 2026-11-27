@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { stripNullBytes, getDatabase } from "../src/storage/database.js";
 import { OpenAiProvider } from "../src/providers/runtime/openai/provider.js";
 import { normalizeKiroUpstreamModelId } from "../src/providers/runtime/kiro/provider.js";
-import { ANTIGRAVITY_USER_AGENT, ANTIGRAVITY_IDE_VERSION } from "../src/providers/runtime/antigravity/types.js";
+import { ANTIGRAVITY_USER_AGENT, ANTIGRAVITY_IDE_VERSION, ANTIGRAVITY_CHANGELIST } from "../src/providers/runtime/antigravity/types.js";
 import { models as antigravityModels } from "../src/providers/runtime/antigravity/models.js";
 import { getCapabilitiesForModel } from "../src/core/capabilities/index.js";
 import { checkFallbackError, handleFallbackChat } from "../src/providers/composite/combo/fallbackStrategy.js";
@@ -62,8 +62,10 @@ describe("Upstream 9router Port Fixes", () => {
 
   describe("3. Antigravity hub and Gemini 4 Argon tiers", () => {
     it("uses antigravity client version and User-Agent", () => {
-      assert.equal(ANTIGRAVITY_IDE_VERSION, "2.35.1");
-      assert.ok(ANTIGRAVITY_USER_AGENT.includes("hub/2.35.1"));
+      assert.equal(ANTIGRAVITY_IDE_VERSION, "2.35.2");
+      assert.equal(ANTIGRAVITY_CHANGELIST, "1029311855");
+      assert.ok(ANTIGRAVITY_USER_AGENT.includes("hub/2.35.2"));
+      assert.ok(ANTIGRAVITY_USER_AGENT.includes("cl=1029311855"));
     });
 
     it("registers gemini-4-argon medium and low tiers", () => {
