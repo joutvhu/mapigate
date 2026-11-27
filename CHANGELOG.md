@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.6.2] - 2026-11-27
+
+### Features
+
+#### Model-Driven Effort Resolution & Request Modifiers
+- **Effort Resolver & Modifiers**: Added `effortResolver` in `src/core/thinking/` with `parseModelRequestModifiers` to parse `[1m]` context markers and `(<effort>)` suffixes in any order, target suffix parsing, priority rules, cross-provider effort clamping, and Antigravity variant matching.
+- **Client Effort Propagation**: Propagated `clientEffort` through `ProviderRequestContext`, base providers (`AnthropicProvider`, `OpenAiProvider`, `responsesPayloadBuilder`), runtime executors (`Antigravity`, `Bedrock`, `Cursor`), proxy `pipeline`, `countTokens`, and `routeSimulator`.
+- **Effort Selector & API Exposure**: Exposed `supportedEfforts` in `/api/models/available` and integrated `EffortSelector` across MITM, CLI tools, and Combo pickers.
+
+#### Mapping Groups & Effort-Based Routing
+- **Mapping Groups & Effort Rules**: Added `inferMappingGroupName` and extended `ToolMappingRepository` and database schema to support categorized mapping groups and effort-specific target rules, with backup service support.
+- **CliToolsTab Modularization**: Extracted `CliToolsTab` into dedicated components (`AddMappingForm`, `EffortRulesEditor`, `MappingRow`, `UniversalMappingsSection`) with mapping group and effort-rule editing.
+
+#### Provider Models, Capabilities & Client Headers
+- **Claude `xhigh` Effort & Stainless Headers**: Added `xhigh` to `supportedEfforts`, registered new Claude model variants in capability constants and patterns, and added `stainlessHeaders.ts` in the Claude runtime provider.
+- **Codex & GPT-6.2 Support**: Centralized `CODEX_CLIENT_VERSION` (`0.171.0`) in Codex metadata and `urlResolver`, added `gpt-6.2-sol` and `gpt-6.2-astra` models and capabilities, and updated `gpt-6.1-sol` context window to `500000`.
+
+### Fixes
+
+#### Provider Streaming & Responses Handling
+- **Streaming Flag & Empty Responses**: Marked streaming results with `isStream` across `responsesExecution.ts`, `commandcode`, `opencode-go`, `grok-cli`, and `ollama`, and handled empty upstream responses safely.
+- **Kiro Version Test Alignment**: Updated `tests/kiroSessionAndStickiness.test.ts` expectations to match `KIRO_IDE_VERSION` (`1.5.49`).
+
+### Chores
+
+#### IDE Client Version Updates
+- **Kiro & Antigravity IDE Versions**: Updated `KIRO_IDE_VERSION` to `1.5.49` and bumped `ANTIGRAVITY_IDE_VERSION` to `2.35.2` (`ANTIGRAVITY_CHANGELIST` `1029311855`).
+
 ## [0.5.174] - 2026-11-25
 
 ### Features

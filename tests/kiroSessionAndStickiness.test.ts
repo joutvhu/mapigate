@@ -251,11 +251,11 @@ describe("Kiro Session Extraction, Cache Recovery & Stickiness", () => {
 
   describe("5. Kiro Constants & Workflow Header Forwarding (SSOT)", () => {
     it("maintains expected KIRO_USER_AGENT format matching official Kiro IDE and KAS", () => {
-      assert.equal(KIRO_IDE_VERSION, "1.5.44");
+      assert.equal(KIRO_IDE_VERSION, "1.5.49");
       assert.equal(KIRO_KAS_VERSION, "0.66.123-hotfix.2");
       assert.equal(
         KIRO_USER_AGENT,
-        "aws-sdk-js/3.0.0 KiroIDE/1.5.44 KAS/0.66.123-hotfix.2 os/win32 md/appVersion-1.5.44"
+        "aws-sdk-js/3.0.0 KiroIDE/1.5.49 KAS/0.66.123-hotfix.2 os/win32 md/appVersion-1.5.49"
       );
     });
 
